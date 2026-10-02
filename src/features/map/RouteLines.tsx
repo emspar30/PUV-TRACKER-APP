@@ -1,41 +1,160 @@
-import { GeoJSONSource, Layer } from '@maplibre/maplibre-react-native';
-import type { Feature, LineString } from 'geojson';
-import { useMemo } from 'react';
+import { GeoJSONSource, Layer, type LineLayerSpecification } from '@maplibre/maplibre-react-native';
+import type { Feature, FeatureCollection, LineString } from 'geojson';
+import { Fragment, useMemo } from 'react';
 
-import type { RouteLine } from '@/data/routeSource';
+import type { RouteDirection, RouteLine } from '@/data/routeSource';
+import { directionArrows } from '@/shared/geo/arrows';
+import { mapRoute } from '@/theme';
+
+type LinePaint = NonNullable<LineLayerSpecification['paint']>;
+type ZoomStops = readonly (readonly [zoom: number, size: number])[];
+
+const ROUND = { 'line-cap': 'round', 'line-join': 'round' } as const;
+const FLAT = { 'line-cap': 'butt', 'line-join': 'round' } as const;
+
+// A size that grows with zoom: [zoom, size] stops, scaled and padded
+function zoomRamp(stops: ZoomStops, scale = 1, extra = 0): LinePaint['line-width'] {
+  const flat = stops.flatMap(([zoom, size]) => [zoom, size * scale + extra]);
+  return ['interpolate', ['linear'], ['zoom'], ...flat] as unknown as LinePaint['line-width'];
+}
+
+function arrowCollection(line: RouteLine, sizeM: number, spacingM: number): FeatureCollection<LineString> {
+  const arrows = directionArrows(line.coordinates, {
+    sizeM,
+    spacingM,
+    wingAngleDeg: mapRoute.arrowWingAngleDeg,
+    startOffsetM: spacingM * mapRoute.arrowStartFraction[line.direction],
+  });
+  return {
+    type: 'FeatureCollection',
+    features: arrows.map((coordinates) => ({
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'LineString', coordinates },
+    })),
+  };
+}
 
 type RouteLinesProps = {
   lines: RouteLine[];
+  // Directions to draw; a direction that is switched off is not drawn at all
+  visible: Record<RouteDirection, boolean>;
 };
 
-// Draws each directed route line in its route colour. Rendered as a child of OfflineMap.
-export function RouteLines({ lines }: RouteLinesProps) {
+// Draws each directed route line with a dark outline, in its route colour, with direction arrows.
+// The return direction is a lighter band with dashes. Rendered as a child of OfflineMap.
+// Layers are added in this order, bottom to top: outlines, lines, return dashes, arrows.
+export function RouteLines({ lines, visible }: RouteLinesProps) {
   // Keep the GeoJSON objects stable between renders so the map does not reload them
-  const features = useMemo(
+  const prepared = useMemo(
     () =>
       lines.map((line) => ({
         line,
+        source: `route-${line.id}`,
         feature: {
           type: 'Feature',
           properties: {},
           geometry: { type: 'LineString', coordinates: line.coordinates },
         } satisfies Feature<LineString>,
+        arrowBands: mapRoute.arrowBands.map((band, index) => ({
+          band,
+          source: `route-${line.id}-arrows-${index}`,
+          data: arrowCollection(line, band.sizeM, band.spacingM),
+        })),
       })),
     [lines],
   );
 
-  return features.map(({ line, feature }) => (
-    <GeoJSONSource key={line.id} id={`route-${line.id}`} data={feature}>
-      <Layer
-        id={`route-${line.id}-line`}
-        type="line"
-        layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-        paint={{
-          'line-color': line.color,
-          'line-opacity': 0.9,
-          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 14, 4, 18, 8],
-        }}
-      />
-    </GeoJSONSource>
-  ));
+  const shown = prepared.filter(({ line }) => visible[line.direction]);
+  const isReturn = (line: RouteLine) => line.direction === 'return';
+
+  return (
+    <>
+      {shown.map(({ line, source, feature, arrowBands }) => (
+        <Fragment key={source}>
+          <GeoJSONSource id={source} data={feature} />
+          {arrowBands.map((arrows) => (
+            <GeoJSONSource key={arrows.source} id={arrows.source} data={arrows.data} />
+          ))}
+        </Fragment>
+      ))}
+
+      {shown.map(({ source }) => (
+        <Layer
+          key={`${source}-casing`}
+          id={`${source}-casing`}
+          type="line"
+          source={source}
+          layout={ROUND}
+          paint={{
+            'line-color': mapRoute.casingColor,
+            'line-width': zoomRamp(mapRoute.lineWidthStops, 1, mapRoute.casingExtraWidth),
+          }}
+        />
+      ))}
+
+      {shown.map(({ line, source }) => (
+        <Layer
+          key={`${source}-line`}
+          id={`${source}-line`}
+          type="line"
+          source={source}
+          layout={ROUND}
+          paint={{
+            'line-color': line.color,
+            'line-opacity': isReturn(line) ? mapRoute.returnBandOpacity : 1,
+            'line-width': zoomRamp(mapRoute.lineWidthStops),
+          }}
+        />
+      ))}
+
+      {shown
+        .filter(({ line }) => isReturn(line))
+        .map(({ source }) => (
+          <Layer
+            key={`${source}-dashes`}
+            id={`${source}-dashes`}
+            type="line"
+            source={source}
+            layout={FLAT}
+            paint={{
+              'line-color': mapRoute.returnDashColor,
+              'line-width': zoomRamp(mapRoute.lineWidthStops, mapRoute.returnDashWidthRatio),
+              'line-dasharray': [...mapRoute.returnDashPattern],
+            }}
+          />
+        ))}
+
+      {shown.flatMap(({ line, arrowBands }) =>
+        arrowBands.flatMap(({ band, source }) => [
+          <Layer
+            key={`${source}-casing`}
+            id={`${source}-casing`}
+            type="line"
+            source={source}
+            minzoom={band.minZoom}
+            maxzoom={band.maxZoom}
+            layout={ROUND}
+            paint={{
+              'line-color': mapRoute.casingColor,
+              'line-width': zoomRamp(mapRoute.arrowWidthStops, 1, mapRoute.casingExtraWidth),
+            }}
+          />,
+          <Layer
+            key={`${source}-arrow`}
+            id={`${source}-arrow`}
+            type="line"
+            source={source}
+            minzoom={band.minZoom}
+            maxzoom={band.maxZoom}
+            layout={ROUND}
+            paint={{
+              'line-color': isReturn(line) ? mapRoute.returnDashColor : line.color,
+              'line-width': zoomRamp(mapRoute.arrowWidthStops),
+            }}
+          />,
+        ]),
+      )}
+    </>
+  );
 }

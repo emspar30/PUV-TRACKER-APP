@@ -7,6 +7,10 @@ import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP } from '../../shared/confi
 
 export const ROUTE_DATA_VERSION = 1;
 
+// True while the stops and lines below are placeholders. Screens show a "placeholder data" notice from it.
+// TODO(placeholder): set to false when surveyed or official Route 4 data replaces this file.
+export const ROUTE_DATA_IS_PLACEHOLDER = true;
+
 export type SeedDirection = 'outbound' | 'return';
 
 export type SeedStation = {
