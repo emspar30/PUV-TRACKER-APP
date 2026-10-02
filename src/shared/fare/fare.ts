@@ -17,6 +17,24 @@ export type FareParams = {
   perKmRate: number;
 };
 
+// Every step of the fare, so the screen can show how the amount was reached
+export type FareBreakdown = {
+  // Covers the first `baseKm` kilometres
+  baseFare: number;
+  baseKm: number;
+  // Whole kilometres charged beyond the base distance (a started kilometre counts as one)
+  extraKm: number;
+  perKmRate: number;
+  extraCost: number;
+  multiplier: number;
+  // Amount taken off by the discount, before rounding
+  discount: number;
+  // Null when rounding is switched off
+  roundingStep: number | null;
+  // rounded minus unrounded: negative when the fare was rounded down
+  roundingAdjustment: number;
+};
+
 export type FareResult = {
   // Fare before the discount multiplier
   gross: number;
@@ -24,6 +42,7 @@ export type FareResult = {
   unrounded: number;
   // Amount shown to the rider, after the configured rounding
   rounded: number;
+  breakdown: FareBreakdown;
 };
 
 export function discountMultiplier(classification: Classification): number {
@@ -43,10 +62,11 @@ export function computeFare(
   }
 
   const precision = DECIMAL_BASE ** FARE_DISTANCE_DECIMALS;
-  const extraKm = Math.round((distanceKm - params.baseKm) * precision) / precision;
-  const chargedKm = Math.max(0, Math.ceil(extraKm));
+  const beyondBaseKm = Math.round((distanceKm - params.baseKm) * precision) / precision;
+  const extraKm = Math.max(0, Math.ceil(beyondBaseKm));
 
-  const grossCentavos = toCentavos(params.baseFare) + chargedKm * toCentavos(params.perKmRate);
+  const extraCostCentavos = extraKm * toCentavos(params.perKmRate);
+  const grossCentavos = toCentavos(params.baseFare) + extraCostCentavos;
   const unroundedCentavos = Math.round(grossCentavos * multiplier);
 
   const stepCentavos = roundingStep ? toCentavos(roundingStep) : 0;
@@ -54,12 +74,27 @@ export function computeFare(
     stepCentavos > 0 ? Math.round(unroundedCentavos / stepCentavos) * stepCentavos : unroundedCentavos;
 
   return {
-    gross: grossCentavos / CENTAVOS_PER_PESO,
-    unrounded: unroundedCentavos / CENTAVOS_PER_PESO,
-    rounded: roundedCentavos / CENTAVOS_PER_PESO,
+    gross: toPesos(grossCentavos),
+    unrounded: toPesos(unroundedCentavos),
+    rounded: toPesos(roundedCentavos),
+    breakdown: {
+      baseFare: params.baseFare,
+      baseKm: params.baseKm,
+      extraKm,
+      perKmRate: params.perKmRate,
+      extraCost: toPesos(extraCostCentavos),
+      multiplier,
+      discount: toPesos(grossCentavos - unroundedCentavos),
+      roundingStep: stepCentavos > 0 ? roundingStep : null,
+      roundingAdjustment: toPesos(roundedCentavos - unroundedCentavos),
+    },
   };
 }
 
 function toCentavos(pesos: number): number {
   return Math.round(pesos * CENTAVOS_PER_PESO);
+}
+
+function toPesos(centavos: number): number {
+  return centavos / CENTAVOS_PER_PESO;
 }

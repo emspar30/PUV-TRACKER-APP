@@ -23,6 +23,17 @@ export function boundsOfLines(lines: Position[][]): Bounds {
   return [west, south, east, north];
 }
 
+const HALF = 0.5;
+
+// Widens a box around its centre until it spans at least `minSpanDeg` each way,
+// so fitting the camera to two nearby points does not zoom in to a blur
+export function withMinimumSpan(bounds: Bounds, minSpanDeg: number): Bounds {
+  const [west, south, east, north] = bounds;
+  const padLon = Math.max(0, minSpanDeg - (east - west)) * HALF;
+  const padLat = Math.max(0, minSpanDeg - (north - south)) * HALF;
+  return [west - padLon, south - padLat, east + padLon, north + padLat];
+}
+
 export function boundsContain(outer: Bounds, inner: Bounds): boolean {
   const [ow, os, oe, on] = outer;
   const [iw, is, ie, inn] = inner;

@@ -1,30 +1,40 @@
-import { Bus, Footprints } from 'lucide-react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { Bus, ChevronDown, ChevronUp, Footprints } from 'lucide-react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { CLASSIFICATION_LABELS } from '@/features/profile/classificationLabels';
-import { FARE_DISCOUNTED_CLASSES, MAX_WALK_PER_LEG_M, type Classification } from '@/shared/config';
+import { FARE_DISCOUNTED_CLASSES, type Classification } from '@/shared/config';
 import type { FareResult } from '@/shared/fare/fare';
-import type { Itinerary, PlanFailure } from '@/shared/routing/plan';
-import { colors, radii, spacing, typography } from '@/theme';
-
-import { formatKm, formatPeso, formatWalk } from './format';
+import type { Itinerary, PlanFailureResult } from '@/shared/routing/plan';
+import { strings } from '@/strings';
+import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
 
 const ICON_SIZE = spacing.md + spacing.xs;
-const DIRECTION_LABEL = { outbound: 'outbound', return: 'return' } as const;
+const PERCENT = 100;
+const { peso } = strings.format;
 
-const FAILURE_TEXT: Record<PlanFailure, string> = {
-  origin_too_far: `The origin is more than ${MAX_WALK_PER_LEG_M} m from the route. Pick a point closer to the line.`,
-  destination_too_far: `The destination is more than ${MAX_WALK_PER_LEG_M} m from the route. Pick a point closer to the line.`,
-  destination_not_ahead:
-    'No trip in this direction: the destination is not ahead of the origin along the route. Try swapping the two points.',
-  no_routes: 'No route data is available.',
+export type FailureAction = {
+  label: string;
+  onPress: () => void;
 };
 
-export function TripFailure({ reason }: { reason: PlanFailure }) {
+type TripFailureProps = {
+  failure: PlanFailureResult;
+  // Ways out offered under the message, such as moving a pin onto the route
+  actions: FailureAction[];
+};
+
+// Says why no trip was found, with the distance involved, and offers a fix where there is one
+export function TripFailure({ failure, actions }: TripFailureProps) {
+  const distanceM = failure.reason === 'destination_too_far' ? failure.destinationDistanceM : failure.originDistanceM;
   return (
     <View style={styles.card}>
-      <Text style={typography.body}>No trip found</Text>
-      <Text style={typography.caption}>{FAILURE_TEXT[reason]}</Text>
+      <Text style={typography.body}>{strings.plan.failureTitle}</Text>
+      <Text style={typography.caption}>{strings.plan.failure[failure.reason](distanceM, failure.maxWalkM)}</Text>
+      {actions.map((action) => (
+        <Pressable key={action.label} style={styles.action} onPress={action.onPress} accessibilityRole="button">
+          <Text style={typography.body}>{action.label}</Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -38,40 +48,92 @@ type TripResultProps = {
 
 export function TripResult({ itinerary, fare, classification, isPlaceholder }: TripResultProps) {
   const [walkIn, ride, walkOut] = itinerary.legs;
-  const discounted = FARE_DISCOUNTED_CLASSES.includes(classification);
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const Chevron = showBreakdown ? ChevronUp : ChevronDown;
 
   return (
     <>
       <View style={styles.card}>
-        <Text style={typography.body}>Itinerary</Text>
-        <Step icon="walk" text={`Walk ${formatWalk(walkIn.distanceM)} to the route`} />
+        <Text style={typography.body}>{strings.plan.itinerary}</Text>
+        <Step icon="walk" text={strings.plan.walkToRoute(walkIn.distanceM)} />
         <Step
           icon="ride"
-          text={`Ride Route ${ride.routeCode} (${DIRECTION_LABEL[ride.direction]}) for ${formatKm(ride.distanceKm)}`}
+          text={strings.plan.ride(ride.routeCode, strings.direction.lower[ride.direction], ride.distanceKm)}
         />
-        <Step icon="walk" text={`Walk ${formatWalk(walkOut.distanceM)} to the destination`} />
+        <Step icon="walk" text={strings.plan.walkToDestination(walkOut.distanceM)} />
       </View>
 
       <View style={styles.card}>
-        <View style={styles.fareRow}>
-          <Text style={typography.body}>Fare</Text>
-          <Text style={styles.estimate}>Estimate only</Text>
+        <View style={styles.spread}>
+          <Text style={typography.body}>{strings.plan.fare}</Text>
+          <Text style={styles.amber}>{strings.plan.estimateOnly}</Text>
         </View>
-        <Text style={typography.title}>{formatPeso(fare.rounded)}</Text>
-        <Text style={typography.caption}>
-          {discounted
-            ? `${CLASSIFICATION_LABELS[classification]} discount applied. Regular fare ${formatPeso(fare.gross)}.`
-            : `${CLASSIFICATION_LABELS[classification]} fare. Change your classification in Profile.`}
-        </Text>
-        <Text style={typography.caption}>
-          Based on {formatKm(ride.distanceKm)} along the route. Walking does not change the fare. This is not the
-          official fare.
-        </Text>
-        {isPlaceholder ? (
-          <Text style={styles.placeholder}>Route and fare values are placeholder data, not yet confirmed.</Text>
-        ) : null}
+        <Text style={typography.title}>{peso(fare.rounded)}</Text>
+        <Text style={typography.caption}>{strings.plan.notOfficial}</Text>
+
+        <Pressable
+          style={styles.toggle}
+          onPress={() => setShowBreakdown((shown) => !shown)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showBreakdown }}
+        >
+          <Text style={[typography.body, styles.grow]}>
+            {showBreakdown ? strings.plan.hideBreakdown : strings.plan.showBreakdown}
+          </Text>
+          <Chevron color={colors.textMuted} size={ICON_SIZE} />
+        </Pressable>
+
+        {showBreakdown ? <FareBreakdownRows fare={fare} classification={classification} /> : null}
+
+        {isPlaceholder ? <Text style={styles.amber}>{strings.common.placeholderDetail}</Text> : null}
       </View>
     </>
+  );
+}
+
+// The fare, one line per step: base, extra kilometres, discount, rounding, total
+function FareBreakdownRows({ fare, classification }: { fare: FareResult; classification: Classification }) {
+  const { breakdown } = fare;
+  const label = strings.classification.labels[classification];
+  const discounted = FARE_DISCOUNTED_CLASSES.includes(classification);
+  const percentOff = Math.round((1 - breakdown.multiplier) * PERCENT);
+
+  return (
+    <View style={styles.breakdown}>
+      <Row label={strings.plan.breakdownBase(breakdown.baseKm)} amount={peso(breakdown.baseFare)} />
+      <Row
+        label={
+          breakdown.extraKm > 0
+            ? strings.plan.breakdownExtra(breakdown.extraKm, breakdown.perKmRate)
+            : strings.plan.breakdownExtraNone(breakdown.baseKm)
+        }
+        amount={`+ ${peso(breakdown.extraCost)}`}
+      />
+      <Row label={strings.plan.breakdownRegular} amount={peso(fare.gross)} />
+      <Row
+        label={discounted ? strings.plan.breakdownDiscount(label, percentOff) : strings.plan.breakdownNoDiscount(label)}
+        amount={`- ${peso(breakdown.discount)}`}
+      />
+      {breakdown.roundingStep !== null ? (
+        <Row
+          label={strings.plan.breakdownRounding(breakdown.roundingStep)}
+          amount={`${breakdown.roundingAdjustment < 0 ? '-' : '+'} ${peso(Math.abs(breakdown.roundingAdjustment))}`}
+        />
+      ) : null}
+      <View style={styles.rule} />
+      <Row label={strings.plan.breakdownTotal} amount={peso(fare.rounded)} strong />
+      <Text style={typography.caption}>{strings.plan.changeClassification}</Text>
+    </View>
+  );
+}
+
+function Row({ label, amount, strong = false }: { label: string; amount: string; strong?: boolean }) {
+  const style = strong ? typography.body : typography.caption;
+  return (
+    <View style={styles.row}>
+      <Text style={[style, styles.grow]}>{label}</Text>
+      <Text style={style}>{amount}</Text>
+    </View>
   );
 }
 
@@ -80,7 +142,7 @@ function Step({ icon, text }: { icon: 'walk' | 'ride'; text: string }) {
   return (
     <View style={styles.step}>
       <Icon color={colors.textMuted} size={ICON_SIZE} />
-      <Text style={[typography.body, styles.stepText]}>{text}</Text>
+      <Text style={[typography.body, styles.grow]}>{text}</Text>
     </View>
   );
 }
@@ -97,20 +159,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  stepText: {
+  grow: {
     flex: 1,
   },
-  fareRow: {
+  spread: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  estimate: {
+  amber: {
     ...typography.caption,
     color: colors.amber,
   },
-  placeholder: {
-    ...typography.caption,
-    color: colors.amber,
+  toggle: {
+    minHeight: MIN_TOUCH_TARGET,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  breakdown: {
+    gap: spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  rule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.textMuted,
+  },
+  action: {
+    minHeight: MIN_TOUCH_TARGET,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.cyan,
   },
 });

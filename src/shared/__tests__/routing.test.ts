@@ -34,7 +34,7 @@ describe('trip planner', () => {
   });
 
   it('rejects a destination behind the origin when only one direction exists', () => {
-    expect(plan([FIXTURE_OUTBOUND], 5, 1)).toEqual({ ok: false, reason: 'destination_not_ahead' });
+    expect(plan([FIXTURE_OUTBOUND], 5, 1)).toMatchObject({ ok: false, reason: 'destination_not_ahead' });
   });
 
   it('picks the return line when the destination is behind on the outbound line', () => {
@@ -52,11 +52,11 @@ describe('trip planner', () => {
   });
 
   it('rejects an origin beyond the walking limit', () => {
-    expect(plan(BOTH, 1, 5, 600)).toEqual({ ok: false, reason: 'origin_too_far' });
+    expect(plan(BOTH, 1, 5, 600)).toMatchObject({ ok: false, reason: 'origin_too_far' });
   });
 
   it('rejects a destination beyond the walking limit', () => {
-    expect(plan(BOTH, 1, 5, 0, 600)).toEqual({ ok: false, reason: 'destination_too_far' });
+    expect(plan(BOTH, 1, 5, 0, 600)).toMatchObject({ ok: false, reason: 'destination_too_far' });
   });
 
   it('accepts walks inside the limit, on either side of it', () => {
@@ -67,18 +67,18 @@ describe('trip planner', () => {
   });
 
   it('uses the walking limit it is given', () => {
-    expect(planTrip(BOTH, pointAt(1, 300), pointAt(5), { maxWalkM: 200 })).toEqual({
+    expect(planTrip(BOTH, pointAt(1, 300), pointAt(5), { maxWalkM: 200 })).toMatchObject({
       ok: false,
       reason: 'origin_too_far',
     });
   });
 
   it('rejects the same point as origin and destination', () => {
-    expect(plan(BOTH, 3, 3)).toEqual({ ok: false, reason: 'destination_not_ahead' });
+    expect(plan(BOTH, 3, 3)).toMatchObject({ ok: false, reason: 'destination_not_ahead' });
   });
 
   it('reports no routes when there is no route data', () => {
-    expect(plan([], 1, 5)).toEqual({ ok: false, reason: 'no_routes' });
+    expect(plan([], 1, 5)).toMatchObject({ ok: false, reason: 'no_routes' });
   });
 });
 

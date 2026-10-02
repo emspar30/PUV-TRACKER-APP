@@ -13,20 +13,28 @@ type LinePaint = NonNullable<LineLayerSpecification['paint']>;
 const ROUND = { 'line-cap': 'round', 'line-join': 'round' } as const;
 const toPosition = (p: LatLon) => [p.lon, p.lat];
 
-function rideWidth(): LinePaint['line-width'] {
-  const stops = mapRoute.lineWidthStops.flatMap(([zoom, width]) => [zoom, width * mapRoute.tripRideWidthScale]);
+function rideWidth(extra = 0): LinePaint['line-width'] {
+  const stops = mapRoute.lineWidthStops.flatMap(([zoom, width]) => [zoom, width * mapRoute.tripRideWidthScale + extra]);
   return ['interpolate', ['linear'], ['zoom'], ...stops] as unknown as LinePaint['line-width'];
 }
 
+// A picked point and where it meets the route
+export type TripPin = {
+  point: LatLon;
+  // Nearest position on the route, or null when there is no route
+  snapped: LatLon | null;
+};
+
 type TripLayersProps = {
   lines: DirectedLine[];
-  origin: LatLon | null;
-  destination: LatLon | null;
+  origin: TripPin | null;
+  destination: TripPin | null;
   itinerary: Itinerary | null;
 };
 
-// Draws the picked origin and destination and, when a trip was found, the ridden part of the route
-// and the two walks. Rendered as a child of OfflineMap, after the route lines.
+// Draws the picked origin (green) and destination (red), a dashed line from each to the route,
+// and, when a trip was found, the ridden part of the route in amber.
+// Rendered as a child of OfflineMap, after the route lines.
 export function TripLayers({ lines, origin, destination, itinerary }: TripLayersProps) {
   const ride = useMemo<Feature<LineString> | null>(() => {
     if (!itinerary) return null;
@@ -38,19 +46,22 @@ export function TripLayers({ lines, origin, destination, itinerary }: TripLayers
     return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } };
   }, [lines, itinerary]);
 
-  const walks = useMemo<FeatureCollection<LineString>>(
-    () => ({
+  // With a trip, the guides end where the rider boards and alights; without one, at the nearest point of the route
+  const guides = useMemo<FeatureCollection<LineString>>(() => {
+    const ends: [LatLon, LatLon][] = [];
+    const originEnd = itinerary ? itinerary.legs[1].from : origin?.snapped;
+    const destinationEnd = itinerary ? itinerary.legs[1].to : destination?.snapped;
+    if (origin && originEnd) ends.push([origin.point, originEnd]);
+    if (destination && destinationEnd) ends.push([destination.point, destinationEnd]);
+    return {
       type: 'FeatureCollection',
-      features: itinerary
-        ? [itinerary.legs[0], itinerary.legs[2]].map((leg) => ({
-            type: 'Feature',
-            properties: {},
-            geometry: { type: 'LineString', coordinates: [toPosition(leg.from), toPosition(leg.to)] },
-          }))
-        : [],
-    }),
-    [itinerary],
-  );
+      features: ends.map(([from, to]) => ({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: [toPosition(from), toPosition(to)] },
+      })),
+    };
+  }, [origin, destination, itinerary]);
 
   const points = useMemo<FeatureCollection<Point>>(() => {
     const features: Feature<Point>[] = [];
@@ -60,12 +71,12 @@ export function TripLayers({ lines, origin, destination, itinerary }: TripLayers
         properties: { role },
         geometry: { type: 'Point', coordinates: toPosition(position) },
       });
-    if (itinerary) {
-      add(itinerary.legs[1].from, 'snap');
-      add(itinerary.legs[1].to, 'snap');
-    }
-    if (origin) add(origin, 'origin');
-    if (destination) add(destination, 'destination');
+    const originEnd = itinerary ? itinerary.legs[1].from : origin?.snapped;
+    const destinationEnd = itinerary ? itinerary.legs[1].to : destination?.snapped;
+    if (origin && originEnd) add(originEnd, 'snap');
+    if (destination && destinationEnd) add(destinationEnd, 'snap');
+    if (origin) add(origin.point, 'origin');
+    if (destination) add(destination.point, 'destination');
     return { type: 'FeatureCollection', features };
   }, [origin, destination, itinerary]);
 
@@ -73,6 +84,12 @@ export function TripLayers({ lines, origin, destination, itinerary }: TripLayers
     <>
       {ride ? (
         <GeoJSONSource id="trip-ride" data={ride}>
+          <Layer
+            id="trip-ride-casing"
+            type="line"
+            layout={ROUND}
+            paint={{ 'line-color': mapRoute.casingColor, 'line-width': rideWidth(mapRoute.casingExtraWidth) }}
+          />
           <Layer
             id="trip-ride-line"
             type="line"
@@ -82,11 +99,19 @@ export function TripLayers({ lines, origin, destination, itinerary }: TripLayers
         </GeoJSONSource>
       ) : null}
 
-      <GeoJSONSource id="trip-walks" data={walks}>
+      <GeoJSONSource id="trip-guides" data={guides}>
         <Layer
-          id="trip-walks-line"
+          id="trip-guides-casing"
           type="line"
           layout={ROUND}
+          paint={{
+            'line-color': mapRoute.casingColor,
+            'line-width': mapRoute.tripWalkWidth + mapRoute.casingExtraWidth,
+          }}
+        />
+        <Layer
+          id="trip-guides-line"
+          type="line"
           paint={{
             'line-color': mapRoute.tripWalkColor,
             'line-width': mapRoute.tripWalkWidth,
@@ -110,7 +135,7 @@ export function TripLayers({ lines, origin, destination, itinerary }: TripLayers
               mapRoute.tripDestinationColor,
               mapRoute.tripRideColor,
             ],
-            'circle-stroke-color': mapRoute.casingColor,
+            'circle-stroke-color': mapRoute.tripPointStrokeColor,
             'circle-stroke-width': mapRoute.stopStrokeWidth,
           }}
         />

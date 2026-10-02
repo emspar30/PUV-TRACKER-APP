@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { LatLon } from '@/shared/geo/haversine';
 import type { RouteStop } from '@/shared/routing/types';
+import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, colors, mapRoute, radii, spacing, typography } from '@/theme';
 
 const ICON_SIZE = spacing.md + spacing.xs;
@@ -10,9 +11,17 @@ const ICON_SIZE = spacing.md + spacing.xs;
 export type PickTarget = 'origin' | 'destination';
 
 // A point chosen by hand: tapped on the map, or a stop picked from the list
-export type PickedPoint = LatLon & { label: string };
+export type PickedPoint = LatLon & {
+  // What the point is called, for example "Near TSO, 120 m from the route" or "Stop TSO"
+  label: string;
+  // Coordinates, shown small under the label
+  detail: string;
+};
 
-const TARGET_LABEL: Record<PickTarget, string> = { origin: 'Origin', destination: 'Destination' };
+const TARGET_LABEL: Record<PickTarget, string> = {
+  origin: strings.plan.origin,
+  destination: strings.plan.destination,
+};
 const TARGET_COLOR: Record<PickTarget, string> = {
   origin: mapRoute.tripOriginColor,
   destination: mapRoute.tripDestinationColor,
@@ -47,51 +56,64 @@ export function PointPicker({
     <View style={styles.root}>
       <View style={styles.fieldsRow}>
         <View style={styles.fields}>
-          {(['origin', 'destination'] as const).map((target) => (
-            <Pressable
-              key={target}
-              style={[styles.field, active === target && styles.fieldActive]}
-              onPress={() => onActivate(target)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active === target }}
-              accessibilityLabel={`${TARGET_LABEL[target]}: ${values[target]?.label ?? 'not set'}`}
-            >
-              <View style={[styles.dot, { backgroundColor: TARGET_COLOR[target] }]} />
-              <View style={styles.fieldText}>
-                <Text style={typography.caption}>{TARGET_LABEL[target]}</Text>
-                <Text style={typography.body} numberOfLines={1}>
-                  {values[target]?.label ?? 'Tap the map or pick a stop'}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
+          {(['origin', 'destination'] as const).map((target) => {
+            const value = values[target];
+            return (
+              <Pressable
+                key={target}
+                style={[styles.field, active === target && styles.fieldActive]}
+                onPress={() => onActivate(target)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active === target }}
+                accessibilityLabel={`${TARGET_LABEL[target]}: ${value?.label ?? strings.plan.notSet}`}
+              >
+                <View style={[styles.dot, { backgroundColor: TARGET_COLOR[target] }]} />
+                <View style={styles.fieldText}>
+                  <Text style={typography.caption}>{TARGET_LABEL[target]}</Text>
+                  <Text style={typography.body}>{value?.label ?? strings.plan.notSet}</Text>
+                  {value ? <Text style={typography.caption}>{value.detail}</Text> : null}
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
         <View style={styles.actions}>
           <Pressable
             style={styles.iconButton}
             onPress={onSwap}
             accessibilityRole="button"
-            accessibilityLabel="Swap origin and destination"
+            accessibilityLabel={strings.plan.swap}
           >
             <ArrowDownUp color={colors.textMuted} size={ICON_SIZE} />
           </Pressable>
-          <Pressable style={styles.iconButton} onPress={onClear} accessibilityRole="button" accessibilityLabel="Clear both points">
+          <Pressable
+            style={styles.iconButton}
+            onPress={onClear}
+            accessibilityRole="button"
+            accessibilityLabel={strings.plan.clear}
+          >
             <X color={colors.textMuted} size={ICON_SIZE} />
           </Pressable>
         </View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stops}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.stopsScroll}
+        contentContainerStyle={styles.stops}
+        keyboardShouldPersistTaps="handled"
+      >
         {stops.map((stop) => (
           <Pressable
             key={stop.code}
             style={styles.stop}
             onPress={() => onPickStop(stop)}
             accessibilityRole="button"
-            accessibilityLabel={`Set ${TARGET_LABEL[active].toLowerCase()} to stop ${stop.code}, ${stop.name}`}
+            accessibilityLabel={strings.plan.pickStopFor(TARGET_LABEL[active].toLowerCase(), stop.code, stop.name)}
           >
             <Text style={typography.body}>{stop.code}</Text>
-            <Text style={typography.caption} numberOfLines={1}>
+            <Text style={typography.caption} numberOfLines={2}>
               {stop.name}
             </Text>
           </Pressable>
@@ -135,6 +157,8 @@ const styles = StyleSheet.create({
     width: spacing.md,
     height: spacing.md,
     borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: mapRoute.tripPointStrokeColor,
   },
   actions: {
     gap: spacing.sm,
@@ -148,13 +172,18 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
   },
+  // Lets the chip row run to the screen edge while scrolling, instead of being cut at the panel padding
+  stopsScroll: {
+    marginHorizontal: -spacing.md,
+  },
   stops: {
     flexDirection: 'row',
     gap: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   stop: {
     minHeight: MIN_TOUCH_TARGET,
-    maxWidth: spacing.xl * 6,
+    width: spacing.xl * 5,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

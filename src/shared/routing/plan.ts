@@ -44,7 +44,17 @@ export type PlanFailure =
   | 'destination_not_ahead'
   | 'no_routes';
 
-export type PlanResult = { ok: true; itinerary: Itinerary } | { ok: false; reason: PlanFailure };
+export type PlanFailureResult = {
+  ok: false;
+  reason: PlanFailure;
+  // Distance from each point to the nearest route line, so the screen can say how far off it is.
+  // Null when there are no route lines.
+  originDistanceM: number | null;
+  destinationDistanceM: number | null;
+  maxWalkM: number;
+};
+
+export type PlanResult = { ok: true; itinerary: Itinerary } | PlanFailureResult;
 
 export type PlanOptions = {
   maxWalkM?: number;
@@ -60,18 +70,25 @@ export function planTrip(
   options: PlanOptions = {},
 ): PlanResult {
   const maxWalkM = options.maxWalkM ?? MAX_WALK_PER_LEG_M;
-  if (lines.length === 0) return { ok: false, reason: 'no_routes' };
+  if (lines.length === 0) {
+    return { ok: false, reason: 'no_routes', originDistanceM: null, destinationDistanceM: null, maxWalkM };
+  }
 
   let best: Itinerary | null = null;
   let originInReach = false;
   let bothInReach = false;
+  let originDistanceM = Infinity;
+  let destinationDistanceM = Infinity;
 
   for (const line of lines) {
     const board = projectOntoLine(line.coordinates, origin);
+    const alight = projectOntoLine(line.coordinates, destination);
+    originDistanceM = Math.min(originDistanceM, board.offsetM);
+    destinationDistanceM = Math.min(destinationDistanceM, alight.offsetM);
+
     if (board.offsetM > maxWalkM) continue;
     originInReach = true;
 
-    const alight = projectOntoLine(line.coordinates, destination);
     if (alight.offsetM > maxWalkM) continue;
     bothInReach = true;
 
@@ -102,9 +119,17 @@ export function planTrip(
   }
 
   if (best) return { ok: true, itinerary: best };
-  if (!originInReach) return { ok: false, reason: 'origin_too_far' };
-  if (!bothInReach) return { ok: false, reason: 'destination_too_far' };
-  return { ok: false, reason: 'destination_not_ahead' };
+
+  const fail = (reason: PlanFailure): PlanFailureResult => ({
+    ok: false,
+    reason,
+    originDistanceM,
+    destinationDistanceM,
+    maxWalkM,
+  });
+  if (!originInReach) return fail('origin_too_far');
+  if (!bothInReach) return fail('destination_too_far');
+  return fail('destination_not_ahead');
 }
 
 // Ranking: shortest trip overall, counting the ride and both walks
