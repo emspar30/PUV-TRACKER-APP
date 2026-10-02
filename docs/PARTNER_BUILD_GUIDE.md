@@ -1,15 +1,16 @@
-# Build the Android app and send back the APK
+# Set up and run the app on your own computer
 
-This guide is for the project partner. The goal is one file, `app-debug.apk`, built on your computer and sent to Emjay.
+This guide is for the project partner. The goal is to build the app on your computer and open it on your emulator or phone, then tell Emjay how it went.
 
-**Why you are doing this.** The first Android build has to download about 1.5 GB of libraries, including one 266 MB file. Emjay's connection could not finish it. Git cannot carry those downloads between computers, so the build has to happen on a faster connection and the finished app file is sent back.
+**Why you are doing this.** The first build on Emjay's PC took a whole evening and hit three separate problems. We want to know which of them were caused by that PC and its network, and which will happen to anyone. Your notes answer that.
 
-**What you need to know first**
+**What to know first**
 
-- You only build. Do not change any project file, and do not commit or push anything.
-- The first build takes 20 to 60 minutes on a good connection and needs about 10 GB of free disk space.
-- This build has never been completed on any computer, so it may fail. If it does, step 7 says what to send back.
-- Commands are for Windows PowerShell. On macOS or Linux, use `./gradlew` instead of `.\gradlew.bat`.
+- Do not change any project file, and do not commit or push anything.
+- Use the newest commit. An older copy of the project fails at step 5 with a "Filename longer than 260 characters" error.
+- The first build downloads about 2 GB and needs about 10 GB of free disk space. On Emjay's PC the final build took 9 minutes once the downloads were in place.
+- Commands are for Windows PowerShell. Enter them one line at a time. On macOS or Linux, use `./gradlew` instead of `.\gradlew.bat`.
+- Please write down how long each step takes and any error you see.
 
 ## 1. Install the tools (skip any you already have)
 
@@ -17,38 +18,31 @@ This guide is for the project partner. The goal is one file, `app-debug.apk`, bu
 | --- | --- | --- |
 | Git | any recent | https://git-scm.com |
 | Node.js | 22 or 24 (LTS) | https://nodejs.org |
+| JDK | **17** | https://adoptium.net (Temurin 17) |
 | Android Studio | current | https://developer.android.com/studio |
 
-After installing Android Studio, open it once and let the setup wizard install the Android SDK.
+Open Android Studio once and let the setup wizard install the Android SDK. Then, in Settings, Languages and Frameworks, Android SDK:
 
-Then set two environment variables (Windows: Start, "Edit environment variables for your account", New):
+- SDK Platforms: install **Android 16 (API 36)**.
+- SDK Tools: install **NDK (Side by side) 27.1.12297006** and **CMake 3.22.1**, and accept the licences.
 
-| Name | Value |
-| --- | --- |
-| `ANDROID_HOME` | `C:\Users\<your user name>\AppData\Local\Android\Sdk` |
-| `JAVA_HOME` | `C:\Program Files\Android\Android Studio\jbr` |
-
-Close and reopen PowerShell so it sees them. Check:
-
-```powershell
-node --version
-echo $env:ANDROID_HOME
-echo $env:JAVA_HOME
-```
-
-Each line must print a value.
+**Use JDK 17, not the Java inside Android Studio.** Recent Android Studio versions bundle Java 25, and the build fails on it.
 
 ## 2. Get the code
 
 ```powershell
 git clone https://github.com/emspar30/PUV-TRACKER-APP.git
+```
+
+```powershell
 cd PUV-TRACKER-APP
+```
+
+```powershell
 git log --oneline -n 1
 ```
 
-Write down the short code at the start of the last line (for example `a1b2c3d`). Emjay needs it to confirm the app was built from the right version.
-
-If you already have the folder, run `git pull` inside it instead of cloning.
+Write down the short code at the start of that last line. If you already have the folder, run `git pull` inside it instead of cloning.
 
 ## 3. Install the JavaScript packages
 
@@ -56,7 +50,13 @@ If you already have the folder, run `git pull` inside it instead of cloning.
 npm ci
 ```
 
-Use `npm ci`, not `npm install`. It installs exactly the versions recorded in the project and does not change any file. It should end with "added ... packages" and no line starting with `npm error`.
+Use `npm ci`, not `npm install`. It installs exactly the versions recorded in the project and changes no file. Then check one version:
+
+```powershell
+npm ls react-native-gesture-handler
+```
+
+It must show `2.32.x`. If it shows `3.x`, your copy of the project is too old; run `git pull` and `npm ci` again.
 
 ## 4. Generate the Android project
 
@@ -64,87 +64,78 @@ Use `npm ci`, not `npm install`. It installs exactly the versions recorded in th
 npx expo prebuild --platform android
 ```
 
-This creates an `android` folder. Expect the line "Finished prebuild". One yellow note about `userInterfaceStyle` and `expo-system-ui` is expected and can be ignored.
+Expect "Finished prebuild". One yellow note about `userInterfaceStyle` and `expo-system-ui` is expected.
 
-If it asks whether to continue because of uncommitted changes, answer yes.
+## 5. Build
 
-## 5. Build the APK
+Set the Java version for this terminal window. Adjust the path to where your JDK 17 is installed:
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.19-hotspot"
+```
+
+```powershell
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+```
 
 ```powershell
 cd android
+```
+
+```powershell
 .\gradlew.bat app:assembleDebug
 ```
 
-What to expect:
+It can go several minutes with no new lines while it downloads large files. It ends with **`BUILD SUCCESSFUL`**, and the app file is `android\app\build\outputs\apk\debug\app-debug.apk` (about 300 MB).
 
-- Gradle downloads itself first, then Android components (platform 36, NDK 27.1, build tools). If it stops with a licence message, open Android Studio, go to Settings, Languages and Frameworks, Android SDK, install **Android 16 (API 36)** under SDK Platforms and **NDK (Side by side) 27.1.12297006** under SDK Tools, accept the licences, and run the command again.
-- It can sit for several minutes with no new lines while it downloads large files. That is normal. Do not close the window.
-- It ends with **`BUILD SUCCESSFUL`**.
+## 6. Run the app
 
-No phone or emulator is needed for this step.
-
-## 6. Send the APK
-
-The file is here, inside the project folder:
-
-```text
-android\app\build\outputs\apk\debug\app-debug.apk
-```
-
-Check it exists and note its size:
+Start an Android emulator from Android Studio's Device Manager, or connect a phone with USB debugging turned on. Then, still in the `android` folder:
 
 ```powershell
-Get-Item app\build\outputs\apk\debug\app-debug.apk | Select-Object Length, LastWriteTime
+& "$env:ANDROID_HOME\platform-tools\adb.exe" install -r app\build\outputs\apk\debug\app-debug.apk
 ```
 
-Send Emjay:
+```powershell
+cd ..
+```
 
-1. The file `app-debug.apk`, by Google Drive, a chat app that allows large files, or a USB stick. It may be 100 MB or more. **Do not add it to git.**
-2. The short code you wrote down in step 2.
-3. How long the build took.
+```powershell
+npx expo start --dev-client
+```
 
-## 7. If the build fails
+Press `a` to open the app. The first load takes up to a minute.
 
-Do not try to fix project files. Send Emjay:
+**What you should see:** a dark screen titled "Map" with three grey cards, and a tab bar with Map, Plan and Profile. Tapping each tab changes the title. That is all the app does at this stage.
 
-1. The first block that starts with `FAILURE:` and the section under `* What went wrong:`.
-2. The last 30 lines of the output.
-3. The output of `node --version` and of `& "$env:JAVA_HOME\bin\java.exe" -version`.
+## 7. Problems Emjay hit, and their fixes
 
-To save the whole output to a file next time, run the build like this and send `build-log.txt`:
+| What you see | Cause | Fix |
+| --- | --- | --- |
+| The build sits for more than 15 minutes at lines like `compileDebugKotlin`, with no new output | A large download from `repo.reactnative.dev` stalls on some networks over IPv4 | Press Ctrl+C. Run `.\gradlew.bat --stop`, then `$env:JAVA_TOOL_OPTIONS = "-Djava.net.preferIPv6Addresses=true"`, then build again |
+| `configureCMakeDebug ... A restricted method in java.lang.System has been called` | The build is running on Java 25 | Check `$env:JAVA_HOME` points at JDK 17. Run `.\gradlew.bat --stop` and build again |
+| `ninja: error: ... Filename longer than 260 characters` | Old copy of the project with the wrong `react-native-gesture-handler` | `git pull`, `npm ci`, then build again |
+| A red screen at launch mentioning `FabricUIManager` and `RNSModule` | A known start-up bug in a navigation library. The project patches it, so you should not see this. | Check that `npm ci` printed `react-native-screens@4.26.2 ✔` under "Applying patches". Then close the app completely, or run `adb shell am force-stop com.tunton.app`, and open it again. Tell Emjay if it happened. |
+| A blank dark screen that never loads | Left over from the red screen above | Same as above |
+
+## 8. What to send Emjay
+
+1. The short code from step 2.
+2. Your Windows version, RAM, and whether you used an emulator or a phone.
+3. How long steps 3, 5 and 6 took.
+4. Which problems from step 7 you hit, if any. **If you did not need the IPv6 setting, say so**: that tells us the download stall was specific to Emjay's network.
+5. Whether the red screen appeared, and on which launch.
+6. For any other error: the section under `* What went wrong:` and the last 30 lines of output.
+
+To save the whole build output to a file:
 
 ```powershell
 .\gradlew.bat app:assembleDebug *> build-log.txt
 ```
 
-## 8. Rules
+## 9. Rules
 
 - Do not run `git add`, `git commit` or `git push`.
 - Do not run `npm install <package>`, `npm update`, `npm audit fix` or `npx expo install`.
 - Do not edit `package.json`, `package-lock.json`, `app.json` or anything in `src/`.
 - The `android` and `node_modules` folders are ignored by git on purpose. Leave them out.
-
----
-
-## For Emjay: installing the APK when it arrives
-
-1. Save `app-debug.apk` somewhere outside the project, for example `C:\Users\Emjay\Downloads\`.
-2. Confirm the short code from your partner matches the newest commit: `git log --oneline -n 1`.
-3. Start the `Pixel_7` emulator from Android Studio's Device Manager.
-4. Install the app:
-
-   ```powershell
-   & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r "C:\Users\Emjay\Downloads\app-debug.apk"
-   ```
-
-   Expect `Success`.
-5. Start the development server in the project folder:
-
-   ```powershell
-   npx expo start --dev-client
-   ```
-
-   Press `a` to open the app on the emulator.
-6. Continue with test `S0-M1` in `docs/device-tests.md` from step 4 (the app opens, the three tabs work) and record the result.
-
-No Gradle build runs on this computer in these steps. A new APK from your partner is needed only when a package with native code is added or `app.json` changes, for example when `expo-system-ui` is installed.

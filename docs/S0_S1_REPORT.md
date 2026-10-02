@@ -60,7 +60,45 @@ The earlier statement in this report that the stalled download came from Maven C
 - First launch, 11:22 PM: red error screen from a known start-up race in `react-native-screens` 4.26.2 (issue 4699, no fix released). The library assumes React Native's UI manager is ready when the JavaScript first loads; on a slow first load it is not.
 - After a force-stop and relaunch, 11:28 PM: the app opened. Map, Plan and Profile each show their title, and closing and reopening from the launcher worked. Confirmed by Emjay.
 
-**Result: pass, with one known issue.** The red screen can recur on a cold start. The workaround is to force-stop and reopen. A one-line patch is possible but has not been applied.
+**Result: pass.** The red screen was then fixed with a patch, described next.
+
+## Start-up fix and final test (Oct 2, 2026, 11:40 PM to midnight)
+
+Emjay approved S0 and S1, asked for the start-up bug to be fixed before S2, and asked for a final test run.
+
+**The fix.** One line in `react-native-screens` (`ScreensModule.setupFabric`) now uses a safe cast and returns when React Native's UI manager is not ready, instead of crashing. The library already calls the same function again when the app comes to the foreground. The change is stored as `patches/react-native-screens+4.26.2.patch` and re-applied after every install by a `postinstall` script.
+
+| Change | File |
+| --- | --- |
+| `patch-package` 8.0.1 added as a dev dependency | `package.json`, `package-lock.json` |
+| `"postinstall": "patch-package"` script | `package.json` |
+| The patch | `patches/react-native-screens+4.26.2.patch` |
+| Keeps the patch's line endings as LF on Windows | `.gitattributes` |
+
+Checked: restoring the original library file and running `patch-package` re-applies the patch cleanly. The idle Gradle daemon was stopped before the dependency change.
+
+**Final test, automated**
+
+| Check | Result |
+| --- | --- |
+| `npx expo install --check` | Dependencies are up to date |
+| `npx expo-doctor` | 21 of 21 checks passed |
+| `npx tsc --noEmit` | Clean |
+| `npx expo lint` | Clean |
+| `npx jest` | 6 suites, 88 tests, all passed |
+| Lint rule probe: a React Native import inside `src/shared` | Rejected, as intended |
+| App config | Android only, min SDK 26, three permissions, background location blocked |
+| iOS leftovers | None |
+| `.env` ignored by git | Yes |
+| Eight native packages compared with Expo's pins | All match |
+
+**Final test, on the emulator**
+
+- Rebuild with the patch: `BUILD SUCCESSFUL in 2m 34s`, APK 307.9 MB at 11:48 PM. The build log confirms the patched module was recompiled.
+- Six cold starts in a row (force-stop, then launch): all six reached the app with no `RNSModule` or `FabricUIManager` exception and no fatal exception. A screenshot after the sixth shows the Map screen and the three tabs.
+- Each cold start took 45 to 60 seconds to load the JavaScript on this emulator. That is slow, and is likely the condition that exposed the race in the first place.
+
+**Limits of this evidence.** The bug was intermittent and had been seen once, so six clean starts make it unlikely but do not prove it is gone. Tab taps were not repeated after the patch; they were confirmed by Emjay on the earlier build, and the patch does not touch the tab code. If the UI manager is not ready at start-up and the app is already in the foreground, the library's listener is attached only on the next resume; no visible effect of that was seen.
 
 **Now proven.** MapLibre React Native 11.4.1 and the other native modules compile and link against React Native 0.86.3 on JDK 17, and the app starts with them included. No map has been rendered yet, so MapLibre at run time is still untested until S2.
 

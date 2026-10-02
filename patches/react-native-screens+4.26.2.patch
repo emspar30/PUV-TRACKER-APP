@@ -1,0 +1,18 @@
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensModule.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensModule.kt
+index 5a6245c..0cc95fe 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensModule.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreensModule.kt
+@@ -55,8 +55,12 @@ class ScreensModule(
+     }
+ 
+     private fun setupFabric() {
++        // The Fabric UIManager can still be null when JS first touches this module on a cold start.
++        // Return instead of crashing; onHostResume() calls setupFabric() again.
++        // See https://github.com/software-mansion/react-native-screens/issues/4699
+         val fabricUIManager =
+-            UIManagerHelper.getUIManager(reactContext, UIManagerType.FABRIC) as FabricUIManager
++            UIManagerHelper.getUIManager(reactContext, UIManagerType.FABRIC) as? FabricUIManager
++                ?: return
+         proxy?.apply {
+             nativeAddMutationsListener(fabricUIManager)
+         }

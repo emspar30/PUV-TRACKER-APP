@@ -383,3 +383,49 @@ Notes:
 - npm's suggested fixes (`expo@44.0.6`, `expo-router@5.1.11`, `@maplibre/maplibre-react-native@11.3.2`) are downgrades that would break the SDK 57 setup. The `@maplibre/maplibre-react-native` "high" entry is not a MapLibre flaw; it is flagged only because it lists `expo` as a peer.
 
 **Decision: deferred; re-check with `npm audit --omit=dev` before any public release.** Do not run `npm audit fix` or `npm audit fix --force`. Wait for Expo to publish updated dependencies.
+
+## 12. Addendum: findings from the first successful Android build (Oct 2, 2026)
+
+The debug APK was built and opened on the emulator late on Oct 2. Three problems had to be fixed first, and one known issue remains. Details and the timeline are in `docs/S0_S1_REPORT.md`.
+
+### 12.1 A fourth package pinned: `react-native-gesture-handler`
+
+| Package | Version npm chose | Version pinned (SDK 57) | Why it is in the project |
+| --- | --- | --- | --- |
+| `react-native-gesture-handler` | 3.3.0 | `~2.32.0` (2.32.0 installed) | Required by `react-native-drawer-layout`, which Expo Router depends on. npm installed it automatically at the newest version. |
+
+Effect of the wrong version: the build failed with `ninja: error: ... Filename longer than 260 characters`. Version 3 adds a C++ file (`shared/shadowNodes/.../RNGestureHandlerDetectorShadowNode.cpp`) whose build path is too long for the Ninja 1.10.2 that ships in the Android SDK's CMake 3.22.1. Version 2.32.0 has no such file (checked against the npm registry's file list).
+
+Fix applied by Emjay, with the Gradle daemon stopped first: `npx expo install react-native-gesture-handler`. This adds one line to `package.json` and updates `package-lock.json`.
+
+**Correction to section 10.1.** That section said the dependency tree was clean after the three earlier pins. It was not: `expo-doctor` and `expo install --check` only compare packages listed in `package.json`, so a package that npm installs automatically at the wrong version passes both. After this finding, every native package in `node_modules` was compared with the SDK pins by hand; `react-native-gesture-handler` was the only mismatch. `@react-native-masked-view/masked-view` is also installed automatically, at 0.3.2, which matches its pin.
+
+### 12.2 Machine settings needed to build on this PC (no project file changed)
+
+| Problem | Cause | Setting, in the build terminal |
+| --- | --- | --- |
+| Build idle for over an hour during the Kotlin compile tasks | Maven Central redirects React Native's large libraries to `repo.reactnative.dev`. From this PC that host stalls over IPv4 and is fast over IPv6, and Java prefers IPv4. Measured on the same file: IPv4 0 bytes in 45 s, IPv6 1.9 MB/s. | `$env:JAVA_TOOL_OPTIONS = "-Djava.net.preferIPv6Addresses=true"` |
+| `configureCMakeDebug` fails with `A restricted method in java.lang.System has been called` | Gradle running on Java 25. | `$env:JAVA_HOME = "C:\Program Files\Java\jdk-17.0.19"` |
+
+**Corrections to earlier sections**
+
+- Section 7 and section 10.3 treated Java 25 as workable because Gradle configured the project under it. It is not workable for the native (C++) stage. JDK 17 is required on this PC. JDK 21 is installed too but was not tried.
+- Section 1 and the first S0 report blamed a slow connection for the stalled install and build. The connection is fast (60 to 70 Mbps by speed test, 11 MB/s measured to Google's servers). The build stall was specific to one host over IPv4. Whether the two-hour `npm install` earlier in the day had the same cause is unknown.
+
+The user-level `JAVA_HOME` still points at Android Studio's Java 25. Until it is changed, both settings above must be entered in every new build terminal.
+
+### 12.3 Known issue: red screen on a cold start
+
+On the first launch the app showed a red error screen: `Exception in HostObject::get for prop 'RNSModule': java.lang.NullPointerException: null cannot be cast to non-null type com.facebook.react.fabric.FabricUIManager`, at `ScreensModule.setupFabric(ScreensModule.kt:59)`.
+
+- Cause: a start-up race in `react-native-screens` (4.26.2 installed, the SDK 57 version). The library force-casts React Native's UI manager when the JavaScript first loads; if the UI manager is not ready yet, the cast fails. The unsafe line is present in the installed source.
+- Upstream: https://github.com/software-mansion/react-native-screens/issues/4699. Reported as intermittent, on cold start or resume. No fix released as of Oct 2, 2026.
+- Seen here: once, on the first launch, when the JavaScript bundle took about 40 seconds to load. Not seen on the two launches after that.
+- Workaround: force-stop the app and open it again. Dismissing the red screen leaves a blank window and does not recover.
+- Fixed later the same evening, at Emjay's request: a one-line patch (safe cast with an early return) stored in `patches/react-native-screens+4.26.2.patch` and applied by `patch-package` 8.0.1 through a `postinstall` script. This adds one dev dependency. A `.gitattributes` entry keeps the patch file's line endings as LF. After a rebuild, six cold starts in a row showed no error. **The patch is a temporary workaround.** Re-check it on any Expo SDK update or `react-native-screens` update: if the installed version fixes the issue upstream, delete the patch file; if not, regenerate the patch for the new version. `patch-package` reports an error at install time when the library version no longer matches the patch file name, which is the reminder.
+
+### 12.4 Minor
+
+- The dev launcher logs `ClassNotFoundException: expo.modules.splashscreen.SplashScreenManager` at start-up because the optional `expo-splash-screen` package is not installed. Harmless.
+- `npx expo start` rewrote `tsconfig.json`: it reformatted the arrays and removed `.expo/types/**/*.ts` and `expo-env.d.ts` from `include`. Type-check, lint and the 88 tests still pass with the new file.
+- The debug APK is 305.8 MB because it contains native code for four processor types and is not minified.
