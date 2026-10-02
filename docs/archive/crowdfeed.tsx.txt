@@ -1,0 +1,13 @@
+import { BentoCard, BentoGrid, Screen } from '@/components';
+
+export default function CrowdFeedScreen() {
+  return (
+    <Screen title="CrowdFeed">
+      <BentoGrid>
+        <BentoCard span={2} />
+        <BentoCard />
+        <BentoCard />
+      </BentoGrid>
+    </Screen>
+  );
+}

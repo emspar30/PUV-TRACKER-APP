@@ -1,0 +1,13 @@
+import { BentoCard, BentoGrid, Screen } from '@/components';
+
+export default function RoutesScreen() {
+  return (
+    <Screen title="Routes">
+      <BentoGrid>
+        <BentoCard span={2} />
+        <BentoCard />
+        <BentoCard />
+      </BentoGrid>
+    </Screen>
+  );
+}
