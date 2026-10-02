@@ -3,13 +3,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CLASSIFICATIONS, FARE_DISCOUNTED_CLASSES } from '@/shared/config';
 import { useProfileStore } from '@/state/profileStore';
+import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
-
-import { CLASSIFICATION_LABELS } from './classificationLabels';
 
 const ICON_SIZE = spacing.md + spacing.xs;
 
-// The commuter picks their fare classification. It is stored on this device only (PRD 7.1).
+// The commuter picks their fare classification. It is stored on this phone only (PRD 7.1).
 export function ClassificationPicker() {
   const classification = useProfileStore((state) => state.classification);
   const setClassification = useProfileStore((state) => state.setClassification);
@@ -27,9 +26,11 @@ export function ClassificationPicker() {
             accessibilityState={{ selected }}
           >
             <View style={styles.text}>
-              <Text style={typography.body}>{CLASSIFICATION_LABELS[option]}</Text>
+              <Text style={typography.body}>{strings.classification.labels[option]}</Text>
               <Text style={typography.caption}>
-                {FARE_DISCOUNTED_CLASSES.includes(option) ? 'Discounted fare estimate' : 'Regular fare estimate'}
+                {FARE_DISCOUNTED_CLASSES.includes(option)
+                  ? strings.classification.discounted
+                  : strings.classification.regular}
               </Text>
             </View>
             {selected ? <Check color={colors.cyan} size={ICON_SIZE} /> : null}

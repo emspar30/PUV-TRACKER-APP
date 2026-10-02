@@ -26,6 +26,7 @@ Rules:
 | 2026-10-03 | S3-M3 on-device benchmark | `Pixel_7` emulator (`sdk_gphone64_x86_64`, about 2.5 GB RAM) on the development PC (Intel i5-13420H) | 34 | Same build, development mode | **Pass**: p95 0.033 to 0.048 ms against a budget of 250 ms | Run by the agent, three runs of 1,000 trips each with the development-only button on the Plan tab: p50 0.019 ms; p95 0.033, 0.048 and 0.045 ms; maximum 1.2 to 1.6 ms. 74 of 1,000 random pairs produced a trip; the rest were rejected as too far from the line, which is the cheaper path. An x86 emulator on a laptop CPU is much faster than a 3 GB phone, so this does **not** prove the PRD target on the reference device. The placeholder line has only 6 points; see the unit benchmark for 400 and 2,000 points. |
 | 2026-10-03 | S3-M4 destination behind | `Pixel_7` emulator (x86_64) | 34 | Same build | **Pass** | Run by the agent. After swapping origin and destination of the trip above, the itinerary changed to "Ride Route R4 (return) for 8.9 km" with the same fare. No crash. The "no trip in this direction" message was not seen on the device, because with the placeholder data every pair is servable in one direction; it is covered by unit tests. |
 | 2026-10-03 | S4 part 1: app still runs with the backend code, no keys set | `Pixel_7` emulator (x86_64) | 34 | Same build (no rebuild), no `.env` | **Pass** | Run by the agent. The app launched, the map loaded and the log had no error. The Profile tab shows a "Team account" card reading "The backend is not set up on this build, so live vehicle positions are unavailable." The sign-in screen and everything that talks to Supabase are untested until S4 part 2. Correction: the S3 report said the emulator's classification had been set back to Regular; that tap had not registered and it was still Student. It was set to Regular in this run and checked on a screenshot. |
+| 2026-10-03 | UX1 polish pass (scripts UX1-M1 to M5) | `Pixel_7` emulator (x86_64) | 34 | Debug APK from 2026-10-02 11:48 PM (no rebuild), no `.env` | **Pass**, after one fault was fixed | Run by the agent through `adb` taps and screenshots. **Fault found:** the first launch after `pm clear` showed "The route data could not be loaded ... database is locked"; the log had `Running "main"` twice, nine seconds apart. Fixed by retrying a locked database; the next launch after `pm clear` was clean. **Seen working:** introduction steps 1 to 3, with Student and an avatar chosen on step 2 and shown in Profile afterwards; "Start using the app" opened the Map tab; replay from Profile and Skip returned to Profile. Map tab: "Offline ready", legend, tapping the De Oro dot gave a card "Stop DEO ... 12.8 km from the start of the outbound line" and an amber dot; after a pan, "Show whole route" returned the view to zoom 11.11 centred on the route. Plan tab: a pinned origin read "Near MCA, 480 m from the route" with coordinates beneath; with a destination the camera fitted both pins, dotted guides and an amber ride were drawn, and the bar read "5.4 km ride, about ₱15.25"; the breakdown read ₱15.00, + ₱4.00, ₱19.00, - ₱3.80, + ₱0.05, total ₱15.25; a destination 2.6 km away gave "No trip found" with that distance and both fix buttons (the buttons themselves were pressed in an earlier run and produced a trip). About screen complete. At font scale 1.3 the Map and Plan tabs wrapped with nothing cut off. **Not checked:** stop list taps and direction switches on the Map tab after the restyle, Profile and the introduction at the larger font, a release build, and the tile-copy failure screen. `pm clear` erased the classification and avatar previously saved on the emulator; it now holds Student and the amber circle. Font scale was set back to 1.0. |
 | | S2-M3 ten minute soak (without GPS) | | | | not run yet | Needs ten minutes of panning and zooming by hand. No crash was reported during Emjay's shorter manual check. |
 | | S2-M2 blue dot, S2-M4 permission denied | | | | deferred (GPS-free order) | Plan Revision 1. |
 
@@ -150,3 +151,37 @@ Origin and destination are always set by hand: tap the map, or pick a stop from 
 
 1. For 10 minutes, pan, zoom in and zoom out about once a minute, and switch to another tab and back twice.
 2. Expect no crash and no red error screen. Record the start and end times.
+
+## UX1 (polish pass)
+
+No location permission is requested anywhere in these scripts. The round grey gear button at the top right is the development client's, not the app's.
+
+#### UX1-M1 first launch and introduction
+
+1. Run `adb shell pm clear com.tunton.app` and open the app.
+2. Expect a brief loading screen with the logo, then "Welcome to Tunton", step 1 of 3. Never "The route data could not be loaded".
+3. Tap Next. Choose a fare classification and an avatar. Tap Next, then "Start using the app". Expect the Map tab.
+4. Open Profile. Expect the same classification and avatar. Tap "Show the introduction again", then Skip. Expect to be back on Profile.
+
+#### UX1-M2 Map tab
+
+1. Expect "Offline ready" with a green tick, an amber placeholder note, and a legend.
+2. Tap a white dot on the map, then a stop in the list. Expect a card with the stop's code, name and distance along the route, and the dot in amber. Close it with the X.
+3. Pan away and tap "Show whole route". Expect the whole line back in view.
+
+#### UX1-M3 Plan tab guidance
+
+1. Tap the map a little off the line. Expect "Near <stop>, <distance> from the route" and the coordinates beneath.
+2. Tap a second point. Expect both pins in view, dotted guides to the line, the ride in amber, and a summary bar under the map. Tap the bar to enlarge the map and again to restore the panel.
+3. Set one point more than 500 m from the line. Expect "No trip found" with the measured distance and the limit. Tap "Move ... to the route", then repeat and tap "Use stop ... as ...". Expect a trip each time.
+
+#### UX1-M4 fare breakdown
+
+1. With a trip showing, tap "Show how this was worked out".
+2. Expect the base fare, the extra kilometres, the regular fare, the discount if any, the rounding and the total to add up, with "Estimate only" and the placeholder note still shown.
+
+#### UX1-M5 larger text and About
+
+1. Run `adb shell settings put system font_scale 1.3`. Look at Map, Plan, Profile and the introduction. Expect wrapped text and nothing cut off.
+2. Run `adb shell settings put system font_scale 1.0`.
+3. Profile, "About this app". Expect the version, the OpenStreetMap credit, the placeholder note and the list of what is stored on the phone.

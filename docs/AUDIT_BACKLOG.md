@@ -2,13 +2,15 @@
 
 Everything Emjay has not verified personally, kept current at every step. Each item says what to check, exactly how, and what to expect. An item leaves this list only when Emjay confirms it; the agent's own runs are recorded in `docs/device-tests.md` and do not close an item.
 
-Last updated: 2026-10-03, during S4 part 1.
+Last updated: 2026-10-03, after the UX1 polish pass.
 
 **Before any emulator check**
 
 - Start the `Pixel_7` emulator and the dev server (`npx expo start --dev-client`), then press `a`.
 - If a red screen or a blank screen appears at launch, force-stop the app and open it again: `adb shell am force-stop com.tunton.app`.
 - Development builds show a line starting with `DEV` at the top left of the Map tab.
+- The round grey gear button at the top right belongs to the development client, not to the app. It does not exist in a release build.
+- The first launch after an install or after `adb shell pm clear com.tunton.app` opens the introduction (item 28) before the tabs.
 
 ## Summary
 
@@ -35,6 +37,21 @@ Last updated: 2026-10-03, during S4 part 1.
 | 19 | S4 | Sign-in screen and Profile account card | Emulator, live project | Open, waits for S4 part 2 |
 | 20 | S4 | Profile tab without backend keys | Emulator | Open |
 | 21 | All | Unit tests, type-check and lint | Command | Open |
+| 22 | UX1 | Plan: pinned points named from the nearest stop | Emulator | Open |
+| 23 | UX1 | Plan: camera fits both points, map can be made taller | Emulator | Open |
+| 24 | UX1 | Plan: dashed guides, amber ride, green and red markers | Emulator | Open |
+| 25 | UX1 | Plan: failure messages with numbers and the two fix buttons | Emulator | Open |
+| 26 | UX1 | Plan: fare breakdown arithmetic | Emulator, command | Open |
+| 27 | UX1 | Map: tappable stops, stop card, whole-route button, legend, "Offline ready" | Emulator | Open |
+| 28 | UX1 | Introduction on first launch, skip, and replay from Profile | Emulator | Open |
+| 29 | UX1 | Avatars: 12 presets, stored on the phone only | Emulator, command | Open |
+| 30 | UX1 | About screen | Emulator | Open |
+| 31 | UX1 | Text contrast and the new error colour | Command, emulator | Open |
+| 32 | UX1 | Larger system font size | Emulator | Open |
+| 33 | UX1 | Development-only controls hidden in a release build | Release build | Open, needs a release build |
+| 34 | UX1 | Loading screen, and the first-launch "database is locked" fix | Emulator, command | Open |
+| 35 | UX1 | Launcher icon and splash screen are still the Expo defaults | Decision, native rebuild | Open, waits for Emjay |
+| 36 | UX1 | All on-screen text comes from one strings file | Command | Open |
 
 ## Items
 
@@ -56,13 +73,13 @@ Last updated: 2026-10-03, during S4 part 1.
 
 - **Why:** on the emulator the agent tapped only Regular and Student. The other two use the same multiplier and are covered by unit tests, but were not seen on screen.
 - **How:** Plan tab: tap stop IMA, then tap the map near the east end of the line. Note the fare. Profile tab: choose Senior Citizen; return to Plan. Repeat with Person with Disability, then Regular.
-- **Expected:** for an 8.9 km ride, Regular shows ₱25.00; Senior Citizen and PWD each show ₱20.00 with "discount applied. Regular fare ₱25.00." In general the discounted fare is 80% of regular, rounded to the nearest ₱0.25.
+- **Expected:** for an 8.9 km ride, Regular shows ₱25.00; Senior Citizen and PWD each show ₱20.00. Tap "Show how this was worked out": the discount line names the class ("Senior Citizen discount (20% off)") and the regular fare line reads ₱25.00. In general the discounted fare is 80% of regular, rounded to the nearest ₱0.25.
 
 ### 4. "No trip found" message
 
 - **Why:** the placeholder return line is the outbound line reversed, so swapping two points always finds a trip. The message cannot be triggered that way and was not seen on the device. Unit tests cover all three reasons.
 - **How:** Plan tab: tap the map more than 500 m away from the cyan line for the origin (for example well south of the line), then tap a point on the line for the destination. Then try the other way round.
-- **Expected:** a card titled "No trip found". First case: "The origin is more than 500 m from the route." Second case: "The destination is more than 500 m from the route." No crash, and no fare shown.
+- **Expected:** a card titled "No trip found". Since UX1 the message gives the measured distance, for example "The origin is 4.2 km from the route. The walking limit is 500 m.", and two buttons (item 25). No crash, and no fare shown.
 - **Not reachable with placeholder data:** "the destination is not ahead of the origin". It will become reachable when the real outbound and return paths differ.
 
 ### 5. Outbound and Return switches, amber stop highlight
@@ -129,7 +146,7 @@ Last updated: 2026-10-03, during S4 part 1.
 ### 13. Tile copy on a fresh install
 
 - **How:** `adb shell pm clear com.tunton.app`, open the app, read the `DEV` line; force-stop and reopen; then `adb shell "run-as com.tunton.app ls -l files/map"`.
-- **Expected:** first launch `tiles: installed`, second `tiles: already-installed`, and one file `butuan.v1.pmtiles` of 1775640 bytes.
+- **Expected:** the first launch opens the introduction; skip it. Then first launch `tiles: installed`, second `tiles: already-installed`, and one file `butuan.v1.pmtiles` of 1775640 bytes. `pm clear` also erases the saved classification and avatar.
 
 ### 14. Start-up patch for the navigation library
 
@@ -175,7 +192,90 @@ Last updated: 2026-10-03, during S4 part 1.
 ### 21. Unit tests, type-check and lint
 
 - **How:** `npm test`, `npx tsc --noEmit`, `npm run lint`, `npx expo-doctor`.
-- **Expected on 2026-10-03:** 18 test suites, 231 tests passed and 8 skipped (the live-project tests); type-check and lint with no output; 21 of 21 doctor checks.
+- **Expected on 2026-10-03, after UX1:** 21 test suites, 273 tests passed and 8 skipped (the live-project tests); type-check and lint with no output. `npx expo-doctor` was last run in S4 part 1 (21 of 21 checks) and not re-run in UX1, which changed no dependency.
+
+### 22. Plan: pinned points are named from the nearest stop
+
+- **How:** Plan tab. Tap the map a little way off the cyan line.
+- **Expected:** the Origin field reads like "Near MCA, 480 m from the route", with the coordinates in a small grey line under it. A point on a stop chip shows the stop's code and name instead.
+- **Tests:** `npx jest src/shared/__tests__/planGuidance.test.ts` (fixed fixture, not the live seed).
+
+### 23. Plan: the camera fits both points
+
+- **How:** set an origin and a destination far apart, then swap them, then change one.
+- **Expected:** each time, the map moves so both pins are in view with a margin. With one pin only, it centres on that pin. The bar under the map ("Show more of the map", or the trip summary such as "5.4 km ride, about ₱15.25") collapses the panel so the map takes most of the screen; tapping it again brings the panel back.
+
+### 24. Plan: guides, ride and markers
+
+- **How:** plan a trip from a point off the line.
+- **Expected:** a green round marker for the origin and a red one for the destination; a dotted line from each pin to the place it joins the route, with a small amber dot there; the ride drawn as a thick amber line with a dark outline. No text is drawn on the map.
+
+### 25. Plan: failure messages and the two fix buttons
+
+- **How:** tap the map more than 500 m from the line for one of the points.
+- **Expected:** "No trip found", then the measured distance and the limit, for example "The destination is 2.6 km from the route. The walking limit is 500 m.". Two buttons: "Move destination to the route" moves the pin to the nearest point on the line; "Use stop IMA as destination" replaces it with the nearest stop. Either one produces a trip. If both points are too far, the message names both.
+- **Not reachable with placeholder data:** "wrong direction" (see item 4). It is covered by unit tests.
+
+### 26. Plan: fare breakdown
+
+- **How:** with a trip showing, scroll to the Fare card and tap "Show how this was worked out".
+- **Expected:** rows for the base fare and its distance, the extra kilometres and their cost, the regular fare, the discount (only for a discounted class), the rounding, and the total. The "Estimate only" label and the amber placeholder note stay. Seen by the agent for a 5.4 km Student trip: ₱15.00 + ₱4.00 = ₱19.00, less ₱3.80, rounding + ₱0.05, total ₱15.25.
+- **Tests:** `npx jest src/shared/__tests__/planGuidance.test.ts src/shared/__tests__/fare.test.ts`: 6.3 km regular is ₱21.00; Student is ₱16.80 before rounding and ₱16.75 after.
+
+### 27. Map: stops, whole-route button, legend, "Offline ready"
+
+- **How:** Map tab. Tap a white dot on the map; tap a stop in the list under the map; tap the X on the card. Pan away, then tap "Show whole route".
+- **Expected:** a card with the stop's code, its name, "12.8 km from the start of the outbound line" (for DEO) and an amber "Placeholder data" line; the dot turns amber. "Show whole route" brings the full line back into view. A legend explains the solid line, the dashed line, the dots and the arrows. "Offline ready" with a green tick shows once the map file is installed.
+- **Not checked by the agent:** tapping a stop in the list after UX1 (only a dot on the map was tapped), and the two direction switches after their restyle.
+
+### 28. Introduction on first launch
+
+- **How:** `adb shell pm clear com.tunton.app`, open the app. Go through the three screens; on a second try use Skip. Later, Profile, "Show the introduction again".
+- **Expected:** three screens: welcome; fare classification and avatar; what stays on your phone. "Start using the app" or Skip opens the Map tab on a first launch and returns to Profile on a replay. Choices made on the second screen appear in Profile. No permission dialog appears at any point.
+
+### 29. Avatars
+
+- **How:** Profile tab: tap an avatar, force-stop and reopen. Then run `npx jest src/shared/__tests__/privacy.test.ts`.
+- **Expected:** 12 presets (four shapes in three colours), no photo or upload option. The choice survives a restart. The avatar appears on Profile and in the introduction only, never on the map. The privacy tests confirm that no code under `src/services` or `supabase/` mentions the avatar or the classification.
+
+### 30. About screen
+
+- **How:** Profile, "About this app".
+- **Expected:** app name and version; "© OpenStreetMap contributors" with a short explanation; an amber note that route and fare data are placeholders; a list of what is stored on the phone; a Back button.
+
+### 31. Text contrast
+
+- **How:** `npx jest src/shared/__tests__/contrast.test.ts`.
+- **Measured (on the canvas, on a card):** primary text 19.18 and 16.50; grey secondary text 7.48 and 6.43; cyan 13.71 and 11.79; amber 10.98 and 9.45; green 7.56 and 6.50. All pass 4.5.
+- **Two failures found and fixed:** the crimson used for error text measured 4.54 on the canvas but **3.91 on a card**. Error text now uses a lighter red, `danger` `#FF6B7A` (6.97 and 6.00); crimson stays for the destination marker, which is a shape, not text. Switched-off direction buttons were drawn at half opacity, which brought their text to 2.86; they now show an "eye off" icon instead of fading.
+- **Look at:** the sign-in error message once the backend exists (item 19), which uses the new red.
+
+### 32. Larger system font size
+
+- **How:** `adb shell settings put system font_scale 1.3`, look at each tab, then `adb shell settings put system font_scale 1.0`.
+- **Expected:** text wraps onto more lines and nothing is cut off. Stop names in the horizontal stop list are shortened with "…" after two lines; the full name is on the stop card. Checked by the agent at 1.3 on the Map and Plan tabs only.
+
+### 33. Development-only controls in a release build
+
+- **What:** the `DEV` line on the Map tab and the "DEV Run routing benchmark" row on the Plan tab render only when `__DEV__` is true.
+- **Why open:** only development builds have been made, so nobody has seen them absent. This needs a release build, which is a native build and has not been requested.
+
+### 34. Loading screen and the first-launch database fix
+
+- **What happened:** during UX1 a first launch after `pm clear` showed "The route data could not be loaded ... database is locked". The development client started the app twice a few seconds apart, and the second start found the database still locked by the first.
+- **Fix:** a locked database is now retried (10 tries, 500 ms apart, both in the config module) before any error is shown, and the error screen has a "Try again" button.
+- **How:** `adb shell pm clear com.tunton.app` and open the app, three times. Then `npx jest src/shared/__tests__/retry.test.ts`.
+- **Expected:** a brief screen with the logo and a loading line, then the introduction. Never the error screen. The agent saw one clean first launch after the fix; the fault was timing-dependent, so one run is not proof.
+
+### 35. Launcher icon and splash screen
+
+- **Status:** not changed. The app icon on the home screen and the splash screen are compiled into the APK, so replacing them needs a native rebuild, which UX1 forbade. A placeholder logo drawn from vector shapes exists in the app (`src/components/Logo.tsx`) and is used on the loading screen, the introduction and the About screen.
+- **Decide:** whether to rebuild for the icon and splash, and when.
+
+### 36. One strings file
+
+- **How:** open `src/strings/en.ts`. Search the screens for quoted sentences: `npx expo lint` passes, and a search of `src/app` and `src/features` for text inside JSX should find only `strings.` references.
+- **Expected:** every sentence shown to the user is in that file, ready for a Cebuano copy. The `DEV` line and the benchmark row are development-only and are not translated.
 
 ## What runs where (S4)
 

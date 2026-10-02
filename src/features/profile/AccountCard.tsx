@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { signOut } from '@/services/auth';
 import { useSessionStore } from '@/state/sessionStore';
+import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
 
 // Shows the backend sign-in state and the sign-in or sign-out action.
@@ -13,10 +14,7 @@ export function AccountCard() {
   if (status === 'unconfigured') {
     return (
       <View style={styles.root}>
-        <Text style={typography.caption}>
-          The backend is not set up on this build, so live vehicle positions are unavailable. The map, routing and
-          fares work without it.
-        </Text>
+        <Text style={typography.caption}>{strings.profile.backendMissing}</Text>
       </View>
     );
   }
@@ -24,7 +22,7 @@ export function AccountCard() {
   if (status === 'loading') {
     return (
       <View style={styles.root}>
-        <Text style={typography.caption}>Checking sign-in</Text>
+        <Text style={typography.caption}>{strings.profile.checkingSignIn}</Text>
       </View>
     );
   }
@@ -32,9 +30,9 @@ export function AccountCard() {
   if (status === 'signed-in') {
     return (
       <View style={styles.root}>
-        <Text style={typography.caption}>Signed in as {email ?? 'a team account'}</Text>
+        <Text style={typography.caption}>{strings.profile.signedInAs(email)}</Text>
         <Pressable style={styles.button} onPress={() => void signOut()} accessibilityRole="button">
-          <Text style={typography.body}>Sign out</Text>
+          <Text style={typography.body}>{strings.profile.signOut}</Text>
         </Pressable>
       </View>
     );
@@ -42,9 +40,9 @@ export function AccountCard() {
 
   return (
     <View style={styles.root}>
-      <Text style={typography.caption}>Not signed in. Sign in with a team account to see live vehicle positions.</Text>
+      <Text style={typography.caption}>{strings.profile.signedOut}</Text>
       <Pressable style={styles.button} onPress={() => router.push('/sign-in')} accessibilityRole="button">
-        <Text style={typography.body}>Sign in</Text>
+        <Text style={typography.body}>{strings.profile.signIn}</Text>
       </Pressable>
     </View>
   );
