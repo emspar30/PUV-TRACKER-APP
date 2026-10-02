@@ -11,7 +11,7 @@ Rules:
 
 | Date | Script | Device or emulator | Android API | Build | Result | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| | S0-M1 | | | | not run yet | |
+| 2026-10-02 | S0-M1 | `Pixel_7` emulator | 34 | Local debug build, `npx expo run:android`, started 7:39 PM | **Not completed** (stopped at 9:22 PM, no pass or fail) | Prebuild succeeded and created `android/`. Gradle 9.3.1 configured the project and began compiling the native modules. The build then waited on one download from Maven Central, believed to be `react-android-0.86.3-debug.aar` (266 MB), arriving at about 11 KB/s after two dropped attempts. No APK was produced and the app was never installed or opened. No build error occurred. Next attempt: partner builds the APK on a faster connection (`docs/PARTNER_BUILD_GUIDE.md`). |
 
 ## Pending on a physical phone
 

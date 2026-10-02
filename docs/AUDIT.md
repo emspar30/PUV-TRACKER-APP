@@ -322,3 +322,64 @@ Not yet proven: that the Expo Router 57 `Tabs` options and the five lucide icon 
 13. **Packet timestamp limits.** How old, and how far in the future, may a telemetry packet's timestamp be before the ingest function rejects it? The PRD gives no value. *Blocks one S4 validation rule.*
 14. **Writer audit trail.** Do you want a server-only log of which account sent each telemetry packet? It helps trace a fake marker but stores a link between an account and a location. *Blocks nothing; changes the S4 migration.*
 15. **Tab layout.** Do you approve three tabs (Map, Plan, Profile) and removing the Routes and CrowdFeed screens? *Blocks S0.*
+
+## 10. Addendum: what changed when the install was run (Oct 2, 2026)
+
+Sections 1 to 9 describe the project as audited and are left as written. This section records where the approved install and the first build differed from them.
+
+### 10.1 Three packages pinned beyond the approved list
+
+The first half of the one-shot command in section 6 (runtime packages) succeeded. The second half (dev packages) failed with npm error `ERESOLVE`. Cause: Expo Router declares three companion packages as peer dependencies, and npm installed them automatically at their newest versions instead of the versions Expo SDK 57 pins. The newest `react-dom` requires a newer `react` than the SDK uses, which blocked every later install.
+
+| Package | Version npm chose | Version pinned (SDK 57) | Why it is in the project |
+| --- | --- | --- | --- |
+| `react-dom` | 19.3.0 (needs `react` ^19.3.0; project has 19.2.3) | 19.2.3 | Peer dependency of Expo Router and its web-capable sub-packages. Not used by any Android code in this project. |
+| `react-native-reanimated` | 4.7.0 | 4.5.1 | Peer dependency of Expo Router's navigation components. Compiled into the Android build. |
+| `react-native-worklets` | 0.13.0 (outside the range `expo-modules-core` accepts) | 0.10.1 | Required by `react-native-reanimated`. Compiled into the Android build. |
+
+Fix applied: `npx expo install react-dom react-native-reanimated react-native-worklets`, then the dev half of the section 6 command was re-run and succeeded. All three are now listed under `dependencies` in `package.json`.
+
+This is a deviation from section 6 and from the plan's statement that no package is added without asking first. The three packages were already in `node_modules`; the change only fixed their versions and made them explicit. To undo it, remove the three lines from `package.json`, but the dev install will then fail again in the same way.
+
+Checks after the fix: `npx expo install --check` reports "Dependencies are up to date"; `npx expo-doctor` passes 21 of 21 checks; `npm ls --depth=0` is clean.
+
+Section 3.4 said `react-native-reanimated` was absent and section 5 marked it "drop". Both statements were true at audit time. It is now present because Expo Router requires it, not because any screen uses it.
+
+### 10.2 Commands actually run
+
+```powershell
+npx expo install expo-router expo-linking expo-constants react-native-safe-area-context react-native-screens expo-dev-client expo-build-properties expo-location expo-sqlite react-native-svg lucide-react-native "@maplibre/maplibre-react-native" "@turf/turf" zustand "@supabase/supabase-js" "@noble/hashes"
+npx expo install react-dom react-native-reanimated react-native-worklets
+npx expo install jest-expo jest "@types/jest" "@types/geojson" eslint eslint-config-expo tsx supabase --dev
+```
+
+### 10.3 Corrections to the toolchain notes
+
+- **Java.** Section 7 advised pointing `JAVA_HOME` at Android Studio's bundled JBR to avoid Java 25. That advice was wrong on this machine: the bundled JBR is itself OpenJDK 25.0.2. The project's Gradle (9.3.1) started and configured the build under it without complaint.
+- **API 36 and NDK.** When the first build started, the Android SDK still had only the `android-34` and `android-37.0` platforms and no NDK. Gradle downloaded and installed Android SDK Platform 36 and NDK 27.1.12297006 itself, because the SDK licence was already accepted.
+- **Environment variables.** `JAVA_HOME` and `ANDROID_HOME` are set at user level, but the VS Code session that runs the agent was started before that and does not see them. The build command sets both for itself. Restart VS Code to pick them up.
+- **Network.** The registry was fast during the install (about one minute for the runtime packages), unlike the two-hour base install earlier in the day.
+
+### 10.4 New finding from prebuild
+
+Prebuild printed: `android: userInterfaceStyle: Install expo-system-ui in your project to enable this feature.` The `"userInterfaceStyle": "dark"` setting in `app.json` has no effect on Android without the `expo-system-ui` package. The app's screens set their own dark colors, so the visible effect is small (system dialogs and the keyboard may follow the phone's theme). Not installed; this needs your decision.
+
+## 11. Known audit findings
+
+Date: Oct 2, 2026. Command: `npm audit --omit=dev` (read-only; no fix command was run).
+
+The audit lists 16 entries (11 moderate, 5 high, 0 critical). They come from three advisories. The other 13 entries are packages flagged only because they depend on one of the three.
+
+| Advisory | Severity | Installed version | Reaches the project through | Ships in the app? |
+| --- | --- | --- | --- | --- |
+| `decode-uri-component`: denial of service via exponential decoding of malformed percent-encoded input. [GHSA-vcc3-ghjq-m6fr](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr) | moderate | 0.2.2 | `expo-router` → `query-string` 7.1.3 | **Yes.** Expo Router's runtime imports `query-string` to parse URLs into screens and parameters. |
+| `node-forge`: RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements. [GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv) | high | 1.4.0 | `expo` → `@expo/cli` and `@expo/code-signing-certificates` | No. Command-line tooling that runs on the development PC. |
+| `uuid`: missing buffer bounds check in v3/v5/v6 when a buffer is provided. [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq) | moderate | 7.0.3 | `expo` → `@expo/config-plugins` → `xcode` | No. Prebuild tooling that runs on the development PC. |
+
+Notes:
+
+- "Ships in the app" was judged from the dependency paths and from Expo Router's built files importing `query-string`. A built app bundle was not inspected.
+- The one shipped finding causes a hang, not data exposure, and needs a crafted link opened through the app's `tunton://` scheme. Rated low risk for a private prototype.
+- npm's suggested fixes (`expo@44.0.6`, `expo-router@5.1.11`, `@maplibre/maplibre-react-native@11.3.2`) are downgrades that would break the SDK 57 setup. The `@maplibre/maplibre-react-native` "high" entry is not a MapLibre flaw; it is flagged only because it lists `expo` as a peer.
+
+**Decision: deferred; re-check with `npm audit --omit=dev` before any public release.** Do not run `npm audit fix` or `npm audit fix --force`. Wait for Expo to publish updated dependencies.
