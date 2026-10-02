@@ -1,2 +1,5 @@
 # Patch files must keep LF line endings on every machine, or patch-package cannot apply them.
 patches/*.patch text eol=lf
+
+# Map tile archives are binary; git must never convert line endings inside them.
+*.pmtiles binary

@@ -4,6 +4,51 @@ Date: 2026-10-02. Source of truth: `docs/PRD.md` (v2.0), section 0 first. Replac
 
 No application code is written until this plan is approved. Each step ends with its tests run, a short report of what passed, and a stop for approval before the next step.
 
+## Revision 1: GPS-free order (2026-10-03)
+
+**This section overrides the step bodies below wherever they differ.** The step bodies are left as originally approved so the change can be reviewed.
+
+**Why.** Only the Android emulator is available, with no real phone. Features that do not need the user's location are built first. The emulator can fake GPS through its Extended controls, so the location features are deferred, not dropped.
+
+**Build order (unchanged sequence, reduced scope)**
+
+| Step | Built now | Left out for now |
+| --- | --- | --- |
+| S2 | Offline map: tile file delivered from inside the app, offline rendering, pan and zoom limits, attribution, and the route line drawn on the map (added at Emjay's request) | Blue dot, location permission flow, reduced mode after a denied permission, stop markers |
+| S3 | Route data in SQLite, routing, fare, classification. Origin and destination are set by hand. | "Use my location" as the origin |
+| S4 | Backend, as planned | Nothing |
+| S5 | Live map fed by the vehicle simulator | Dev broadcast screen (it needs real GPS) |
+
+**Rules while this revision is in force**
+
+1. **Manual origin.** Anything that would use the user's position takes a manual origin instead: a pin dropped by tapping the map, or a station picked from a list. The destination works the same way.
+2. **No location permission is requested at runtime.** The permission entries stay in `app.json` and the manifest untouched, because changing them needs a native rebuild.
+3. **The map screen stays ready for the blue dot.** `OfflineMap` takes its map content as children, so the dot, the route line and vehicle markers are added on top without rewriting the screen. The location store is added with the blue dot, not before.
+4. Unchanged: every threshold in the config module, placeholder data only in the seed and tile-set files, one local commit per approved step, no pushes.
+
+**Deferred items** (to be scheduled as one later step, after S5)
+
+- Blue dot and "use my location"
+- Location permission flow with the plain-language explanation
+- Dev broadcast screen
+- Check-in, relay and verification (already out of scope for Prototype v0)
+
+**Acceptance criteria and manual tests deferred**
+
+| Step | Deferred | Still applies |
+| --- | --- | --- |
+| S2 | "The dot follows simulated GPS" (`S2-M2`); "denying permission does not crash" (`S2-M4`); unit tests `location store: explainer before prompt` and `location store: denied enables manual pin` | Map renders in airplane mode (`S2-M1`); no crash in a 10 minute session (`S2-M3`, run with panning and zooming in place of GPS playback); unit test `style has no network URLs` |
+| S2, added | | Tile copy on a fresh install (`S2-M5`); pan and zoom limits (`S2-M6`) |
+| S3 | The parts of `S3-M1` and `S3-M4` that set the emulator's location | All routing, fare, discount, benchmark and privacy criteria, with the origin set by hand |
+| S4 | None | All |
+| S5 | `S5-M6 dev broadcast` and the unit test `dev broadcast route is hidden without the flag` | All simulator-fed criteria: marker, Stale after silence, stopped bubble, "No data" wording, viewport culling, occupancy, badge |
+
+**Files in section 2 not created under this revision:** `src/features/map/BlueDot.tsx`, `src/features/map/LocationExplainer.tsx`, `src/state/locationStore.ts`, `src/app/dev-broadcast.tsx`.
+
+**Files added that section 2 did not list:** `metro.config.js`, `src/data/map/tileset.ts`, `src/data/map/offlineStyle.ts`, `src/data/routeSource.ts`, `src/shared/map/tileInstall.ts`, `src/features/map/useOfflineTiles.ts`, `src/features/map/MapDevOverlay.tsx`, `src/features/map/RouteLines.tsx`, `src/types/assets.d.ts`. The style is a TypeScript module, not `assets/map/style.json`, so its colours come from the theme.
+
+**Dependencies added with approval:** `expo-asset` and `expo-file-system` (both were already compiled into the build as parts of Expo).
+
 ## 1. Approach and assumptions
 
 **Approach**

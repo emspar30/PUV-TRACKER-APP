@@ -8,7 +8,13 @@ module.exports = defineConfig([
   },
   {
     // Pure TypeScript only: these folders must run in plain Node (PRD 0.1 rule 5)
-    files: ['src/shared/**/*.ts', 'src/data/seed/**/*.ts', 'supabase/functions/_shared/**/*.ts'],
+    files: [
+      'src/shared/**/*.ts',
+      'src/data/seed/**/*.ts',
+      'src/data/map/**/*.ts',
+      'src/data/routeSource.ts',
+      'supabase/functions/_shared/**/*.ts',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',

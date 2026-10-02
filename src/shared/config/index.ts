@@ -51,6 +51,10 @@ export const FARE_DISCOUNTED_CLASSES: readonly Classification[] = ['student', 's
 export const MAX_WALK_PER_LEG_M = 500;
 export const ROUTING_P95_BUDGET_MS = 250;
 
+// --- Offline map (PRD 7.2)
+// How far the map may zoom in past the tile set's last zoom level by stretching its tiles
+export const MAP_OVERZOOM_LEVELS = 4;
+
 // --- Verification window and check-in (PRD 10.2, 8.4, 7.5). Defined now, used later.
 export const ROUTE_SNAP_DISTANCE_M = 30;
 export const MIN_DISPLACEMENT_M = 50;

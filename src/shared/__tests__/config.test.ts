@@ -24,6 +24,7 @@ describe('config exposes every PRD 0.3 default', () => {
     ['FARE_ROUNDING_STEP_PHP', 0.25],
     ['MAX_WALK_PER_LEG_M', 500],
     ['ROUTING_P95_BUDGET_MS', 250],
+    ['MAP_OVERZOOM_LEVELS', 4],
     ['ROUTE_SNAP_DISTANCE_M', 30],
     ['MIN_DISPLACEMENT_M', 50],
     ['GPS_ACCURACY_GATE_RELAY_M', 30],
