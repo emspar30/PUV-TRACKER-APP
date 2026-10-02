@@ -8,7 +8,7 @@ Date: 2026-10-02. Covers the one-shot install, S0 (tooling baseline) and S1 (sha
 | --- | --- |
 | One-shot install | Done, with one deviation (three packages pinned; see `docs/AUDIT.md` section 10) |
 | S1 shared core | Done. All required unit tests pass. |
-| S0 tooling baseline | **Not done.** Everything automated passes, but the emulator test `S0-M1` has no result: the first Android build was stopped before it finished (see "S0-M1 build attempt" below). |
+| S0 tooling baseline | Done, pending approval. `S0-M1` passed on the emulator at 11:28 PM on Oct 2, on the second launch (see "S0-M1 result" below). |
 
 ## Commands run and results
 
@@ -20,7 +20,9 @@ Date: 2026-10-02. Covers the one-shot install, S0 (tooling baseline) and S1 (sha
 | `npx expo lint` | Exit 0, no errors or warnings |
 | `npx jest` | 6 suites, 88 tests, all passed |
 | `npx expo config --type public` | Resolves: Android only, min SDK 26, three permissions, background location blocked |
-| `npx expo run:android` | Started 7:39 PM, stopped by decision at 9:22 PM. **No result: neither passed nor failed.** |
+| `npx expo run:android` (first attempt) | Started 7:39 PM, stopped by decision at 9:22 PM. No result. |
+| `.\gradlew.bat app:assembleDebug` (final attempt) | `BUILD SUCCESSFUL in 8m 47s`, 533 tasks, APK 305.8 MB at 11:13 PM |
+| After the gesture-handler pin: `npx tsc --noEmit`, `npx expo lint`, `npx jest`, `npx expo install --check` | All clean; 88 tests pass |
 
 ## S0-M1 build attempt (Oct 2, 2026)
 
@@ -39,13 +41,41 @@ Date: 2026-10-02. Covers the one-shot install, S0 (tooling baseline) and S1 (sha
 
 **Not proven.** The build stopped before the C++ compile, linking and packaging stages, so it is still unknown whether MapLibre React Native 11.4.1 and the other native modules build cleanly against React Native 0.86.3.
 
-**Next attempt.** A partner builds the debug APK on a faster connection and sends the file; it is then installed on the emulator here with `adb`. Steps are in `docs/PARTNER_BUILD_GUIDE.md`.
+**Next attempt.** At the time, the plan was for a partner to build the APK. In the end the build was completed on this PC; see below.
+
+## S0-M1 result (Oct 2, 2026, later the same evening)
+
+The build was completed on this PC after three separate problems were found and fixed, one behind the other. Emjay ran the builds; the agent diagnosed each failure from the logs.
+
+| # | Symptom | Cause | Fix | Changes a project file? |
+| --- | --- | --- | --- | --- |
+| 1 | Build idle for over an hour at the Kotlin compile tasks | Maven Central redirects `react-android-0.86.3-debug.aar` (266 MB) to `repo.reactnative.dev`. From this PC that host stalls over IPv4 (0 bytes in 45 s, then 17 KB/s) but is fast over IPv6 (1.9 MB/s). Java prefers IPv4. | `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv6Addresses=true` in the build terminal. The file then downloaded in about two minutes. | No |
+| 2 | `configureCMakeDebug` failed: `A restricted method in java.lang.System has been called` | Gradle was running on Java 25 (Android Studio's bundled JBR). The native-library helper prints a Java 25 warning that the Android build treats as a failure. The exact mechanism is inferred, not proven. | `JAVA_HOME` set to JDK 17 (`C:\Program Files\Java\jdk-17.0.19`) in the build terminal | No |
+| 3 | `ninja: error: ... Filename longer than 260 characters` | `react-native-gesture-handler` 3.3.0 had been installed automatically as a peer of Expo Router; Expo SDK 57 pins `~2.32.0`. Version 3 adds a C++ file whose build path exceeds the limit of the SDK's Ninja 1.10.2. | `npx expo install react-native-gesture-handler` (pins `~2.32.0`) | Yes: `package.json`, `package-lock.json` |
+
+The earlier statement in this report that the stalled download came from Maven Central on a slow connection was incomplete: the connection is fast, and the stall is specific to one host over IPv4.
+
+**Test result.** APK installed on the `Pixel_7` emulator (API 34, x86_64) and opened with the dev server.
+
+- First launch, 11:22 PM: red error screen from a known start-up race in `react-native-screens` 4.26.2 (issue 4699, no fix released). The library assumes React Native's UI manager is ready when the JavaScript first loads; on a slow first load it is not.
+- After a force-stop and relaunch, 11:28 PM: the app opened. Map, Plan and Profile each show their title, and closing and reopening from the launcher worked. Confirmed by Emjay.
+
+**Result: pass, with one known issue.** The red screen can recur on a cold start. The workaround is to force-stop and reopen. A one-line patch is possible but has not been applied.
+
+**Now proven.** MapLibre React Native 11.4.1 and the other native modules compile and link against React Native 0.86.3 on JDK 17, and the app starts with them included. No map has been rendered yet, so MapLibre at run time is still untested until S2.
+
+**Still open after S0**
+
+- The user-level `JAVA_HOME` still points at Java 25, so a build from a new terminal fails until it is set to JDK 17.
+- `expo-system-ui` is not installed (approved for after S0-M1; needs a rebuild).
+- The dev launcher logs a harmless `ClassNotFoundException` for the optional `expo-splash-screen` package, which is not installed.
+- A physical-phone run of S0-M1 is still pending.
 
 ## S0 acceptance criteria
 
 | Criterion | Test | Result |
 | --- | --- | --- |
-| App installs and opens in the emulator | `S0-M1 dev client launch` | **No result** (build stopped before an APK was produced) |
+| App installs and opens in the emulator | `S0-M1 dev client launch` | Pass on the second launch; known start-up issue recorded |
 | Test command runs and passes | `npm test` | Pass (88 tests) |
 | Config exposes every PRD 0.3 default | `config exposes every PRD 0.3 default` | Pass |
 | Shared code has no React Native imports | lint rule, plus a probe file that imports `react-native` | Pass: lint is clean, and the probe was rejected as expected |
@@ -58,7 +88,7 @@ Date: 2026-10-02. Covers the one-shot install, S0 (tooling baseline) and S1 (sha
 - [x] `npx tsc --noEmit` exits 0
 - [x] `npm run lint` exits 0
 - [x] `npm test` passes
-- [ ] `S0-M1` passes on the emulator and is recorded in `docs/device-tests.md`
+- [x] `S0-M1` passes on the emulator and is recorded in `docs/device-tests.md`
 - [x] No `ios` key, script or folder exists
 - [x] `.env` is git-ignored; `.env.example` contains names only
 - [ ] Approval received
@@ -140,7 +170,7 @@ Date: 2026-10-02. Covers the one-shot install, S0 (tooling baseline) and S1 (sha
 
 ## Open items for your review
 
-1. **`S0-M1` result.** An APK must be built (by the partner, per `docs/PARTNER_BUILD_GUIDE.md`) and the app must open on the emulator before S0 can be called done.
+1. **`S0-M1` result.** Passed on Oct 2 (see "S0-M1 result"). Decide whether the `react-native-screens` start-up issue is acceptable as a known issue or should be patched.
 2. **`expo-system-ui`.** Prebuild reports that dark mode from `app.json` needs this package on Android. Install it, or leave it out?
 3. **Tile set.** Steps are in `docs/tiles.md`; the file is needed before S2.
 4. **First commit.** The repository is initialised but empty. Tell me if you want a first commit made.
