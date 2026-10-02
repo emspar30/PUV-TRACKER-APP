@@ -1,42 +1,88 @@
-import { Eye, EyeOff } from 'lucide-react-native';
+import { CircleCheck, Eye, EyeOff, Maximize, X } from 'lucide-react-native';
+import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { DirectedLine as RouteLine, RouteDirection, RouteStop } from '@/shared/routing/types';
+import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, colors, mapRoute, radii, spacing, typography } from '@/theme';
 
-const DIRECTION_LABEL: Record<RouteDirection, string> = { outbound: 'Outbound', return: 'Return' };
-const ICON_SIZE = spacing.md;
+const DIRECTION_LABEL: Record<RouteDirection, string> = {
+  outbound: strings.direction.outbound,
+  return: strings.direction.return,
+};
+const ICON_SIZE = spacing.md + spacing.xs;
+
+export type SelectedStop = {
+  stop: RouteStop;
+  // Distance from the start of the outbound line to this stop
+  alongRouteKm: number | null;
+};
 
 type RoutePanelProps = {
   lines: RouteLine[];
   stops: RouteStop[];
   visible: Record<RouteDirection, boolean>;
   onToggleDirection: (direction: RouteDirection) => void;
-  selectedStopCode: string | null;
+  selected: SelectedStop | null;
   onSelectStop: (code: string | null) => void;
+  onShowWholeRoute: () => void;
   isPlaceholder: boolean;
+  // True when the offline map is installed and the route data is loaded
+  offlineReady: boolean;
 };
 
-// Shown under the map: direction switches and the stop list. All text lives here, not on the map.
+// Shown under the map: status, the selected stop, direction switches, a legend and the stop list.
+// All text lives here, in native views; nothing is written on the map itself.
 export function RoutePanel({
   lines,
   stops,
   visible,
   onToggleDirection,
-  selectedStopCode,
+  selected,
   onSelectStop,
+  onShowWholeRoute,
   isPlaceholder,
+  offlineReady,
 }: RoutePanelProps) {
   const routeCode = lines[0]?.routeCode;
 
   return (
-    <View style={styles.panel}>
-      <View style={styles.headerRow}>
-        <Text style={typography.body}>{routeCode ? `Route ${routeCode}` : 'Route'}</Text>
-        {isPlaceholder ? <Text style={styles.placeholder}>Placeholder data</Text> : null}
+    <ScrollView style={styles.panel} contentContainerStyle={styles.content}>
+      <View style={styles.spread}>
+        <Text style={typography.body}>{routeCode ? strings.map.route(routeCode) : strings.tabs.map}</Text>
+        {offlineReady ? (
+          <View style={styles.badge} accessibilityLabel={strings.map.offlineReadyHint}>
+            <CircleCheck color={colors.emerald} size={ICON_SIZE} />
+            <Text style={styles.badgeText}>{strings.map.offlineReady}</Text>
+          </View>
+        ) : null}
       </View>
+      {isPlaceholder ? <Text style={styles.amber}>{strings.common.placeholderDetail}</Text> : null}
 
-      <View style={styles.row}>
+      {selected ? (
+        <View style={styles.card}>
+          <View style={styles.cardText}>
+            <Text style={typography.body}>{strings.map.stop(selected.stop.code)}</Text>
+            <Text style={typography.caption}>{selected.stop.name}</Text>
+            {selected.alongRouteKm !== null ? (
+              <Text style={typography.caption}>{strings.map.stopAlongRoute(selected.alongRouteKm)}</Text>
+            ) : null}
+            {isPlaceholder ? <Text style={styles.amber}>{strings.common.placeholderData}</Text> : null}
+          </View>
+          <Pressable
+            style={styles.iconButton}
+            onPress={() => onSelectStop(null)}
+            accessibilityRole="button"
+            accessibilityLabel={strings.common.close}
+          >
+            <X color={colors.textMuted} size={ICON_SIZE} />
+          </Pressable>
+        </View>
+      ) : (
+        <Text style={typography.caption}>{strings.map.stopHint}</Text>
+      )}
+
+      <View style={styles.wrap}>
         {lines.map((line) => {
           const shown = visible[line.direction];
           const Icon = shown ? Eye : EyeOff;
@@ -44,67 +90,126 @@ export function RoutePanel({
           return (
             <Pressable
               key={line.id}
-              style={[styles.chip, !shown && styles.chipOff]}
+              style={[styles.chip, shown && styles.chipOn]}
               onPress={() => onToggleDirection(line.direction)}
               accessibilityRole="switch"
               accessibilityState={{ checked: shown }}
-              accessibilityLabel={`${DIRECTION_LABEL[line.direction]} line`}
+              accessibilityLabel={strings.map.showDirection(DIRECTION_LABEL[line.direction])}
             >
-              <View
-                style={[
-                  styles.swatch,
-                  { backgroundColor: line.color, opacity: isReturn ? mapRoute.returnBandOpacity : 1 },
-                  isReturn && styles.swatchReturn,
-                ]}
-              />
+              <View style={[styles.swatch, { backgroundColor: line.color }, isReturn && styles.swatchReturn]} />
               <Text style={typography.body}>{DIRECTION_LABEL[line.direction]}</Text>
-              <Icon color={colors.textMuted} size={ICON_SIZE} />
+              <Icon color={shown ? colors.textPrimary : colors.textMuted} size={ICON_SIZE} />
             </Pressable>
           );
         })}
+        <Pressable style={styles.chip} onPress={onShowWholeRoute} accessibilityRole="button">
+          <Maximize color={colors.textMuted} size={ICON_SIZE} />
+          <Text style={typography.body}>{strings.map.showWholeRoute}</Text>
+        </Pressable>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+      <View style={styles.legend} accessibilityLabel={strings.map.legendTitle}>
+        <LegendRow text={strings.map.legendOutbound}>
+          <View style={[styles.swatch, { backgroundColor: lines[0]?.color ?? colors.cyan }]} />
+        </LegendRow>
+        <LegendRow text={strings.map.legendReturn}>
+          <View style={[styles.swatch, { backgroundColor: lines[0]?.color ?? colors.cyan }, styles.swatchReturn]} />
+        </LegendRow>
+        <LegendRow text={strings.map.legendStops}>
+          <View style={styles.legendDot} />
+        </LegendRow>
+        <Text style={typography.caption}>{strings.map.legendArrows}</Text>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.stopsScroll}
+        contentContainerStyle={styles.stops}
+      >
         {stops.map((stop) => {
-          const selected = stop.code === selectedStopCode;
+          const isSelected = stop.code === selected?.stop.code;
           return (
             <Pressable
               key={stop.code}
-              style={[styles.stop, selected && styles.stopSelected]}
-              onPress={() => onSelectStop(selected ? null : stop.code)}
+              style={[styles.stop, isSelected && styles.stopSelected]}
+              onPress={() => onSelectStop(isSelected ? null : stop.code)}
               accessibilityRole="button"
-              accessibilityState={{ selected }}
-              accessibilityLabel={`Stop ${stop.code}, ${stop.name}`}
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={`${strings.map.stop(stop.code)}, ${stop.name}`}
             >
               <Text style={typography.body}>{stop.code}</Text>
-              <Text style={typography.caption} numberOfLines={1}>
+              <Text style={typography.caption} numberOfLines={2}>
                 {stop.name}
               </Text>
             </Pressable>
           );
         })}
       </ScrollView>
+    </ScrollView>
+  );
+}
+
+function LegendRow({ text, children }: { text: string; children: ReactNode }) {
+  return (
+    <View style={styles.legendRow}>
+      <View style={styles.legendMark}>{children}</View>
+      <Text style={[typography.caption, styles.grow]}>{text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   panel: {
-    padding: spacing.md,
-    gap: spacing.sm,
     backgroundColor: colors.canvas,
   },
-  headerRow: {
+  content: {
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  spread: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  placeholder: {
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  badgeText: {
+    ...typography.caption,
+    color: colors.emerald,
+  },
+  amber: {
     ...typography.caption,
     color: colors.amber,
   },
-  row: {
+  card: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: mapRoute.stopSelectedColor,
+    backgroundColor: colors.surface,
+  },
+  cardText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  iconButton: {
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   chip: {
@@ -113,11 +218,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.surface,
     backgroundColor: colors.surface,
   },
-  chipOff: {
-    opacity: 0.5,
+  // A switched-on direction has an outline; a switched-off one keeps full-contrast text
+  chipOn: {
+    borderColor: colors.textMuted,
   },
   swatch: {
     width: spacing.lg,
@@ -125,13 +234,46 @@ const styles = StyleSheet.create({
     borderRadius: spacing.xs,
   },
   swatchReturn: {
+    height: spacing.sm,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: mapRoute.returnDashColor,
   },
+  legend: {
+    gap: spacing.xs,
+    padding: spacing.md,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  legendMark: {
+    width: spacing.xl,
+    alignItems: 'center',
+  },
+  legendDot: {
+    width: spacing.sm + spacing.xs,
+    height: spacing.sm + spacing.xs,
+    borderRadius: spacing.sm,
+    backgroundColor: mapRoute.stopColor,
+  },
+  grow: {
+    flex: 1,
+  },
+  stopsScroll: {
+    marginHorizontal: -spacing.md,
+  },
+  stops: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
   stop: {
     minHeight: MIN_TOUCH_TARGET,
-    maxWidth: spacing.xl * 6,
+    width: spacing.xl * 5,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

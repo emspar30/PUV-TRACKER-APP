@@ -3,11 +3,13 @@ import type { FeatureCollection, Point } from 'geojson';
 import { useMemo } from 'react';
 
 import type { RouteStop } from '@/shared/routing/types';
-import { mapRoute } from '@/theme';
+import { mapRoute, spacing } from '@/theme';
 
 type CirclePaint = NonNullable<CircleLayerSpecification['paint']>;
 
 const SOURCE = 'route-stops';
+// Extra touch area around a dot, so a small dot is still easy to tap
+const HITBOX = { top: spacing.md, right: spacing.md, bottom: spacing.md, left: spacing.md };
 
 // Dot radius grows with zoom; the selected stop is drawn larger
 function radiusRamp(): CirclePaint['circle-radius'] {
@@ -20,13 +22,15 @@ function radiusRamp(): CirclePaint['circle-radius'] {
 
 type StopDotsProps = {
   stops: RouteStop[];
-  // Code of the stop highlighted from the list outside the map, if any
+  // Code of the highlighted stop, if any
   selectedCode: string | null;
+  // When given, tapping a dot reports that stop's code
+  onPressStop?: (code: string) => void;
 };
 
-// Plain dots for the stops. No text is drawn on the map; names are listed outside it.
+// Plain dots for the stops. No text is drawn on the map; names are shown in native views outside it.
 // Rendered as a child of OfflineMap, after the route lines so the dots sit on top.
-export function StopDots({ stops, selectedCode }: StopDotsProps) {
+export function StopDots({ stops, selectedCode, onPressStop }: StopDotsProps) {
   const data = useMemo<FeatureCollection<Point>>(
     () => ({
       type: 'FeatureCollection',
@@ -40,7 +44,19 @@ export function StopDots({ stops, selectedCode }: StopDotsProps) {
   );
 
   return (
-    <GeoJSONSource id={SOURCE} data={data}>
+    <GeoJSONSource
+      id={SOURCE}
+      data={data}
+      hitbox={HITBOX}
+      onPress={
+        onPressStop
+          ? (event) => {
+              const code: unknown = event.nativeEvent.features[0]?.properties?.code;
+              if (typeof code === 'string') onPressStop(code);
+            }
+          : undefined
+      }
+    >
       <Layer
         id={`${SOURCE}-dot`}
         type="circle"

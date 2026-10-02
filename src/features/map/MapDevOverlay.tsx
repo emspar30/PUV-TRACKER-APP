@@ -3,11 +3,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { TileInstallResult } from '@/shared/map/tileInstall';
+import { strings } from '@/strings';
 import { colors, spacing, typography } from '@/theme';
 
 import type { MapStatus } from './OfflineMap';
-
-const COORDINATE_DECIMALS = 4;
 
 type MapDevOverlayProps = {
   install: TileInstallResult;
@@ -16,20 +15,17 @@ type MapDevOverlayProps = {
 };
 
 // Development builds only: shows how the tiles were installed and where the camera is.
+// In a release build `__DEV__` is false and this renders nothing.
 export function MapDevOverlay({ install, mapStatus, view }: MapDevOverlayProps) {
   const insets = useSafeAreaInsets();
   if (!__DEV__) return null;
 
-  const camera = view
-    ? `zoom ${view.zoom.toFixed(2)}  centre ${view.center[0].toFixed(COORDINATE_DECIMALS)}, ${view.center[1].toFixed(COORDINATE_DECIMALS)}`
-    : 'camera not moved yet';
-
   return (
     <View style={[styles.overlay, { top: insets.top + spacing.sm }]} pointerEvents="none">
+      <Text style={typography.caption}>{strings.dev.overlay(install, mapStatus)}</Text>
       <Text style={typography.caption}>
-        DEV  tiles: {install}  map: {mapStatus}
+        {view ? strings.dev.camera(view.zoom, view.center[0], view.center[1]) : strings.dev.cameraIdle}
       </Text>
-      <Text style={typography.caption}>{camera}</Text>
     </View>
   );
 }
