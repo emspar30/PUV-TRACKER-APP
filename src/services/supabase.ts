@@ -6,6 +6,11 @@ import { readSupabaseEnv } from '@/shared/config/env';
 
 let client: SupabaseClient | null = null;
 
+// False until the two keys are present in .env. The offline features never need the backend.
+export function isSupabaseConfigured(): boolean {
+  return Boolean(process.env.EXPO_PUBLIC_SUPABASE_URL && process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+}
+
 // Created on first use, so the offline features run even when no Supabase keys are set.
 // Throws SUPABASE_ENV_ERROR if the keys are missing.
 export function getSupabase(): SupabaseClient {

@@ -11,8 +11,9 @@ const shared = {
     '<rootDir>/tests/integration/**/*.test.ts',
   ],
   transform: expoPreset.transform,
-  // @noble/hashes ships ES modules only
-  transformIgnorePatterns: ['/node_modules/(?!(@noble)/)'],
+  // @noble/hashes ships ES modules only, and so does the module Expo's Babel preset
+  // substitutes for process.env
+  transformIgnorePatterns: ['/node_modules/(?!(@noble|expo/virtual)/)'],
 };
 
 const app = {

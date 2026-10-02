@@ -1,6 +1,7 @@
 import { Text } from 'react-native';
 
 import { BentoCard, BentoGrid, Screen } from '@/components';
+import { AccountCard } from '@/features/profile/AccountCard';
 import { ClassificationPicker } from '@/features/profile/ClassificationPicker';
 import { typography } from '@/theme';
 
@@ -14,6 +15,10 @@ export default function ProfileScreen() {
             Used only to estimate your fare. Stored on this device only and never sent anywhere.
           </Text>
           <ClassificationPicker />
+        </BentoCard>
+        <BentoCard span={2}>
+          <Text style={typography.body}>Team account</Text>
+          <AccountCard />
         </BentoCard>
       </BentoGrid>
     </Screen>

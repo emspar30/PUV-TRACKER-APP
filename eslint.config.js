@@ -4,7 +4,8 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*', 'android/*', 'docs/*', '.expo/*'],
+    // The Edge Function entry files run in Deno, with imports ESLint and TypeScript here cannot resolve
+    ignores: ['dist/*', 'android/*', 'docs/*', '.expo/*', 'supabase/functions/*/index.ts', 'supabase/.temp/*'],
   },
   {
     // Pure TypeScript only: these folders must run in plain Node (PRD 0.1 rule 5)

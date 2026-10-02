@@ -1,15 +1,26 @@
 // Single source of every threshold, fare value and feature flag (PRD 0.3).
 // All values are starting hypotheses (PRD 17). No other module may contain a threshold literal.
 
-// --- Verification (PRD 0.7). Read in one place only: verifyReport.
-export const ENABLE_VERIFICATION = false;
+// --- Values the server enforces too. They are defined once, beside the Edge Function that uses them
+// (which can only load files from its own folder), and re-exported here:
+//   ENABLE_VERIFICATION (PRD 0.7; read in one place only: verifyReport), STATIONARY_SPEED_KMH (7.3),
+//   PACKET_MAX_AGE_S and PACKET_MAX_FUTURE_S (0.3), VEHICLE_CAPACITY_SEATS (7.3),
+//   PACKET_MAX_BYTES (8.4), INGEST_LOG_RETENTION_DAYS.
+export {
+  ENABLE_VERIFICATION,
+  INGEST_LOG_RETENTION_DAYS,
+  PACKET_MAX_AGE_S,
+  PACKET_MAX_BYTES,
+  PACKET_MAX_FUTURE_S,
+  STATIONARY_SPEED_KMH,
+  VEHICLE_CAPACITY_SEATS,
+} from '../../../supabase/functions/_shared/serverConfig.ts';
 
 // --- Position send rule (PRD 8.4)
 export const POSITION_SEND_DISTANCE_M = 100;
 export const POSITION_SEND_INTERVAL_S = 30;
 
-// --- Stationary bubble (PRD 7.3)
-export const STATIONARY_SPEED_KMH = 2;
+// --- Stationary bubble (PRD 7.3). The speed threshold is one of the server values above.
 export const STATIONARY_DURATION_S = 45;
 
 // --- Liveness and coverage states (PRD 7.3, 8.4)
@@ -18,15 +29,10 @@ export const COVERAGE_LIVE_MAX_AGE_S = 90;
 export const COVERAGE_STALE_MAX_AGE_S = 600;
 export const LIVE_UI_REFRESH_INTERVAL_S = 5;
 
-// --- Telemetry timestamp limits (PRD 0.3, added after audit)
-export const PACKET_MAX_AGE_S = 120;
-export const PACKET_MAX_FUTURE_S = 30;
-
 // --- Offline buffer (PRD 8.4). Defined now, used later.
 export const OFFLINE_BUFFER_SIZE = 60;
 
-// --- Occupancy, by seats taken (PRD 7.3)
-export const VEHICLE_CAPACITY_SEATS = 16;
+// --- Occupancy, by seats taken (PRD 7.3). The capacity is one of the server values above.
 export const OCCUPANCY_GREEN_MAX_TAKEN = 6;
 export const OCCUPANCY_AMBER_MAX_TAKEN = 12;
 
