@@ -20,7 +20,11 @@ Rules:
 | 2026-10-03 | S2-M6 pan and zoom limits | `Pixel_7` emulator (x86_64) | 34 | Same build | **Pan: pass. Zoom: not tested.** | Run by the agent with `adb` swipes. The camera centre stopped at exactly 125.70 east, 125.45 west, 8.85 south and 9.02 north. The limit applies to the centre of the screen, so up to half a screen beyond the tile area can be visible at an edge, and that part is blank or only partly drawn. Zoom limits could not be driven through `adb` (only one double-tap registered, zoom 11.11 to 12.11); to be checked by hand. |
 | 2026-10-03 | S2-M6 pan and zoom, by hand | `Pixel_7` emulator (x86_64) | 34 | Same build | **Pass** for panning and double-tap zoom, confirmed by Emjay | Emjay reported that panning works and double-tap zoom works, found the pan behaviour acceptable, and asked for more zoom. The zoom allowance was then raised from 2 to 4 levels (maximum zoom 16 to 18). The new maximum of 18 has not been checked by hand yet. |
 | 2026-10-03 | S2 route line | `Pixel_7` emulator (x86_64) | 34 | Same build | **Pass** | Run by the agent after Emjay asked for the route line. Log: `[map] status: loaded`, no error. Screenshot shows the Route 4 placeholder line in the route colour, from the town stops to the De Oro end point, over the base map. The six stops are not drawn. |
-| 2026-10-03 | S3 checkpoint: route line styling and stop dots | `Pixel_7` emulator (x86_64) | 34 | Same build (no rebuild) | **Pass**, pending Emjay's visual confirmation | Run by the agent. Log: `[map] status: loaded`, no MapLibre or JavaScript error. The map opened at zoom 11.11 framed on the whole route. A screenshot at zoom 14.4 near the De Oro end shows: the line with a dark outline, the return direction as white dashes over the outbound colour, direction arrows alternating east and west, a white stop dot at the end point, and under the map the panel with "Route R4", an amber "Placeholder data" note, Outbound and Return switches and the stop list. Not checked by the agent: switching a direction off, selecting a stop, and the arrows at other zoom levels. |
+| 2026-10-03 | S3 checkpoint: route line styling and stop dots | `Pixel_7` emulator (x86_64) | 34 | Same build (no rebuild) | **Pass**. Emjay confirmed all four checks on 2026-10-03: outline, dashes and arrows; the direction switches; the amber stop highlight; the six dots. | Run by the agent. Log: `[map] status: loaded`, no MapLibre or JavaScript error. The map opened at zoom 11.11 framed on the whole route. A screenshot at zoom 14.4 near the De Oro end shows: the line with a dark outline, the return direction as white dashes over the outbound colour, direction arrows alternating east and west, a white stop dot at the end point, and under the map the panel with "Route R4", an amber "Placeholder data" note, Outbound and Return switches and the stop list. Not checked by the agent: switching a direction off, selecting a stop, and the arrows at other zoom levels. |
+| 2026-10-03 | S3-M1 offline plan | `Pixel_7` emulator (x86_64) | 34 | Debug APK from 2026-10-02 11:48 PM (no rebuild) | **Pass** | Run by the agent. Airplane mode on (`airplane_mode_on` = 1, ping "Network is unreachable"), app reopened through `localhost:8081` over `adb reverse`. On the Plan tab: origin set by picking stop IMA, destination set by tapping the map. Result: walk under 10 m, ride Route R4 (outbound) for 8.9 km, walk 100 m; fare shown with "Estimate only". No JavaScript or MapLibre error and no unhandled rejection in the log. The origin was set by hand; the emulator's location was not used (GPS-free order). |
+| 2026-10-03 | S3-M2 discount | `Pixel_7` emulator (x86_64) | 34 | Same build | **Pass** for Regular and Student; Senior Citizen and PWD not tapped | Run by the agent. Same 8.9 km trip: Regular ₱25.00 (15 + 5 x 2). After choosing Student in Profile: ₱20.00, with "Student discount applied. Regular fare ₱25.00." After a force-stop and relaunch, Profile still showed Student selected. The other two discounted classes use the same multiplier and are covered by unit tests. |
+| 2026-10-03 | S3-M3 on-device benchmark | `Pixel_7` emulator (`sdk_gphone64_x86_64`, about 2.5 GB RAM) on the development PC (Intel i5-13420H) | 34 | Same build, development mode | **Pass**: p95 0.033 to 0.048 ms against a budget of 250 ms | Run by the agent, three runs of 1,000 trips each with the development-only button on the Plan tab: p50 0.019 ms; p95 0.033, 0.048 and 0.045 ms; maximum 1.2 to 1.6 ms. 74 of 1,000 random pairs produced a trip; the rest were rejected as too far from the line, which is the cheaper path. An x86 emulator on a laptop CPU is much faster than a 3 GB phone, so this does **not** prove the PRD target on the reference device. The placeholder line has only 6 points; see the unit benchmark for 400 and 2,000 points. |
+| 2026-10-03 | S3-M4 destination behind | `Pixel_7` emulator (x86_64) | 34 | Same build | **Pass** | Run by the agent. After swapping origin and destination of the trip above, the itinerary changed to "Ride Route R4 (return) for 8.9 km" with the same fare. No crash. The "no trip in this direction" message was not seen on the device, because with the placeholder data every pair is servable in one direction; it is covered by unit tests. |
 | | S2-M3 ten minute soak (without GPS) | | | | not run yet | Needs ten minutes of panning and zooming by hand. No crash was reported during Emjay's shorter manual check. |
 | | S2-M2 blue dot, S2-M4 permission denied | | | | deferred (GPS-free order) | Plan Revision 1. |
 
@@ -111,6 +115,35 @@ The dev server is reached through `adb`, not through the emulator's network, so 
 2. Expect the centre to stay inside longitude 125.45 to 125.70 and latitude 8.85 to 9.02. The limit applies to the centre of the screen, so at an edge up to half the screen shows the area beyond the tiles, which is blank or partly drawn. The map must not be draggable further than that.
 3. Double-tap repeatedly to zoom in until it stops. Expect the zoom on the `DEV` line to stop at 18 (tile zoom 14 plus the allowance of 4).
 4. Pinch to zoom out until it stops. Expect it to stop while the tile area still fills the screen.
+
+## S3 (GPS-free order)
+
+Origin and destination are always set by hand: tap the map, or pick a stop from the list under the map. The highlighted field is the one the next tap fills; after the origin is set, the destination field is highlighted automatically. No location permission is requested.
+
+#### S3-M1 offline plan
+
+1. Run `adb reverse tcp:8081 tcp:8081`, turn on airplane mode, and reopen the app through `localhost` (see S2-M1 step 4).
+2. Open the Plan tab. Pick a stop for the origin, then tap the map near the route for the destination.
+3. Expect three steps (walk, ride Route R4, walk), the ride drawn in amber on the map, and a fare labelled "Estimate only".
+4. Turn airplane mode off.
+
+#### S3-M2 discount
+
+1. With a trip showing, open Profile and choose Regular. Note the fare on the Plan tab.
+2. Choose Student, then Senior Citizen, then Person with Disability. Expect 80% of the regular fare each time, rounded to the nearest ₱0.25, with the regular fare shown beside it.
+3. Force-stop and reopen the app. Expect the classification to be remembered.
+
+#### S3-M3 on-device benchmark
+
+1. On the Plan tab, scroll to the bottom and tap "DEV Run routing benchmark (1000 trips)". It appears only in development builds.
+2. Run it three times. Record p50 and p95, the device or emulator model, RAM and API level.
+3. The PRD target (250 ms at p95) is defined on a 3 GB phone. An emulator figure is indicative only.
+
+#### S3-M4 destination behind
+
+1. With a trip showing, tap the swap button beside the fields.
+2. Expect the itinerary to use the other direction of the route, or the message "No trip found" if that pair cannot be served. Never a crash.
+3. Set a point more than 500 m from the line. Expect "No trip found" with the reason.
 
 #### S2-M3 ten minute soak (without GPS)
 

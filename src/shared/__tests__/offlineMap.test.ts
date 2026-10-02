@@ -9,7 +9,7 @@ import {
   type MapPalette,
 } from '../../data/map/offlineStyle';
 import { TILESET } from '../../data/map/tileset';
-import { getRouteLineCoordinates } from '../../data/routeSource';
+import { getSeedRouteData } from '../../data/routeSource';
 import { R4_STATIONS } from '../../data/seed/r4.placeholder';
 import { MAP_OVERZOOM_LEVELS } from '../config';
 import { boundsContain, boundsOfLines } from '../geo/bounds';
@@ -90,7 +90,7 @@ describe('tile set facts', () => {
 });
 
 describe('initial map view', () => {
-  const routeBounds = boundsOfLines(getRouteLineCoordinates());
+  const routeBounds = boundsOfLines(getSeedRouteData().lines.map((line) => line.coordinates));
 
   it('covers every route stop', () => {
     for (const stop of R4_STATIONS) {

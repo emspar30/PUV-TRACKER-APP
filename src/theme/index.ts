@@ -76,4 +76,14 @@ export const mapRoute = {
   ],
   stopSelectedScale: 1.6,
   stopStrokeWidth: 2,
+  // A planned trip drawn over the route: the ridden part, the two walks, and the picked points
+  tripRideColor: colors.amber,
+  tripRideWidthScale: 1.2,
+  tripWalkColor: colors.textPrimary,
+  tripWalkWidth: 2,
+  tripWalkDashPattern: [1, 2],
+  tripOriginColor: colors.emerald,
+  tripDestinationColor: colors.crimson,
+  tripPointRadius: 8,
+  tripSnapRadius: 4,
 } as const;

@@ -2,7 +2,7 @@ import { GeoJSONSource, Layer, type CircleLayerSpecification } from '@maplibre/m
 import type { FeatureCollection, Point } from 'geojson';
 import { useMemo } from 'react';
 
-import type { RouteStop } from '@/data/routeSource';
+import type { RouteStop } from '@/shared/routing/types';
 import { mapRoute } from '@/theme';
 
 type CirclePaint = NonNullable<CircleLayerSpecification['paint']>;

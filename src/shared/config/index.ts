@@ -51,6 +51,12 @@ export const FARE_DISCOUNTED_CLASSES: readonly Classification[] = ['student', 's
 export const MAX_WALK_PER_LEG_M = 500;
 export const ROUTING_P95_BUDGET_MS = 250;
 
+// --- Route data checks (seeding now, the import script later)
+// A stop is listed on a line only if it lies within the maximum distance of it
+export const ROUTE_STOP_WARN_DISTANCE_M = 50;
+export const ROUTE_STOP_MAX_DISTANCE_M = 150;
+export const ROUTE_SIMPLIFY_TOLERANCE_M = 5;
+
 // --- Offline map (PRD 7.2)
 // How far the map may zoom in past the tile set's last zoom level by stretching its tiles
 export const MAP_OVERZOOM_LEVELS = 4;

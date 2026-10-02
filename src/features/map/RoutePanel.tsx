@@ -1,7 +1,7 @@
 import { Eye, EyeOff } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import type { RouteDirection, RouteLine, RouteStop } from '@/data/routeSource';
+import type { DirectedLine as RouteLine, RouteDirection, RouteStop } from '@/shared/routing/types';
 import { MIN_TOUCH_TARGET, colors, mapRoute, radii, spacing, typography } from '@/theme';
 
 const DIRECTION_LABEL: Record<RouteDirection, string> = { outbound: 'Outbound', return: 'Return' };

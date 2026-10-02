@@ -2,12 +2,7 @@ import type { ViewStateChangeEvent } from '@maplibre/maplibre-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import {
-  getRouteLines,
-  getRouteStops,
-  isPlaceholderRouteData,
-  type RouteDirection,
-} from '@/data/routeSource';
+import { useRouteData } from '@/data/RouteDataProvider';
 import { MapDevOverlay } from '@/features/map/MapDevOverlay';
 import { OfflineMap, type MapStatus } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
@@ -15,6 +10,7 @@ import { RoutePanel } from '@/features/map/RoutePanel';
 import { StopDots } from '@/features/map/StopDots';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { boundsOfLines } from '@/shared/geo/bounds';
+import type { RouteDirection } from '@/shared/routing/types';
 import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
@@ -26,8 +22,8 @@ export default function MapScreen() {
   const [visible, setVisible] = useState(ALL_DIRECTIONS);
   const [selectedStopCode, setSelectedStopCode] = useState<string | null>(null);
 
-  const routeLines = useMemo(() => getRouteLines(), []);
-  const routeStops = useMemo(() => getRouteStops(), []);
+  // Lines and stops come from the local database, not from the seed file
+  const { lines: routeLines, stops: routeStops, isPlaceholder } = useRouteData();
   // Open on the whole route
   const initialBounds = useMemo(() => boundsOfLines(routeLines.map((line) => line.coordinates)), [routeLines]);
 
@@ -89,7 +85,7 @@ export default function MapScreen() {
         onToggleDirection={toggleDirection}
         selectedStopCode={selectedStopCode}
         onSelectStop={setSelectedStopCode}
-        isPlaceholder={isPlaceholderRouteData()}
+        isPlaceholder={isPlaceholder}
       />
     </View>
   );

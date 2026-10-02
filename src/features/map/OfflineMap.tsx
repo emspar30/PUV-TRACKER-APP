@@ -6,6 +6,7 @@ import { buildOfflineStyle, type MapPalette } from '@/data/map/offlineStyle';
 import { TILESET } from '@/data/map/tileset';
 import { MAP_OVERZOOM_LEVELS } from '@/shared/config';
 import type { Bounds } from '@/shared/geo/bounds';
+import type { LatLon } from '@/shared/geo/haversine';
 import { colors, spacing, typography } from '@/theme';
 
 const PALETTE: MapPalette = {
@@ -29,11 +30,20 @@ type OfflineMapProps = {
   initialBounds: Bounds;
   onStatusChange?: (status: MapStatus) => void;
   onViewChange?: (view: ViewStateChangeEvent) => void;
+  // Called with the tapped position, for picking a point by hand
+  onPress?: (position: LatLon) => void;
   // Map content drawn on top of the base map: route line, stops, vehicle markers and, later, the blue dot
   children?: ReactNode;
 };
 
-export function OfflineMap({ tilesUrl, initialBounds, onStatusChange, onViewChange, children }: OfflineMapProps) {
+export function OfflineMap({
+  tilesUrl,
+  initialBounds,
+  onStatusChange,
+  onViewChange,
+  onPress,
+  children,
+}: OfflineMapProps) {
   // The style object must keep its identity between renders, or the map reloads it
   const mapStyle = useMemo(() => buildOfflineStyle(tilesUrl, PALETTE) as unknown as StyleSpecification, [tilesUrl]);
 
@@ -49,6 +59,14 @@ export function OfflineMap({ tilesUrl, initialBounds, onStatusChange, onViewChan
         onDidFinishLoadingMap={() => onStatusChange?.('loaded')}
         onDidFailLoadingMap={() => onStatusChange?.('failed')}
         onRegionDidChange={handleRegionDidChange}
+        onPress={
+          onPress
+            ? (event) => {
+                const [lon, lat] = event.nativeEvent.lngLat;
+                onPress({ lat, lon });
+              }
+            : undefined
+        }
       >
         <Camera
           initialViewState={{ bounds: initialBounds, padding: INITIAL_PADDING }}

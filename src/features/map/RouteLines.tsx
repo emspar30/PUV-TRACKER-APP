@@ -2,7 +2,7 @@ import { GeoJSONSource, Layer, type LineLayerSpecification } from '@maplibre/map
 import type { Feature, FeatureCollection, LineString } from 'geojson';
 import { Fragment, useMemo } from 'react';
 
-import type { RouteDirection, RouteLine } from '@/data/routeSource';
+import type { DirectedLine as RouteLine, RouteDirection } from '@/shared/routing/types';
 import { directionArrows } from '@/shared/geo/arrows';
 import { mapRoute } from '@/theme';
 
