@@ -29,6 +29,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
+    // Room at the end, so the last control clears the system navigation bar
+    paddingBottom: spacing.xl + spacing.lg,
     gap: spacing.md,
   },
 });

@@ -1,15 +1,20 @@
-import { SQLiteProvider, useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { openDatabaseAsync } from 'expo-sqlite';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Logo } from '@/components';
+import { DB_LOCK_RETRY_ATTEMPTS, DB_LOCK_RETRY_DELAY_MS } from '@/shared/config';
 import type { RouteData } from '@/shared/routing/types';
-import { colors, spacing, typography } from '@/theme';
+import { isDatabaseLockedError, withRetry } from '@/shared/util/retry';
+import { strings } from '@/strings';
+import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
 
 import { migrateRouteDb, type Db } from './db/migrate';
 import { loadRouteData } from './db/routeRepository';
 import { getSeedRouteData } from './routeSource';
 
 const DATABASE_NAME = 'tunton.db';
+const LOGO_SIZE = spacing.xl * 3;
 
 const RouteDataContext = createContext<RouteData | null>(null);
 
@@ -20,23 +25,36 @@ export function useRouteData(): RouteData {
   return data;
 }
 
-async function initDatabase(db: SQLiteDatabase): Promise<void> {
-  await migrateRouteDb(db as Db, getSeedRouteData());
+// Opens the database, creates and seeds it if needed, and reads the route data back.
+// On a first launch the app can start twice in quick succession; the second start may find the
+// database still locked by the first, so a locked database is retried instead of reported.
+async function openRouteData(): Promise<RouteData> {
+  const seed = getSeedRouteData();
+  const stored = await withRetry(
+    async () => {
+      const db = (await openDatabaseAsync(DATABASE_NAME)) as Db;
+      await migrateRouteDb(db, seed);
+      return loadRouteData(db);
+    },
+    { attempts: DB_LOCK_RETRY_ATTEMPTS, delayMs: DB_LOCK_RETRY_DELAY_MS, shouldRetry: isDatabaseLockedError },
+  );
+  // The placeholder flag describes the bundled data, which is what the database was seeded from
+  return { ...stored, isPlaceholder: seed.isPlaceholder };
 }
 
 type LoadState = { status: 'loading' } | { status: 'ready'; data: RouteData } | { status: 'error'; message: string };
 
-function RouteDataLoader({ children }: { children: ReactNode }) {
-  const db = useSQLiteContext();
-  const [state, setState] = useState<LoadState>({ status: 'loading' });
+const LOADING: LoadState = { status: 'loading' };
+
+export function RouteDataProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<LoadState>(LOADING);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    loadRouteData(db as Db)
-      .then((stored) => {
-        if (cancelled) return;
-        // The placeholder flag describes the bundled data, which is what the database was seeded from
-        setState({ status: 'ready', data: { ...stored, isPlaceholder: getSeedRouteData().isPlaceholder } });
+    openRouteData()
+      .then((data) => {
+        if (!cancelled) setState({ status: 'ready', data });
       })
       .catch((error: unknown) => {
         if (!cancelled) setState({ status: 'error', message: error instanceof Error ? error.message : String(error) });
@@ -44,45 +62,57 @@ function RouteDataLoader({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [db]);
+  }, [attempt]);
 
-  if (state.status === 'loading') return <View style={styles.fill} />;
-  if (state.status === 'error') return <DataError message={state.message} />;
+  const retry = useCallback(() => {
+    setState(LOADING);
+    setAttempt((count) => count + 1);
+  }, []);
+
+  if (state.status === 'loading') {
+    // Shown while the local database is created and seeded, which takes a moment on first launch
+    return (
+      <View style={styles.centered}>
+        <Logo size={LOGO_SIZE} />
+        <Text style={typography.caption}>{strings.loading.routeData}</Text>
+      </View>
+    );
+  }
+
+  if (state.status === 'error') {
+    return (
+      <View style={styles.centered}>
+        <Text style={typography.body}>{strings.loading.routeDataFailed}</Text>
+        <Text style={[typography.caption, styles.detail]}>{state.message}</Text>
+        <Pressable style={styles.button} onPress={retry} accessibilityRole="button">
+          <Text style={typography.body}>{strings.common.tryAgain}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return <RouteDataContext.Provider value={state.data}>{children}</RouteDataContext.Provider>;
 }
 
-function DataError({ message }: { message: string }) {
-  return (
-    <View style={[styles.fill, styles.centered]}>
-      <Text style={typography.body}>The route data could not be loaded.</Text>
-      <Text style={[typography.caption, styles.detail]}>{message}</Text>
-    </View>
-  );
-}
-
-export function RouteDataProvider({ children }: { children: ReactNode }) {
-  const [initError, setInitError] = useState<string | null>(null);
-  if (initError) return <DataError message={initError} />;
-
-  return (
-    <SQLiteProvider databaseName={DATABASE_NAME} onInit={initDatabase} onError={(error) => setInitError(error.message)}>
-      <RouteDataLoader>{children}</RouteDataLoader>
-    </SQLiteProvider>
-  );
-}
-
 const styles = StyleSheet.create({
-  fill: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-  },
   centered: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
+    backgroundColor: colors.canvas,
   },
   detail: {
     textAlign: 'center',
+  },
+  button: {
+    minHeight: MIN_TOUCH_TARGET,
+    minWidth: MIN_TOUCH_TARGET,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
   },
 });

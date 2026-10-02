@@ -6,6 +6,9 @@ export const colors = {
   cyan: '#00F5D4',
   amber: '#FFB703',
   crimson: '#EF233C',
+  // Crimson is too dark for text on the surface colour (3.9:1). Error text uses this lighter tone
+  // (6.0:1 on surface, 7.0:1 on canvas); crimson stays for shapes such as markers.
+  danger: '#FF6B7A',
   emerald: '#10B981',
   textPrimary: '#FFFFFF',
   textMuted: '#94A3B8',
@@ -84,6 +87,12 @@ export const mapRoute = {
   tripWalkDashPattern: [1, 2],
   tripOriginColor: colors.emerald,
   tripDestinationColor: colors.crimson,
-  tripPointRadius: 8,
+  tripPointRadius: 9,
   tripSnapRadius: 4,
+  // A white ring makes the origin and destination markers stand out from stop dots and the line
+  tripPointStrokeColor: colors.textPrimary,
+  // Camera moves made by the app (fit to a trip, show the whole route)
+  cameraAnimationMs: 600,
+  // A fitted area is never smaller than this, so two nearby points do not zoom the map in too far
+  minFocusSpanDeg: 0.004,
 } as const;

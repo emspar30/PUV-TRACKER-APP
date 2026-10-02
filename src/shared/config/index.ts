@@ -63,6 +63,11 @@ export const ROUTE_STOP_WARN_DISTANCE_M = 50;
 export const ROUTE_STOP_MAX_DISTANCE_M = 150;
 export const ROUTE_SIMPLIFY_TOLERANCE_M = 5;
 
+// --- Local database start-up
+// If the database is still locked by a previous start of the app, wait and try again this many times
+export const DB_LOCK_RETRY_ATTEMPTS = 10;
+export const DB_LOCK_RETRY_DELAY_MS = 500;
+
 // --- Offline map (PRD 7.2)
 // How far the map may zoom in past the tile set's last zoom level by stretching its tiles
 export const MAP_OVERZOOM_LEVELS = 4;
