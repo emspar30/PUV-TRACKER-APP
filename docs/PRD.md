@@ -1004,6 +1004,61 @@ Several values in this PRD are carried over from v1.0 or set as starting hypothe
 | Pioneer period | Early phase where live view is free because coverage is still sparse |
 | Data SMS | A binary SMS addressed to an app port instead of the inbox |
 
+## 19. User flow v2 (2026-10-03)
+
+Added at Emjay's request. **Where this section disagrees with an earlier section, this section wins.** Earlier sections are not rewritten; the table at the end lists what each overrides. The analysis is `docs/FLOW_GAP_ANALYSIS.md` and the build plan is `docs/IMPLEMENTATION_PLAN_FLOW.md`.
+
+### 19.1 The flow
+
+| Area | What the commuter experiences |
+| --- | --- |
+| Onboarding | A welcome from the app's persona, then an optional gender question, an automatically assigned avatar, the commuter type (Regular, Student, Senior Citizen, PWD), and frequent destinations, so the app can suggest which route to board. |
+| Greeting | Every time the app opens, one short time-based line from the persona, for example "Where are we going right now?". |
+| Live map | All broadcasting PUVs, browsed for free, with a little essential information. Tracking one PUV shows its position, a guide line and an ETA, and fades the other vehicles. |
+| Station check-in | The commuter picks a route; its stations show as dots in the route colour, other routes fade; they check in at the station where they wait. |
+| My Ride | Origin and destination, the route to board, and the estimated fare. |
+| Crowdsourcing (passenger relay) | The commuter reports the PUV they ride and its seat availability. Bluetooth identifies the vehicle (later); GPS is optional. A report with GPS is broadcast on the live map and earns 1 Energy; without GPS it is posted to the newsfeed and earns 0.5. Reports can be flagged as fake or spam. |
+| Profile | Change the username, delete the account, see badges, change the avatar, settings and preferences. |
+
+### 19.2 Decisions
+
+| # | Decision |
+| --- | --- |
+| D1 | Browsing vehicles on the live map is free. **Tracking one PUV** (ETA, guide line, other vehicles faded) costs 1 Energy per 30-minute session, and is free during the pioneer period. |
+| D2 | Newsfeed posts show a pseudonymous username and an avatar, **never on the live map**. Posts expire after a configured number of hours and can be flagged. |
+| D3 | The gender question is optional, with "Prefer not to say", stored on the device only and never uploaded. A stated gender picks at random from its 6 avatars; "Prefer not to say" picks from all 12. The 12 avatars are vector drawings in code (6 male-style, 6 female-style), no photos. The avatar can be changed in Profile. |
+| D4 | Frequent destinations come from a local seed file of landmarks (first the placeholder stops; real names and coordinates later), or a point tapped on the map. Names come from the file; the map has no text. |
+| D5 | In the prototype a report uses a manual vehicle picker behind a development flag, and is marked unverified. Bluetooth boarding detection replaces it later (real phone and driver beacon). |
+| D6 | Team accounts (email and password) for now. Onboarding and My Ride work without an account; sign-in is asked for at the first cloud feature. The production sign-in method is decided later. |
+| D7 | The username is generated automatically, can be edited, is 3 to 20 characters, passes a simple blocklist, and later must be unique in the cloud. |
+| D8 | Badges are derived from counts (for example first report, 5 reports, first check-in). |
+| D9 | ETA is brought forward from Phase 2 in a simple form: distance along the route to the user's boarding point divided by the vehicle's recent speed. Shown only when the vehicle is approaching and the data is good enough; hidden otherwise. |
+| D10 | Deleting the account wipes local data now; cloud deletion comes with the backend. |
+| D11 | The greeting is one short, time-based line from a small set of variants in the strings file. |
+| D12 | A floating Report button on the Live tab; the newsfeed lives in the expanded Live sheet. No fourth tab. |
+| D13 | Check-in tab: route chips; the chosen route's stations as dots in its colour; other routes faded. Built generally, though only Route 4 exists. Check-in is a cloud table for team accounts. |
+| D14 | Energy is a server-side ledger, built after the backend is live. Numbers as in 11.1: wallet cap 5; passive +1 every 12 hours (at most 2 a day); GPS report +1.0; report without GPS +0.5; check-in +0.3; each earning at most once a day; caps reset at midnight Asia/Manila. |
+
+### 19.3 What this section overrides
+
+| Earlier section | What changes |
+| --- | --- |
+| 0.6 Out of scope | Energy, the community feed, badges and ETA are now in the prototype scope, in the simple forms above. Trust Points, Merit shields, strikes and appeals stay out. |
+| 3.1 Goals | Adds: personalised onboarding and route suggestions from frequent destinations, and a crowdsourced newsfeed for reports without GPS. |
+| 3.3 Success metrics | Adds an ETA accuracy measure for D9 (to be defined with field data); the existing targets are unchanged. |
+| 5.1 What is in the pilot | The pseudonymous community feed moves from Phase 3 into the pilot (D2, D12). |
+| 6.1 Responsibilities | The commuter app also holds onboarding, landmarks, badges and the feed view; Supabase also holds the Energy ledger, feed posts and flags. |
+| 7.1 Onboarding and profile | Avatars are assigned automatically from the optional gender answer (D3); a username (D7), badges (D8) and account deletion (D10) are added; the avatar now appears in feed posts (D2), which changes "visible only in the user's own profile". |
+| 7.3 Live tracker map | Viewing is free; only tracking one PUV costs Energy (D1). Tracking adds a guide line, an ETA and faded other vehicles. |
+| 7.4 Freshness and ETA | A simple ETA moves from Phase 2 into the prototype (D9). |
+| 7.5 Station check-in | Route-first selection with route-coloured station dots (D13). |
+| 8.1 Relay session lifecycle | Reports can be sent without GPS (newsfeed, +0.5 Energy); the prototype uses a manual vehicle picker (D5). |
+| 11.1 Tracking Energy | Spending changes from "opening live view" to "tracking one PUV" (D1). Earning numbers are unchanged (D14). |
+| 11.3 Flagging | Feed posts can be flagged; the full strike and appeal process stays deferred. |
+| 12.2 Cloud data model | Adds a username to `profiles`, and new `feed_posts`, `feed_flags` and `energy_ledger` details (see the flow plan). |
+
+Sections 3.4 and 5.5, named in the request, do not exist in this document; the nearest sections are listed above.
+
 ## Changes after audit
 
 Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan approval. Nothing else in this document was changed.
@@ -1013,3 +1068,4 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 3. **Section 7.2:** added a "Boarding and alighting" paragraph. Riders may board and alight anywhere along the line, snapped to the route within the walking limit.
 4. **Section 0.3:** added two config constants: the SMS sequence wrap-around window (1 to 5,000 ahead, modulo 10,000) and the telemetry timestamp limits (older than 120 s, or more than 30 s in the future, is rejected).
 5. **Section 7.1:** sign-in for Prototype v0 changed to email and password for team accounts. Google sign-in or email magic link follows after v0.
+6. **Section 19 (Oct 3, 2026):** added "User flow v2": the new onboarding, greeting, tracking with Energy and ETA, newsfeed, reports and Profile, with decisions D1 to D14 and the earlier sections they override.
