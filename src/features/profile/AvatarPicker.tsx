@@ -1,24 +1,27 @@
 import { Pressable, View } from 'react-native';
 
 import { Chip } from '@/components';
+import { avatarSetFor } from '@/shared/profile/avatarPick';
 import { useProfileStore } from '@/state/profileStore';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, spacing } from '@/theme';
 
-import { AVATAR_IDS, Avatar } from './Avatar';
+import { Avatar } from './Avatar';
 
 const AVATAR_SIZE = MIN_TOUCH_TARGET;
 const RING = spacing.xs;
 
-// A grid of the preset avatars. The choice is saved on this phone only (PRD 7.1).
+// A grid of the avatars in the user's own set: the six for the gender answer, or all twelve for
+// "Prefer not to say" or no answer (decision after F1 review). The choice is saved on this phone only.
 export function AvatarPicker() {
   const styles = useStyles();
   const avatarId = useProfileStore((state) => state.avatarId);
   const setAvatarId = useProfileStore((state) => state.setAvatarId);
+  const gender = useProfileStore((state) => state.gender);
 
   return (
     <View style={styles.grid} accessibilityRole="radiogroup">
-      {AVATAR_IDS.map((id) => {
+      {avatarSetFor(gender).map((id) => {
         const selected = id === avatarId;
         return (
           <Pressable

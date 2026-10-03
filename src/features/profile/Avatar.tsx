@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
 
-import { AVATAR_COUNT } from '@/shared/config';
 import { AVATAR_ART } from '@/theme/tokens';
 
 // Twelve preset avatars, drawn in code: no photos and no upload (PRD 19, D3). Ids 0 to 5 form the
@@ -31,7 +30,6 @@ const SPECS: readonly AvatarSpec[] = [
   { skin: 0, hair: 'cap', hairColour: 'darkBrown', outfit: 'purple', extra: 'headphones' },
 ];
 
-export const AVATAR_IDS = Array.from({ length: AVATAR_COUNT }, (_, id) => id);
 
 // Hair drawn behind the head (long styles)
 function backHair(hair: Hair, colour: string): ReactNode {

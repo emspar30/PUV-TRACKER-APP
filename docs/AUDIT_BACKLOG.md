@@ -2,7 +2,7 @@
 
 Everything Emjay has not verified personally, kept current at every step. Each item says what to check, exactly how, and what to expect. An item leaves this list only when Emjay confirms it; the agent's own runs are recorded in `docs/device-tests.md` and do not close an item.
 
-Last updated: 2026-10-03, after F1 (onboarding v2, greeting and avatars), waiting for Emjay.
+Last updated: 2026-10-04, after the F1 review (F1 approved by Emjay) and the avatar picker change.
 
 **Note on the UX2 commits.** The first four (`2eda9d0`, `d76f93d`, `3647293`, `9c8eb06`) were grouped by topic from one working tree, so they are not individually verified: an intermediate one may not type-check or pass the tests on its own. This matters only if someone checks out one of them. Every commit from `ebfc0a5` onwards was checked when it was made. **Check-in (49), introduction (50) and About (51) stay open:** user flow v2 rewrites them, so Emjay will test the new versions instead.
 
@@ -86,10 +86,10 @@ Last updated: 2026-10-03, after F1 (onboarding v2, greeting and avatars), waitin
 | 49 | UX2 | Check-in tab: 15-minute countdown, I boarded, Cancel, survives a restart | Emulator | Open, **not yet seen on the emulator** |
 | 50 | UX2 | One-screen introduction: fare type, avatar, Start, Skip, Replay from Settings | Emulator | Open, **not yet seen on the emulator** |
 | 51 | UX2 | Short About screen | Emulator | Open, **not yet seen on the emulator** |
-| 52 | F1 | Four-step introduction: Tunton, gender, commuter type, destinations (replaces 50) | Emulator | Open (agent: seen on the emulator) |
-| 53 | F1 | Greeting card on Live, its placement, and the chips opening My Ride | Emulator, decision | Open (agent: seen on the emulator) |
-| 54 | F1 | The 12 new avatars, the two sets, Shuffle, kept after a restart | Emulator, decision | Open (agent: seen on the emulator) |
-| 55 | F1 | Greeting lines: choose the final set from the 8 drafts | Decision | Open |
+| 52 | F1 | Four-step introduction: Tunton, gender, commuter type, destinations (replaces 50) | Emulator | Confirmed by Emjay on 2026-10-04; listed for the final audit |
+| 53 | F1 | Greeting card on Live, its placement, and the chips opening My Ride | Emulator, decision | Confirmed by Emjay on 2026-10-04: keep it above the sheet |
+| 54 | F1 | The 12 new avatars, the two sets, Shuffle, kept after a restart | Emulator, decision | Drawings confirmed by Emjay on 2026-10-04; **picker now shows only the own set: not yet seen on the emulator** |
+| 55 | F1 | Greeting lines: choose the final set from the 8 drafts | Decision | Decided 2026-10-04: keep all 8 for now |
 | 56 | F1 | Gender, commuter type, avatar and destinations never reach backend code | Command | Open |
 | 57 | F1 | First launch after `pm clear`: the route was framed too high, once | Emulator | Open, cause unknown |
 
@@ -435,7 +435,8 @@ Last updated: 2026-10-03, after F1 (onboarding v2, greeting and avatars), waitin
 
 - **How:** Settings shows all 12 in the grid. TalkBack reads them as Avatar 1 to 12: 1 to 6 are the Male set, 7 to 12 the Female set. Tap Shuffle several times, then force-stop and reopen.
 - **Expected:** simple drawn faces with different hair, glasses, a cap or headphones, four skin tones and seven colours; both sets include long and short hair and glasses. Shuffle stays within the set for your gender answer (all 12 if none). The avatar never changes on its own.
-- **Decide:** whether any drawing looks like a stereotype or should be changed; and whether Profile (F2) keeps the hand-picked grid beside Shuffle (I kept it so all 12 can be seen).
+- **Decided (2026-10-04):** keep all 12 drawings. The picker in Settings (Profile in F2) shows only the user's own set: the 6 for Male or Female, all 12 for "Prefer not to say" or no answer, plus Shuffle.
+- **Check (new):** with Female answered, Settings shows Avatars 7 to 12 only; with Male, 1 to 6; after Replay intro with "Prefer not to say", all 12. An avatar picked earlier from another set stays on the avatar button but is not in the grid until Shuffle or a pick. The agent could not check this on the emulator (Metro was stopped for the merge).
 
 ### 55. Greeting lines
 
