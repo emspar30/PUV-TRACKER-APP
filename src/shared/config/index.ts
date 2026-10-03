@@ -80,6 +80,14 @@ export const SHEET_EXPANDED_FRACTION = 0.9;
 // A release faster than this (dp per second) moves to the next snap point in that direction
 export const SHEET_FLICK_VELOCITY_DP_S = 500;
 
+// --- Blue dot (PRD 7.3), from the partner's GPS work (merge of b21b0c1). BLUE DOT ONLY: how often
+// the foreground position is refreshed for display. Nothing is sent; the relay send rule is
+// POSITION_SEND_DISTANCE_M and POSITION_SEND_INTERVAL_S above.
+export const BLUE_DOT_UPDATE_INTERVAL_S = 2;
+export const BLUE_DOT_UPDATE_DISTANCE_M = 5;
+// Zoom used when the camera follows the blue dot
+export const MAP_FOLLOW_ZOOM = 16;
+
 // --- Verification window and check-in (PRD 10.2, 8.4, 7.5). Defined now, used later.
 export const ROUTE_SNAP_DISTANCE_M = 30;
 export const MIN_DISPLACEMENT_M = 50;

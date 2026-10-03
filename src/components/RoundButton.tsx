@@ -5,13 +5,30 @@ import { MIN_TOUCH_TARGET, makeStyles, spacing, useTheme } from '@/theme';
 
 const ICON_SIZE = spacing.lg;
 
-// A 48 dp round map button (docs/DESIGN.md "Icon Actions"): white surface, soft shadow, grey icon
-export function RoundButton({ icon: Icon, label, onPress }: { icon: LucideIcon; label: string; onPress: () => void }) {
+// A 48 dp round map button (docs/DESIGN.md "Icon Actions"): white surface, soft shadow, grey icon.
+// An active button (for example while following the blue dot) shows its icon in the primary colour.
+export function RoundButton({
+  icon: Icon,
+  label,
+  onPress,
+  active = false,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onPress: () => void;
+  active?: boolean;
+}) {
   const styles = useStyles();
   const { colors } = useTheme();
   return (
-    <Pressable style={styles.button} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
-      <Icon color={colors.textSecondary} size={ICON_SIZE} />
+    <Pressable
+      style={styles.button}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+    >
+      <Icon color={active ? colors.primary : colors.textSecondary} size={ICON_SIZE} />
     </Pressable>
   );
 }

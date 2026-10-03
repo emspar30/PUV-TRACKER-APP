@@ -236,6 +236,14 @@ The full direction is plan v2, Revision 2, and Emjay's UX2 specification. This s
 
 ### G0: location foundation
 
+**After the partner merge (2026-10-04, branch `integrate-partner`).** Already in the code, from `b21b0c1`, on the Live tab:
+- `services/location.ts` (named here `locationSource.ts`), `state/locationStore.ts` with its tests, `useLocationTracking`, `BlueDot`, `OriginPin`, `LocationExplainer`.
+- "Locate me" opens the explainer on the first tap, then the system prompt. Following, re-centring, the location-off notice and long-press for a manual origin also work.
+- Display rate `BLUE_DOT_UPDATE_INTERVAL_S` 2 and `BLUE_DOT_UPDATE_DISTANCE_M` 5, for the blue dot only.
+- Phone evidence: the dot followed his Poco X6 Pro while walking (`docs/device-tests.md`, partner section).
+
+G0 still does: the consent screen and stored consent with withdraw, `accuracyGate.ts` (30 m, 25 m), mock and stale rejection, the development fake source, "Use my location" on My Ride (which would also use the manual origin), and the tests and scripts below. The file list below is otherwise unchanged.
+
 **1. Goal.**
 - The user gives informed consent, then may grant foreground location.
 - With it, a blue dot shows their position and "use my location" sets the trip origin.

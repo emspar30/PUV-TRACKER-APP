@@ -39,3 +39,9 @@ export function boundsContain(outer: Bounds, inner: Bounds): boolean {
   const [iw, is, ie, inn] = inner;
   return iw >= ow && is >= os && ie <= oe && inn <= on;
 }
+
+// True when the point lies inside the box, edges included (for example a fix inside the offline map)
+export function boundsContainPoint(bounds: Bounds, point: { lat: number; lon: number }): boolean {
+  const [west, south, east, north] = bounds;
+  return point.lon >= west && point.lon <= east && point.lat >= south && point.lat <= north;
+}

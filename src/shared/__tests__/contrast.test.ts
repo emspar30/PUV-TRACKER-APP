@@ -59,6 +59,7 @@ describe.each(SCHEMES)('%s theme', (scheme) => {
     'occupancyAmber',
     'occupancyRed',
     'stale',
+    'locationDot',
   ];
   it.each(graphics)('map %s meets 3:1 on the land colour', (token) => {
     expect(contrastRatio(paint[token], land)).toBeGreaterThanOrEqual(WCAG_AA_GRAPHICS);

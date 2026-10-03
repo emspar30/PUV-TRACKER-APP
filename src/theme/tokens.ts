@@ -56,6 +56,9 @@ export type MapPaint = {
   occupancyAmber: string;
   occupancyRed: string;
   stale: string;
+  // The rider's own position (blue dot) and its white edge; the accuracy ring is the dot colour, faint
+  locationDot: string;
+  locationDotStroke: string;
 };
 
 // Colours of the label-free base map (src/data/map/offlineStyle.ts)
@@ -170,6 +173,8 @@ export const MAP_PAINTS: Record<ThemeScheme, MapPaint> = {
     occupancyAmber: '#c26401',
     occupancyRed: '#b3261e',
     stale: '#5f6368',
+    locationDot: '#1a73e8',
+    locationDotStroke: '#ffffff',
   },
   dark: {
     casing: '#0B0F17',
@@ -187,6 +192,8 @@ export const MAP_PAINTS: Record<ThemeScheme, MapPaint> = {
     occupancyAmber: '#FFB703',
     occupancyRed: '#FF6B7A',
     stale: '#94A3B8',
+    locationDot: '#4C8DFF',
+    locationDotStroke: '#FFFFFF',
   },
 };
 

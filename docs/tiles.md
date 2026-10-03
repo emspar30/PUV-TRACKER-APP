@@ -4,6 +4,8 @@ How to make the small offline tile set for the Butuan area. You run these steps 
 
 **Status:** these steps produce a PMTiles file. Whether MapLibre React Native 11 reads a local PMTiles file on Android is the first thing S2 tests. If it only reads `.mbtiles` (the format named in PRD 7.2), the same data is converted then; you will not need to download it again.
 
+**Done on 2026-10-03:** the steps were run with `pmtiles` 1.31.2 and the `20261002` build. The result is `assets/map/butuan.pmtiles` (1.8 MB, 173 tiles). On the release page, take the file whose name contains `Windows_x86_64`; the `Darwin` files are for macOS.
+
 **Decisions already made:** no text labels in v0, so no font files are needed.
 
 ## What you get

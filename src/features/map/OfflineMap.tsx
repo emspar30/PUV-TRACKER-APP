@@ -22,7 +22,8 @@ export type MapStatus = 'loading' | 'loaded' | 'failed';
 
 // Where to move the camera. A new `key` repeats the move even if the target is unchanged,
 // for example when "Show whole route" is tapped twice.
-export type MapFocusTarget = { kind: 'bounds'; bounds: Bounds } | { kind: 'center'; center: LatLon };
+// A centre move may also set the zoom, for example when following the blue dot.
+export type MapFocusTarget = { kind: 'bounds'; bounds: Bounds } | { kind: 'center'; center: LatLon; zoom?: number };
 export type MapFocus = MapFocusTarget & { key: number };
 
 type OfflineMapProps = {
@@ -36,6 +37,10 @@ type OfflineMapProps = {
   onViewChange?: (view: ViewStateChangeEvent) => void;
   // Called with the tapped position, for picking a point by hand
   onPress?: (position: LatLon) => void;
+  // Called with the long-pressed position (the manual origin pin when location is off, PRD 4.2)
+  onLongPress?: (position: LatLon) => void;
+  // Called when the user starts moving the map by hand (stops following the blue dot)
+  onUserMove?: () => void;
   // Height of anything covering the bottom of the map, such as a bottom sheet. Fitted areas keep clear of it.
   bottomInset?: number;
   // Where the OpenStreetMap credit sits: a distance from the top, or (by default) the bottom-left corner
@@ -51,6 +56,8 @@ export function OfflineMap({
   onStatusChange,
   onViewChange,
   onPress,
+  onLongPress,
+  onUserMove,
   bottomInset = 0,
   attributionTop,
   children,
@@ -68,7 +75,11 @@ export function OfflineMap({
     if (focus.kind === 'bounds') {
       camera.current?.fitBounds(focus.bounds, { padding: { ...PADDING, bottom: PADDING.bottom + bottomInset }, ...animation });
     } else {
-      camera.current?.easeTo({ center: [focus.center.lon, focus.center.lat], ...animation });
+      camera.current?.easeTo({
+        center: [focus.center.lon, focus.center.lat],
+        ...(focus.zoom !== undefined ? { zoom: focus.zoom } : {}),
+        ...animation,
+      });
     }
     // Only a new focus moves the camera; a change of inset alone does not
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,6 +100,17 @@ export function OfflineMap({
         onDidFinishLoadingMap={() => onStatusChange?.('loaded')}
         onDidFailLoadingMap={() => onStatusChange?.('failed')}
         onRegionDidChange={handleRegionDidChange}
+        onRegionWillChange={(event) => {
+          if (event.nativeEvent.userInteraction) onUserMove?.();
+        }}
+        onLongPress={
+          onLongPress
+            ? (event) => {
+                const [lon, lat] = event.nativeEvent.lngLat;
+                onLongPress({ lat, lon });
+              }
+            : undefined
+        }
         onPress={
           onPress
             ? (event) => {

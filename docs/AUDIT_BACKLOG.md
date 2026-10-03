@@ -2,7 +2,7 @@
 
 Everything Emjay has not verified personally, kept current at every step. Each item says what to check, exactly how, and what to expect. An item leaves this list only when Emjay confirms it; the agent's own runs are recorded in `docs/device-tests.md` and do not close an item.
 
-Last updated: 2026-10-04, after the F1 review (F1 approved by Emjay) and the avatar picker change.
+Last updated: 2026-10-04, after the partner merge on `integrate-partner` (not yet on `main`), waiting for Emjay.
 
 **Note on the UX2 commits.** The first four (`2eda9d0`, `d76f93d`, `3647293`, `9c8eb06`) were grouped by topic from one working tree, so they are not individually verified: an intermediate one may not type-check or pass the tests on its own. This matters only if someone checks out one of them. Every commit from `ebfc0a5` onwards was checked when it was made. **Check-in (49), introduction (50) and About (51) stay open:** user flow v2 rewrites them, so Emjay will test the new versions instead.
 
@@ -92,6 +92,12 @@ Last updated: 2026-10-04, after the F1 review (F1 approved by Emjay) and the ava
 | 55 | F1 | Greeting lines: choose the final set from the 8 drafts | Decision | Decided 2026-10-04: keep all 8 for now |
 | 56 | F1 | Gender, commuter type, avatar and destinations never reach backend code | Command | Open |
 | 57 | F1 | First launch after `pm clear`: the route was framed too high, once | Emulator | Open, cause unknown |
+| 58 | Merge | Read `docs/MERGE_RESULT.md` and the `integrate-partner` diff; approve moving `main` | Reading, command | Open |
+| 59 | Merge | "Locate me", explainer, blue dot, follow, location off, outside the map (MERGE_RESULT section 6, tests 3 to 6) | Emulator after R1a | Open, **not run by the agent** |
+| 60 | Merge | R1a: new launcher icon, light system bars, no crash on start | Emulator and phone after R1a | Open |
+| 61 | Merge | The merged app on the partner's phone, including the bottom sheet and the walk test | Partner's phone after his rebuild | Open |
+| 62 | Merge | Splash screen needs `expo-splash-screen` (a new dependency) | Decision | Open |
+| 63 | Merge | Candidate Route 4 trace: validate before activating (JCA projects onto the junction) | Import script (on hold) | Open |
 
 ## Items
 
@@ -453,3 +459,11 @@ Last updated: 2026-10-04, after the F1 review (F1 approved by Emjay) and the ava
 - **What:** once, on the first launch right after `pm clear` (while the map tiles were being installed), Live opened with the route at the top edge of the screen. Every later launch framed it correctly, and "Show whole route" fixes it.
 - **How:** `pm clear`, open the app, finish or skip the intro, look at Live.
 - **Expected:** the whole route in view above the sheet. If it repeats, the likely cause is the first camera fit running before the sheet has its size; F1 did not change that code.
+
+### 58 to 63. Partner merge
+
+- **58:** `git diff main integrate-partner --stat`, then `docs/MERGE_RESULT.md`. On approval: `git switch main` and `git merge --ff-only integrate-partner`.
+- **59 to 61:** the tests in `docs/MERGE_RESULT.md` section 6, after the R1a rebuild (section 5). Until then the emulator's current build may run the merged JavaScript (it does not import `expo-system-ui`), but this was **not checked**: Metro was stopped.
+- **60:** the icon images were drawn by the agent from the in-app logo; judge whether they are good enough as a placeholder (item 35).
+- **62:** answer question 1 in `docs/MERGE_RESULT.md`.
+- **63:** `src/data/seed/r4.traced.candidate.ts` is not active. Its source is unknown until the partner confirms it.

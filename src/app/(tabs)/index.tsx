@@ -1,5 +1,5 @@
 import type { ViewStateChangeEvent } from '@maplibre/maplibre-react-native';
-import { CircleDot, Maximize, Navigation, X } from 'lucide-react-native';
+import { CircleDot, LocateFixed, Maximize, Navigation, X } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,12 +15,17 @@ import {
   type SheetRequest,
 } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
+import { GreetingCard } from '@/features/greeting/GreetingCard';
+import { BlueDot } from '@/features/map/BlueDot';
+import { LocationExplainer } from '@/features/map/LocationExplainer';
 import { MapDevOverlay } from '@/features/map/MapDevOverlay';
 import { OfflineMap, type MapFocus, type MapStatus } from '@/features/map/OfflineMap';
+import { OriginPin } from '@/features/map/OriginPin';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
+import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
-import { GreetingCard } from '@/features/greeting/GreetingCard';
+import { MAP_FOLLOW_ZOOM } from '@/shared/config';
 import { boundsOfLines } from '@/shared/geo/bounds';
 import { lineLengthKm, projectOntoLine } from '@/shared/geo/line';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
@@ -67,6 +72,10 @@ export default function LiveScreen() {
   // Tunton's greeting shows on every app open until hidden
   const [greetingVisible, setGreetingVisible] = useState(true);
   const fittedOnce = useRef(false);
+
+  const location = useLiveLocation((center) =>
+    setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center, zoom: MAP_FOLLOW_ZOOM })),
+  );
 
   const initialBounds = useMemo(() => boundsOfLines(lines.map((line) => line.coordinates)), [lines]);
   const summaries = useMemo(() => lines.map((line) => summarise(line, stops)), [lines, stops]);
@@ -162,9 +171,13 @@ export default function LiveScreen() {
         attributionTop={insets.top + spacing.sm}
         onStatusChange={handleStatusChange}
         onViewChange={handleViewChange}
+        onLongPress={location.setManualOrigin}
+        onUserMove={location.stopFollowing}
       >
         <RouteLines lines={lines} visible={ALL_DIRECTIONS} />
         <StopDots stops={stops} selectedCode={selectedCode} onPressStop={selectStop} />
+        {!location.locationAllowed ? <OriginPin /> : null}
+        <BlueDot />
       </OfflineMap>
       <MapDevOverlay install={state.tiles.install} mapStatus={mapStatus} view={view} offsetTop={CREDIT_HEIGHT + spacing.sm} />
       <View style={[styles.topRight, { top: insets.top + spacing.sm }]}>
@@ -179,10 +192,37 @@ export default function LiveScreen() {
         header={header}
         floating={
           <View style={styles.floating}>
-            {greetingVisible ? <GreetingCard onHide={() => setGreetingVisible(false)} /> : null}
+            {location.showExplainer ? (
+              <LocationExplainer onContinue={location.continueExplainer} onNotNow={location.dismissExplainer} />
+            ) : greetingVisible ? (
+              <GreetingCard onHide={() => setGreetingVisible(false)} />
+            ) : null}
+            {location.reducedMode ? (
+              <View style={styles.notice}>
+                <Text style={[typography.bodySm, styles.grow]}>{strings.location.off}</Text>
+                <Pressable style={styles.noticeButton} onPress={location.locateMe} accessibilityRole="button">
+                  <Text style={[typography.labelLg, styles.noticeAction]}>
+                    {location.canAskAgain ? strings.location.turnOn : strings.location.openSettings}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {location.fix && !location.fixOnMap ? (
+              <View style={styles.notice}>
+                <Text style={[typography.bodySm, styles.grow]}>{strings.location.outsideMap}</Text>
+              </View>
+            ) : null}
             <View style={styles.floatingRow}>
               <StatusPill label={strings.live.status.noData} tone="neutral" />
-              <RoundButton icon={Maximize} label={strings.map.showWholeRoute} onPress={showWholeRoute} />
+              <View style={styles.buttons}>
+                <RoundButton
+                  icon={LocateFixed}
+                  label={location.following ? strings.location.following : strings.location.locateMe}
+                  onPress={location.locateMe}
+                  active={location.following && location.locationAllowed}
+                />
+                <RoundButton icon={Maximize} label={strings.map.showWholeRoute} onPress={showWholeRoute} />
+              </View>
             </View>
           </View>
         }
@@ -301,6 +341,28 @@ const useStyles = makeStyles(({ colors, mapRoute }) => ({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
+  },
+  buttons: {
+    gap: spacing.sm,
+  },
+  notice: {
+    minHeight: MIN_TOUCH_TARGET,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingLeft: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.sheet,
+  },
+  noticeButton: {
+    minHeight: MIN_TOUCH_TARGET,
+    minWidth: MIN_TOUCH_TARGET,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noticeAction: {
+    color: colors.primary,
   },
   topRight: {
     position: 'absolute',

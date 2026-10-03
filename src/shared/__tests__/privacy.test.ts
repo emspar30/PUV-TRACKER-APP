@@ -66,6 +66,22 @@ describe('no cloud payload contains classification', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('location (merge of b21b0c1): one file reads the GPS, the fix is never saved, and no backend code reads it', () => {
+    const sources = sourceFiles(path.join(ROOT, 'src')).filter((file) => !file.includes(`${path.sep}__tests__${path.sep}`));
+    const rel = (file: string) => path.relative(ROOT, file).split(path.sep).join('/');
+    const readsGps = sources.filter((file) => /from 'expo-location'/.test(fs.readFileSync(file, 'utf8'))).map(rel);
+    expect(readsGps).toEqual(['src/services/location.ts']);
+
+    const store = fs.readFileSync(path.join(ROOT, 'src', 'state', 'locationStore.ts'), 'utf8');
+    expect(store).not.toMatch(/persist|kv-store|AsyncStorage|services|supabase|fetch/);
+
+    const backend = sources
+      .filter((file) => /from '[^']*(services\/(supabase|auth|telemetry)|@supabase)/.test(fs.readFileSync(file, 'utf8')))
+      .filter((file) => /locationStore|services\/location'/.test(fs.readFileSync(file, 'utf8')))
+      .map(rel);
+    expect(backend).toEqual([]);
+  });
+
   it('the session store, which does talk to the backend, does not read the profile store', () => {
     const session = fs.readFileSync(path.join(ROOT, 'src', 'state', 'sessionStore.ts'), 'utf8');
     const imports = [...session.matchAll(/from '([^']+)'/g)].map((match) => match[1]);

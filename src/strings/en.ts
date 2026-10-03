@@ -67,6 +67,21 @@ export const en = {
     closeStop: 'Close stop details',
   },
 
+  // Location on the Live tab (from the partner's GPS work, b21b0c1). Foreground only.
+  location: {
+    locateMe: 'Locate me',
+    following: 'Following your location',
+    explainerTitle: 'Show your location on the map?',
+    explainerBody:
+      'Tunton uses your location to show where you are on the map and to plan trips from your position. It is read only while the app is open.',
+    continue: 'Continue',
+    notNow: 'Not now',
+    off: 'Location is off. Long-press the map to set your starting point.',
+    turnOn: 'Turn on',
+    openSettings: 'Open settings',
+    outsideMap: 'You are outside the offline map area.',
+  },
+
   // My Ride: route discovery and the fare. Short labels; distances live behind "Details".
   ride: {
     from: 'From',
