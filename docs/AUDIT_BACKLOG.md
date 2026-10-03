@@ -2,9 +2,22 @@
 
 Everything Emjay has not verified personally, kept current at every step. Each item says what to check, exactly how, and what to expect. An item leaves this list only when Emjay confirms it; the agent's own runs are recorded in `docs/device-tests.md` and do not close an item.
 
-Last updated: 2026-10-03, after Audit 2 and its decisions (before UX2).
+Last updated: 2026-10-03, at the end of UX2 (commits 2eda9d0 to the UX2 part 5 commit).
 
-**Coming change:** UX2 replaces the Map, Plan and Profile tabs with Live, Check-in and My Ride (the fare is part of My Ride; there is no Fare tab), and Profile with a Settings sheet (plan v2, Revision 2). Items 3, 4, 8, 10, 20, 22 to 30 and 32 describe UX1 screens. They are rewritten for the new screens in each UX2 part; until then, check them against the UX1 build only if you want to.
+**UX2 is done.** The tabs are Live, Check-in and My Ride; Profile is the Settings sheet behind the avatar button. Older items that described UX1 screens now map to UX2 like this:
+
+| Old item | What it checked | Where to check it now |
+| --- | --- | --- |
+| 3, 10 | Senior and PWD discounts; classification survives a restart | My Ride result card: the quick fare-type chip, or Settings, Fare type (item 48) |
+| 4, 25 | "No trip found" with the distance and the fix buttons | My Ride: the short failure card with the distance and "Move pin to the route" (one button now; the nearest-stop button was dropped for the text budget) |
+| 8, 22, 23, 24 | Plan tab end to end: naming, camera fit, guides, ride colour | My Ride: "Near TSO" naming, both pins framed, dotted guides, amber ride |
+| 26 | Fare breakdown | My Ride, "Details" (item 48) |
+| 27 | Map tab: stop card, whole-route button, legend, "Offline ready" | Live tab: stop card in the sheet, the round button above the sheet, the legend in the half sheet. The "Offline ready" badge was dropped for the text budget. |
+| 28 | Three-step introduction | One-screen introduction (item 50) |
+| 29 | Avatars | Settings and the introduction (item 50) |
+| 30 | About screen | Shorter About (item 51) |
+| 20 | Profile without backend keys | Settings, Team account card |
+| 32 | Larger font | Repeat on the three tabs and the sheets at font scale 1.3 |
 
 **Before any emulator check**
 
@@ -65,7 +78,10 @@ Last updated: 2026-10-03, after Audit 2 and its decisions (before UX2).
 | 45 | UX2 | Chevron and TalkBack expand and collapse actions | Emulator, TalkBack | Open |
 | 46 | UX2 | Light and Dark from Settings, including the map and route line | Emulator | Open |
 | 47 | UX2 | Three tabs and the Settings sheet; the interim Check-in and My Ride tabs | Emulator | Open |
-| 48 | UX2 | My Ride: fare as the big number, quick fare-type chip agrees with Settings | Emulator, command | Open, after part 3 |
+| 48 | UX2 | My Ride: fare as the big number, quick fare-type chip agrees with Settings | Emulator, command | Open (agent: seen on the emulator) |
+| 49 | UX2 | Check-in tab: 15-minute countdown, I boarded, Cancel, survives a restart | Emulator | Open, **not yet seen on the emulator** |
+| 50 | UX2 | One-screen introduction: fare type, avatar, Start, Skip, Replay from Settings | Emulator | Open, **not yet seen on the emulator** |
+| 51 | UX2 | Short About screen | Emulator | Open, **not yet seen on the emulator** |
 
 ## Items
 
@@ -365,6 +381,23 @@ Last updated: 2026-10-03, after Audit 2 and its decisions (before UX2).
 
 - **How:** on My Ride, set a From and a To so a trip is found. Read the fare, then tap the fare-type chip on the result card and choose Student. Open Settings from the avatar: Fare type should read Student. Choose Regular there and return: the chip should read Regular and the fare go back up.
 - **Expected:** the fare is the big number with a peso icon, a distance chip and "Estimate". "Details" shows base fare, extra km, discount, rounding and total. The chip and Settings always show the same choice. Then run `npm test`: the fare tests (6.3 km: ₱21.00 regular; ₱16.80 then ₱16.75 student), the shared-setting test and the three-tab test pass.
+
+### 49. Check-in tab (local)
+
+- **How:** Check-in tab. Tap a station chip (or a stop dot), then "Check in". Force-stop the app, wait a minute, reopen. Then tap "I boarded". Check in again and tap "Cancel".
+- **Expected:** the sheet shows the route badge, the station code and a mm:ss countdown from 15:00, with pills "Not location-verified" and "On this phone only". After the restart the countdown has moved on by the time away. Either button ends the check-in. While a check-in runs, the route and station chips are locked (one active check-in). Nothing is sent anywhere and no permission is asked.
+- **Long time away:** not tested by hand. The unit test covers a check-in reopened three hours later: it is expired and shows nothing.
+- **Waiting here:** shows "No data" and "Counts need team sign-in" until G1.
+
+### 50. One-screen introduction
+
+- **How:** `adb shell pm clear com.tunton.app` (this also erases the saved fare type, avatar, theme and tile file), open the app; or Settings, "Replay intro".
+- **Expected:** one screen with the logo, "Welcome to Tunton", the fare-type chips, the 12 avatars, "Saved on your phone only", a Start button and Skip. Start or Skip opens the Live tab on first launch and returns to Settings on a replay. No permission prompt.
+
+### 51. About
+
+- **How:** Settings, About.
+- **Expected:** the logo, "Tunton APP" and the version, "© OpenStreetMap contributors", "Sample route data, not official" (while the data is placeholder), "Fare type, avatar and theme stay on your phone", and Back.
 
 ## What runs where (S4)
 
