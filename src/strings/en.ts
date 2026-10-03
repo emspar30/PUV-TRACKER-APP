@@ -47,7 +47,6 @@ export const en = {
     done: 'Done',
     attribution: '© OpenStreetMap contributors',
     sampleData: 'Sample data',
-    comingSoon: 'Coming soon',
   },
 
   // The draggable panel over the map
@@ -112,6 +111,24 @@ export const en = {
     mapComingSoon: 'Map coming soon',
     showRoute: (code: string) => `Show route ${code} on the map`,
     routeEnds: (from: string, to: string) => `${from} ↔ ${to}`,
+  },
+
+  // Check-in: a local countdown in UX2; the cloud check-in, geofence and reminder arrive in G1
+  checkin: {
+    pickStation: 'Pick a station',
+    checkIn: 'Check in',
+    checkInAt: (code: string) => `Check in at ${code}`,
+    boarded: 'I boarded',
+    cancel: 'Cancel',
+    countdown: (time: string) => `${time} left`,
+    countdownLabel: (code: string, time: string) => `Checked in at ${code}, ${time} left`,
+    notVerified: 'Not location-verified',
+    phoneOnly: 'On this phone only',
+    route: 'Route',
+    stations: 'Stations',
+    waiting: 'Waiting here',
+    waitingLater: 'Counts need team sign-in',
+    pickStationFirst: 'Pick a station first',
   },
 
   settings: {

@@ -86,6 +86,9 @@ export const MIN_DISPLACEMENT_M = 50;
 export const GPS_ACCURACY_GATE_RELAY_M = 30;
 export const GPS_ACCURACY_GATE_CHECKIN_M = 25;
 export const CHECKIN_RADIUS_M = 60;
+// A check-in lasts this long (PRD 7.5). The 5-minute reminder arrives with notifications in G1.
+export const CHECKIN_LIFETIME_S = 900;
+export const CHECKIN_REMINDER_S = 300;
 
 // --- Night Mode window (PRD 10.4). Setting only in v0.
 export const NIGHT_MODE_START = '21:00';
