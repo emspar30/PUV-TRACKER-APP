@@ -5,6 +5,7 @@
 import type { Classification } from '@/shared/config';
 import type { PlanFailure } from '@/shared/routing/plan';
 import type { RouteDirection } from '@/shared/routing/types';
+import type { SnapName } from '@/shared/ui/sheetSnap';
 
 const km = (value: number) => `${value.toFixed(1)} km`;
 const peso = (value: number) => `₱${value.toFixed(2)}`;
@@ -27,9 +28,12 @@ export const en = {
   },
 
   tabs: {
+    live: 'Live',
+    checkin: 'Check-in',
+    ride: 'My Ride',
+    // Names of the screens that UX2 replaces
     map: 'Map',
     plan: 'Plan',
-    profile: 'Profile',
   },
 
   common: {
@@ -42,6 +46,48 @@ export const en = {
     skip: 'Skip',
     done: 'Done',
     attribution: '© OpenStreetMap contributors',
+    sampleData: 'Sample data',
+    comingSoon: 'Coming soon',
+  },
+
+  // The draggable panel over the map
+  sheet: {
+    label: 'Panel',
+    position: { peek: 'Collapsed', half: 'Half open', expanded: 'Open' } satisfies Record<SnapName, string>,
+    next: 'Change panel size',
+    expand: 'Expand',
+    collapse: 'Collapse',
+  },
+
+  live: {
+    status: {
+      live: 'Live',
+      stale: (age: string) => `Stale · ${age}`,
+      noData: 'No data',
+    },
+    noData: 'No data from riders right now',
+    route: (code: string) => `Route ${code}`,
+    ends: (from: string, to: string) => `${from} → ${to}`,
+    length: (distanceKm: number) => km(distanceKm),
+    legendStop: 'Stop',
+    legendDirection: 'Direction of travel',
+    stopsTitle: 'Stops',
+    stopAlong: (distanceKm: number) => `${km(distanceKm)} along`,
+    closeStop: 'Close stop details',
+  },
+
+  settings: {
+    title: 'Settings',
+    open: 'Open settings',
+    fareType: 'Fare type',
+    theme: 'Theme',
+    light: 'Light',
+    dark: 'Dark',
+    avatar: 'Avatar',
+    about: 'About',
+    replayIntro: 'Replay intro',
+    account: 'Team account',
+    close: 'Close settings',
   },
 
   direction: {
@@ -141,6 +187,7 @@ export const en = {
       senior: 'Senior Citizen',
       pwd: 'Person with Disability',
     } satisfies Record<Classification, string>,
+    short: { regular: 'Regular', student: 'Student', senior: 'Senior', pwd: 'PWD' } satisfies Record<Classification, string>,
     discounted: 'Discounted fare estimate',
     regular: 'Regular fare estimate',
   },

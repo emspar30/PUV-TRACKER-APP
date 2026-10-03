@@ -50,15 +50,18 @@ describe('no cloud payload contains classification', () => {
     expect(imports.filter((source) => /profileStore/.test(source))).toEqual([]);
   });
 
-  it('no file outside the profile screens imports the avatar', () => {
+  it('only the avatar button, the settings and the intro import the avatar', () => {
     const offenders = sourceFiles(path.join(ROOT, 'src'))
       .filter((file) => !file.includes(`${path.sep}__tests__${path.sep}`))
       .filter((file) => /from '[^']*features\/profile\/Avatar(Picker)?'|from '\.\/Avatar(Picker)?'/.test(fs.readFileSync(file, 'utf8')))
       .map((file) => path.relative(ROOT, file).split(path.sep).join('/'))
       .sort();
+    // The avatar button (top right of each tab, a native view outside the map), the Settings sheet
+    // and the introduction. None of them is drawn on the map or talks to a server.
     expect(offenders).toEqual([
-      'src/app/(tabs)/profile.tsx',
       'src/app/onboarding.tsx',
+      'src/app/settings.tsx',
+      'src/components/AvatarButton.tsx',
       'src/features/profile/AvatarPicker.tsx',
     ]);
   });

@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useRouteData } from '@/data/RouteDataProvider';
@@ -20,7 +20,7 @@ import { fareForItinerary, planTrip } from '@/shared/routing/plan';
 import type { RouteDirection, RouteStop } from '@/shared/routing/types';
 import { useProfileStore } from '@/state/profileStore';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, mapRoute, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, spacing, useTheme } from '@/theme';
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
 const ICON_SIZE = spacing.md + spacing.xs;
@@ -28,6 +28,8 @@ const ICON_SIZE = spacing.md + spacing.xs;
 const ON_ROUTE_M = 10;
 
 export default function PlanScreen() {
+  const styles = useStyles();
+  const { colors, typography, mapRoute } = useTheme();
   const routeData = useRouteData();
   const { lines, stops } = routeData;
   const { state: tiles } = useOfflineTiles();
@@ -101,7 +103,7 @@ export default function PlanScreen() {
     const only = origin ?? destination;
     if (only) return { key: clearCount, kind: 'center', center: { lat: only.lat, lon: only.lon } };
     return clearCount > 0 ? { key: clearCount, kind: 'bounds', bounds: initialBounds } : null;
-  }, [origin, destination, clearCount, initialBounds]);
+  }, [origin, destination, clearCount, initialBounds, mapRoute.minFocusSpanDeg]);
 
   // Runs on the device from local data: no network is involved
   const plan = useMemo(
@@ -188,7 +190,7 @@ export default function PlanScreen() {
               ? strings.plan.expand
               : strings.plan.collapse}
         </Text>
-        <CollapseIcon color={colors.textMuted} size={ICON_SIZE} />
+        <CollapseIcon color={colors.textSecondary} size={ICON_SIZE} />
       </Pressable>
 
       {collapsed ? null : (
@@ -225,7 +227,7 @@ export default function PlanScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.canvas,
@@ -260,6 +262,6 @@ const styles = StyleSheet.create({
   },
   amber: {
     ...typography.caption,
-    color: colors.amber,
+    color: colors.warning,
   },
-});
+}));

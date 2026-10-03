@@ -1,10 +1,13 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { RouteDataProvider } from '@/data/RouteDataProvider';
 import { startSessionTracking } from '@/state/sessionStore';
-import { colors } from '@/theme';
+import { ThemeProvider, useTheme } from '@/theme';
+
+const FILL = { flex: 1 } as const;
 
 export default function RootLayout() {
   // Follows backend sign-in. Does nothing when the backend keys are absent.
@@ -13,9 +16,30 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <RouteDataProvider>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }} />
-    </RouteDataProvider>
+    // Needed for the draggable bottom sheet and any other gesture
+    <GestureHandlerRootView style={FILL}>
+      <ThemeProvider>
+        <RouteDataProvider>
+          <ThemedStack />
+        </RouteDataProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+function ThemedStack() {
+  const { scheme, colors } = useTheme();
+  return (
+    <>
+      {/* Dark icons on the light theme, light icons on the dark one */}
+      <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
+        {/* Settings slide up over the current tab, which stays visible behind a dimmed backdrop */}
+        <Stack.Screen
+          name="settings"
+          options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }}
+        />
+      </Stack>
+    </>
   );
 }
