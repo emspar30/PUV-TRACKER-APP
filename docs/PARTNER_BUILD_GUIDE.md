@@ -64,7 +64,7 @@ It must show `2.32.x`. If it shows `3.x`, your copy of the project is too old; r
 npx expo prebuild --platform android
 ```
 
-Expect "Finished prebuild". One yellow note about `userInterfaceStyle` and `expo-system-ui` is expected.
+Expect "Finished prebuild". (Since R1a, `expo-system-ui` is installed, so the old yellow note about `userInterfaceStyle` should no longer appear.)
 
 ## 5. Build
 

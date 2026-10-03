@@ -242,7 +242,7 @@ The full direction is plan v2, Revision 2, and Emjay's UX2 specification. This s
 - Display rate `BLUE_DOT_UPDATE_INTERVAL_S` 2 and `BLUE_DOT_UPDATE_DISTANCE_M` 5, for the blue dot only.
 - Phone evidence: the dot followed his Poco X6 Pro while walking (`docs/device-tests.md`, partner section).
 
-G0 still does: the consent screen and stored consent with withdraw, `accuracyGate.ts` (30 m, 25 m), mock and stale rejection, the development fake source, "Use my location" on My Ride (which would also use the manual origin), and the tests and scripts below. The file list below is otherwise unchanged.
+G0 still does: the consent screen and stored consent with withdraw, `accuracyGate.ts` (30 m, 25 m), mock and stale rejection, the development fake source, "Use my location" on My Ride (decided 2026-10-04: it uses the GPS fix when one is available and the manual start pin otherwise; `selectOrigin` in the location store already does this), and the tests and scripts below. The file list below is otherwise unchanged.
 
 **1. Goal.**
 - The user gives informed consent, then may grant foreground location.

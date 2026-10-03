@@ -2,7 +2,8 @@
 
 - **Date:** 2026-10-04.
 - **Branch:** `integrate-partner`, made from `main` at `b80aede`, with `origin/main` (`b21b0c1`) merged in.
-- **Status:** `main` is unchanged. Nothing is pushed and nothing is built. It waits for Emjay's approval, then `git merge --ff-only integrate-partner` on `main`.
+- **Status:** approved by Emjay after an emulator test (2026-10-04). `main` was fast-forwarded to `29cc0b0` with no extra commit. Nothing is pushed and nothing is built.
+- **After the merge, on `main`:** `45f9798 R1a: expo-splash-screen`, `cdc0bbb chore: eas config for partner builds`, then this docs update.
 - **Analysis:** `docs/MERGE_ANALYSIS.md`. The rules applied are the ones Emjay approved.
 
 ## 1. What came from whom
@@ -29,12 +30,12 @@
 | --- | --- | --- |
 | 1 | Only `b21b0c1` merged | Emjay's answer 1 |
 | 2 | Trace kept as a candidate only | Answer 2; the import script (on hold) validates it. His `geo.test` change notes that JCA projects onto the R. Calo junction on the trace, which the validation must look at. |
-| 3 | No `eas.json` and no project ID | Answer 3; both stay in `b21b0c1` in the history |
+| 3 | No `eas.json` and no project ID in the merge | Answer 3. **Reversed after review:** both restored in `cdc0bbb` (no token or credential in either). The project belongs to the partner's Expo account, per Emjay; the files do not name an owner. |
 | 4 | Tile file stays tracked; his ignore rule is not taken | Answer 4 |
 | 5 | His two document deletions not applied | Answer 5 |
 | 6 | Explainer only on the first "Locate me" tap | Answer 6; it was shown at every start in his code |
 | 7 | 2 s / 5 m for the blue dot only | Answer 7 |
-| 8 | R1a prepared, not built | Answer 8. **The splash screen is not configured:** in SDK 57 that needs the `expo-splash-screen` package and plugin, a new dependency (question 1). |
+| 8 | R1a prepared, not built | Answer 8. `expo-splash-screen ~57.0.9` added after review (`45f9798`), approved by Emjay. |
 | 9 | `expo-system-ui` imported nowhere | The current development build has no native module for it, so an import would crash. A test does not check this (none was asked for); `grep -r expo-system-ui src` is empty. |
 | 10 | No G0 consent, gates, mock rejection or fake source | Out of scope (G0) |
 
@@ -63,18 +64,20 @@
 
 ## 5. R1a build steps
 
-**Emjay (emulator, local build), after approving and moving `main`:**
-1. Keep Metro stopped. On `main` (after `git merge --ff-only integrate-partner`), `node_modules` already has `expo-system-ui`; no install is needed in this folder.
-2. Regenerate the native project from `app.json`: `npx expo prebuild --platform android --clean`. This deletes and recreates `android/`, which is generated (CNG).
-3. Build and install: `npx expo run:android` (Pixel_7 emulator running).
+R1a contains `expo-system-ui`, `expo-splash-screen` (white background, `assets/splash-icon.png`, 200 dp wide), the new icons and the light `app.json`. Nothing else from R1 (R1b comes later).
+
+**Emjay (emulator, local build), on `main` (`29cc0b0` onwards):**
+1. Keep Metro stopped. `node_modules` in this folder already has `expo-system-ui` and `expo-splash-screen`; no install is needed.
+2. Regenerate the native project: `npx expo prebuild --platform android --clean`. This deletes and recreates `android/`, which is generated (CNG).
+3. Build and install with the emulator running: `npx expo run:android`.
 4. Start Metro as usual: `npx expo start --dev-client`.
 
 **Partner (phone, EAS cloud build), after Emjay pushes `main`:**
-1. `git fetch`, then `git switch main` and `git pull --ff-only`. His `b21b0c1` is in the merged history, so this fast-forwards.
-2. `npm ci`. The lock file changed, and our new native modules (`react-native-gesture-handler`, `expo-file-system`) and the patch (`postinstall`) are needed.
-3. EAS setup is no longer in the repo. Keep a **local, uncommitted** `eas.json` (for example `git show b21b0c1:eas.json > eas.json`). `eas build` adds the project ID to `app.json` again: **do not commit that change** (question 2).
+1. `git fetch`, then `git switch main` and `git pull --ff-only`. His `b21b0c1` is in the history, so this fast-forwards.
+2. `npm ci`. The lock file changed, and the build needs our native modules (`react-native-gesture-handler`, `expo-file-system`, `expo-system-ui`, `expo-splash-screen`) and the `postinstall` patch.
+3. `eas.json` and the project ID are in the repo again (commit `cdc0bbb`); no local setup is needed. Log in with his own Expo account.
 4. `npx eas-cli@latest build --profile development --platform android`, then install the APK over the old one.
-5. `npx expo start --dev-client` on the PC; open the app on the phone.
+5. `npx expo start --dev-client` on the PC, then open the app on the phone.
 
 ## 6. What to test after the rebuild
 
@@ -89,8 +92,8 @@
 | 7 | Phone | Tests 1 to 5 outdoors in Butuan, then a 100 m walk | Dot follows about every 5 s while walking, as in his earlier test |
 | 8 | Phone | The bottom sheet (drag, flick) and My Ride fare | They work on a real phone for the first time |
 
-## 7. Questions
+## 7. Answers (2026-10-04)
 
-1. **Splash screen:** add `expo-splash-screen` (`npx expo install expo-splash-screen` and its plugin, with `assets/splash-icon.png` on `#ffffff`) to R1a? It is a new dependency, so I did not add it.
-2. **EAS project ID:** with it out of `app.json`, each `eas build` writes it back. Accept a local-only change on his side, or keep it in the repo after all (it is an identifier, not a secret)?
-3. Should "Use my location" on My Ride read the manual origin pin in G0?
+1. **Splash screen:** added to R1a (`45f9798`); `npx expo install --check` and `npx expo-doctor` pass.
+2. **EAS project ID:** restored with `eas.json` (`cdc0bbb`); `docs/PARTNER_BUILD_GUIDE.md` notes that the EAS project is the partner's and that local builds do not need it.
+3. **"Use my location" on My Ride:** part of G0. It uses the GPS fix when there is one and the manual start pin otherwise (see the G0 note in `docs/IMPLEMENTATION_PLAN_GPS.md`).

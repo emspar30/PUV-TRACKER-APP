@@ -2,7 +2,7 @@
 
 Everything Emjay has not verified personally, kept current at every step. Each item says what to check, exactly how, and what to expect. An item leaves this list only when Emjay confirms it; the agent's own runs are recorded in `docs/device-tests.md` and do not close an item.
 
-Last updated: 2026-10-04, after the partner merge on `integrate-partner` (not yet on `main`), waiting for Emjay.
+Last updated: 2026-10-04, after the partner merge (approved, `main` fast-forwarded) and the R1a preparation, waiting for Emjay.
 
 **Note on the UX2 commits.** The first four (`2eda9d0`, `d76f93d`, `3647293`, `9c8eb06`) were grouped by topic from one working tree, so they are not individually verified: an intermediate one may not type-check or pass the tests on its own. This matters only if someone checks out one of them. Every commit from `ebfc0a5` onwards was checked when it was made. **Check-in (49), introduction (50) and About (51) stay open:** user flow v2 rewrites them, so Emjay will test the new versions instead.
 
@@ -92,11 +92,11 @@ Last updated: 2026-10-04, after the partner merge on `integrate-partner` (not ye
 | 55 | F1 | Greeting lines: choose the final set from the 8 drafts | Decision | Decided 2026-10-04: keep all 8 for now |
 | 56 | F1 | Gender, commuter type, avatar and destinations never reach backend code | Command | Open |
 | 57 | F1 | First launch after `pm clear`: the route was framed too high, once | Emulator | Open, cause unknown |
-| 58 | Merge | Read `docs/MERGE_RESULT.md` and the `integrate-partner` diff; approve moving `main` | Reading, command | Open |
-| 59 | Merge | "Locate me", explainer, blue dot, follow, location off, outside the map (MERGE_RESULT section 6, tests 3 to 6) | Emulator after R1a | Open, **not run by the agent** |
+| 58 | Merge | Read `docs/MERGE_RESULT.md` and the `integrate-partner` diff; approve moving `main` | Reading, command | Confirmed by Emjay on 2026-10-04 (emulator test); `main` fast-forwarded |
+| 59 | Merge | "Locate me", explainer, blue dot, follow, location off, outside the map (MERGE_RESULT section 6, tests 3 to 6) | Emulator after R1a | Seen by Emjay on the old build on 2026-10-04; repeat after R1a |
 | 60 | Merge | R1a: new launcher icon, light system bars, no crash on start | Emulator and phone after R1a | Open |
 | 61 | Merge | The merged app on the partner's phone, including the bottom sheet and the walk test | Partner's phone after his rebuild | Open |
-| 62 | Merge | Splash screen needs `expo-splash-screen` (a new dependency) | Decision | Open |
+| 62 | Merge | Splash screen: `expo-splash-screen` added (approved) | Emulator and phone after R1a | Open: check the white splash with the logo on a cold start |
 | 63 | Merge | Candidate Route 4 trace: validate before activating (JCA projects onto the junction) | Import script (on hold) | Open |
 
 ## Items
