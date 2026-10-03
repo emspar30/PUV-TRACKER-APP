@@ -36,7 +36,7 @@ Evidence is a file path, a commit hash, or a section of the PRD or a plan.
 7. **Done without approval since Audit 2:** nothing new found. The two older items (`app_config` dropped, S4 Part 1 committed early) still stand.
 8. **Records missing:**
    - your emulator test of the merge is not in `device-tests.md`;
-   - the dev-client crash you reported is not in the backlog.
+   - the dev-client crash text ("App react context shouldn't be created before") was not in the backlog (now item 64). The `SIGSEGV` crash (item 41) was observed by the agent on the emulator; cause unknown. Corrected after Audit 3.
 9. **No `team_accounts` rename exists** (question 1 in §17).
 
 ## 1. Repository state
@@ -320,7 +320,7 @@ Section 19 overrides earlier sections where they differ (PRD 19.3), and the over
 
 **Records missing**
 - Emjay's emulator test of `integrate-partner` (2026-10-04) is not in `docs/device-tests.md`.
-- The dev-client crash Emjay reported ("App react context shouldn't be created before", on the old build) is not in the backlog. My two questions about it are unanswered.
+- The dev-client crash ("App react context shouldn't be created before", on the old build) was not in the backlog; it is now item 64. Who observed it is not recorded. The `SIGSEGV` crash (item 41) was observed by the agent on the emulator; cause unknown (corrected after Audit 3).
 - `device-tests.md` "Pending on a physical phone" still says S0 is pending, but the partner's row says S0-M1 passed on his phone, for his code.
 
 ## 11. Quality gates (run on 2026-10-04 at `c148972`)
@@ -473,7 +473,7 @@ They stay as history. `FLOW_GAP_ANALYSIS.md`, `MERGE_ANALYSIS.md` and `MERGE_RES
 | 6 | Night Mode not on the server | High once markers exist | `app_config` and the suppression view before S5 is used after 21:00 |
 | 7 | No UI tests | Medium: regressions only seen by hand | Keep logic pure; ask about a testing library |
 | 8 | Battery of the 2 s High-accuracy blue dot | Medium: users may turn location off | Measure on the partner's phone in the stabilise phase; tune the constants |
-| 9 | Unanswered crash report | Medium | Reproduce after R1a; record in the backlog |
+| 9 | Two unexplained crashes (backlog 41, observed by the agent; 64) | Medium | Reproduce in ST1; full log and conditions each time; count them; no library patch on one crash |
 | 10 | Text over budget and misleading notice on Live | Low | G0 |
 | 11 | `npm audit` 39 entries | Low (tooling, one shipped DoS path) | Deferred, as decided |
 

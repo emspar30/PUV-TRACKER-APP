@@ -2,7 +2,9 @@
 
 Everything Emjay has not verified personally, kept current at every step. Each item says what to check, exactly how, and what to expect. An item leaves this list only when Emjay confirms it; the agent's own runs are recorded in `docs/device-tests.md` and do not close an item.
 
-Last updated: 2026-10-04, after the partner merge (approved, `main` fast-forwarded) and the R1a preparation, waiting for Emjay.
+Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge tests and the R1a build, then G0 on "start G0".
+
+> **Do not use the app outdoors or share it before G0 adds the consent screen.** Since the merge, "Locate me" asks for location permission without the consent screen that PRD 7.1 and 15.1 require (Audit 3 §3).
 
 **Note on the UX2 commits.** The first four (`2eda9d0`, `d76f93d`, `3647293`, `9c8eb06`) were grouped by topic from one working tree, so they are not individually verified: an intermediate one may not type-check or pass the tests on its own. This matters only if someone checks out one of them. Every commit from `ebfc0a5` onwards was checked when it was made. **Check-in (49), introduction (50) and About (51) stay open:** user flow v2 rewrites them, so Emjay will test the new versions instead.
 
@@ -75,7 +77,7 @@ Last updated: 2026-10-04, after the partner merge (approved, `main` fast-forward
 | 38 | Audit 2 | DESIGN.md: the choices between its front matter and its prose | Reading | Open |
 | 39 | Audit 2 | Decisions recorded as you gave them | Reading | Open |
 | 40 | Audit 2 | `braces` advisory recorded as deferred | Command | Open |
-| 41 | UX2 | Native crash on one launch (`SIGSEGV` in `MountingCoordinator::pullTransaction`) | Emulator, over many launches | Open, cause unknown |
+| 41 | UX2 | Native crash on one launch (`SIGSEGV` in `MountingCoordinator::pullTransaction`), observed by the agent on the emulator, cause unknown | Emulator, over many launches (ST1) | Open, cause unknown |
 | 42 | UX2 | Swipe the Live sheet to peek, half and expanded by hand | Emulator (mouse) | Open |
 | 43 | UX2 | Flick speed: does a quick flick always go to the next point? | Emulator (mouse), later a phone | Open |
 | 44 | UX2 | Map stays usable above the sheet; floating pill and button follow the edge | Emulator | Open |
@@ -98,6 +100,7 @@ Last updated: 2026-10-04, after the partner merge (approved, `main` fast-forward
 | 61 | Merge | The merged app on the partner's phone, including the bottom sheet and the walk test | Partner's phone after his rebuild | Open |
 | 62 | Merge | Splash screen: `expo-splash-screen` added (approved) | Emulator and phone after R1a | Open: check the white splash with the logo on a cold start |
 | 63 | Merge | Candidate Route 4 trace: validate before activating (JCA projects onto the junction) | Import script (on hold) | Open |
+| 64 | Merge | Dev-client crash "App react context shouldn't be created before" (`DevLauncherAppLoader`), on the old 2026-10-02 build; who observed it is not recorded | Emulator and phone after R1a (ST1-M5) | Open, cause unknown |
 
 ## Items
 
@@ -350,6 +353,11 @@ Last updated: 2026-10-04, after the partner merge (approved, `main` fast-forward
 
 ### 41. Native crash on one launch (UX2 part 1)
 
+- **Observed by the agent on the emulator, cause unknown.**
+- **Rule for ST1 (Emjay, 2026-10-04):**
+  - Try to reproduce it.
+  - Capture the full crash log and the conditions every time, and count the crashes.
+  - **Do not patch any library on one crash.**
 - **What:** on 2026-10-03 at 13:48 the app quit about 3 seconds after starting, with `Fatal signal 11 (SIGSEGV)` in `facebook::react::MountingCoordinator::pullTransaction`. That is React Native's native renderer, not app code. The next launch worked, with nothing changed in between.
 - **How:** over normal use, note any launch where the app closes by itself. After one, run `adb logcat -d | findstr /C:"Fatal signal" /C:"pullTransaction"`.
 - **Expected:** none. If it repeats, record the time and what was on screen. It may be a React Native or `react-native-screens` start-up problem like item 14, and would be reported upstream rather than worked around without your approval.

@@ -2,7 +2,19 @@
 
 - **Date:** 2026-10-04.
 - **Based on:** `docs/AUDIT_3.md` (`main` at `c148972`).
-- **Status:** proposal. No code until Emjay approves it.
+- **Status:** accepted by Emjay (2026-10-04) with the decisions below. G0 starts only when Emjay writes "start G0", after his merge tests and the R1a build.
+
+> **Do not use the app outdoors or share it before G0 adds the consent screen.** Since the merge, "Locate me" asks for location permission without the consent screen of PRD 7.1 and 15.1.
+
+## Decisions after Audit 3 (2026-10-04)
+
+| # | Decision |
+| --- | --- |
+| 1 | **Order approved:** ST1 → G0 → F2 to F5 → SB1, SB2 → C1 → L1, L2 → T1, RP1, N1, V1 → B1 → later phases (§3). G0 stays focused: consent screen with stored consent and withdraw; accuracy gates 30 m and 25 m; mock and stale rejection; a development fake location source; "Use my location" on My Ride (the GPS fix when there is one, else the manual start pin). |
+| 2 | **`team_accounts` rename:** Emjay's decision (his answer to N2 after UX2 part 1). In **SB1**, rename `telemetry_writers` to `team_accounts` in the existing migration file (never applied live) and update the code and tests. Not before. |
+| 3 | **Crashes:** the `SIGSEGV` in `MountingCoordinator::pullTransaction` (backlog 41) was observed by the agent on the emulator; cause unknown. The dev-client crash is backlog 64. In ST1: try to reproduce both, capture the full log and the conditions each time, count them, and **do not patch any library on one crash**. |
+| 4 | **No pushes by the agent.** Emjay pushes, or writes "push" and names what. |
+| 5 | **Keep `integrate-partner`.** No branch or tag is deleted. |
 - **Replaces, for remaining work:** `IMPLEMENTATION_PLAN_v2.md`, `IMPLEMENTATION_PLAN_GPS.md` and `IMPLEMENTATION_PLAN_FLOW.md`. They stay as history (section 2).
 - **Rules (unchanged):**
   - Pure logic in `src/shared` with Node tests on fixed fixtures.
@@ -95,7 +107,7 @@ Each step has:
 | Light system bars; new icon; splash on a cold start | Rev. 2; R1a | `ST1-M2` | manual | E, P (splash fully only in a release build) |
 | F1, UX2 and merge features still work | — | `ST1-M3`: the F1 checklist, `UX2-S1` to `S8`, `MERGE_RESULT.md` §6 tests 3 to 6 | manual | E |
 | Bottom sheet and My Ride on a real phone | — | `ST1-M4` | manual | P |
-| Dev-client crash ("react context shouldn't be created before") | — | `ST1-M5`: Developer options, "Don't keep activities" on; switch away and back 5 times; then off | manual | E, P |
+| Crashes: dev-client "react context shouldn't be created before" (backlog 64) and `SIGSEGV` in `pullTransaction` (backlog 41, observed by the agent) | — | `ST1-M5`: Developer options, "Don't keep activities" on, switch away and back 5 times, then off; plus 10 cold starts. Full `adb logcat` and conditions for each crash; count them; no library patch on one crash. | manual | E, P |
 | Blue dot follows a walk; battery over 30 minutes with Live open | 7.3, 3.3 (indicative) | `ST1-P1` | manual | P |
 
 **Script.** As in `docs/MERGE_RESULT.md` §5 and §6, plus `ST1-M5` and `ST1-P1`. The partner reports with the template in §5.
@@ -186,7 +198,7 @@ Each step has:
 
 | Step | Goal and files | Acceptance (PRD, test, where) | Effort |
 | --- | --- | --- | --- |
-| **SB1** Live backend | 1. New migration: `app_config` (Night Mode window 21:00 to 04:59 Asia/Manila, `energy_enabled` false, `feed_post_ttl_min` 60); `pg_cron` purge of `telemetry_ingest_log` daily. 2. Then `BACKEND_SETUP.md` §4 one command at a time: link, dry run, push, seed, allowlist, deploy ingest. | 0.2 S4: allowlisted writer accepted; direct insert denied; non-allowlisted 403; anonymous 401; inactive vehicle unreadable; malformed packets rejected; Realtime delivers (the 8 integration tests, X: live project). `app_config` readable by `authenticated`, not writable (migration text test and integration). Sign-in and the Team account card work (`S4-M1` on E) | Small to medium |
+| **SB1** Live backend | 0. Rename `telemetry_writers` to `team_accounts` in the existing migration file, with the code and tests (decision after Audit 3). 1. New migration: `app_config` (Night Mode window 21:00 to 04:59 Asia/Manila, `energy_enabled` false, `feed_post_ttl_min` 60); `pg_cron` purge of `telemetry_ingest_log` daily. 2. Then `BACKEND_SETUP.md` §4 one command at a time: link, dry run, push, seed, allowlist, deploy ingest. | 0.2 S4: allowlisted writer accepted; direct insert denied; non-allowlisted 403; anonymous 401; inactive vehicle unreadable; malformed packets rejected; Realtime delivers (the 8 integration tests, X: live project). `app_config` readable by `authenticated`, not writable (migration text test and integration). Sign-in and the Team account card work (`S4-M1` on E) | Small to medium |
 | **SB2** Accounts, username, Energy (old F6) | `profiles.username` (unique, 3 to 20, checked on the server); append-only `energy_ledger`; `energy` Edge Function (earn, spend, caps by Manila day, passive refill, wallet cap 5); sign-in asked at the first cloud action | 19 D14 / 11.1: cap 1 per source per day; reset at 00:00 Manila from UTC times; passive +1 at 12 h and 24 h, not a third time; wallet ≤5; spend refused below 1; `energy_enabled` false means tracking costs 0; a client cannot insert into the ledger (unit with fakes, integration on X) | Large |
 
 **Privacy.**
@@ -351,11 +363,7 @@ Strictly in order: the rebuilds before the steps they block; SB1 before any inte
 
 | # | Question | Blocks |
 | --- | --- | --- |
-| 1 | Approve the changed order: G0 before F2 to F5 (because the app now asks for location without consent)? | Phase order |
-| 2 | Was a `team_accounts` rename decided? None exists; the allowlist is `telemetry_writers`. | SB1 migration names |
-| 3 | The dev-client crash: what were you doing, and may it be reproduced in ST1-M5? | ST1 |
-| 4 | Push `main` so the partner can build R1a? (Only on your written "push".) | Partner's part of ST1 |
-| 5 | Delete the `integrate-partner` branch now that `main` contains it? | Nothing |
+| 1 to 5 | Answered 2026-10-04; see "Decisions after Audit 3" | — |
 | 6 | Shorten the Live explainer and the location-off notice in G0, or now in ST2? | Text budget |
 | 7 | Validate the candidate trace with the import script ("go"), or wait for a GPS ride? | V1, real fares |
 | 8 | Add `@testing-library/react-native` for screen tests (a new dev dependency)? | UI test coverage |
