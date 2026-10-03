@@ -5,6 +5,7 @@ import {
   nextSnap,
   releaseVelocity,
   sheetSnapHeights,
+  sheetTopClearance,
   snapTarget,
   stepSnap,
   type SnapHeights,
@@ -145,5 +146,27 @@ describe('the chevron and the accessibility actions', () => {
 
   it('lists the points from lowest to highest', () => {
     expect(SNAP_ORDER).toEqual(['peek', 'half', 'expanded']);
+  });
+});
+
+describe('the avatar button stays reachable', () => {
+  // Pixel 7 emulator: tab screen 841 dp, status bar 24 dp, 48 dp avatar button 8 dp below it
+  const STATUS_BAR = 24;
+  const BUTTON = 48;
+  const MARGIN = 8;
+  const SCREEN = 841;
+
+  it('the expanded sheet stops below the avatar button, with a margin', () => {
+    const heights = sheetSnapHeights(SCREEN, sheetTopClearance(STATUS_BAR, BUTTON, MARGIN));
+    const sheetTop = SCREEN - heights.expanded;
+    const buttonBottom = STATUS_BAR + MARGIN + BUTTON;
+    expect(sheetTop).toBeGreaterThanOrEqual(buttonBottom + MARGIN);
+  });
+
+  it.each([560, 640, 752, 900, 1280])('holds at every snap point on a %i dp screen', (screen) => {
+    const heights = sheetSnapHeights(screen, sheetTopClearance(STATUS_BAR, BUTTON, MARGIN));
+    for (const name of SNAP_ORDER) {
+      expect(screen - heights[name]).toBeGreaterThanOrEqual(STATUS_BAR + MARGIN + BUTTON + MARGIN);
+    }
   });
 });

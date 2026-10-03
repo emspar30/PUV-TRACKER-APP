@@ -11,6 +11,7 @@ import {
   nextSnap,
   releaseVelocity,
   sheetSnapHeights,
+  sheetTopClearance,
   snapTarget,
   stepSnap,
   type SnapHeights,
@@ -63,7 +64,11 @@ export function BottomSheet({ id, defaultSnap = 'peek', request, onSnapChange, h
   const [position, setPosition] = useState<{ snap: SnapName; seq: number }>({ snap: remembered ?? defaultSnap, seq: 0 });
   const snap = position.snap;
   const heights = useMemo<SnapHeights | null>(
-    () => (containerHeight > 0 ? sheetSnapHeights(containerHeight, insets.top + spacing.sm) : null),
+    // Never cover the avatar button at the top right, so Settings opens from every snap point
+    () =>
+      containerHeight > 0
+        ? sheetSnapHeights(containerHeight, sheetTopClearance(insets.top, MIN_TOUCH_TARGET, spacing.sm))
+        : null,
     [containerHeight, insets.top],
   );
 

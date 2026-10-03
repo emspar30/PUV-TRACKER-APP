@@ -33,6 +33,13 @@ export function sheetSnapHeights(containerHeight: number, topReserved = 0): Snap
   return { peek, half, expanded };
 }
 
+// Space the sheet must leave free at the top of the screen: the status bar, then a row of floating
+// controls (the avatar button that opens Settings) with a margin above and below it. Passed to
+// sheetSnapHeights as topReserved, so those controls stay reachable at every snap point.
+export function sheetTopClearance(statusBarDp: number, controlDp: number, marginDp: number): number {
+  return statusBarDp + marginDp + controlDp + marginDp;
+}
+
 // Keeps a dragged height between the lowest and the highest snap point
 export function clampSheetHeight(height: number, heights: SnapHeights): number {
   'worklet';
