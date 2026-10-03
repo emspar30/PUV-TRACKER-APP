@@ -72,6 +72,14 @@ export const DB_LOCK_RETRY_DELAY_MS = 500;
 // How far the map may zoom in past the tile set's last zoom level by stretching its tiles
 export const MAP_OVERZOOM_LEVELS = 4;
 
+// --- Bottom sheet over the map (docs/DESIGN.md "Layout Principles")
+// Visible height of the sheet at each snap point: a fixed peek, then shares of the screen height
+export const SHEET_PEEK_DP = 72;
+export const SHEET_HALF_FRACTION = 0.4;
+export const SHEET_EXPANDED_FRACTION = 0.9;
+// A release faster than this (dp per second) moves to the next snap point in that direction
+export const SHEET_FLICK_VELOCITY_DP_S = 500;
+
 // --- Verification window and check-in (PRD 10.2, 8.4, 7.5). Defined now, used later.
 export const ROUTE_SNAP_DISTANCE_M = 30;
 export const MIN_DISPLACEMENT_M = 50;
