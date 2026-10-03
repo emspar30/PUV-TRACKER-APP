@@ -50,6 +50,23 @@ export const FARE_DISCOUNTED_CLASSES: readonly Classification[] = ['student', 's
 // --- Routing (PRD 7.2, 3.3)
 export const MAX_WALK_PER_LEG_M = 500;
 export const ROUTING_P95_BUDGET_MS = 250;
+// Benchmark for the budget above (S3): random trips scattered this far around the lines
+export const ROUTING_BENCHMARK_PAIRS = 1000;
+export const ROUTING_BENCHMARK_SPREAD_M = 400;
+// A stop is served by a directed line when it lies within this distance of it (not in PRD 0.3; proposed)
+export const STATION_LINK_MAX_OFFSET_M = 200;
+
+// --- Offline map (PRD 7.2). Not in PRD 0.3; values proposed for S2.
+// TODO(placeholder): the box of the placeholder tile set (docs/tiles.md), as west, south, east, north.
+export const MAP_BOUNDS: readonly [number, number, number, number] = [125.45, 8.85, 125.7, 9.02];
+export const MAP_MIN_ZOOM = 9;
+export const MAP_MAX_ZOOM = 18;
+// Zoom used when the camera centers on the rider
+export const MAP_FOLLOW_ZOOM = 16;
+
+// --- Blue dot (PRD 7.3). How often the foreground position is refreshed for display.
+export const BLUE_DOT_UPDATE_INTERVAL_S = 2;
+export const BLUE_DOT_UPDATE_DISTANCE_M = 5;
 
 // --- Verification window and check-in (PRD 10.2, 8.4, 7.5). Defined now, used later.
 export const ROUTE_SNAP_DISTANCE_M = 30;

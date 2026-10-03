@@ -45,3 +45,5 @@ yarn-error.*
 .env
 .env.*
 !.env.example
+
+assets/map/butuan.pmtiles

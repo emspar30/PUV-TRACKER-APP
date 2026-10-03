@@ -1,14 +1,28 @@
 import type { TextStyle } from 'react-native';
 
+// Light palette. Text colors meet WCAG AA contrast (4.5:1) on both canvas and surface.
 export const colors = {
-  canvas: '#0B0F17',
-  surface: '#161F30',
+  canvas: '#F4F6F9',
+  surface: '#FFFFFF',
+  border: '#E2E8F0',
+  // Buttons, selected options and key figures (teal, AA on white)
+  primary: '#0F766E',
+  onPrimary: '#FFFFFF',
+  // Brand accents, for fills only: too light for text on a light background
   cyan: '#00F5D4',
   amber: '#FFB703',
-  crimson: '#EF233C',
-  emerald: '#10B981',
-  textPrimary: '#FFFFFF',
-  textMuted: '#94A3B8',
+  crimson: '#DC2626',
+  emerald: '#059669',
+  // Amber that is dark enough for text
+  warning: '#B45309',
+  locationDot: '#2563EB',
+  // Outline drawn under route lines so light route colors read on the light map
+  routeCasing: '#134E4A',
+  walk: '#475569',
+  // Dimmed backdrop behind bottom sheets
+  scrim: 'rgba(15, 23, 42, 0.45)',
+  textPrimary: '#0F172A',
+  textMuted: '#475569',
 } as const;
 
 // 8pt mathematical spatial grid

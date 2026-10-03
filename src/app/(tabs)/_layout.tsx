@@ -20,11 +20,11 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.cyan,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           backgroundColor: colors.surface,
-          borderTopColor: colors.surface,
+          borderTopColor: colors.border,
         },
         tabBarItemStyle: { paddingVertical: spacing.xs },
         sceneStyle: { backgroundColor: colors.canvas },

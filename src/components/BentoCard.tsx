@@ -22,6 +22,8 @@ export function BentoCard({ span = 1, style, children, ...rest }: BentoCardProps
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: radii.md,
     padding: spacing.md,
     gap: spacing.sm,

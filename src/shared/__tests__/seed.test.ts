@@ -1,5 +1,8 @@
 import { R4_LINES, R4_STATIONS, ROUTE_DATA_VERSION } from '../../data/seed/r4.placeholder';
-import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP } from '../config';
+import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP, MAP_BOUNDS, STATION_LINK_MAX_OFFSET_M } from '../config';
+import { containsPoint } from '../geo/bounds';
+import { haversineMeters } from '../geo/haversine';
+import { projectOntoLine } from '../geo/line';
 
 // Expected coordinate ranges for the Route 4 placeholders, from the values in PRD 12.5
 const LAT_RANGE = [8.9, 8.96] as const;
@@ -58,18 +61,37 @@ describe('Route 4 placeholder seed', () => {
     }
   });
 
-  it('the outbound line joins the stops in travel order', () => {
-    const order = ['IMA', 'TSO', 'RCA', 'JCA', 'MCA', 'DEO'];
-    expect(outbound.coordinates).toEqual(
-      order.map((code) => {
-        const stop = R4_STATIONS.find((s) => s.code === code)!;
-        return [stop.lon, stop.lat];
-      }),
-    );
+  it('the outbound line passes every stop', () => {
+    for (const stop of R4_STATIONS) {
+      expect(projectOntoLine(outbound.coordinates, stop).offsetM).toBeLessThanOrEqual(STATION_LINK_MAX_OFFSET_M);
+    }
   });
 
-  it('the return line is the outbound line reversed', () => {
-    expect(returning.coordinates).toEqual([...outbound.coordinates].reverse());
+  it('the return line is its own path, not the outbound line reversed (PRD 12.5)', () => {
+    expect(returning.coordinates).not.toEqual([...outbound.coordinates].reverse());
+  });
+
+  it('both lines run between the same two ends', () => {
+    const at = ([lon, lat]: number[]) => ({ lat, lon });
+    expect(haversineMeters(at(outbound.coordinates[0]), at(returning.coordinates.at(-1)!))).toBeLessThan(100);
+    expect(haversineMeters(at(outbound.coordinates.at(-1)!), at(returning.coordinates[0]))).toBeLessThan(100);
+  });
+
+  it('follows the roads rather than jumping between stops', () => {
+    for (const line of R4_LINES) {
+      expect(line.coordinates.length).toBeGreaterThan(100);
+      for (let i = 1; i < line.coordinates.length; i++) {
+        const [lon0, lat0] = line.coordinates[i - 1];
+        const [lon1, lat1] = line.coordinates[i];
+        expect(haversineMeters({ lat: lat0, lon: lon0 }, { lat: lat1, lon: lon1 })).toBeLessThan(1500);
+      }
+    }
+  });
+
+  it('lies inside the offline map area', () => {
+    for (const line of R4_LINES) {
+      for (const [lon, lat] of line.coordinates) expect(containsPoint(MAP_BOUNDS, { lat, lon })).toBe(true);
+    }
   });
 
   it('stores Route 4 as two directed rows with one public route code', () => {

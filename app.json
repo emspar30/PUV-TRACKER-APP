@@ -6,9 +6,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B0F17",
-    "platforms": ["android"],
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F4F6F9",
+    "platforms": [
+      "android"
+    ],
     "android": {
       "package": "com.tunton.app",
       "adaptiveIcon": {
@@ -23,7 +25,9 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "blockedPermissions": ["android.permission.ACCESS_BACKGROUND_LOCATION"]
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -43,7 +47,14 @@
         }
       ],
       "expo-sqlite",
-      "@maplibre/maplibre-react-native"
-    ]
+      "@maplibre/maplibre-react-native",
+      "expo-asset"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "762947e8-5d44-478f-b2c0-d7d51f809799"
+      }
+    }
   }
 }

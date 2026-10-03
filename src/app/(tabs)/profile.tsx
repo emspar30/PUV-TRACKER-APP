@@ -1,12 +1,12 @@
-import { BentoCard, BentoGrid, Screen } from '@/components';
+import { BentoGrid, Screen } from '@/components';
+import { ClassificationPicker } from '@/features/profile/ClassificationPicker';
+import { strings } from '@/strings';
 
 export default function ProfileScreen() {
   return (
-    <Screen title="Profile">
+    <Screen title={strings.profile.title}>
       <BentoGrid>
-        <BentoCard span={2} />
-        <BentoCard />
-        <BentoCard />
+        <ClassificationPicker />
       </BentoGrid>
     </Screen>
   );

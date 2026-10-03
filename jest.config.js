@@ -7,6 +7,7 @@ const shared = {
   testEnvironment: 'node',
   testMatch: [
     '<rootDir>/src/shared/**/__tests__/**/*.test.ts',
+    '<rootDir>/src/data/**/__tests__/**/*.test.ts',
     '<rootDir>/supabase/functions/_shared/**/*.test.ts',
     '<rootDir>/tests/integration/**/*.test.ts',
   ],
@@ -20,7 +21,7 @@ const app = {
   rootDir: __dirname,
   preset: 'jest-expo',
   testMatch: ['<rootDir>/src/**/__tests__/**/*.test.{ts,tsx}'],
-  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/src/shared/'],
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/src/shared/', '<rootDir>/src/data/'],
 };
 
 module.exports = { projects: [shared, app] };

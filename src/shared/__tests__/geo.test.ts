@@ -33,18 +33,20 @@ describe('haversine', () => {
 
 describe('progress along the line', () => {
   it('chainage increases along the outbound line in stop order', () => {
-    const order = ['IMA', 'TSO', 'RCA', 'JCA', 'MCA', 'DEO'];
+    // JCA is left out: it is on JAQNO just past the R. Calo turn, so it projects onto the junction
+    const order = ['IMA', 'TSO', 'RCA', 'MCA', 'DEO'];
     const chainages = order.map((code) => projectOntoLine(OUTBOUND, station(code)).chainageKm);
     for (let i = 1; i < chainages.length; i += 1) {
       expect(chainages[i]).toBeGreaterThan(chainages[i - 1]);
     }
-    expect(chainages[0]).toBeCloseTo(0, 6);
-    expect(chainages[chainages.length - 1]).toBeCloseTo(lineLengthKm(OUTBOUND), 6);
+    // The line starts at the terminal, before the first stop, and ends at De Oro
+    expect(chainages[0]).toBeGreaterThan(0);
+    expect(chainages[chainages.length - 1]).toBeCloseTo(lineLengthKm(OUTBOUND), 1);
   });
 
-  it('stops sit on the placeholder line', () => {
-    for (const s of R4_STATIONS) {
-      expect(projectOntoLine(OUTBOUND, s).offsetM).toBeLessThan(1);
+  it('the stops on the traced streets sit on the line', () => {
+    for (const code of ['IMA', 'TSO', 'RCA', 'MCA']) {
+      expect(projectOntoLine(OUTBOUND, station(code)).offsetM).toBeLessThan(5);
     }
   });
 
@@ -65,18 +67,18 @@ describe('progress along the line', () => {
   });
 
   it('point at a chainage round-trips through projection', () => {
-    const chainage = projectOntoLine(OUTBOUND, station('JCA')).chainageKm;
-    const back = pointAtChainage(OUTBOUND, chainage);
-    expect(haversineMeters(back, station('JCA'))).toBeLessThan(1);
+    const projection = projectOntoLine(OUTBOUND, station('JCA'));
+    const back = pointAtChainage(OUTBOUND, projection.chainageKm);
+    expect(haversineMeters(back, projection.snapped)).toBeLessThan(1);
   });
 
   it('a destination behind the origin is not ahead on outbound, but is ahead on return', () => {
-    const outOrigin = projectOntoLine(OUTBOUND, station('JCA')).chainageKm;
-    const outDest = projectOntoLine(OUTBOUND, station('TSO')).chainageKm;
+    const outOrigin = projectOntoLine(OUTBOUND, station('MCA')).chainageKm;
+    const outDest = projectOntoLine(OUTBOUND, station('RCA')).chainageKm;
     expect(isAhead(outOrigin, outDest)).toBe(false);
 
-    const retOrigin = projectOntoLine(RETURN, station('JCA')).chainageKm;
-    const retDest = projectOntoLine(RETURN, station('TSO')).chainageKm;
+    const retOrigin = projectOntoLine(RETURN, station('MCA')).chainageKm;
+    const retDest = projectOntoLine(RETURN, station('RCA')).chainageKm;
     expect(isAhead(retOrigin, retDest)).toBe(true);
   });
 });
