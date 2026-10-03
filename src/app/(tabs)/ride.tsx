@@ -1,79 +1,129 @@
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AvatarButton, BottomSheet, Chip, LineBadge, Logo, type SheetRequest } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
-import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
+import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { DevBenchmark } from '@/features/plan/DevBenchmark';
-import { PointPicker, type PickTarget, type PickedPoint } from '@/features/plan/PointPicker';
 import { TripLayers, type TripPin } from '@/features/plan/TripLayers';
-import { TripFailure, TripResult, type FailureAction } from '@/features/plan/TripResult';
+import { PointPills, type PickTarget, type PickedPoint } from '@/features/ride/PointPills';
+import { RideFailure, RideResult } from '@/features/ride/RideResult';
 import { discountMultiplier } from '@/shared/fare/fare';
 import { boundsOfLines, withMinimumSpan } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
+import { projectOntoLine } from '@/shared/geo/line';
 import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/describe';
 import { fareForItinerary, planTrip } from '@/shared/routing/plan';
-import type { RouteDirection, RouteStop } from '@/shared/routing/types';
-import { useProfileStore } from '@/state/profileStore';
+import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
+import { useFareType } from '@/state/fareType';
 import { strings } from '@/strings';
-import { makeStyles, MIN_TOUCH_TARGET, spacing, useTheme } from '@/theme';
+import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
+const LOGO_SIZE = spacing.xl * 3;
 const ICON_SIZE = spacing.md + spacing.xs;
-// A point this close to the route is described as being on it
-const ON_ROUTE_M = 10;
+const FIELD_NAME: Record<PickTarget, string> = { origin: strings.ride.from, destination: strings.ride.to };
 
-export default function PlanScreen() {
+type RouteCard = { code: string; color: string; from: string; to: string; lines: DirectedLine[]; hasMap: boolean };
+
+// One card per public route code, with its two ends along the outbound line
+function routeCards(lines: DirectedLine[], stops: RouteStop[]): RouteCard[] {
+  const codes = [...new Set(lines.map((line) => line.routeCode))];
+  return codes.map((code) => {
+    const ofRoute = lines.filter((line) => line.routeCode === code);
+    const outbound = ofRoute.find((line) => line.direction === 'outbound') ?? ofRoute[0];
+    const hasMap = ofRoute.some((line) => line.coordinates.length >= 2);
+    const ordered = hasMap
+      ? [...stops].sort(
+          (a, b) => projectOntoLine(outbound.coordinates, a).chainageKm - projectOntoLine(outbound.coordinates, b).chainageKm,
+        )
+      : [];
+    return {
+      code,
+      color: outbound.color,
+      from: ordered[0]?.code ?? '',
+      to: ordered[ordered.length - 1]?.code ?? '',
+      lines: ofRoute,
+      hasMap,
+    };
+  });
+}
+
+// My Ride: pick where you start and where you are going, on the map or from the stops, and see
+// the route, where to board and get off, and the fare. Also lists every route, for new residents.
+export default function MyRideScreen() {
   const styles = useStyles();
-  const { colors, typography, mapRoute } = useTheme();
-  const routeData = useRouteData();
-  const { lines, stops } = routeData;
+  const { colors, typography, mapRoute, routeColor } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { lines, stops, isPlaceholder } = useRouteData();
   const { state: tiles } = useOfflineTiles();
-  const classification = useProfileStore((state) => state.classification);
+  const [fareType] = useFareType();
 
   const [origin, setOrigin] = useState<PickedPoint | null>(null);
   const [destination, setDestination] = useState<PickedPoint | null>(null);
   const [active, setActive] = useState<PickTarget>('origin');
-  const [collapsed, setCollapsed] = useState(false);
-  const [clearCount, setClearCount] = useState(0);
+  const [focus, setFocus] = useState<MapFocus | null>(null);
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const [sheetRequest, setSheetRequest] = useState<SheetRequest | null>(null);
 
   const initialBounds = useMemo(() => boundsOfLines(lines.map((line) => line.coordinates)), [lines]);
+  const cards = useMemo(() => routeCards(lines, stops), [lines, stops]);
 
-  // Names a tapped point from the nearest stop and its distance to the route
+  const moveCamera = useCallback((next: MapFocusTarget) => {
+    setFocus((current) => ({ ...next, key: (current?.key ?? 0) + 1 }));
+  }, []);
+  const moveSheet = useCallback((snap: SheetRequest['snap']) => {
+    setSheetRequest((current) => ({ key: (current?.key ?? 0) + 1, snap }));
+  }, []);
+
+  // A pinned point is named from its nearest stop; the distance to the route is in Details
   const pinnedPoint = useCallback(
     (position: LatLon): PickedPoint => {
-      const { nearestStopCode, routeDistanceM } = describePoint(lines, stops, position);
-      const label =
-        nearestStopCode === null || routeDistanceM === null
-          ? strings.plan.pinnedPoint
-          : routeDistanceM < ON_ROUTE_M
-            ? strings.plan.onRouteNearStop(nearestStopCode)
-            : strings.plan.nearStop(nearestStopCode, routeDistanceM);
-      return { ...position, label, detail: strings.plan.coordinates(position.lat, position.lon) };
+      const { nearestStopCode } = describePoint(lines, stops, position);
+      return { ...position, label: nearestStopCode ? strings.ride.near(nearestStopCode) : strings.ride.pinned };
     },
     [lines, stops],
   );
+  const stopPoint = useCallback((stop: RouteStop): PickedPoint => ({ lat: stop.lat, lon: stop.lon, label: stop.code }), []);
 
-  const stopPoint = useCallback(
-    (stop: RouteStop): PickedPoint => ({ lat: stop.lat, lon: stop.lon, label: strings.plan.stopLabel(stop.code), detail: stop.name }),
-    [],
+  // Runs on the phone from local data: no network is involved
+  const plan = useMemo(
+    () => (origin && destination ? planTrip(lines, origin, destination) : null),
+    [lines, origin, destination],
+  );
+  const itinerary = plan?.ok ? plan.itinerary : null;
+  const fare = useMemo(
+    () => (itinerary ? fareForItinerary(lines, itinerary, discountMultiplier(fareType)) : null),
+    [lines, itinerary, fareType],
   );
 
-  // Fill the highlighted field, then move on to the destination so two taps make a trip
+  // Fill the highlighted field and frame the points; once both are set, open the result half way
   const pick = useCallback(
     (point: PickedPoint) => {
-      if (active === 'origin') {
-        setOrigin(point);
-        setActive('destination');
+      const nextOrigin = active === 'origin' ? point : origin;
+      const nextDestination = active === 'destination' ? point : destination;
+      setOrigin(nextOrigin);
+      setDestination(nextDestination);
+      if (active === 'origin') setActive('destination');
+      if (nextOrigin && nextDestination) {
+        const bounds = boundsOfLines([
+          [
+            [nextOrigin.lon, nextOrigin.lat],
+            [nextDestination.lon, nextDestination.lat],
+          ],
+        ]);
+        moveCamera({ kind: 'bounds', bounds: withMinimumSpan(bounds, mapRoute.minFocusSpanDeg) });
+        moveSheet('half');
       } else {
-        setDestination(point);
+        moveCamera({ kind: 'center', center: point });
       }
     },
-    [active],
+    [active, origin, destination, moveCamera, moveSheet, mapRoute.minFocusSpanDeg],
   );
 
   const swap = useCallback(() => {
@@ -85,183 +135,194 @@ export default function PlanScreen() {
     setOrigin(null);
     setDestination(null);
     setActive('origin');
-    setClearCount((count) => count + 1);
-  }, []);
-
-  // Keep both points in view whenever either one changes; after "clear", go back to the whole route.
-  // A new object each time is what tells the map to move.
-  const focus = useMemo<MapFocus | null>(() => {
-    if (origin && destination) {
-      const bounds = boundsOfLines([
-        [
-          [origin.lon, origin.lat],
-          [destination.lon, destination.lat],
-        ],
-      ]);
-      return { key: clearCount, kind: 'bounds', bounds: withMinimumSpan(bounds, mapRoute.minFocusSpanDeg) };
-    }
-    const only = origin ?? destination;
-    if (only) return { key: clearCount, kind: 'center', center: { lat: only.lat, lon: only.lon } };
-    return clearCount > 0 ? { key: clearCount, kind: 'bounds', bounds: initialBounds } : null;
-  }, [origin, destination, clearCount, initialBounds, mapRoute.minFocusSpanDeg]);
-
-  // Runs on the device from local data: no network is involved
-  const plan = useMemo(
-    () => (origin && destination ? planTrip(lines, origin, destination) : null),
-    [lines, origin, destination],
-  );
-  const itinerary = plan?.ok ? plan.itinerary : null;
-  const fare = useMemo(
-    () => (itinerary ? fareForItinerary(lines, itinerary, discountMultiplier(classification)) : null),
-    [lines, itinerary, classification],
-  );
+    moveCamera({ kind: 'bounds', bounds: initialBounds });
+  }, [initialBounds, moveCamera]);
 
   const pinOf = useCallback(
-    (point: PickedPoint | null): TripPin | null =>
-      point ? { point, snapped: describePoint(lines, stops, point).snapped } : null,
+    (point: PickedPoint | null): TripPin | null => (point ? { point, snapped: describePoint(lines, stops, point).snapped } : null),
     [lines, stops],
   );
   const originPin = useMemo(() => pinOf(origin), [pinOf, origin]);
   const destinationPin = useMemo(() => pinOf(destination), [pinOf, destination]);
 
-  // Ways out of a failed plan
-  const failureActions = useMemo<FailureAction[]>(() => {
-    if (!plan || plan.ok || !origin || !destination) return [];
-    if (plan.reason === 'destination_not_ahead') return [{ label: strings.plan.swapToFix, onPress: swap }];
-
-    const tooFar = plan.reason === 'origin_too_far' ? origin : plan.reason === 'destination_too_far' ? destination : null;
-    if (!tooFar) return [];
-    const isOrigin = plan.reason === 'origin_too_far';
-    const set = isOrigin ? setOrigin : setDestination;
-    const actions: FailureAction[] = [
-      {
-        label: isOrigin ? strings.plan.moveOriginToRoute : strings.plan.moveDestinationToRoute,
-        onPress: () => set(pinnedPoint(snapToRoute(lines, tooFar))),
-      },
-    ];
-    const nearest = nearestStop(stops, tooFar);
-    if (nearest) {
-      actions.push({
-        label: isOrigin
-          ? strings.plan.useNearestStopForOrigin(nearest.stop.code)
-          : strings.plan.useNearestStopForDestination(nearest.stop.code),
-        onPress: () => set(stopPoint(nearest.stop)),
-      });
+  // The one way out of a failed plan
+  const failureAction = useMemo(() => {
+    if (!plan || plan.ok || !origin || !destination) return null;
+    if (plan.reason === 'destination_not_ahead') return { label: strings.ride.swap, onPress: swap };
+    if (plan.reason === 'origin_too_far') {
+      return { label: strings.ride.moveToRoute, onPress: () => setOrigin(pinnedPoint(snapToRoute(lines, origin))) };
     }
-    return actions;
-  }, [plan, origin, destination, lines, stops, swap, pinnedPoint, stopPoint]);
+    if (plan.reason === 'destination_too_far') {
+      return {
+        label: strings.ride.moveToRoute,
+        onPress: () => setDestination(pinnedPoint(snapToRoute(lines, destination))),
+      };
+    }
+    return null;
+  }, [plan, origin, destination, lines, swap, pinnedPoint]);
 
-  const CollapseIcon = collapsed ? ChevronUp : ChevronDown;
+  const nearestCode = (point: LatLon) => nearestStop(stops, point)?.stop.code ?? '';
+
+  const viewOnMap = useCallback(() => {
+    if (!origin || !destination) return;
+    const bounds = boundsOfLines([
+      [
+        [origin.lon, origin.lat],
+        [destination.lon, destination.lat],
+      ],
+    ]);
+    moveSheet('peek');
+    moveCamera({ kind: 'bounds', bounds: withMinimumSpan(bounds, mapRoute.minFocusSpanDeg) });
+  }, [origin, destination, moveSheet, moveCamera, mapRoute.minFocusSpanDeg]);
+
+  const showRoute = useCallback(
+    (card: RouteCard) => {
+      moveSheet('peek');
+      moveCamera({ kind: 'bounds', bounds: boundsOfLines(card.lines.map((line) => line.coordinates)) });
+    },
+    [moveSheet, moveCamera],
+  );
+
+  const header = (
+    <PointPills origin={origin} destination={destination} active={active} onActivate={setActive} onSwap={swap} />
+  );
 
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
-      <View style={styles.map}>
-        {tiles.status === 'ready' ? (
-          <OfflineMap
-            tilesUrl={tiles.tiles.url}
-            initialBounds={initialBounds}
-            focus={focus}
-            onPress={(position) => pick(pinnedPoint(position))}
-          >
-            <RouteLines lines={lines} visible={ALL_DIRECTIONS} />
-            <StopDots stops={stops} selectedCode={null} />
-            <TripLayers lines={lines} origin={originPin} destination={destinationPin} itinerary={itinerary} />
-          </OfflineMap>
-        ) : (
-          <View style={styles.mapPlaceholder}>
-            <Text style={typography.caption}>
-              {tiles.status === 'error' ? strings.loading.mapUnavailableOnPlan : strings.loading.tiles}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <Pressable
-        style={styles.collapseBar}
-        onPress={() => setCollapsed((value) => !value)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: !collapsed }}
-        accessibilityLabel={collapsed ? strings.plan.expand : strings.plan.collapse}
-      >
-        <Text style={[typography.caption, styles.grow]} numberOfLines={1}>
-          {itinerary && fare
-            ? strings.plan.summary(itinerary.rideKm, fare.rounded)
-            : collapsed
-              ? strings.plan.expand
-              : strings.plan.collapse}
-        </Text>
-        <CollapseIcon color={colors.textSecondary} size={ICON_SIZE} />
-      </Pressable>
-
-      {collapsed ? null : (
-        <View style={styles.panel}>
-          <ScrollView contentContainerStyle={styles.panelContent} keyboardShouldPersistTaps="handled">
-            <PointPicker
-              origin={origin}
-              destination={destination}
-              active={active}
-              onActivate={setActive}
-              stops={stops}
-              onPickStop={(stop) => pick(stopPoint(stop))}
-              onSwap={swap}
-              onClear={clear}
-            />
-            {plan && !plan.ok ? <TripFailure failure={plan} actions={failureActions} /> : null}
-            {itinerary && fare ? (
-              <TripResult
-                itinerary={itinerary}
-                fare={fare}
-                classification={classification}
-                isPlaceholder={routeData.isPlaceholder}
-              />
-            ) : null}
-            {!plan ? <Text style={typography.caption}>{strings.plan.intro}</Text> : null}
-            {!plan && routeData.isPlaceholder ? (
-              <Text style={styles.amber}>{strings.common.placeholderDetail}</Text>
-            ) : null}
-            <DevBenchmark lines={lines} />
-          </ScrollView>
+    <View style={styles.root}>
+      {tiles.status === 'ready' ? (
+        <OfflineMap
+          tilesUrl={tiles.tiles.url}
+          initialBounds={initialBounds}
+          focus={focus}
+          bottomInset={sheetHeight}
+          attributionTop={insets.top + spacing.sm}
+          onPress={(position) => pick(pinnedPoint(position))}
+        >
+          <RouteLines lines={lines} visible={ALL_DIRECTIONS} />
+          <StopDots
+            stops={stops}
+            selectedCode={null}
+            onPressStop={(code) => {
+              const stop = stops.find((candidate) => candidate.code === code);
+              if (stop) pick(stopPoint(stop));
+            }}
+          />
+          <TripLayers lines={lines} origin={originPin} destination={destinationPin} itinerary={itinerary} />
+        </OfflineMap>
+      ) : (
+        <View style={styles.centered}>
+          <Logo size={LOGO_SIZE} />
         </View>
       )}
-    </SafeAreaView>
+      <View style={[styles.topRight, { top: insets.top + spacing.sm }]}>
+        <AvatarButton />
+      </View>
+
+      <BottomSheet
+        id="ride"
+        defaultSnap="half"
+        request={sheetRequest}
+        onSnapChange={(_snap, visibleHeight) => setSheetHeight(visibleHeight)}
+        header={header}
+      >
+        <View style={styles.toolbar}>
+          {isPlaceholder ? <Chip label={strings.common.sampleData} /> : null}
+          <View style={styles.grow} />
+          {origin || destination ? (
+            <Pressable style={styles.clear} onPress={clear} accessibilityRole="button" accessibilityLabel={strings.ride.clear}>
+              <X color={colors.textSecondary} size={ICON_SIZE} />
+              <Text style={typography.labelLg}>{strings.ride.clear}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stops}>
+          {stops.map((stop) => (
+            <Chip
+              key={stop.code}
+              label={stop.code}
+              accessibilityLabel={strings.ride.pickFor(FIELD_NAME[active], `${stop.code}, ${stop.name}`)}
+              onPress={() => pick(stopPoint(stop))}
+            />
+          ))}
+        </ScrollView>
+
+        {plan && !plan.ok ? <RideFailure failure={plan} action={failureAction} /> : null}
+        {itinerary && fare ? (
+          <RideResult
+            itinerary={itinerary}
+            fare={fare}
+            classification={fareType}
+            badgeColor={routeColor(itinerary.legs[1].routeCode, lines.find((line) => line.id === itinerary.legs[1].lineId)?.color ?? colors.primary)}
+            boardNear={nearestCode(itinerary.legs[1].from)}
+            getOffNear={nearestCode(itinerary.legs[1].to)}
+            onViewOnMap={viewOnMap}
+          />
+        ) : null}
+
+        <Text style={typography.headlineSm}>{strings.ride.allRoutes}</Text>
+        {cards.map((card) => (
+          <Pressable
+            key={card.code}
+            style={styles.routeCard}
+            onPress={() => (card.hasMap ? showRoute(card) : undefined)}
+            disabled={!card.hasMap}
+            accessibilityRole="button"
+            accessibilityLabel={strings.ride.showRoute(card.code)}
+          >
+            <LineBadge code={card.code} color={routeColor(card.code, card.color)} />
+            <Text style={[typography.labelLg, styles.grow]}>
+              {card.hasMap ? strings.ride.routeEnds(card.from, card.to) : strings.ride.mapComingSoon}
+            </Text>
+          </Pressable>
+        ))}
+
+        <DevBenchmark lines={lines} />
+      </BottomSheet>
+    </View>
   );
 }
 
-const useStyles = makeStyles(({ colors, typography }) => ({
+const useStyles = makeStyles(({ colors }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.canvas,
   },
-  map: {
-    flex: 5,
-  },
-  mapPlaceholder: {
+  centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
   },
-  collapseBar: {
-    minHeight: MIN_TOUCH_TARGET,
+  topRight: {
+    position: 'absolute',
+    right: spacing.md,
+  },
+  toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
   },
   grow: {
     flex: 1,
   },
-  panel: {
-    flex: 6,
+  clear: {
+    minHeight: MIN_TOUCH_TARGET,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
   },
-  panelContent: {
-    padding: spacing.md,
+  stops: {
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  routeCard: {
+    minHeight: MIN_TOUCH_TARGET,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
-  },
-  amber: {
-    ...typography.caption,
-    color: colors.warning,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceLow,
   },
 }));

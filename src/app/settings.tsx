@@ -6,8 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip } from '@/components';
 import { AccountCard } from '@/features/profile/AccountCard';
 import { AvatarPicker } from '@/features/profile/AvatarPicker';
-import { CLASSIFICATIONS } from '@/shared/config';
-import { useProfileStore } from '@/state/profileStore';
+import { FareTypeChips } from '@/features/ride/FareTypeChips';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme, type ThemeScheme } from '@/theme';
@@ -24,8 +23,6 @@ export default function SettingsSheet() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const insets = useSafeAreaInsets();
-  const classification = useProfileStore((state) => state.classification);
-  const setClassification = useProfileStore((state) => state.setClassification);
   const theme = useSettingsStore((state) => state.theme);
   const setTheme = useSettingsStore((state) => state.setTheme);
 
@@ -56,17 +53,8 @@ export default function SettingsSheet() {
 
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={typography.labelLg}>{strings.settings.fareType}</Text>
-          <View style={styles.chips}>
-            {CLASSIFICATIONS.map((option) => (
-              <Chip
-                key={option}
-                label={strings.classification.short[option]}
-                accessibilityLabel={strings.classification.labels[option]}
-                selected={option === classification}
-                onPress={() => setClassification(option)}
-              />
-            ))}
-          </View>
+          {/* The same chips, and the same stored value, as the quick fare-type chip on My Ride */}
+          <FareTypeChips />
 
           <Text style={typography.labelLg}>{strings.settings.theme}</Text>
           <View style={styles.chips}>

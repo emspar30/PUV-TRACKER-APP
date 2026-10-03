@@ -22,9 +22,8 @@ export type MapStatus = 'loading' | 'loaded' | 'failed';
 
 // Where to move the camera. A new `key` repeats the move even if the target is unchanged,
 // for example when "Show whole route" is tapped twice.
-export type MapFocus =
-  | { key: number; kind: 'bounds'; bounds: Bounds }
-  | { key: number; kind: 'center'; center: LatLon };
+export type MapFocusTarget = { kind: 'bounds'; bounds: Bounds } | { kind: 'center'; center: LatLon };
+export type MapFocus = MapFocusTarget & { key: number };
 
 type OfflineMapProps = {
   // Style source URL of the installed tile file (see prepareOfflineTiles)

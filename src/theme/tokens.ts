@@ -221,4 +221,7 @@ export const TEXT_PAIRS: readonly (readonly [text: TextToken, background: TextTo
   ['success', 'successContainer'],
   ['warning', 'warningContainer'],
   ['danger', 'dangerContainer'],
+  // Text on the failure card
+  ['textPrimary', 'dangerContainer'],
+  ['textSecondary', 'dangerContainer'],
 ];

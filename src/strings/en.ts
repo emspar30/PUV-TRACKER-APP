@@ -76,6 +76,44 @@ export const en = {
     closeStop: 'Close stop details',
   },
 
+  // My Ride: route discovery and the fare. Short labels; distances live behind "Details".
+  ride: {
+    from: 'From',
+    to: 'To',
+    placeholder: 'Tap map or stop',
+    near: (code: string) => `Near ${code}`,
+    pinned: 'Pinned point',
+    swap: 'Swap From and To',
+    clear: 'Clear',
+    pickFor: (field: string, code: string) => `Set ${field} to ${code}`,
+    boardNear: (code: string) => `Board near ${code}`,
+    getOffNear: (code: string) => `Get off near ${code}`,
+    walk: (distanceM: number) => `Walk ${meters(distanceM)}`,
+    rideKm: (distanceKm: number) => km(distanceKm),
+    estimate: 'Estimate',
+    fare: (amount: number) => `Fare ${peso(amount)}`,
+    details: 'Details',
+    hideDetails: 'Hide details',
+    viewOnMap: 'View on map',
+    fareType: 'Fare type',
+    changeFareType: (label: string) => `Fare type ${label}, change`,
+    walkToRoute: (field: string, distanceM: number) => `${field}: ${meters(distanceM)} to the route`,
+    // At most about eight words, with the number that matters
+    failure: {
+      origin_too_far: (distanceM: number | null) => `From is too far from route · ${distanceM === null ? '?' : meters(distanceM)}`,
+      destination_too_far: (distanceM: number | null) =>
+        `To is too far from route · ${distanceM === null ? '?' : meters(distanceM)}`,
+      destination_not_ahead: () => 'Wrong direction for this route',
+      no_routes: () => 'No route data on this phone',
+    } satisfies Record<PlanFailure, (distanceM: number | null) => string>,
+    walkLimit: (maxWalkM: number) => `Walking limit ${maxWalkM} m`,
+    moveToRoute: 'Move pin to the route',
+    allRoutes: 'All routes',
+    mapComingSoon: 'Map coming soon',
+    showRoute: (code: string) => `Show route ${code} on the map`,
+    routeEnds: (from: string, to: string) => `${from} ↔ ${to}`,
+  },
+
   settings: {
     title: 'Settings',
     open: 'Open settings',
