@@ -2,11 +2,11 @@
 
 Everything Emjay has not verified personally, kept current at every step. Each item says what to check, exactly how, and what to expect. An item leaves this list only when Emjay confirms it; the agent's own runs are recorded in `docs/device-tests.md` and do not close an item.
 
-Last updated: 2026-10-03, after UX2 (accepted by Emjay) and the user flow v2 analysis.
+Last updated: 2026-10-03, after the flow decisions (flow plan approved by Emjay).
 
 **Note on the UX2 commits.** The first four (`2eda9d0`, `d76f93d`, `3647293`, `9c8eb06`) were grouped by topic from one working tree, so they are not individually verified: an intermediate one may not type-check or pass the tests on its own. This matters only if someone checks out one of them. Every commit from `ebfc0a5` onwards was checked when it was made. **Check-in (49), introduction (50) and About (51) stay open:** user flow v2 rewrites them, so Emjay will test the new versions instead.
 
-**User flow v2 (docs only, not built):** read PRD section 19, `docs/FLOW_GAP_ANALYSIS.md` and `docs/IMPLEMENTATION_PLAN_FLOW.md`, and answer the questions at the end of the plan.
+**User flow v2:** plan approved with your answers (PRD 19.2 and 19.4, "Decisions after flow analysis" in `docs/IMPLEMENTATION_PLAN_FLOW.md`). F1 to F5 are being built. **Check two things in the plan:** the greeting placement (a card above the Live sheet) and the scope moved from F3 to F1 (landmark chips and the destinations store).
 
 **UX2 is done.** The tabs are Live, Check-in and My Ride; Profile is the Settings sheet behind the avatar button. Older items that described UX1 screens now map to UX2 like this:
 

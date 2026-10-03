@@ -1,7 +1,7 @@
 # Implementation plan: user flow v2
 
 - **Date:** 2026-10-03.
-- **Status:** proposal; no code until Emjay approves it.
+- **Status:** approved by Emjay on 2026-10-03 with the answers in "Decisions after flow analysis". F1 to F5 are being built; F6 to F9 stay on hold.
 - **Builds on:** PRD section 19 (decisions D1 to D14) and `docs/FLOW_GAP_ANALYSIS.md`.
 - **Same rules as every plan:**
   - Pure logic in `src/shared` with Node tests on fixed fixtures.
@@ -10,6 +10,31 @@
   - One local commit per approved step, never pushed.
   - No new dependency without asking.
   - No location permission before G0.
+
+## Decisions after flow analysis
+
+Emjay's answers to the questions in section 7 (PRD 19.2 and 19.4 updated to match).
+
+| # | Topic | Decision | Affects |
+| --- | --- | --- | --- |
+| 1 | Avatar in the feed | Posts show the username with a **neutral badge** (colour and initial derived from the username), never the preset avatar. Gender, commuter type, avatar and destinations stay on the device. | F1, F8 |
+| 2 | Feed content | Fixed fields only: route, nearby stop, seats (three tiers), one preset phrase ("Full", "Few seats", "Not moving", "Heavy traffic", "Loading"). No free text. | F8 |
+| 3 | Feed lifetime and flags | 60 minutes; hidden after 3 unique flags and queued for review. Config constants. | F8 |
+| 4 | Persona | **Tunton**, short and friendly, English first; 8 time-based variants (2 per period) in the strings file for Emjay to choose from; Cebuano later. | F1 |
+| 5 | Frequent destinations | At most 3. | F1, F3 |
+| 6 | Profile | The avatar button opens Profile, which also holds fare type, theme, About and Replay intro. | F2 |
+| 7 | Badges | Simple counts only. No leaderboard, no ranking, no badge that compares users. The seven in F5 qualify. | F5 |
+| 8 | Pioneer period | Tracking free for the whole prototype and pilot; an `ENERGY_ENABLED` switch (default off) to demonstrate Energy. PRD 11.1 end rule later. | F6, F7 |
+| 9 | Username blocklist | Small English list and reserved names (admin, moderator, ...) in one file; Emjay supplies English and Cebuano lists before a public release. 3 to 20 characters: letters, numbers and underscore. | F2 |
+| 10 | Feed audience | Team accounts only in v0. | F8 |
+| 11 | ETA limits | 5 km/h, 90 s, 2 samples, 10 km as config constants, marked starting hypotheses. | F7 |
+| 12 | PRD mapping | Confirmed. | none |
+
+**Avatar assignment (D3).** Picked once at random from the matching set (all 12 for "Prefer not to say" or no answer), stored on the device, never re-rolled on its own. Only "Shuffle" in Profile re-rolls; changing the gender answer does not. Phones with a hand-picked UX2 avatar keep it.
+
+**Scope moved between steps.** The destinations step and the greeting chips (F1) need a landmark list and a destinations store, so F1 builds those two pieces (placeholder landmarks derived from the stops, chips only). F3 keeps the map-tap picker, `suggestRoutes()`, the suggestion with its fare at the end of onboarding, and the chips inside My Ride.
+
+**Greeting placement (proposal).** A small card above the Live sheet's peek strip, in the sheet's floating slot: one Tunton line and up to 3 destination chips, with an X to hide it until the next app open. It follows the sheet edge and fades as the sheet opens, like the existing pill and button. Tapping a chip opens My Ride with that destination set as "To".
 
 ## 1. Order
 
@@ -39,7 +64,8 @@
 | Constant | Value | Step |
 | --- | --- | --- |
 | `GREETING_MORNING_END_H` / `GREETING_AFTERNOON_END_H` / `GREETING_EVENING_END_H` | 11 / 17 / 21 (Asia/Manila hour) | F1 |
-| `FREQUENT_DESTINATIONS_MAX` | 3 | F3 |
+| `GREETING_MORNING_START_H` | 5 (Asia/Manila hour; before it is night) | F1 |
+| `FREQUENT_DESTINATIONS_MAX` | 3 | F1 |
 | `USERNAME_MIN_LENGTH` / `USERNAME_MAX_LENGTH` | 3 / 20 | F2 |
 | `BADGE_THRESHOLDS` | see F5 | F5 |
 | `ENERGY_WALLET_CAP` | 5 | F6 |
@@ -47,10 +73,10 @@
 | `ENERGY_EARN_REPORT_GPS` / `ENERGY_EARN_REPORT_NO_GPS` / `ENERGY_EARN_CHECKIN` | 1.0 / 0.5 / 0.3 | F6 |
 | `ENERGY_EARN_DAILY_MAX_PER_SOURCE` | 1 | F6 |
 | `TRACKING_COST_ENERGY` / `TRACKING_SESSION_MIN` | 1 / 30 | F7 |
-| `PIONEER_FREE_TRACKING` | true (server flag in `app_config`) | F7 |
+| `ENERGY_ENABLED` | false: tracking free for the prototype and pilot (server flag in `app_config`) | F6, F7 |
 | `ETA_MIN_SPEED_KMH` / `ETA_MAX_PACKET_AGE_S` / `ETA_MIN_SAMPLES` / `ETA_MAX_DISTANCE_KM` | 5 / 90 / 2 / 10 | F7 |
-| `FEED_POST_TTL_H` | 3 | F8 |
-| `FEED_FLAGS_TO_HIDE` | 3 | F8 |
+| `FEED_POST_TTL_MIN` | 60 | F8 |
+| `FEED_FLAGS_TO_HIDE` | 3 unique flags; the post is hidden and queued for review | F8 |
 | `FEED_NIGHT_DELAY_S` | 120 | F8 |
 
 ## 3. Steps
@@ -58,20 +84,24 @@
 ### F1. Onboarding v2
 
 **Goal.**
-- The intro becomes four short steps: welcome with the persona, an optional gender question, commuter type, and frequent destinations (F3 fills in the last step's content).
-- Every app open shows a greeting line.
+- The intro becomes steps: welcome from Tunton, optional gender (Male, Female, Prefer not to say), commuter type (Regular, Student, Senior Citizen, PWD), up to 3 frequent destinations from the landmark chips, then Start. Skip on every step; Replay from Settings.
+- Every app open shows the greeting card (see "Greeting placement") with the destination chips.
 
 **Files**
 
 | Path | Change |
 | --- | --- |
-| `src/shared/profile/avatarPick.ts` (new) | `avatarSetFor(gender)` and `pickAvatar(gender, random)`: male-style 0 to 5, female-style 6 to 11, all 12 for "prefer not to say". The random source is passed in. |
+| `src/shared/profile/avatarPick.ts` (new) | `avatarSetFor(gender)`, `pickAvatar(gender, random)` and `shuffleAvatar(current, gender, random)`: Male 0 to 5, Female 6 to 11, all 12 for "Prefer not to say" or no answer. The random source is passed in. |
+| `src/shared/profile/destinations.ts` (new) | `addDestination(list, item)` returns `added`, `duplicate` or `full` at `FREQUENT_DESTINATIONS_MAX`; `removeDestination` |
+| `src/data/seed/landmarks.placeholder.ts` (new) | Placeholder landmarks derived from the seed stops, `TODO(placeholder)` |
+| `src/state/destinationsStore.ts` (new) | Up to 3 destinations, on the phone only |
 | `src/shared/profile/greeting.ts` (new) | `greetingPeriod(date)` returns morning, afternoon, evening or night in Asia/Manila; variants are chosen by the period and the date |
 | `src/features/profile/Avatar.tsx` | 12 new vector drawings in `react-native-svg`, ids 0 to 11 unchanged |
-| `src/state/profileStore.ts` | Adds `gender: 'male' \| 'female' \| 'unstated' \| null` (null means not asked yet) |
+| `src/state/profileStore.ts` | Adds `gender: 'male' \| 'female' \| 'unstated' \| null` (null means not answered), `avatarAssigned`, `assignAvatar()`, `shuffleAvatar()` |
 | `src/app/onboarding.tsx` | Steps; Skip on each; the avatar is assigned at the gender step and shown with "Change in Profile" |
-| `src/app/(tabs)/index.tsx` | The greeting line in the Live peek |
-| `src/strings/en.ts` | Persona name, 3 variants per period, step titles |
+| `src/app/(tabs)/index.tsx` | The greeting card above the peek |
+| `src/app/(tabs)/ride.tsx` | Accepts a destination from a greeting chip |
+| `src/strings/en.ts` | Persona name, 2 variants per period (8 in all), step titles |
 
 **Tests**
 
@@ -80,16 +110,18 @@
 | A stated gender picks from its 6 | `pickAvatar('male', r)` is always in 0 to 5 for 1,000 draws; `'female'` in 6 to 11 |
 | "Prefer not to say" picks from all 12 | 1,000 draws cover all 12 ids |
 | Greeting by Asia/Manila time, not the phone's zone | 10:59 morning, 11:00 afternoon, 17:00 evening, 21:00 night (Manila), from UTC dates |
-| Gender stays on the phone | `privacy.test.ts`: no service or `supabase/` file mentions `gender` |
+| Picked once, never re-rolled | `assignAvatar` keeps an assigned id for any later gender; only `shuffleAvatar` changes it, always within the set |
+| At most 3 destinations | A fourth returns `full`; a repeat returns `duplicate` |
+| Stays on the phone | `privacy.test.ts`: no service or `supabase/` file mentions gender, destinations or avatar; the new stores import no network code |
 
 **Manual script**
 1. Run `pm clear`.
 2. Go through all four steps; then repeat with Skip on the first step.
 3. Expect a greeting on Live, and an avatar from the right set.
 
-**Risks.** The persona's name and tone (question 4). Drawing 12 recognisable avatars as simple shapes.
+**Risks.** Drawing 12 recognisable avatars as simple shapes.
 
-**Done when:** the tests pass; the emulator script passes; the backlog is updated; commit `Flow: onboarding v2 and greeting`.
+**Done when:** the tests pass; the emulator script passes; the backlog is updated; commit `F1: onboarding v2, greeting and avatars`; **stop for Emjay**.
 
 ### F2. Profile screen (local)
 
@@ -101,8 +133,8 @@
 
 | Path | Change |
 | --- | --- |
-| `src/shared/profile/username.ts` (new) | `generateUsername(random)`, for example "Commuter4821"; `validateUsername(name)` gives ok, too_short, too_long, bad_characters or blocked |
-| `src/data/seed/usernameBlocklist.ts` (new) | Small blocklist (question 9) |
+| `src/shared/profile/username.ts` (new) | `generateUsername(random)`, for example "Commuter4821"; `validateUsername(name, blocklist)` gives ok, too_short, too_long, bad_characters or blocked (letters, numbers, underscore only) |
+| `src/data/seed/usernameBlocklist.ts` (new) | Small English list and reserved names (decision 9) |
 | `src/app/settings.tsx` becomes `src/app/profile.tsx` | Profile layout; Settings rows kept |
 | `src/state/profileStore.ts` | Adds `username` |
 | `src/services/localData.ts` (new) | `deleteLocalAccount()` clears the profile, settings, check-in and destinations stores; keeps the map and route data |
@@ -119,7 +151,7 @@
 1. Edit the username, then try a blocked name.
 2. Delete the account. Expect the introduction to open.
 
-**Done when:** the tests pass, then commit `Flow: profile screen`.
+**Done when:** the tests pass, then commit `F2: profile screen`.
 
 ### F3. Landmarks and route suggestions
 
@@ -132,19 +164,19 @@
 
 | Path | Change |
 | --- | --- |
-| `src/data/seed/landmarks.placeholder.ts` (new) | Placeholder landmarks: the six stops, each marked `TODO(placeholder)`; real names later (D4) |
+| `src/data/seed/landmarks.placeholder.ts` (from F1) | Real names and coordinates later from Emjay (D4) |
 | `src/shared/routing/suggest.ts` (new) | `suggestRoutes(lines, from, to)` returns route codes with a valid `planTrip`; `suggestForDestination(lines, stops, to)` returns routes passing within the walking limit |
-| `src/state/destinationsStore.ts` (new) | Up to `FREQUENT_DESTINATIONS_MAX`, on the phone |
-| My Ride and onboarding | Chips, "Board route R4" hint |
+| Map-tap picker | Adds a tapped point as a destination (onboarding and Profile) |
+| My Ride and onboarding | Chips in My Ride; "Take Route 4, board near X" with the fare at the end of onboarding |
 
 **Tests (fixture lines, not the seed)**
 - A destination 100 m from the fixture line suggests that route.
 - A destination at 600 m suggests none.
-- At most 3 destinations; a fourth replaces nothing and returns `full`.
+- The suggestion's fare matches the fare tests (6.3 km: regular ₱21.00; student ₱16.80, then ₱16.75 rounded).
 
 **Risks.** With one route the suggestion is always R4 or nothing.
 
-**Done when:** commit `Flow: landmarks and route suggestions`.
+**Done when:** commit `F3: landmarks and route suggestions`.
 
 ### F4. Check-in tab v2 (local UI, D13)
 
@@ -161,7 +193,7 @@
 - An unknown route returns none.
 - Contrast: the faded route against the land is a design choice, not text, and is recorded.
 
-**Done when:** commit `Flow: check-in route-first`.
+**Done when:** commit `F4: route-first check-in`.
 
 ### F5. Badges (local)
 
@@ -179,9 +211,11 @@
 
 **Files.** `src/shared/profile/badges.ts` with `earnedBadges(counts)`; `src/state/countsStore.ts` keeps local counts now, replaced by ledger counts after F6.
 
+**Rule.** Counts only; no leaderboard, no ranking, nothing compared with other users.
+
 **Tests.** Each threshold at n − 1 (not earned) and at n (earned); the badges come out in a fixed order.
 
-**Done when:** commit `Flow: badges`.
+**Done when:** commit `F5: badges`; stop with a short report.
 
 ### F6. Account, profile and Energy backend (after "Supabase is ready")
 
@@ -203,10 +237,10 @@
 - Passive refill at 12 h and 24 h, and not a third time.
 - The wallet never exceeds 5.
 - A spend with a balance below 1 is refused.
-- Pioneer flag on means tracking costs 0.
+- `ENERGY_ENABLED` off means tracking costs 0.
 - Integration: a client cannot insert into `energy_ledger`.
 
-**Done when:** the migration is applied with your approval of the command; the integration tests pass; commit `Flow: energy and profile backend`.
+**Done when:** the migration is applied with your approval of the command; the integration tests pass; commit `F6: energy and profile backend`.
 
 ### F7. Tracking with ETA (D1, D9)
 
@@ -214,7 +248,7 @@
 - a guide line from the vehicle to the boarding point;
 - the ETA, when shown;
 - the other vehicles faded;
-- 1 Energy for 30 minutes, free while the pioneer flag is on.
+- 1 Energy for 30 minutes, free while `ENERGY_ENABLED` is off.
 
 **Files**
 - `src/shared/telemetry/eta.ts`: `etaMinutes({ vehicleChainageKm, boardChainageKm, recentSpeedKmh, packetAgeS, samples })`, which returns a number or null.
@@ -235,20 +269,20 @@
 **Other tests**
 - A session ends at 30 minutes.
 - Energy is spent once per session.
-- With the pioneer flag on, nothing is spent.
+- With `ENERGY_ENABLED` off, nothing is spent.
 
 **Manual.** Simulator at 20 km/h. Pick a boarding point by pin (or G0 location). Expect the ETA to fall about a minute per 333 m.
 
-**Done when:** commit `Flow: tracking with ETA`.
+**Done when:** commit `F7: tracking with ETA`.
 
 ### F8. Newsfeed (D2, D12)
 
 | Table | Columns | Rules |
 | --- | --- | --- |
-| `feed_posts` | id, author username, avatar id, route code, stop code (optional), seats band, preset message, `created_at`, `expires_at` | Insert through an Edge Function (team accounts, rate limit); select only where `expires_at > now()` and the post is not hidden; Night Mode delay for posts with a stop; deleted by `pg_cron` |
-| `feed_flags` | post, flagger, reason (`fake`, `spam`), `created_at` | One flag per user per post; at `FEED_FLAGS_TO_HIDE` the post is hidden; kept 30 days |
+| `feed_posts` | id, author username, route code, stop code (optional), seats tier, preset phrase id, `created_at`, `expires_at` (no avatar, no free text) | Insert through an Edge Function (team accounts, rate limit); select for team accounts only where `expires_at > now()` and the post is not hidden; Night Mode delay for posts with a stop; deleted by `pg_cron` |
+| `feed_flags` | post, flagger, reason (`fake`, `spam`), `created_at` | One flag per user per post; at `FEED_FLAGS_TO_HIDE` the post is hidden and queued for review; kept 30 days |
 
-**UI.** The feed list sits in the expanded Live sheet: author, avatar, route badge, seats pill, age.
+**UI.** The feed list sits in the expanded Live sheet: author with a neutral badge (colour and initial from the username), route badge, seats pill, phrase, age.
 
 **Tests.**
 - An expired post is not returned.
@@ -257,7 +291,7 @@
 - A user's second flag on the same post is refused.
 - Posts never contain coordinates (validator).
 
-**Done when:** commit `Flow: newsfeed`.
+**Done when:** commit `F8: newsfeed`.
 
 ### F9. Report flow (D5, D12)
 
@@ -275,13 +309,13 @@
 
 **Phone.** Bluetooth detection later (S6, S7).
 
-**Done when:** commit `Flow: report flow`.
+**Done when:** commit `F9: report flow`.
 
 ## 4. Changes to the existing GPS plan steps
 
 | Step | Change |
 | --- | --- |
-| S4 Part 2 | Adds `app_config.pioneer_free_tracking` and `feed_post_ttl_h` rows; `pg_cron` jobs for feed expiry (approval of the command first) |
+| S4 Part 2 | Adds `app_config.energy_enabled` and `feed_post_ttl_min` rows; `pg_cron` jobs for feed expiry (approval of the command first) |
 | G0 | "Use my location" also feeds the boarding point for F7 and "from here" suggestions in F3; the consent screen is a separate step after onboarding v2, still before any permission |
 | G1 | Uses the F4 screen; a check-in earns 0.3 Energy through F6 (once a day) |
 | S5 | Vehicles become selectable for F7 tracking; the faded style for non-tracked vehicles; the feed sits beside the coverage status |
@@ -302,10 +336,11 @@
 
 See `FLOW_GAP_ANALYSIS.md` section 3.
 - The gender answer and frequent destinations never leave the phone.
-- Feed posts have no coordinates, expire after `FEED_POST_TTL_H`, and follow the Night Mode delay for stops.
+- The commuter type and the avatar never leave the phone either; feed posts carry a neutral badge.
+- Feed posts have no coordinates and no free text, expire after `FEED_POST_TTL_MIN`, and follow the Night Mode delay for stops.
 - The Energy ledger is kept for the life of the account (PRD 15.1).
 
-## 7. Questions
+## 7. Questions (answered; see "Decisions after flow analysis")
 
 1. **Avatar and gender in the feed:** accept that a gendered avatar on public posts reveals the stated gender, use one neutral feed avatar, or make all 12 avatars gender-neutral? *Blocks F1 drawings and F8.*
 2. **Feed content:** preset messages and fields only (route, stop, seats, a few phrases), or free text too? Free text needs moderation. *Blocks F8.*

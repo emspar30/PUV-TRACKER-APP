@@ -1024,14 +1024,14 @@ Added at Emjay's request. **Where this section disagrees with an earlier section
 
 | # | Decision |
 | --- | --- |
-| D1 | Browsing vehicles on the live map is free. **Tracking one PUV** (ETA, guide line, other vehicles faded) costs 1 Energy per 30-minute session, and is free during the pioneer period. |
-| D2 | Newsfeed posts show a pseudonymous username and an avatar, **never on the live map**. Posts expire after a configured number of hours and can be flagged. |
-| D3 | The gender question is optional, with "Prefer not to say", stored on the device only and never uploaded. A stated gender picks at random from its 6 avatars; "Prefer not to say" picks from all 12. The 12 avatars are vector drawings in code (6 male-style, 6 female-style), no photos. The avatar can be changed in Profile. |
+| D1 | Browsing vehicles on the live map is free. **Tracking one PUV** (ETA, guide line, other vehicles faded) costs 1 Energy per 30-minute session. Tracking is free for the whole prototype and pilot; a config switch turns Energy on for demonstrations. The end rule of 11.1 stays for later. |
+| D2 | Newsfeed posts show the pseudonymous username with a **neutral generated badge** (a colour and an initial derived from the username), **never the preset avatar**, and **never on the live map**. Content is fixed fields only, no free text: route, nearby stop, seats (three tiers) and one preset phrase. Posts last 60 minutes; a post with 3 unique flags is hidden and queued for review (both config constants). Only team accounts read and post in v0. |
+| D3 | The gender question is optional (Male, Female, Prefer not to say). A stated gender picks at random from its 6 avatars; "Prefer not to say" picks from all 12. The pick happens **once**, is stored on the device and is never re-rolled except by "Shuffle" in Profile; changing the gender answer does not re-roll. The 12 avatars are vector drawings in code, no photos. **The gender answer, the commuter type, the avatar and the frequent destinations stay on the device** and appear only on the user's own Profile. |
 | D4 | Frequent destinations come from a local seed file of landmarks (first the placeholder stops; real names and coordinates later), or a point tapped on the map. Names come from the file; the map has no text. |
 | D5 | In the prototype a report uses a manual vehicle picker behind a development flag, and is marked unverified. Bluetooth boarding detection replaces it later (real phone and driver beacon). |
 | D6 | Team accounts (email and password) for now. Onboarding and My Ride work without an account; sign-in is asked for at the first cloud feature. The production sign-in method is decided later. |
-| D7 | The username is generated automatically, can be edited, is 3 to 20 characters, passes a simple blocklist, and later must be unique in the cloud. |
-| D8 | Badges are derived from counts (for example first report, 5 reports, first check-in). |
+| D7 | The username is generated automatically, can be regenerated or edited, is 3 to 20 characters of letters, numbers and underscore, passes a blocklist (a small English list and reserved names in one file now; Emjay supplies the English and Cebuano lists before any public release), and later must be unique in the cloud. |
+| D8 | Badges are derived from simple counts (for example first report, 5 reports, first check-in). **No leaderboard and no ranking anywhere**, and no badge that compares users. |
 | D9 | ETA is brought forward from Phase 2 in a simple form: distance along the route to the user's boarding point divided by the vehicle's recent speed. Shown only when the vehicle is approaching and the data is good enough; hidden otherwise. |
 | D10 | Deleting the account wipes local data now; cloud deletion comes with the backend. |
 | D11 | The greeting is one short, time-based line from a small set of variants in the strings file. |
@@ -1048,7 +1048,7 @@ Added at Emjay's request. **Where this section disagrees with an earlier section
 | 3.3 Success metrics | Adds an ETA accuracy measure for D9 (to be defined with field data); the existing targets are unchanged. |
 | 5.1 What is in the pilot | The pseudonymous community feed moves from Phase 3 into the pilot (D2, D12). |
 | 6.1 Responsibilities | The commuter app also holds onboarding, landmarks, badges and the feed view; Supabase also holds the Energy ledger, feed posts and flags. |
-| 7.1 Onboarding and profile | Avatars are assigned automatically from the optional gender answer (D3); a username (D7), badges (D8) and account deletion (D10) are added; the avatar now appears in feed posts (D2), which changes "visible only in the user's own profile". |
+| 7.1 Onboarding and profile | Avatars are assigned automatically from the optional gender answer (D3); a username (D7), badges (D8) and account deletion (D10) are added. The avatar stays visible only in the user's own profile; feed posts use a neutral badge instead (D2). |
 | 7.3 Live tracker map | Viewing is free; only tracking one PUV costs Energy (D1). Tracking adds a guide line, an ETA and faded other vehicles. |
 | 7.4 Freshness and ETA | A simple ETA moves from Phase 2 into the prototype (D9). |
 | 7.5 Station check-in | Route-first selection with route-coloured station dots (D13). |
@@ -1057,7 +1057,16 @@ Added at Emjay's request. **Where this section disagrees with an earlier section
 | 11.3 Flagging | Feed posts can be flagged; the full strike and appeal process stays deferred. |
 | 12.2 Cloud data model | Adds a username to `profiles`, and new `feed_posts`, `feed_flags` and `energy_ledger` details (see the flow plan). |
 
-Sections 3.4 and 5.5, named in the request, do not exist in this document; the nearest sections are listed above.
+Sections 3.4 and 5.5, named in the request, do not exist in this document; the nearest sections are listed above (mapping confirmed by Emjay).
+
+### 19.4 Further answers (2026-10-03)
+
+| Topic | Answer |
+| --- | --- |
+| Persona | Named **Tunton**, short and friendly, English first; 6 to 8 time-based greeting variants in the strings file; Cebuano later from a team member. |
+| Frequent destinations | At most 3. |
+| Profile | The avatar button opens Profile, which also holds the settings rows (fare type, theme, About, Replay intro). |
+| ETA limits | Hidden below 5 km/h, after 90 s without data, with fewer than 2 samples, or beyond 10 km. Config constants; starting hypotheses. |
 
 ## Changes after audit
 
@@ -1069,3 +1078,4 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 4. **Section 0.3:** added two config constants: the SMS sequence wrap-around window (1 to 5,000 ahead, modulo 10,000) and the telemetry timestamp limits (older than 120 s, or more than 30 s in the future, is rejected).
 5. **Section 7.1:** sign-in for Prototype v0 changed to email and password for team accounts. Google sign-in or email magic link follows after v0.
 6. **Section 19 (Oct 3, 2026):** added "User flow v2": the new onboarding, greeting, tracking with Energy and ETA, newsfeed, reports and Profile, with decisions D1 to D14 and the earlier sections they override.
+7. **Section 19 (Oct 3, 2026, flow decisions):** D1, D2, D3, D7 and D8 updated with Emjay's answers (neutral feed badge, fixed-field feed, 60-minute posts, avatar pick once, no ranking); added 19.4.
