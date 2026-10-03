@@ -68,6 +68,8 @@ Expect "Finished prebuild". One yellow note about `userInterfaceStyle` and `expo
 
 ## 5. Build
 
+**EAS cloud builds (note, 2026-10-04).** `eas.json` and the EAS project ID in `app.json` (`extra.eas.projectId`) belong to the partner's Expo account, for his phone builds (`npx eas-cli@latest build --profile development --platform android`). The local build below does not need them, an Expo account or a login. Neither file holds a token or a password; never add one.
+
 Set the Java version for this terminal window. Adjust the path to where your JDK 17 is installed:
 
 ```powershell

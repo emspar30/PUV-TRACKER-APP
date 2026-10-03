@@ -57,6 +57,12 @@
           "imageWidth": 200
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "762947e8-5d44-478f-b2c0-d7d51f809799"
+      }
+    }
   }
 }
