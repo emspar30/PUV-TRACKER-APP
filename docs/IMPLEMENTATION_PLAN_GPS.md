@@ -5,6 +5,44 @@
 - **Source of truth:** `docs/PRD.md` v2.0. Where this plan and the PRD disagree, the PRD wins until you approve a change (`AUDIT_2.md` section 13).
 - **Status:** proposal. No code is written until you approve it. Each step ends with tests, a short report and a stop for approval, as before.
 
+## Decisions after Audit 2 (2026-10-03)
+
+Emjay approved this plan and `docs/AUDIT_2.md` with the answers below. **Where they differ from the sections that follow, these decisions win.** The sections have been updated where noted.
+
+**Order (approved).**
+- UX2, G0, then S4 Part 2 (after "Supabase is ready"), then R1, G1, S5, G2, G3, G4.
+- S4 Part 2 does not start until Emjay writes "Supabase is ready".
+- R1 does not start until Emjay writes "start R1". Emjay runs it.
+- No package from the R1 list is installed before then.
+
+| # | Question | Decision |
+| --- | --- | --- |
+| 1 | UX2 design source | Emjay's UX2 specification and `docs/DESIGN.md` (now in the repository). See plan v2, Revision 2. Profile and settings move behind an **avatar button** at the top right of each tab, which opens a Settings sheet. They do not move into My Ride. My Ride is route discovery. |
+| 2 | `expo-system-ui` | **Yes, in R1.** Until then the system bars may not follow the theme; the theme is built in JavaScript. |
+| 3 | Check-in, cloud or local | **Cloud table.** UX2 builds the Check-in tab with a local 15-minute countdown (from a stored `expires_at`) and a `verifyCheckIn()` hook returning `unverified` with `verification_disabled`. G1 adds the cloud table, the geofence and the reminder. Offline check-in is not possible, and the screen says so briefly. |
+| 4 | `app_config` | **Yes, in S4 Part 2**, with the Night Mode window 21:00 to 04:59 Asia/Manila as a server-side setting. |
+| 5 | `pg_cron` | **Yes**, but the exact command is shown and Emjay's approval awaited before anything runs on the live project. |
+| 6 | Activity recognition | **Skipped for now. Removed from R1.** A speed-only motion rule sits behind an interface (`getActivity()` returns `unknown`), so a real module can be added later. The in-vehicle check-in refusal is marked "needs a phone". |
+| 7 | Night Mode suppression | Moving markers hidden from 21:00 to 04:59 by **server time**, from S5 on. |
+| 8 | Who may check in | **Allowlisted team accounts only.** The waiting count is shown on the Check-in tab to those accounts. |
+| 9 | Consent wording | A short English draft for later data-protection review. Not final. |
+| 10 | `telemetry_raw` | **Kept**, with PRD retention (7 days by day, 24 hours at night), readable only by the service role. |
+| 11 | Mock-location counter | Sent in the **session keepalive**. The packet keeps the PRD's seven fields. |
+| 12 | Real polylines | Not yet. The import script waits for "go". |
+| 13 | Live view audience | **Signed-in team accounts only** in v0. |
+| 14 | 2026-10-02 11:48 PM rebuild | Recorded as "accepted afterwards". From now on, the agent asks before any native build. |
+| 15 | `braces` advisory | Recorded as deferred in `docs/AUDIT.md` section 11.1. |
+| 16 | Fare tab (later the same day) | **Removed at Emjay's request.** Three tabs: Live, Check-in, My Ride. The fare is part of My Ride: big number with a peso icon, distance chip, "Estimate", a quick fare-type chip that writes the same stored classification as Settings, and a "Details" breakdown. The existing fare engine and its tests are reused; no second calculator. |
+
+**What changed in this plan because of these decisions**
+- **R1:** the activity recognition module and `ACTIVITY_RECOGNITION` are removed, and `expo-system-ui` is confirmed. R2 is now needed only if G4 shows that background location is required, or a phone test finds a native problem.
+- **UX2:** rewritten to match Revision 2 of plan v2. Three tabs: Live, Check-in, My Ride (the Fare tab was removed, decision 16). Settings sheet behind the avatar button. A local check-in in the Check-in tab. The fare lives in My Ride.
+- **G1:** cloud table, team accounts only, waiting count for team accounts. The in-vehicle rule uses `getActivity()`, which returns `unknown` until a module exists, so it never refuses on the emulator (needs a phone).
+- **G2:** `telemetry_raw` is confirmed, service role only. The mock counter goes in the keepalive.
+- **G3:** the motion test is speed-only (25 km/h for 20 s) until an activity module exists; the 60% `IN_VEHICLE` share stays behind the interface.
+- **S5:** Night Mode suppression by server time; team-only reads.
+- **Questions:** section 11's questions are answered above. The new ones are at the end of section 11.
+
 ## 1. Approach and assumptions
 
 **Approach**
@@ -39,13 +77,13 @@
 - Unverified: whether a location foreground service started while the app is open needs `ACCESS_BACKGROUND_LOCATION`, which is blocked in `app.json` today. Checked at the start of G4 (risk 4).
 - No Expo module provides activity recognition (`IN_VEHICLE`). It needs a native module (question 6).
 - Route 4 placeholder lines cut across blocks, so the 30 m route snap will fail on a real ride (PRD 12.5). G3 can pass on the emulator with GPX built from the placeholder line. A real ride needs the real polylines.
-- The UX redesign prompt and `docs/DESIGN.md` are not available (`AUDIT_2.md` section 6). UX2 below is built from your summary: four tabs, light-first, Material 3 transit look, little text.
+- The UX redesign prompt and `docs/DESIGN.md` are not available (`AUDIT_2.md` section 6). UX2 below is built from your summary: four tabs, light-first, Material 3 transit look, little text. (Superseded: see decisions 1 and 16. There are three tabs.)
 
 ## 2. Order, dependencies, and how S4 Part 2 and S5 fit
 
 | # | Step | Needs first | Native rebuild? | Effort |
 | --- | --- | --- | --- | --- |
-| 1 | **UX2** redesign: four tabs, light-first theme, Light and Dark switch | Your approval and the design source (question 1) | No (see R1 for system bars) | Large |
+| 1 | **UX2** redesign: three tabs, light-first theme, Light and Dark switch | Your approval and the design source (question 1) | No (see R1 for system bars) | Large |
 | 2 | **G0** location foundation: consent, permission, reduced mode, blue dot, "use my location", accuracy gate | UX2 tab skeleton | **No**: fine location is already declared in `app.json` | Medium |
 | 3 | **S4 Part 2** live backend, as planned, plus `app_config` | "Supabase is ready" | No | Small to medium |
 | 4 | **R1** native rebuild (you run it) | Packages for G1 to G4 approved and installed | **Yes** | Small (yours) |
@@ -62,7 +100,7 @@
 
 **What in UX2 can wait**
 - Only polish can wait: animation, final illustration, and the map style tuning for dark mode.
-- The four-tab skeleton, the theme tokens with both palettes, the theme switch, and moving the existing screens into the new tabs must come first.
+- The three-tab skeleton, the theme tokens with both palettes, the theme switch, and moving the existing screens into the new tabs must come first.
 
 **Where S4 Part 2 fits**
 - It runs whenever you write "Supabase is ready", in parallel with UX2 and G0.
@@ -89,9 +127,9 @@ Changing `app.json` permissions or plugins, or adding a package with native code
 | Item | For step | Change | Source |
 | --- | --- | --- | --- |
 | Placeholder launcher icon and splash in theme colours | UX1 carry-over | `assets/` images; `app.json` `icon`, `android.adaptiveIcon`, splash config | UX1 prompt |
-| `expo-system-ui` | UX2 | Lets `userInterfaceStyle: "automatic"` take effect on Android, so system bars and the window follow light or dark | Expo SDK 57 app config reference. Question 2: you decided earlier not to install it. |
+| `expo-system-ui` | UX2 | Lets `userInterfaceStyle` take effect on Android, so system bars and the window follow light or dark | Expo SDK 57 app config reference. **Approved for R1** (decision 2). |
 | `expo-notifications` | G1 | Local "Have you boarded yet?" reminder at 5 minutes. `POST_NOTIFICATIONS` is already declared. | PRD 7.5 |
-| Activity recognition module and `android.permission.ACTIVITY_RECOGNITION` | G1 (refuse check-in when `IN_VEHICLE`), G3 (motion test) | A local Expo module in Kotlin wrapping Google Play services Activity Recognition, or a third-party library (question 6) | PRD 7.5, 10.2 |
+| ~~Activity recognition module and `ACTIVITY_RECOGNITION`~~ | — | **Removed from R1** (decision 6). `getActivity()` returns `unknown`; the motion rule is speed-only until a module is added in a later rebuild. | PRD 7.5, 10.2 |
 | `expo-battery` | G2 | Primary eligibility: battery at 30% or more, not in battery saver | PRD 8.3 |
 | `expo-network` | G2 | Detect reconnect to flush the offline buffer | PRD 8.4 |
 | `expo-task-manager` | G4 | Required by `startLocationUpdatesAsync` | Expo SDK 57 location docs |
@@ -104,7 +142,7 @@ Changing `app.json` permissions or plugins, or adding a package with native code
 - G0 does not need it: it runs on today's APK.
 
 **R2**
-- Only if a question is still open at R1 time (activity recognition, background location), or a phone test finds a native problem.
+- Only if G4 shows that background location is needed, a phone test finds a native problem, or a real activity-recognition module is added later.
 - Marked as "only if needed".
 
 **Not needed by any step:** iOS anything, Google Maps, Firebase, Expo Go.
@@ -113,69 +151,88 @@ Changing `app.json` permissions or plugins, or adding a package with native code
 
 Each step uses the same seven parts: goal; files; dependencies; tests per acceptance criterion; manual test script; risks and open questions; definition of done. "E" is Emulator, "P" is Phone.
 
-### UX2: four-tab, light-first redesign
+### UX2: three-tab, light-first redesign
 
-**1. Goal.** The app has four bottom tabs and a light-first theme with a Light and Dark switch, styled after the Material 3 transit look. The existing features move into the new tabs without loss.
+The full direction is plan v2, Revision 2, and Emjay's UX2 specification. This section is the step template.
 
-| Tab | Icon (lucide) | Holds now | Gains later |
+**1. Goal.**
+- Three bottom tabs, a light-first theme with a Light and Dark switch, a Settings sheet behind an avatar button, and the text budget.
+- The existing routing, snapping and fare logic is unchanged.
+
+| Tab | Icon | Holds in UX2 | Gains later |
 | --- | --- | --- | --- |
-| Live | `Compass` | The offline map, route lines, stop card, "Show whole route" (today's Map tab) | Blue dot (G0), live markers and coverage (S5, G2) |
-| Check-in | `MapPin` | Station list with distances; check-in button disabled with a short reason until G1 | Check-in flow (G1) |
-| Fare | a fare icon such as `Ticket` or `Coins` (question 1) | Today's Plan tab: origin, destination, itinerary, fare breakdown | "Use my location" (G0) |
-| My Ride | a ride icon such as `Bus` | Profile items (avatar, classification, team account, About, introduction) under a header, plus an empty "current ride" card | Dev broadcast (G2), relay status (G2, G4) |
+| Live | `Compass` | Full-screen map, route line in the theme route colour, floating status pill ("No data" for now), "Show whole route", "Sample data" chip. Vehicle layer ready but empty. | Blue dot and locate-me (G0), vehicles and coverage (S5, G2) |
+| Check-in | `MapPin` | Route chip (R4), station chips, one "Check in" button. Local 15-minute countdown from a stored `expires_at`, with "I boarded" and "Cancel". "Not location-verified" pill. `verifyCheckIn()` hook. | Cloud table, geofence, reminder, team-only waiting count (G1) |
+| My Ride | `Route` | Origin and destination pills with swap; a result card with the route badge, "Board near", "Get off near", the walks as small numbers, the **fare as the big number** with a peso icon, a distance chip, "Estimate", a quick fare-type chip, a "Details" breakdown and "View on map"; short failures with "Move pin to the route"; "All routes" list | "Use my location" (G0) |
 
-Where the profile items live is an assumption (question 1).
+**Settings sheet** (avatar button, top right of every tab)
+- Rows: Fare type (four chips), Theme (Light or Dark), Avatar (12 presets), About, Replay intro.
+- The team account card moves here too, below the rows, unchanged: it is needed for S4 Part 2 sign-in.
 
 **2. Files**
-- `src/app/(tabs)/_layout.tsx` (four tabs).
-- `src/app/(tabs)/index.tsx` (Live), `checkin.tsx` (new), `fare.tsx` (from `plan.tsx`), `ride.tsx` (from `profile.tsx`).
 - Theme:
-  - `src/theme/index.ts`: two palettes, light and dark, behind the same token names, plus Material 3 roles (primary, on-primary, surface, surface-container, outline).
-  - `src/theme/ThemeProvider.tsx` (new): reads the choice (Light, Dark, System) from on-device storage.
-  - `src/data/map/offlineStyle.ts`: a light and a dark map style from the tokens.
-- Strings: `src/strings/en.ts`, with shorter text and more icon labels.
-- Tests: `src/shared/__tests__/contrast.test.ts`, which measures both palettes.
-- Lint: the import rule keeps theme state out of `src/shared`.
+  - `src/theme/tokens.ts` (new): the light and dark palettes, with the same semantic names.
+  - `src/theme/ThemeProvider.tsx` (new): context and hook; reads the stored choice.
+  - `src/theme/index.ts`: spacing, radii, type scale, elevation, route colours by route code.
+- `src/state/settingsStore.ts` (new): the theme choice, on the device.
+- `src/data/map/offlineStyle.ts`: light and dark styles from the tokens.
+- `src/shared/ui/contrast.ts` (existing).
+- `src/shared/checkin/localCheckin.ts` (new, pure): lifecycle from a stored `expires_at`.
+- `src/shared/verification/verifyCheckIn.ts` (new): the hook.
+- `src/state/checkinStore.ts` (new): the local check-in, on the device.
+- Components: `src/components/` gains Pill, Chip, StatusPill, LineBadge, Sheet, BigNumber, Details and AvatarButton.
+- Tabs and screens:
+  - `src/app/(tabs)/_layout.tsx`.
+  - `index.tsx` (Live), `checkin.tsx`, `ride.tsx` (My Ride, with the fare).
+  - The old `plan.tsx` and `profile.tsx` are removed after their parts move.
+  - `src/app/settings.tsx` (sheet), `src/app/onboarding.tsx` (one screen), `src/app/about.tsx`.
+- Strings: `src/strings/en.ts`, shortened to the text budget.
+- Tests:
+  - `contrast.test.ts`: every pair, both themes.
+  - `localCheckin.test.ts`.
+  - The existing `planGuidance.test.ts` and `fare.test.ts`, which stay on fixed fixtures.
 
 **3. Dependencies**
-- Your approval and the design source (question 1).
-- Optional: `expo-system-ui` in R1 (question 2).
+- Emjay's approval (given) and `docs/DESIGN.md`.
+- No new package and no rebuild. The system bars follow the theme only after R1.
 
 **4. Tests**
 
 | Criterion | Test | Kind | E/P |
 | --- | --- | --- | --- |
-| Every text colour meets WCAG AA in both palettes | `contrast: every text token is at least 4.5:1 on every surface, light and dark` | unit | — |
-| Theme choice stays on the device and survives a restart | `theme store persists Light, Dark, System and ignores unknown values` | unit (app project, the first `jest-expo` test) | — |
-| Touch targets at least 48 dp | `UX2-M2` | manual | E |
-| Four tabs with the right icons; old features reachable | `UX2-M1` | manual | E |
-| No text on the map in either style | `style has no symbol or text layers` (existing `offlineMap.test.ts`, extended to the light style) | unit | — |
+| Every text and background pair passes WCAG AA, both themes | `contrast: every pair passes 4.5:1 (text) or 3:1 (large text, graphics)` | unit | — |
+| Light route colour readable | `route colour: line at least 3:1 on light land, badge text at least 4.5:1` | unit | — |
+| Check-in lasts 15 minutes and survives a restart | `local check-in: countdown from expires_at; cancel; expired after a long time away` | unit | — |
+| Naming, failure reasons, fare breakdown (6.3 km: ₱21.00 regular; ₱16.80 then ₱16.75 student) | existing tests on fixtures | unit | — |
+| No text on the map, no remote source, both styles | `offlineMap.test.ts`, extended | unit | — |
+| Exactly three tabs, in order | `tab list has Live, Check-in, My Ride and nothing else` | unit | — |
+| The quick fare-type chip and Settings share one stored classification | `fare-type chip and Settings read and write the same stored value` | unit | — |
+| Three tabs, sheet, theme switch | `UX2-M1`, `UX2-M2` | manual | E |
 | Large text does not clip | `UX2-M3` at font scale 1.3 | manual | E |
 
 **5. Manual test script**
 - `UX2-M1`:
   1. Open the app.
-  2. Expect tabs Live, Check-in, Fare, My Ride.
-  3. On Live, tap a stop and "Show whole route".
-  4. On Fare, plan a trip.
-  5. On My Ride, change the avatar and classification, and open About.
-  6. Expect everything from UX1 to work.
-- `UX2-M2`: in My Ride, switch Light, then Dark, then System. Expect every screen and the map to follow, and the choice to survive a force-stop.
+  2. Expect tabs Live, Check-in, My Ride, and no Fare tab.
+  3. Tap the avatar button; expect the sheet with five rows.
+- `UX2-M2`:
+  1. In Settings, switch to Dark, then Light.
+  2. Expect every screen and the map to follow.
+  3. Force-stop and reopen; expect the choice kept.
 - `UX2-M3`: `adb shell settings put system font_scale 1.3`, visit each tab, then set it back to 1.0.
+- Per-tab scripts are added to `docs/device-tests.md` with parts 3 to 5.
 
 **6. Risks and open questions**
-- The design source is missing (question 1).
-- Without `expo-system-ui`, the status bar and navigation bar may not follow the theme (question 2).
-- The light map style needs its own contrast check for the route line and dots.
+- System bars do not follow the theme until R1.
+- Dragging the sheet depends on the installed gesture libraries working with MapLibre; tap to expand is the fallback.
 
 **7. Definition of done**
-- [ ] Four tabs; all UX1 features reachable.
-- [ ] Both palettes pass the contrast test.
-- [ ] Theme switch persists.
+- [ ] Five local commits as listed in Emjay's UX2 message.
+- [ ] Stop after part 2 for review.
+- [ ] Contrast test passes in both themes.
 - [ ] `UX2-M1` to `M3` pass on the emulator.
 - [ ] `AUDIT_BACKLOG.md` updated.
 - [ ] Tests, lint and type-check clean.
-- [ ] Commit `UX2: four tabs and light-first theme`.
 
 ### G0: location foundation
 
@@ -231,7 +288,7 @@ Where the profile items live is an assumption (question 1).
   3. Accept. Expect the explainer, then the system prompt.
   4. Allow "while using the app".
   5. Expect the dot.
-- `G0-M2`: as above, but deny. Expect a short notice that location is off. Expect the Fare tab to still take pins, and "Use my location" to be disabled with the reason.
+- `G0-M2`: as above, but deny. Expect a short notice that location is off. Expect My Ride to still take pins, and "Use my location" to be disabled with the reason.
 - `G0-M3`:
   1. In Extended controls, Location, load `docs/gpx/r4-outbound.gpx` (generated from the seed by a test helper) and press play.
   2. Expect the dot to move along the line.
@@ -285,16 +342,18 @@ Where the profile items live is an assumption (question 1).
 - `src/state/checkinStore.ts` (new): the user's active check-in.
 - `src/app/(tabs)/checkin.tsx`: station list sorted by distance; button; reasons as short icon and text pairs; countdown; cancel; "I boarded".
 - `src/features/checkin/useBoardingReminder.ts` (new): an `expo-notifications` local notification after R1. Before R1, an in-app banner.
-- `src/services/activity.ts` (new): `activityState()`.
+- `src/services/activity.ts` (new): `getActivity()`.
   - Returns `in_vehicle`, `still`, `on_foot` or `unknown`.
-  - Before the activity module exists (question 6) it returns `unknown`, and the in-vehicle rule only refuses on `in_vehicle`.
+  - With no activity module (decision 6) it always returns `unknown`, so the in-vehicle refusal never fires. It is marked "needs a phone".
+- Builds on the UX2 local check-in: the stored `expires_at` and the `verifyCheckIn()` hook stay. G1 moves the record to the cloud and the hook checks the geofence and accuracy.
+- Team accounts only (decision 8): the function returns 403 for an account not on `telemetry_writers` (or a separate check-in allowlist, if Emjay prefers). The waiting count is shown only to those accounts.
 - `tests/integration/checkin.test.ts` (new).
 
 **3. Dependencies.**
 - G0 (fix and accuracy), S4 Part 2 (live project).
-- R1 for the notification and the activity module.
-- `pg_cron` (question 5).
-- Cloud or local (question 3).
+- R1 for the notification.
+- `pg_cron`, with the command shown and approved first (decision 5).
+- Cloud table (decision 3).
 
 **4. Tests**
 
@@ -329,9 +388,9 @@ Where the profile items live is an assumption (question 1).
 - `G1-P2` (phone): real accuracy at two terminals, open sky and covered (PRD 17 E3).
 
 **6. Risks and open questions**
-- Cloud or local check-in (question 3).
-- Check-in for any signed-in user, or allowlisted team accounts only, while v0 is private (question 8)?
-- No heatmap or SMS consumes the counts yet (out of scope). They are shown only as a "waiting here" number on the Check-in tab, if you want that (question 8).
+- No heatmap or SMS consumes the counts yet (out of scope). They are shown as a "waiting here" number on the Check-in tab, to team accounts only (decision 8).
+- Check-in needs a connection; offline, the tab says so in a few words (decision 3).
+- The in-vehicle refusal cannot be tested without an activity module and a phone.
 - Auto-cancel on a verified boarding needs BLE (later). Until then: the "I boarded" button and starting a broadcast.
 - `pg_cron` needs enabling on the live project (question 5).
 
@@ -461,7 +520,7 @@ Effort: large.
   - Live tab shows "Route 4 passed CSU 3 minutes ago" during the window.
 - `deviceIntegrity()` is called before the first relay of the day. It stays a placeholder: Play Integrity is out of scope (PRD 0.6).
 
-**3. Dependencies.** G2. R1 (activity module). Real polylines for real rides (import script, on hold).
+**3. Dependencies.** G2. Motion is speed-only through `getActivity()` returning `unknown` (decision 6); the `IN_VEHICLE` share applies only once a module exists. Real polylines for real rides (import script, on hold).
 
 **4. Tests**
 
@@ -624,7 +683,7 @@ None are installed. Each needs your approval, through `npx expo install`, before
 | --- | --- | --- | --- | --- |
 | `expo-system-ui` | UX2 | Yes | System bars and window follow the theme (question 2) | Keep the bars fixed; no package |
 | `expo-notifications` | G1 | Yes | 5-minute reminder (PRD 7.5) | In-app banner only |
-| Activity recognition: a local Expo module (Kotlin) or a third-party library | G1, G3 | Yes | `IN_VEHICLE` (PRD 7.5, 10.2) | Speed-only motion rule; no in-vehicle refusal (question 6) |
+| ~~Activity recognition module~~ | G1, G3 | Yes | `IN_VEHICLE` (PRD 7.5, 10.2) | **Skipped for now (decision 6):** speed-only motion rule, no in-vehicle refusal |
 | `expo-battery` | G2 | Yes | Primary eligibility (PRD 8.3) | Treat every rider as eligible |
 | `expo-network` | G2 | Yes | Reconnect detection for the buffer | Retry on a timer |
 | `expo-task-manager` | G4 | Yes | Required by background location updates | none |
@@ -665,6 +724,15 @@ No dependency is needed for G0, S5 or the simulator.
 | 12 | Scope growth in G2 (baton) | Schedule | Baton limited to team accounts; the simulator plays the second rider |
 
 ## 11. Open questions for the user
+
+**All 13 questions below were answered on 2026-10-03. The answers are in "Decisions after Audit 2" at the top.** The questions are kept so the decisions can be traced.
+
+New questions:
+
+- **N1. Team account card in Settings.** It is not in the UX2 Settings rows. It is kept below them, because S4 Part 2 sign-in needs it. *Blocks nothing; Emjay may move it.*
+- **N2. Check-in allowlist.** Reuse `telemetry_writers` for G1, or a separate list? *Blocks the G1 migration.*
+
+Original questions:
 
 1. **UX2 design source:** please re-send the "UX redesign" prompt and add `docs/DESIGN.md`. Also confirm the Fare and My Ride icons, and that profile items move into My Ride. *Blocks UX2.*
 2. **`expo-system-ui`:** install it in R1 so system bars follow Light and Dark, or keep the bars fixed? *Blocks the UX2 definition of done and R1.*

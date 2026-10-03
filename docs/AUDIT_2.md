@@ -302,6 +302,7 @@ PRD 0.7 safety rule (only allowlisted accounts write): **yes, in code**. Tested 
 | 2026-10-02 11:48 PM | Rebuild with the `react-native-screens` patch | `device-tests.md` records it ("BUILD SUCCESSFUL in 2m 34s") but not who ran it | It followed "Fix it before proceeding". A separate go-ahead for the build itself is **unverified**. Please confirm. |
 
 - No native build since. Every change from S2 to UX1 runs on the 11:48 PM APK.
+- **Decision (Emjay, 2026-10-03):** the 11:48 PM rebuild is recorded as "accepted afterwards". From now on the agent asks before any native build.
 
 **Work beyond an approved step**
 1. S4 Part 1 was committed before review (section 7).
@@ -387,7 +388,7 @@ Run on 2026-10-03 at commit `0796803`.
 
 1. **Section 0.2 and 0.7, verification device.** Allow the emulator, with simulated GPS, for S0 to S5 acceptance where the criterion does not need radio or battery behaviour. Keep physical phones for the criteria PRD 0.4 lists.
 2. **Section 0.7 build order.** Record the GPS-free order (plan Revision 1) and the new GPS plan steps (UX2, G0 to G4). PRD 0.7 currently defers check-in (S9) and the baton (S8); the GPS plan brings forward the parts that need no BLE.
-3. **Section 7 and design system (section 1 table).** Replace "Dark-mode-first bento grid" with the four-tab, light-first Material 3 design, and Map, Plan and Profile with Live, Check-in, Fare and My Ride, once you confirm the redesign.
+3. **Section 7 and design system (section 1 table).** Replace "Dark-mode-first bento grid" with the light-first Material 3 design, and Map, Plan and Profile with three tabs: Live, Check-in and My Ride (updated 2026-10-03: a fourth Fare tab was planned and then removed).
 4. **Section 7.1, avatars.** "Profile and wallet screens": there is no wallet in the prototype. Also remove `avatar_id` from `profiles` in 12.2, since avatars stay on the device.
 5. **Section 7.2, tiles.** Bundled PMTiles copied on first launch, instead of `.mbtiles` through Play Asset Delivery, for the prototype.
 6. **Section 7.2, routing.** The flat-map projection in place of Turf `nearestPointOnLine` and `pointToLineDistance`, with the measured accuracy. Spatial grid only when more than one route exists.
@@ -395,7 +396,8 @@ Run on 2026-10-03 at commit `0796803`.
 8. **Section 7.5, check-in.** You mentioned a later decision of "local-only check-in", which conflicts with 7.5 and 6.3 (cloud `checkins` table, heatmap counts). Record whichever you choose (question 4).
 9. **Section 0.3.** Add constants used by the build: walking limit (500 m, already in 7.2), route stop warn and max distance (50 m and 150 m), simplify tolerance (5 m), map overzoom levels, DB lock retry.
 10. **Section 7.3.** State who may see live view in the prototype: signed-in team accounts only, or anyone (question 6).
-11. **Route 4 only.** Already in 0.1 rule 2. No change, except to keep "other routes later as data" consistent in 7.2's "8% opacity" line, which cannot apply with one route.
+11. **Section 7.2, fare.** The fare calculator is part of My Ride, with no separate tab (the PRD never required a separate tab).
+12. **Route 4 only.** Already in 0.1 rule 2. No change, except to keep "other routes later as data" consistent in 7.2's "8% opacity" line, which cannot apply with one route.
 
 ## 14. Open questions for me
 

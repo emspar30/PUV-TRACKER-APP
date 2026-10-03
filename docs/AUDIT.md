@@ -384,6 +384,18 @@ Notes:
 
 **Decision: deferred; re-check with `npm audit --omit=dev` before any public release.** Do not run `npm audit fix` or `npm audit fix --force`. Wait for Expo to publish updated dependencies.
 
+### 11.1 Re-check on Oct 3, 2026 (Audit 2)
+
+The same command now lists 38 entries (10 moderate, 28 high). The three advisories above are unchanged. One advisory is new, and almost all of the extra entries are packages flagged only because they depend on it.
+
+| Advisory | Severity | Installed version | Reaches the project through | Ships in the app? |
+| --- | --- | --- | --- | --- |
+| `braces`: stack-exhaustion denial of service through deeply nested patterns. [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) | high | 3.0.3 | `micromatch` 4.0.8 → Metro (`metro-file-map`, `@expo/metro-file-map`), Jest (`jest-haste-map`, `@jest/transform`) and `@expo/cli` | No. File-watching and glob matching in the bundler, test runner and CLI on the development PC. |
+
+npm's suggested fix is again the breaking downgrade `expo@44.0.6`.
+
+**Decision (Emjay, Oct 3, 2026): deferred, like the three above.** No fix command was run.
+
 ## 12. Addendum: findings from the first successful Android build (Oct 2, 2026)
 
 The debug APK was built and opened on the emulator late on Oct 2. Three problems had to be fixed first, and one known issue remains. Details and the timeline are in `docs/S0_S1_REPORT.md`.

@@ -49,6 +49,78 @@ No application code is written until this plan is approved. Each step ends with 
 
 **Dependencies added with approval:** `expo-asset` and `expo-file-system` (both were already compiled into the build as parts of Expo).
 
+## Revision 2: UX direction (2026-10-03)
+
+**This section overrides the screen layout in section 1, the "Design system" row of PRD section 1, and UX1 wherever they differ.**
+- It is delivered as step UX2 of `docs/IMPLEMENTATION_PLAN_GPS.md`.
+- The routing, snapping and fare logic and their tests are unchanged.
+
+**Why.**
+- Emjay chose a Google Maps style Material 3 transit look, light-first, with very little text on screen.
+- The reference is `docs/DESIGN.md`.
+
+**Three bottom tabs** (replacing Map, Plan and Profile)
+
+| Order | Label | Icon (lucide) | Purpose |
+| --- | --- | --- | --- |
+| 1 | Live | `Compass` | Full-screen live map. Route line, a floating status pill (Live, Stale, No data), "Show whole route". Vehicles arrive in S5. |
+| 2 | Check-in | `MapPin` | Station check-in. Local 15-minute countdown and a `verifyCheckIn()` hook in UX2; cloud table, geofence and reminder in G1. |
+| 3 | My Ride | `Route` | Route discovery and the fare: origin and destination with swap, a result card, and an "All routes" list. |
+
+**The fare calculator is part of My Ride, not a tab of its own** (Emjay, 2026-10-03; the first version of this revision had a fourth "Fare" tab, removed because My Ride already showed the fare).
+- The My Ride result card shows the fare as the big number with a peso icon, a distance chip, an "Estimate" label, and a quick fare-type chip (Regular, Student, Senior, PWD).
+- The quick chip writes the same on-device classification as the Settings sheet, so the two always agree.
+- A "Details" expander shows the breakdown: base fare, extra km, discount, rounding, total.
+- The existing fare engine and its tests are reused; there is no second fare calculator.
+
+**Settings**
+- Profile and settings move behind an **avatar button** at the top right of every tab, which opens a Settings sheet.
+- Sheet rows: Fare type, Theme (Light or Dark), Avatar, About, Replay intro.
+- The first-launch introduction becomes one screen (fare type, avatar, Start), skippable.
+
+**Theme**
+- **Light is the default.** Dark is a choice stored on the device.
+- **Light tokens:** the prose "Colors" section of `docs/DESIGN.md`. Its YAML front matter disagrees in many values; the prose wins, by Emjay's decision. Every difference is listed below.
+- **Dark tokens:** derived from the UX1 dark palette, with the same semantic roles.
+- **Contrast:** every text and background pair is measured in both themes against WCAG AA (4.5:1 for text, 3:1 for large text and graphics) by a unit test. A failing text colour is darkened; its fill is kept.
+- **Route colour:** theme-aware and keyed by route code in the theme config. The light value needs 3:1 for lines and 4.5:1 for badge text. The database colour (`#00F5D4`) stays the dark-mode value, and the seed file is not changed.
+- **Font:** the Android system font (Roboto) with DESIGN.md's type scale. No font package.
+- **Shapes and elevation:** as in DESIGN.md, including pills, chips, status pills, line badges and the bottom-sheet look. The sheet is a collapsible panel: peek and expanded. Dragging is used only if it works with the installed `react-native-reanimated` and `react-native-gesture-handler`; otherwise tap to expand.
+- **Map style:** a light variant of the label-free Protomaps v4 style, built from the DESIGN.md neutrals: light land and roads, soft blue water, no text, no remote sources. The dark variant stays. The style follows the theme. The OpenStreetMap credit stays readable on both.
+- **System bars:** until R1 adds `expo-system-ui`, the status and navigation bars may not follow the theme. The theme is built in JavaScript.
+
+**Text budget**
+- No paragraphs on any main screen. Icons, colour, numbers and short labels instead.
+- Messages are about 8 words at most and carry the key number, for example "Too far from route · 3.2 km", "No data from riders right now", "Estimate", "Sample data".
+- Details sit behind a "Details" expander.
+- Each tab has one primary action. The fare is a big number. Status uses pills.
+- All user-facing text stays in `src/strings/en.ts`. No translation library.
+- UX1's explanatory sentences (legend, guidance lines, failure paragraphs) are shortened or moved behind "Details".
+
+**DESIGN.md: differences between the front matter and the prose, and what is used**
+
+| Role | Front matter (YAML) | Prose "Colors" and components | Used |
+| --- | --- | --- | --- |
+| Primary | `primary` `#0041a2`; `primary-container` `#0b57d0` | Transit Blue `#0b57d0` | `#0b57d0` |
+| Success (secondary) | `secondary` `#076d2e`; `secondary-container` `#9cf7a7` | Emerald `#137333` on `#e6f4ea` | `#137333` on `#e6f4ea` |
+| Warning (tertiary) | `tertiary` `#6c3b00`; `tertiary-container` `#8e4f00` | Amber `#ea8600` on `#fef7e0` | Fill `#fef7e0`. **Text `#9a5700`**: `#ea8600` measured 2.48:1 on its fill and 2.66:1 on white. On the map (graphics, 3:1) amber is `#c26401`. |
+| Error | `error` `#ba1a1a`; `error-container` `#ffdad6` | Red `#b3261e` on `#fce8e6` | `#b3261e` on `#fce8e6` |
+| Canvas | `surface` and `background` `#fcf9f8` (warm) | `surface-canvas` `#ffffff` | `#ffffff` |
+| Container low | `#f6f3f2` | `#f8f9fa` | `#f8f9fa` |
+| Container | `#f0eded` | `#f1f3f4` | `#f1f3f4` |
+| Container high | `#eae7e7` | `#e8eaed` | `#e8eaed` |
+| Text primary | `on-surface` `#1b1b1c` | `#1f1f1f` | `#1f1f1f` |
+| Text secondary | `on-surface-variant` `#424654` | `#444746` | `#444746` |
+| Text tertiary | `outline` `#737785` | `#747775` | **`#5f6368`**: `#747775` measured 4.07:1 on `#f1f3f4` and 3.76:1 on `#e8eaed` |
+| Route 4 line and badge, light theme | not defined | not defined | `#00796b` (5.05:1 on the light land, 5.32:1 under white badge text). Dark keeps the stored `#00F5D4`, which is 1.2:1 on the light land. |
+| Borders | `outline-variant` `#c3c6d6` | 1px `#e8eaed` borders | `#e8eaed` |
+| Active chip fill | not defined | `#e8f0fe` | `#e8f0fe` |
+| Font | Roboto Flex | Roboto Flex | Android system Roboto (Emjay's decision; no font package) |
+| Corner radii | `sm` 8, `DEFAULT` 16, `md` 24, `lg` 32, `xl` 48 | Pill full; extra large 24 to 32; medium "0.75rem" (12); micro "0.25rem" (4); sheet top 28 | Prose tiers: pill, 28 (sheet), 24 (cards), 12 (medium), 4 (badges) |
+| Secondary button height | not defined | 44 px | 48 dp, to meet the 48 dp touch-target rule that the same file and the PRD require |
+| Filter chip height | not defined | 32 px | 32 dp visual, 48 dp touch area |
+| Type scale | Defined (`headline-lg` to `label-sm`) | Refers to the same names | Front-matter scale (the only one given), in dp |
+
 ## 1. Approach and assumptions
 
 **Approach**

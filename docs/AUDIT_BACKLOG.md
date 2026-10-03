@@ -2,7 +2,9 @@
 
 Everything Emjay has not verified personally, kept current at every step. Each item says what to check, exactly how, and what to expect. An item leaves this list only when Emjay confirms it; the agent's own runs are recorded in `docs/device-tests.md` and do not close an item.
 
-Last updated: 2026-10-03, after the UX1 polish pass.
+Last updated: 2026-10-03, after Audit 2 and its decisions (before UX2).
+
+**Coming change:** UX2 replaces the Map, Plan and Profile tabs with Live, Check-in and My Ride (the fare is part of My Ride; there is no Fare tab), and Profile with a Settings sheet (plan v2, Revision 2). Items 3, 4, 8, 10, 20, 22 to 30 and 32 describe UX1 screens. They are rewritten for the new screens in each UX2 part; until then, check them against the UX1 build only if you want to.
 
 **Before any emulator check**
 
@@ -52,6 +54,18 @@ Last updated: 2026-10-03, after the UX1 polish pass.
 | 34 | UX1 | Loading screen, and the first-launch "database is locked" fix | Emulator, command | Open |
 | 35 | UX1 | Launcher icon and splash screen are still the Expo defaults | Decision, native rebuild | Open, waits for Emjay |
 | 36 | UX1 | All on-screen text comes from one strings file | Command | Open |
+| 37 | Audit 2 | Read `docs/AUDIT_2.md` and check its claims you care about | Reading, commands | Open |
+| 38 | Audit 2 | DESIGN.md: the choices between its front matter and its prose | Reading | Open |
+| 39 | Audit 2 | Decisions recorded as you gave them | Reading | Open |
+| 40 | Audit 2 | `braces` advisory recorded as deferred | Command | Open |
+| 41 | UX2 | Native crash on one launch (`SIGSEGV` in `MountingCoordinator::pullTransaction`) | Emulator, over many launches | Open, cause unknown |
+| 42 | UX2 | Swipe the Live sheet to peek, half and expanded by hand | Emulator (mouse) | Open |
+| 43 | UX2 | Flick speed: does a quick flick always go to the next point? | Emulator (mouse), later a phone | Open |
+| 44 | UX2 | Map stays usable above the sheet; floating pill and button follow the edge | Emulator | Open |
+| 45 | UX2 | Chevron and TalkBack expand and collapse actions | Emulator, TalkBack | Open |
+| 46 | UX2 | Light and Dark from Settings, including the map and route line | Emulator | Open |
+| 47 | UX2 | Three tabs and the Settings sheet; the interim Check-in and My Ride tabs | Emulator | Open |
+| 48 | UX2 | My Ride: fare as the big number, quick fare-type chip agrees with Settings | Emulator, command | Open, after part 3 |
 
 ## Items
 
@@ -276,6 +290,81 @@ Last updated: 2026-10-03, after the UX1 polish pass.
 
 - **How:** open `src/strings/en.ts`. Search the screens for quoted sentences: `npx expo lint` passes, and a search of `src/app` and `src/features` for text inside JSX should find only `strings.` references.
 - **Expected:** every sentence shown to the user is in that file, ready for a Cebuano copy. The `DEV` line and the benchmark row are development-only and are not translated.
+
+### 37. Audit 2
+
+- **What:** `docs/AUDIT_2.md` was written by the agent. Its statements are claims until you check them.
+- **How:** read sections 1, 7, 8 and 12. To re-run its gates: `npx tsc --noEmit`, `npx expo lint`, `npm test`, `npx expo-doctor`, `npx expo install --check`, `npm audit --omit=dev`. To check the push record: `git reflog show refs/remotes/origin/main`. To check package changes: `git diff 6cdd86a HEAD -- package.json`.
+- **Expected:** the same results as its section 10. Pushes only on 2026-10-02 at 19:55 and 21:28. Four package changes (`expo-asset`, `expo-file-system`, the `react-native-gesture-handler` pin, `patch-package`).
+
+### 38. DESIGN.md: front matter against prose
+
+- **What:** `docs/DESIGN.md` gives two sets of colours. Its YAML front matter (for example primary `#0041a2`) disagrees with its prose "Colors" section (primary `#0b57d0`). By your decision the prose is used.
+- **How:** read the table at the end of Revision 2 in `docs/IMPLEMENTATION_PLAN_v2.md`.
+- **Decide:** whether any choice there is not what you meant. Points to look at: the type scale comes from the front matter, because the prose gives none; corners follow the prose tiers; buttons are 48 dp, not 44 px.
+
+### 39. Decisions recorded as you gave them
+
+- **How:** read "Decisions after Audit 2" at the top of `docs/IMPLEMENTATION_PLAN_GPS.md`, and its new questions N1 and N2 in section 11.
+- **Expected:** fifteen rows matching your message of 2026-10-03.
+- **Two assumptions to confirm:**
+  1. The Team account card is kept in the Settings sheet below your five rows (N1).
+  2. The G1 check-in allowlist reuses `telemetry_writers` unless you want a separate list (N2).
+
+### 40. `braces` advisory deferred
+
+- **How:** read `docs/AUDIT.md` section 11.1, then run `npm audit --omit=dev`.
+- **Expected:** 38 entries (10 moderate, 28 high), the four advisories listed there, and no fix command run.
+
+### 41. Native crash on one launch (UX2 part 1)
+
+- **What:** on 2026-10-03 at 13:48 the app quit about 3 seconds after starting, with `Fatal signal 11 (SIGSEGV)` in `facebook::react::MountingCoordinator::pullTransaction`. That is React Native's native renderer, not app code. The next launch worked, with nothing changed in between.
+- **How:** over normal use, note any launch where the app closes by itself. After one, run `adb logcat -d | findstr /C:"Fatal signal" /C:"pullTransaction"`.
+- **Expected:** none. If it repeats, record the time and what was on screen. It may be a React Native or `react-native-screens` start-up problem like item 14, and would be reported upstream rather than worked around without your approval.
+
+### 42. Swipe the Live sheet by hand
+
+- **How:** on the Live tab, drag the grey handle (or the "R4 IMA → DEO" row) up slowly and let go about a third of the way up the screen; then drag it to near the top; then drag it back down. Do it with the mouse in the emulator window.
+- **Expected:** it settles at the nearest of three heights: a 72 dp strip (peek), about 40% of the screen (half), about 90% (expanded). It springs into place, never stops in between. At expanded the stop list scrolls; at half and peek it does not. Coming down from expanded, the content is back at its top.
+- **Note:** at expanded, dragging the content down does not collapse the sheet: drag the handle or the header row instead. This is the fallback you allowed for the nested gesture.
+
+### 43. Flick speed
+
+- **How:** from half, flick up quickly over a short distance; from expanded, flick down quickly.
+- **Expected:** a quick flick goes to the next point in its direction even when released close to the current point. The speed that counts as quick is `SHEET_FLICK_VELOCITY_DP_S` (500 dp per second) in the config. A drag also counts as quick if its average speed reaches that, because a finger that pauses before lifting reports 0.
+- **Decide:** whether 500 feels right. It is one constant.
+
+### 44. Map above the sheet
+
+- **How:** with the sheet at half, pan and pinch the map in the part above it. Drag the sheet slowly and watch the "No data" pill and the round "Show whole route" button. Tap the button.
+- **Expected:** the map moves; the sheet does not. The pill and the button ride just above the sheet's top edge and fade out as it opens fully. The button frames the whole route above the sheet. The OpenStreetMap credit is at the top left and is never covered.
+
+### 45. Chevron and TalkBack
+
+- **How:** tap the small chevron at the top right of the sheet four times. Then turn on TalkBack (Settings, Accessibility), focus the handle and use the "Expand" and "Collapse" actions (swipe up or down with one finger on Android's adjustable control).
+- **Expected:** the chevron goes peek, half, expanded, then back to peek. TalkBack reads "Panel, Half open" and expand and collapse move one step. TalkBack was not tested by the agent.
+
+### 46. Light and Dark
+
+- **How:** tap the avatar at the top right, choose Dark, close the sheet; then choose Light.
+- **Expected:** every screen, the sheet, the chips, the map and the route line follow. The choice survives a force-stop. The status bar icons follow; the navigation bar may not until R1 adds `expo-system-ui`.
+
+### 47. Three tabs and Settings
+
+- **How:** tap each tab, then the avatar button.
+- **Expected:** exactly three tabs: Live (compass), Check-in (pin), My Ride (route icon). There is no Fare tab; the fare is part of My Ride.
+- **For now:**
+  - Check-in shows a "Coming soon" placeholder until part 4.
+  - My Ride still shows the old Plan screen, with its map strip, until part 3.
+- **The Settings sheet:**
+  - Rows: Fare type (four chips), Theme (Light, Dark), Avatar (12), About, Replay intro, and the Team account card below them (question N1).
+  - It closes with the X or by tapping the dimmed map.
+  - The round grey gear that floats on the screen belongs to the development client and does not exist in a release build.
+
+### 48. My Ride: the fare and the quick fare-type chip (after part 3)
+
+- **How:** on My Ride, set a From and a To so a trip is found. Read the fare, then tap the fare-type chip on the result card and choose Student. Open Settings from the avatar: Fare type should read Student. Choose Regular there and return: the chip should read Regular and the fare go back up.
+- **Expected:** the fare is the big number with a peso icon, a distance chip and "Estimate". "Details" shows base fare, extra km, discount, rounding and total. The chip and Settings always show the same choice. Then run `npm test`: the fare tests (6.3 km: ₱21.00 regular; ₱16.80 then ₱16.75 student), the shared-setting test and the three-tab test pass.
 
 ## What runs where (S4)
 
