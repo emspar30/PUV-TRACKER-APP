@@ -48,7 +48,15 @@
       ],
       "expo-sqlite",
       "@maplibre/maplibre-react-native",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
+      ]
     ]
   }
 }
