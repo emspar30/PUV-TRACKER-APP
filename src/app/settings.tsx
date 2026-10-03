@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components';
 import { AccountCard } from '@/features/profile/AccountCard';
-import { AvatarPicker } from '@/features/profile/AvatarPicker';
+import { AvatarPicker, ShuffleAvatarChip } from '@/features/profile/AvatarPicker';
 import { FareTypeChips } from '@/features/ride/FareTypeChips';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
@@ -68,7 +68,10 @@ export default function SettingsSheet() {
             ))}
           </View>
 
-          <Text style={typography.labelLg}>{strings.settings.avatar}</Text>
+          <View style={styles.labelRow}>
+            <Text style={[typography.labelLg, styles.grow]}>{strings.settings.avatar}</Text>
+            <ShuffleAvatarChip />
+          </View>
           <AvatarPicker />
 
           <View style={styles.divider} />
@@ -132,6 +135,11 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
   },
   grow: {
     flex: 1,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   iconButton: {
     width: MIN_TOUCH_TARGET,

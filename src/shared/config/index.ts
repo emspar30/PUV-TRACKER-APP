@@ -97,6 +97,20 @@ export const NIGHT_MODE_TZ = 'Asia/Manila';
 // Asia/Manila is UTC+8 all year (no daylight saving).
 export const MANILA_UTC_OFFSET_MIN = 480;
 
+// --- Onboarding v2 and the greeting (PRD 19, D3 and D11)
+// Asia/Manila hour at which each greeting period starts; night runs from the last to the first
+export const GREETING_MORNING_START_H = 5;
+export const GREETING_AFTERNOON_START_H = 11;
+export const GREETING_EVENING_START_H = 17;
+export const GREETING_NIGHT_START_H = 21;
+// Preset avatars: ids 0 to AVATAR_COUNT - 1. A stated gender picks from its own set; no answer or
+// "Prefer not to say" picks from all of them.
+export const AVATAR_COUNT = 12;
+export const AVATAR_IDS_MALE: readonly number[] = [0, 1, 2, 3, 4, 5];
+export const AVATAR_IDS_FEMALE: readonly number[] = [6, 7, 8, 9, 10, 11];
+// Frequent destinations kept on the phone (decision 5)
+export const FREQUENT_DESTINATIONS_MAX = 3;
+
 // --- BLE (PRD 10.1, 12.4). Only the smoothing function exists in v0.
 export const RSSI_SMOOTHING_ALPHA = 0.3;
 export const RSSI_PRESENCE_THRESHOLD_DBM = -65;

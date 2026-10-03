@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -20,6 +21,7 @@ import { projectOntoLine } from '@/shared/geo/line';
 import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/describe';
 import { fareForItinerary, planTrip } from '@/shared/routing/plan';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
+import { useDestinationsStore } from '@/state/destinationsStore';
 import { useFareType } from '@/state/fareType';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
@@ -70,6 +72,21 @@ export default function MyRideScreen() {
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [sheetHeight, setSheetHeight] = useState(0);
   const [sheetRequest, setSheetRequest] = useState<SheetRequest | null>(null);
+
+  // A frequent-destination chip on the Live greeting opens this tab with that destination as To.
+  // Each tap carries a new time stamp; it is applied once, while rendering, with no effect.
+  const params = useLocalSearchParams<{ to?: string; at?: string }>();
+  const destinations = useDestinationsStore((state) => state.destinations);
+  const [appliedRequest, setAppliedRequest] = useState<string | undefined>(undefined);
+  if (params.at !== undefined && params.at !== appliedRequest) {
+    setAppliedRequest(params.at);
+    const target = destinations.find((item) => item.id === params.to);
+    if (target) {
+      setDestination({ lat: target.lat, lon: target.lon, label: target.label });
+      if (!origin) setActive('origin');
+      setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: target }));
+    }
+  }
 
   const initialBounds = useMemo(() => boundsOfLines(lines.map((line) => line.coordinates)), [lines]);
   const cards = useMemo(() => routeCards(lines, stops), [lines, stops]);

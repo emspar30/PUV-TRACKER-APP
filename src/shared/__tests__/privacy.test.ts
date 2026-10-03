@@ -1,4 +1,5 @@
-// PRD 7.1: the fare classification and the avatar stay on the device. These checks fail if code
+// PRD 7.1 and 19 (D3, D4): the fare classification, the gender answer, the avatar and the frequent
+// destinations stay on the device. These checks fail if code
 // that talks to a server, or the server code itself, ever starts to mention them.
 
 import * as fs from 'node:fs';
@@ -25,16 +26,16 @@ const code = (file: string) =>
 const mentions = (pattern: RegExp) => (file: string) => pattern.test(code(file));
 
 describe('no cloud payload contains classification', () => {
-  it('code that talks to the backend never mentions the classification or the avatar', () => {
+  it('code that talks to the backend never mentions the classification, gender, avatar or destinations', () => {
     const files = sourceFiles(path.join(ROOT, 'src', 'services'));
     expect(files.length).toBeGreaterThan(0);
-    expect(files.filter(mentions(/classification|avatar|onboard/i))).toEqual([]);
+    expect(files.filter(mentions(/classification|avatar|onboard|gender|destination|landmark/i))).toEqual([]);
   });
 
-  it('server code and migrations never mention the classification or the avatar', () => {
+  it('server code and migrations never mention the classification, gender, avatar or destinations', () => {
     const files = sourceFiles(path.join(ROOT, 'supabase'));
     expect(files.length).toBeGreaterThan(0);
-    expect(files.filter(mentions(/classification|avatar/i))).toEqual([]);
+    expect(files.filter(mentions(/classification|avatar|gender|destination|landmark/i))).toEqual([]);
   });
 
   it('the profile store keeps it on the device: it imports no service or network code', () => {
@@ -42,6 +43,27 @@ describe('no cloud payload contains classification', () => {
     const imports = [...store.matchAll(/from '([^']+)'/g)].map((match) => match[1]);
     expect(imports).toEqual(expect.arrayContaining(['expo-sqlite/kv-store']));
     expect(imports.filter((source) => /services|supabase|fetch|http/i.test(source))).toEqual([]);
+  });
+
+  it('the destinations store keeps them on the device: it imports no service or network code', () => {
+    const store = fs.readFileSync(path.join(ROOT, 'src', 'state', 'destinationsStore.ts'), 'utf8');
+    const imports = [...store.matchAll(/from '([^']+)'/g)].map((match) => match[1]);
+    expect(imports).toEqual(expect.arrayContaining(['expo-sqlite/kv-store']));
+    expect(imports.filter((source) => /services|supabase|fetch|http/i.test(source))).toEqual([]);
+  });
+
+  it('no file that imports a service or the backend client also reads the profile or destinations', () => {
+    const offenders = sourceFiles(path.join(ROOT, 'src'))
+      .filter((file) => !file.includes(`${path.sep}__tests__${path.sep}`))
+      .filter((file) => {
+        const source = fs.readFileSync(file, 'utf8');
+        const talksToBackend = /from '[^']*(services\/|@supabase)/.test(source);
+        const readsPrivate =
+          /from '[^']*(profileStore|destinationsStore|landmarks\.placeholder|profile\/avatarPick|profile\/destinations)'/.test(source);
+        return talksToBackend && readsPrivate;
+      })
+      .map((file) => path.relative(ROOT, file).split(path.sep).join('/'));
+    expect(offenders).toEqual([]);
   });
 
   it('the session store, which does talk to the backend, does not read the profile store', () => {

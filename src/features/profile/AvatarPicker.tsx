@@ -1,5 +1,6 @@
 import { Pressable, View } from 'react-native';
 
+import { Chip } from '@/components';
 import { useProfileStore } from '@/state/profileStore';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, spacing } from '@/theme';
@@ -34,6 +35,12 @@ export function AvatarPicker() {
       })}
     </View>
   );
+}
+
+// Picks another avatar from the set for the user's gender answer (PRD 19, D3)
+export function ShuffleAvatarChip() {
+  const shuffleAvatar = useProfileStore((state) => state.shuffleAvatar);
+  return <Chip label={strings.settings.shuffle} accessibilityLabel={strings.settings.shuffleLabel} onPress={shuffleAvatar} />;
 }
 
 const useStyles = makeStyles(({ colors }) => ({

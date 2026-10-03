@@ -2,7 +2,7 @@
 
 Everything Emjay has not verified personally, kept current at every step. Each item says what to check, exactly how, and what to expect. An item leaves this list only when Emjay confirms it; the agent's own runs are recorded in `docs/device-tests.md` and do not close an item.
 
-Last updated: 2026-10-03, after the flow decisions (flow plan approved by Emjay).
+Last updated: 2026-10-03, after F1 (onboarding v2, greeting and avatars), waiting for Emjay.
 
 **Note on the UX2 commits.** The first four (`2eda9d0`, `d76f93d`, `3647293`, `9c8eb06`) were grouped by topic from one working tree, so they are not individually verified: an intermediate one may not type-check or pass the tests on its own. This matters only if someone checks out one of them. Every commit from `ebfc0a5` onwards was checked when it was made. **Check-in (49), introduction (50) and About (51) stay open:** user flow v2 rewrites them, so Emjay will test the new versions instead.
 
@@ -86,6 +86,12 @@ Last updated: 2026-10-03, after the flow decisions (flow plan approved by Emjay)
 | 49 | UX2 | Check-in tab: 15-minute countdown, I boarded, Cancel, survives a restart | Emulator | Open, **not yet seen on the emulator** |
 | 50 | UX2 | One-screen introduction: fare type, avatar, Start, Skip, Replay from Settings | Emulator | Open, **not yet seen on the emulator** |
 | 51 | UX2 | Short About screen | Emulator | Open, **not yet seen on the emulator** |
+| 52 | F1 | Four-step introduction: Tunton, gender, commuter type, destinations (replaces 50) | Emulator | Open (agent: seen on the emulator) |
+| 53 | F1 | Greeting card on Live, its placement, and the chips opening My Ride | Emulator, decision | Open (agent: seen on the emulator) |
+| 54 | F1 | The 12 new avatars, the two sets, Shuffle, kept after a restart | Emulator, decision | Open (agent: seen on the emulator) |
+| 55 | F1 | Greeting lines: choose the final set from the 8 drafts | Decision | Open |
+| 56 | F1 | Gender, commuter type, avatar and destinations never reach backend code | Command | Open |
+| 57 | F1 | First launch after `pm clear`: the route was framed too high, once | Emulator | Open, cause unknown |
 
 ## Items
 
@@ -412,3 +418,37 @@ Last updated: 2026-10-03, after the flow decisions (flow plan approved by Emjay)
 | Migration text checks (`migration.test.ts`) | 22 | `npm test`, plain Node | No |
 | Privacy checks (`privacy.test.ts`) | 3 | `npm test`, plain Node | No |
 | Live acceptance tests (`tests/integration/supabase.test.ts`) | 8 | `npm test`, plain Node, over the network | **Yes: skipped and waiting** |
+
+### 52. Four-step introduction (F1)
+
+- **How:** `adb shell pm clear com.tunton.app`, open the app (or Settings, "Replay intro"). Follow `F1-M1` in `docs/device-tests.md`.
+- **Expected:** "Step 1 of 4" to "Step 4 of 4": "Hi, I'm Tunton!"; About you (Male, Female, Prefer not to say, optional) with the avatar it picks; How do you ride? (the four fare types); Where do you often go? (the six placeholder landmarks, up to 3). Skip on steps 1 to 3 ends the intro at once; Start on step 4. No permission prompt.
+- **Note:** the map-tap picker for destinations, and the suggested route with its fare at the end, come in F3.
+
+### 53. Greeting card on Live (F1)
+
+- **How:** open the app on Live. Tap a destination chip, then pick a From on My Ride. Back on Live, tap the X. Force-stop and reopen.
+- **Expected:** a small card above the sheet with one Tunton line and your chips ("Plan a ride" if you chose none). A chip opens My Ride with To set; From is highlighted. The X hides the card; it is back on the next app start. It fades as the sheet opens.
+- **Decide:** is this the right place (my proposal), or would you prefer it inside the sheet?
+
+### 54. The 12 avatars (F1)
+
+- **How:** Settings shows all 12 in the grid. TalkBack reads them as Avatar 1 to 12: 1 to 6 are the Male set, 7 to 12 the Female set. Tap Shuffle several times, then force-stop and reopen.
+- **Expected:** simple drawn faces with different hair, glasses, a cap or headphones, four skin tones and seven colours; both sets include long and short hair and glasses. Shuffle stays within the set for your gender answer (all 12 if none). The avatar never changes on its own.
+- **Decide:** whether any drawing looks like a stereotype or should be changed; and whether Profile (F2) keeps the hand-picked grid beside Shuffle (I kept it so all 12 can be seen).
+
+### 55. Greeting lines
+
+- **How:** read `persona.greetings` in `src/strings/en.ts`: two lines each for morning (from 05:00), afternoon (11:00), evening (17:00) and night (21:00), Manila time. One line per period is shown per day.
+- **Decide:** keep, edit or replace them. The hours are config constants (`GREETING_*_START_H`).
+
+### 56. Private answers stay on the phone (F1)
+
+- **How:** `npx jest src/shared/__tests__/privacy.test.ts src/state/__tests__/profileStore.test.ts`.
+- **Expected:** all pass. The checks: no file in `src/services` or `supabase/` mentions gender, avatar, destinations, landmarks or classification; the profile and destinations stores import no network code; no file that imports a service also reads them.
+
+### 57. Route framed too high on the first launch after `pm clear`
+
+- **What:** once, on the first launch right after `pm clear` (while the map tiles were being installed), Live opened with the route at the top edge of the screen. Every later launch framed it correctly, and "Show whole route" fixes it.
+- **How:** `pm clear`, open the app, finish or skip the intro, look at Live.
+- **Expected:** the whole route in view above the sheet. If it repeats, the likely cause is the first camera fit running before the sheet has its size; F1 did not change that code.

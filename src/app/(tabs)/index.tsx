@@ -20,6 +20,7 @@ import { OfflineMap, type MapFocus, type MapStatus } from '@/features/map/Offlin
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
+import { GreetingCard } from '@/features/greeting/GreetingCard';
 import { boundsOfLines } from '@/shared/geo/bounds';
 import { lineLengthKm, projectOntoLine } from '@/shared/geo/line';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
@@ -63,6 +64,8 @@ export default function LiveScreen() {
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [sheetHeight, setSheetHeight] = useState(0);
   const [sheetRequest, setSheetRequest] = useState<SheetRequest | null>(null);
+  // Tunton's greeting shows on every app open until hidden
+  const [greetingVisible, setGreetingVisible] = useState(true);
   const fittedOnce = useRef(false);
 
   const initialBounds = useMemo(() => boundsOfLines(lines.map((line) => line.coordinates)), [lines]);
@@ -175,10 +178,13 @@ export default function LiveScreen() {
         onSnapChange={handleSnapChange}
         header={header}
         floating={
-          <>
-            <StatusPill label={strings.live.status.noData} tone="neutral" />
-            <RoundButton icon={Maximize} label={strings.map.showWholeRoute} onPress={showWholeRoute} />
-          </>
+          <View style={styles.floating}>
+            {greetingVisible ? <GreetingCard onHide={() => setGreetingVisible(false)} /> : null}
+            <View style={styles.floatingRow}>
+              <StatusPill label={strings.live.status.noData} tone="neutral" />
+              <RoundButton icon={Maximize} label={strings.map.showWholeRoute} onPress={showWholeRoute} />
+            </View>
+          </View>
         }
       >
         {selected ? (
@@ -286,6 +292,15 @@ const useStyles = makeStyles(({ colors, mapRoute }) => ({
     justifyContent: 'center',
     borderRadius: radii.pill,
     backgroundColor: colors.surface,
+  },
+  floating: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  floatingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
   topRight: {
     position: 'absolute',

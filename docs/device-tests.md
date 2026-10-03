@@ -32,6 +32,7 @@ Rules:
 | 2026-10-03 | UX2 part 3: My Ride with the fare | `Pixel_7` emulator (x86_64) | 34 | Same APK (no rebuild), Emjay's Metro server | **Pass** | Run by the agent. IMA to DEO from the stop chips: amber ride, green and red markers, "Board near IMA", "Get off near DEO", ₱26.50 as Student. The quick chip set to Regular: ₱33.00, and Settings then showed Regular (shared value). Details: ₱15.00 + ₱18.00, no discount, no rounding. A map tap far from the line gave "To is too far from route · 3.4 km", Walking limit 500 m; "Move pin to the route" then gave ₱31.00. At expanded the sheet covers the avatar button, so Settings opens from peek or half. |
 | 2026-10-03 | UX2 parts 4 and 5: Check-in, introduction, About | — | — | — | **Not run** | Emjay's Metro server was not running when these parts were finished, and the agent does not start one. Covered by unit tests only (check-in lifecycle, verifyCheckIn, tabs, fare type). To check by hand: audit backlog items 49 to 51. |
 | 2026-10-03 | UX2 fix: avatar button reachable at every snap point | `Pixel_7` emulator (x86_64) | 34 | Same APK, Emjay's Metro server | **Pass** | Run by the agent. Live sheet dragged to expanded: the sheet now stops just below the avatar button (it reserves the status bar, 8 dp, the 48 dp button and 8 dp), and tapping the avatar opened Settings. Unit tests check the same clearance on 560 to 1280 dp screens. |
+| 2026-10-03 | F1: onboarding v2, greeting and avatars (`F1-M1` to `M4`) | `Pixel_7` emulator (x86_64) | 34 | Same APK (no rebuild), Emjay's Metro server | **Pass**, one first-launch observation | Run by the agent after `pm clear`. Four steps shown ("Step 1 of 4" to 4). Female picked avatar 9 (ponytail, Female set); then Male kept it (no re-roll). Live: "Evening! Where are we off to?" at 19:25 Manila, with the chosen destination chips. Chip TSO opened My Ride with To = TSO and From active; From = IMA then gave "Board near IMA" and ₱15.00. Settings: all 12 avatars drawn; Shuffle moved to avatar 2 (Male set). After a force-stop: same avatar, same chips, greeting shown again; X hid it. **Observed:** on the very first launch after `pm clear` the route was framed too high (top edge of the screen); every later launch framed it correctly. Some of the agent's chained taps landed on stale coordinates and changed the theme and avatar in Settings; they were set back by hand. |
 | | S2-M3 ten minute soak (without GPS) | | | | not run yet | Needs ten minutes of panning and zooming by hand. No crash was reported during Emjay's shorter manual check. |
 | | S2-M2 blue dot, S2-M4 permission denied | | | | deferred (GPS-free order) | Plan Revision 1. |
 
@@ -207,3 +208,14 @@ Coordinates are for the `Pixel_7` emulator (1080 x 2400 px, density 420, so 1 dp
 | UX2-S8 | any | tap the avatar (top right), choose Dark, close; repeat with Light | every screen and the map change theme; the route line is drawn in both |
 
 Injected flicks are not a reliable test of flick speed on this emulator (see the results log). Flick by hand with the mouse as well.
+
+## F1 onboarding v2, greeting and avatars
+
+Avatars are numbered 1 to 12 as TalkBack reads them ("Avatar 1"): 1 to 6 are the Male set, 7 to 12 the Female set.
+
+| Script | Action | Expected |
+| --- | --- | --- |
+| F1-M1 | `adb shell pm clear com.tunton.app`, open the app | Step 1 of 4: Tunton logo, "Hi, I'm Tunton!". Next, then Female: an avatar from 7 to 12 with "Your avatar". Tap Male: the same avatar stays. Next: the four fare-type chips. Next: the six landmark chips; pick up to 3 (a fourth does nothing). Start opens Live. No permission prompt. |
+| F1-M2 | Live after F1-M1 | A card above the sheet: one Tunton line for the Manila time of day and the chosen chips (or "Plan a ride" with none). Tap a chip: My Ride opens with To set and From highlighted. Pick a From: the trip and fare appear. X hides the card until the next app start. |
+| F1-M3 | Avatar button, Settings | All 12 avatars in the grid. Shuffle changes the avatar within the set for the gender answer (all 12 for none). Force-stop and reopen: the avatar is unchanged. |
+| F1-M4 | Settings, Replay intro, then Skip on step 1 | Returns to Settings; avatar and destinations unchanged. A fresh install that skips at step 1 still gets an avatar (from all 12). |

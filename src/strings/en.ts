@@ -3,6 +3,8 @@
 // in src/strings/index.ts. No translation library is needed for that.
 
 import type { Classification } from '@/shared/config';
+import type { Gender } from '@/shared/profile/avatarPick';
+import type { GreetingPeriod } from '@/shared/profile/greeting';
 import type { PlanFailure } from '@/shared/routing/plan';
 import type { SnapName } from '@/shared/ui/sheetSnap';
 
@@ -128,6 +130,8 @@ export const en = {
     light: 'Light',
     dark: 'Dark',
     avatar: 'Avatar',
+    shuffle: 'Shuffle',
+    shuffleLabel: 'Shuffle avatar',
     about: 'About',
     replayIntro: 'Replay intro',
     account: 'Team account',
@@ -197,17 +201,49 @@ export const en = {
     cancel: 'Cancel',
   },
 
+  // Tunton, the app's persona (PRD 19, D11): short and friendly
+  persona: {
+    name: 'Tunton',
+    // Two lines per period; one is shown per day. Emjay picks the final set.
+    greetings: {
+      morning: ['Good morning! Where are we going?', 'Morning! Ready to ride?'],
+      afternoon: ['Good afternoon! Where to next?', 'Where are we going right now?'],
+      evening: ['Good evening! Heading home?', 'Evening! Where are we off to?'],
+      night: ["Late ride? Let's find your route.", 'Still out? Where are we going?'],
+    } satisfies Record<GreetingPeriod, readonly string[]>,
+  },
+
+  greeting: {
+    planRide: 'Plan a ride',
+    goTo: (name: string) => `Plan a ride to ${name}`,
+    hide: 'Hide greeting',
+  },
+
   onboarding: {
     title: 'Welcome to Tunton',
     savedOnPhone: 'Saved on your phone only',
     start: 'Start',
+    next: 'Next',
+    step: (current: number, total: number) => `Step ${current} of ${total}`,
+    welcomeTitle: "Hi, I'm Tunton!",
+    welcomeBody: 'I help you find your multicab ride and its fare.',
+    genderTitle: 'About you',
+    genderHint: 'Optional. Picks your avatar.',
+    genders: { male: 'Male', female: 'Female', unstated: 'Prefer not to say' } satisfies Record<Gender, string>,
+    yourAvatar: 'Your avatar',
+    shuffleLater: 'Shuffle it anytime in Settings',
+    typeTitle: 'How do you ride?',
+    typeHint: 'For your fare estimate',
+    placesTitle: 'Where do you often go?',
+    placesHint: (max: number) => `Pick up to ${max}`,
+    placeLabel: (name: string) => `Frequent destination ${name}`,
   },
 
   about: {
     title: 'About',
     version: (version: string) => `Version ${version}`,
     sampleData: 'Sample route data, not official',
-    staysOnPhone: 'Fare type, avatar and theme stay on your phone',
+    staysOnPhone: 'Your profile choices stay on your phone',
   },
 
   dev: {
