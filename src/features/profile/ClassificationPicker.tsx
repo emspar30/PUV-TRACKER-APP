@@ -1,15 +1,17 @@
 import { Check } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { CLASSIFICATIONS, FARE_DISCOUNTED_CLASSES } from '@/shared/config';
 import { useProfileStore } from '@/state/profileStore';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 const ICON_SIZE = spacing.md + spacing.xs;
 
 // The commuter picks their fare classification. It is stored on this phone only (PRD 7.1).
 export function ClassificationPicker() {
+  const styles = useStyles();
+  const { colors, typography } = useTheme();
   const classification = useProfileStore((state) => state.classification);
   const setClassification = useProfileStore((state) => state.setClassification);
 
@@ -33,7 +35,7 @@ export function ClassificationPicker() {
                   : strings.classification.regular}
               </Text>
             </View>
-            {selected ? <Check color={colors.cyan} size={ICON_SIZE} /> : null}
+            {selected ? <Check color={colors.primary} size={ICON_SIZE} /> : null}
           </Pressable>
         );
       })}
@@ -41,7 +43,7 @@ export function ClassificationPicker() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   list: {
     gap: spacing.sm,
   },
@@ -59,9 +61,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
   optionSelected: {
-    borderColor: colors.cyan,
+    borderColor: colors.primary,
   },
   text: {
     flex: 1,
   },
-});
+}));

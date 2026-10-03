@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { ROUTING_P95_BUDGET_MS } from '@/shared/config';
 import { benchmarkPlanner, type BenchmarkResult } from '@/shared/routing/benchmark';
 import type { DirectedLine } from '@/shared/routing/types';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 const RUNS = 1000;
 const MS_DECIMALS = 3;
@@ -13,6 +13,8 @@ const MS_DECIMALS = 3;
 // Development builds only: times the trip planner on this device (test S3-M3).
 // In a release build `__DEV__` is false and this renders nothing.
 export function DevBenchmark({ lines }: { lines: DirectedLine[] }) {
+  const styles = useStyles();
+  const { typography } = useTheme();
   const [result, setResult] = useState<BenchmarkResult | null>(null);
   if (!__DEV__) return null;
 
@@ -49,7 +51,7 @@ export function DevBenchmark({ lines }: { lines: DirectedLine[] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   root: {
     gap: spacing.sm,
   },
@@ -60,4 +62,4 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
   },
-});
+}));

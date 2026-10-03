@@ -1,15 +1,17 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { Logo, Screen } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 const LOGO_SIZE = spacing.xl * 2;
 
 export default function AboutScreen() {
+  const styles = useStyles();
+  const { typography } = useTheme();
   const { isPlaceholder } = useRouteData();
   const version = Constants.expoConfig?.version ?? '';
 
@@ -54,7 +56,7 @@ export default function AboutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography }) => ({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -71,7 +73,7 @@ const styles = StyleSheet.create({
   },
   amber: {
     ...typography.caption,
-    color: colors.amber,
+    color: colors.warning,
   },
   point: {
     flexDirection: 'row',
@@ -83,7 +85,7 @@ const styles = StyleSheet.create({
     height: spacing.xs,
     marginTop: spacing.sm - spacing.xs / 2,
     borderRadius: spacing.xs,
-    backgroundColor: colors.textMuted,
+    backgroundColor: colors.textSecondary,
   },
   button: {
     minHeight: MIN_TOUCH_TARGET,
@@ -92,4 +94,4 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
   },
-});
+}));

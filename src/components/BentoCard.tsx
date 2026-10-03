@@ -1,6 +1,6 @@
-import { StyleSheet, View, type ViewProps } from 'react-native';
+import { View, type ViewProps } from 'react-native';
 
-import { colors, radii, spacing } from '@/theme';
+import { makeStyles, radii, spacing } from '@/theme';
 
 import { useBentoSpanWidth } from './BentoGrid';
 
@@ -10,6 +10,7 @@ type BentoCardProps = ViewProps & {
 };
 
 export function BentoCard({ span = 1, style, children, ...rest }: BentoCardProps) {
+  const styles = useStyles();
   const width = useBentoSpanWidth(span);
 
   return (
@@ -19,7 +20,7 @@ export function BentoCard({ span = 1, style, children, ...rest }: BentoCardProps
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.md,
@@ -27,4 +28,4 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     minHeight: spacing.xl * 3,
   },
-});
+}));

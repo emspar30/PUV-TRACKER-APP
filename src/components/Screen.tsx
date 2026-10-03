@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing, typography } from '@/theme';
+import { makeStyles, spacing, useTheme } from '@/theme';
 
 type ScreenProps = {
   title: string;
@@ -10,6 +10,8 @@ type ScreenProps = {
 };
 
 export function Screen({ title, children }: ScreenProps) {
+  const styles = useStyles();
+  const { typography } = useTheme();
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -22,7 +24,7 @@ export function Screen({ title, children }: ScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.canvas,
@@ -33,4 +35,4 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl + spacing.lg,
     gap: spacing.md,
   },
-});
+}));

@@ -1,14 +1,16 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@/components';
 import { signInWithPassword } from '@/services/auth';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 // Team sign-in for Prototype v0: an email and password created in the Supabase dashboard.
 export default function SignInScreen() {
+  const styles = useStyles();
+  const { colors, typography } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,7 +42,7 @@ export default function SignInScreen() {
           value={email}
           onChangeText={setEmail}
           placeholder={strings.signIn.email}
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.textSecondary}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
@@ -52,7 +54,7 @@ export default function SignInScreen() {
           value={password}
           onChangeText={setPassword}
           placeholder={strings.signIn.password}
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.textSecondary}
           autoCapitalize="none"
           autoCorrect={false}
           secureTextEntry
@@ -77,7 +79,7 @@ export default function SignInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography }) => ({
   form: {
     gap: spacing.md,
   },
@@ -99,7 +101,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.cyan,
+    borderColor: colors.primary,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -109,4 +111,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

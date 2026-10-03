@@ -1,8 +1,8 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { useProfileStore } from '@/state/profileStore';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, spacing } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, spacing } from '@/theme';
 
 import { AVATAR_IDS, Avatar } from './Avatar';
 
@@ -11,6 +11,7 @@ const RING = spacing.xs;
 
 // A grid of the preset avatars. The choice is saved on this phone only (PRD 7.1).
 export function AvatarPicker() {
+  const styles = useStyles();
   const avatarId = useProfileStore((state) => state.avatarId);
   const setAvatarId = useProfileStore((state) => state.setAvatarId);
 
@@ -35,7 +36,7 @@ export function AvatarPicker() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -48,6 +49,6 @@ const styles = StyleSheet.create({
     borderColor: colors.surface,
   },
   optionSelected: {
-    borderColor: colors.cyan,
+    borderColor: colors.primary,
   },
-});
+}));

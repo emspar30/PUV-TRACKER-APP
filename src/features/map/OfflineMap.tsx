@@ -6,25 +6,15 @@ import {
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { StyleSheet, Text, View, type NativeSyntheticEvent } from 'react-native';
+import { Text, View, type NativeSyntheticEvent } from 'react-native';
 
-import { buildOfflineStyle, type MapPalette } from '@/data/map/offlineStyle';
+import { buildOfflineStyle } from '@/data/map/offlineStyle';
 import { TILESET } from '@/data/map/tileset';
 import { MAP_OVERZOOM_LEVELS } from '@/shared/config';
 import type { Bounds } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
 import { strings } from '@/strings';
-import { colors, mapRoute, spacing, typography } from '@/theme';
-
-const PALETTE: MapPalette = {
-  background: colors.canvas,
-  land: colors.surface,
-  water: colors.canvas,
-  landuse: colors.emerald,
-  building: colors.textMuted,
-  road: colors.textMuted,
-  boundary: colors.textMuted,
-};
+import { makeStyles, spacing, useTheme } from '@/theme';
 
 const PADDING = { top: spacing.xl, right: spacing.xl, bottom: spacing.xl, left: spacing.xl };
 
@@ -47,6 +37,10 @@ type OfflineMapProps = {
   onViewChange?: (view: ViewStateChangeEvent) => void;
   // Called with the tapped position, for picking a point by hand
   onPress?: (position: LatLon) => void;
+  // Height of anything covering the bottom of the map, such as a bottom sheet. Fitted areas keep clear of it.
+  bottomInset?: number;
+  // Where the OpenStreetMap credit sits: a distance from the top, or (by default) the bottom-left corner
+  attributionTop?: number;
   // Map content drawn on top of the base map: route line, stops, vehicle markers and, later, the blue dot
   children?: ReactNode;
 };
@@ -58,27 +52,37 @@ export function OfflineMap({
   onStatusChange,
   onViewChange,
   onPress,
+  bottomInset = 0,
+  attributionTop,
   children,
 }: OfflineMapProps) {
+  const styles = useStyles();
+  const { scheme, typography, mapRoute, baseMap } = useTheme();
   const camera = useRef<CameraRef>(null);
-  // The style object must keep its identity between renders, or the map reloads it
-  const mapStyle = useMemo(() => buildOfflineStyle(tilesUrl, PALETTE) as unknown as StyleSpecification, [tilesUrl]);
+  // The style object must keep its identity between renders, or the map reloads it.
+  // It changes only with the tile file or the theme.
+  const mapStyle = useMemo(() => buildOfflineStyle(tilesUrl, baseMap) as unknown as StyleSpecification, [tilesUrl, baseMap]);
 
   useEffect(() => {
     if (!focus) return;
     const animation = { duration: mapRoute.cameraAnimationMs };
     if (focus.kind === 'bounds') {
-      camera.current?.fitBounds(focus.bounds, { padding: PADDING, ...animation });
+      camera.current?.fitBounds(focus.bounds, { padding: { ...PADDING, bottom: PADDING.bottom + bottomInset }, ...animation });
     } else {
       camera.current?.easeTo({ center: [focus.center.lon, focus.center.lat], ...animation });
     }
-  }, [focus]);
+    // Only a new focus moves the camera; a change of inset alone does not
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, mapRoute.cameraAnimationMs]);
 
   const handleRegionDidChange = (event: NativeSyntheticEvent<ViewStateChangeEvent>) => onViewChange?.(event.nativeEvent);
 
   return (
     <View style={styles.root}>
+      {/* A new theme loads a new base style, which drops the route layers drawn on top; mounting the
+          map afresh for each theme draws everything again in the new colours. */}
       <Map
+        key={scheme}
         style={styles.map}
         mapStyle={mapStyle}
         logo={false}
@@ -97,21 +101,24 @@ export function OfflineMap({
       >
         <Camera
           ref={camera}
-          initialViewState={{ bounds: initialBounds, padding: PADDING }}
+          initialViewState={{ bounds: initialBounds, padding: { ...PADDING, bottom: PADDING.bottom + bottomInset } }}
           minZoom={TILESET.minZoom}
           maxZoom={TILESET.maxZoom + MAP_OVERZOOM_LEVELS}
           maxBounds={TILESET.bounds}
         />
         {children}
       </Map>
-      <View style={styles.attribution} pointerEvents="none">
+      <View
+        style={[styles.attribution, attributionTop !== undefined && { top: attributionTop, bottom: undefined }]}
+        pointerEvents="none"
+      >
         <Text style={typography.caption}>{strings.common.attribution}</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.canvas,
@@ -128,4 +135,4 @@ const styles = StyleSheet.create({
     borderRadius: spacing.xs,
     backgroundColor: colors.surface,
   },
-});
+}));

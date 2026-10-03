@@ -1,13 +1,13 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { Logo, Screen } from '@/components';
 import { AvatarPicker } from '@/features/profile/AvatarPicker';
 import { ClassificationPicker } from '@/features/profile/ClassificationPicker';
 import { useProfileStore } from '@/state/profileStore';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 const STEPS = 3;
 const LOGO_SIZE = spacing.xl * 3;
@@ -15,6 +15,8 @@ const LOGO_SIZE = spacing.xl * 3;
 // The introduction shown on first launch: welcome, about you, what stays on your phone.
 // It can be skipped, and repeated from Profile. It never asks for a permission.
 export default function OnboardingScreen() {
+  const styles = useStyles();
+  const { typography } = useTheme();
   const [step, setStep] = useState(0);
   const setOnboarded = useProfileStore((state) => state.setOnboarded);
   const isLast = step === STEPS - 1;
@@ -96,7 +98,7 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography }) => ({
   section: {
     gap: spacing.md,
   },
@@ -108,7 +110,7 @@ const styles = StyleSheet.create({
   },
   amber: {
     ...typography.caption,
-    color: colors.amber,
+    color: colors.warning,
   },
   point: {
     flexDirection: 'row',
@@ -120,7 +122,7 @@ const styles = StyleSheet.create({
     height: spacing.sm,
     marginTop: spacing.sm,
     borderRadius: spacing.xs,
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.primary,
   },
   grow: {
     flex: 1,
@@ -136,7 +138,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: colors.cyan,
+    borderColor: colors.primary,
     backgroundColor: colors.surface,
   },
   secondaryRow: {
@@ -150,4 +152,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radii.sm,
   },
-});
+}));

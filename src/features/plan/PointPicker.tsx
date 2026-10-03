@@ -1,10 +1,10 @@
 import { ArrowDownUp, X } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { LatLon } from '@/shared/geo/haversine';
 import type { RouteStop } from '@/shared/routing/types';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, mapRoute, radii, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 const ICON_SIZE = spacing.md + spacing.xs;
 
@@ -21,10 +21,6 @@ export type PickedPoint = LatLon & {
 const TARGET_LABEL: Record<PickTarget, string> = {
   origin: strings.plan.origin,
   destination: strings.plan.destination,
-};
-const TARGET_COLOR: Record<PickTarget, string> = {
-  origin: mapRoute.tripOriginColor,
-  destination: mapRoute.tripDestinationColor,
 };
 
 type PointPickerProps = {
@@ -50,6 +46,12 @@ export function PointPicker({
   onSwap,
   onClear,
 }: PointPickerProps) {
+  const styles = useStyles();
+  const { colors, typography, mapRoute } = useTheme();
+  const targetColor: Record<PickTarget, string> = {
+    origin: mapRoute.tripOriginColor,
+    destination: mapRoute.tripDestinationColor,
+  };
   const values: Record<PickTarget, PickedPoint | null> = { origin, destination };
 
   return (
@@ -67,7 +69,7 @@ export function PointPicker({
                 accessibilityState={{ selected: active === target }}
                 accessibilityLabel={`${TARGET_LABEL[target]}: ${value?.label ?? strings.plan.notSet}`}
               >
-                <View style={[styles.dot, { backgroundColor: TARGET_COLOR[target] }]} />
+                <View style={[styles.dot, { backgroundColor: targetColor[target] }]} />
                 <View style={styles.fieldText}>
                   <Text style={typography.caption}>{TARGET_LABEL[target]}</Text>
                   <Text style={typography.body}>{value?.label ?? strings.plan.notSet}</Text>
@@ -84,7 +86,7 @@ export function PointPicker({
             accessibilityRole="button"
             accessibilityLabel={strings.plan.swap}
           >
-            <ArrowDownUp color={colors.textMuted} size={ICON_SIZE} />
+            <ArrowDownUp color={colors.textSecondary} size={ICON_SIZE} />
           </Pressable>
           <Pressable
             style={styles.iconButton}
@@ -92,7 +94,7 @@ export function PointPicker({
             accessibilityRole="button"
             accessibilityLabel={strings.plan.clear}
           >
-            <X color={colors.textMuted} size={ICON_SIZE} />
+            <X color={colors.textSecondary} size={ICON_SIZE} />
           </Pressable>
         </View>
       </View>
@@ -123,7 +125,7 @@ export function PointPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, mapRoute }) => ({
   root: {
     gap: spacing.sm,
   },
@@ -148,7 +150,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   fieldActive: {
-    borderColor: colors.cyan,
+    borderColor: colors.primary,
   },
   fieldText: {
     flex: 1,
@@ -190,4 +192,4 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
   },
-});
+}));

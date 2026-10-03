@@ -17,6 +17,8 @@ const FLARE = 0.05;
 
 // Normal-size text needs at least this ratio to meet WCAG AA
 export const WCAG_AA_TEXT = 4.5;
+// Large text and graphical objects (lines, markers, icons) need at least this ratio
+export const WCAG_AA_GRAPHICS = 3;
 
 export function relativeLuminance(hex: string): number {
   const match = HEX_RE.exec(hex);

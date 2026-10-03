@@ -6,7 +6,7 @@ import type { LatLon } from '@/shared/geo/haversine';
 import { sliceCoordinates } from '@/shared/geo/line';
 import type { Itinerary } from '@/shared/routing/plan';
 import type { DirectedLine } from '@/shared/routing/types';
-import { mapRoute } from '@/theme';
+import { MAP_GEOMETRY, useTheme } from '@/theme';
 
 type LinePaint = NonNullable<LineLayerSpecification['paint']>;
 
@@ -14,7 +14,10 @@ const ROUND = { 'line-cap': 'round', 'line-join': 'round' } as const;
 const toPosition = (p: LatLon) => [p.lon, p.lat];
 
 function rideWidth(extra = 0): LinePaint['line-width'] {
-  const stops = mapRoute.lineWidthStops.flatMap(([zoom, width]) => [zoom, width * mapRoute.tripRideWidthScale + extra]);
+  const stops = MAP_GEOMETRY.lineWidthStops.flatMap(([zoom, width]) => [
+    zoom,
+    width * MAP_GEOMETRY.tripRideWidthScale + extra,
+  ]);
   return ['interpolate', ['linear'], ['zoom'], ...stops] as unknown as LinePaint['line-width'];
 }
 
@@ -36,6 +39,7 @@ type TripLayersProps = {
 // and, when a trip was found, the ridden part of the route in amber.
 // Rendered as a child of OfflineMap, after the route lines.
 export function TripLayers({ lines, origin, destination, itinerary }: TripLayersProps) {
+  const { mapRoute } = useTheme();
   const ride = useMemo<Feature<LineString> | null>(() => {
     if (!itinerary) return null;
     const leg = itinerary.legs[1];

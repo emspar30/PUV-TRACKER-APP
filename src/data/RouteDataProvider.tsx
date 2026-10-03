@@ -1,13 +1,13 @@
 import { openDatabaseAsync } from 'expo-sqlite';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { Logo } from '@/components';
 import { DB_LOCK_RETRY_ATTEMPTS, DB_LOCK_RETRY_DELAY_MS } from '@/shared/config';
 import type { RouteData } from '@/shared/routing/types';
 import { isDatabaseLockedError, withRetry } from '@/shared/util/retry';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 import { migrateRouteDb, type Db } from './db/migrate';
 import { loadRouteData } from './db/routeRepository';
@@ -47,6 +47,8 @@ type LoadState = { status: 'loading' } | { status: 'ready'; data: RouteData } | 
 const LOADING: LoadState = { status: 'loading' };
 
 export function RouteDataProvider({ children }: { children: ReactNode }) {
+  const styles = useStyles();
+  const { typography } = useTheme();
   const [state, setState] = useState<LoadState>(LOADING);
   const [attempt, setAttempt] = useState(0);
 
@@ -94,7 +96,7 @@ export function RouteDataProvider({ children }: { children: ReactNode }) {
   return <RouteDataContext.Provider value={state.data}>{children}</RouteDataContext.Provider>;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -115,4 +117,4 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
   },
-});
+}));

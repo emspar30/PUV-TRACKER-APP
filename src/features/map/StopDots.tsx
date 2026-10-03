@@ -3,7 +3,7 @@ import type { FeatureCollection, Point } from 'geojson';
 import { useMemo } from 'react';
 
 import type { RouteStop } from '@/shared/routing/types';
-import { mapRoute, spacing } from '@/theme';
+import { MAP_GEOMETRY, spacing, useTheme } from '@/theme';
 
 type CirclePaint = NonNullable<CircleLayerSpecification['paint']>;
 
@@ -13,9 +13,9 @@ const HITBOX = { top: spacing.md, right: spacing.md, bottom: spacing.md, left: s
 
 // Dot radius grows with zoom; the selected stop is drawn larger
 function radiusRamp(): CirclePaint['circle-radius'] {
-  const stops = mapRoute.stopRadiusStops.flatMap(([zoom, radius]) => [
+  const stops = MAP_GEOMETRY.stopRadiusStops.flatMap(([zoom, radius]) => [
     zoom,
-    ['case', ['get', 'selected'], radius * mapRoute.stopSelectedScale, radius],
+    ['case', ['get', 'selected'], radius * MAP_GEOMETRY.stopSelectedScale, radius],
   ]);
   return ['interpolate', ['linear'], ['zoom'], ...stops] as unknown as CirclePaint['circle-radius'];
 }
@@ -31,6 +31,7 @@ type StopDotsProps = {
 // Plain dots for the stops. No text is drawn on the map; names are shown in native views outside it.
 // Rendered as a child of OfflineMap, after the route lines so the dots sit on top.
 export function StopDots({ stops, selectedCode, onPressStop }: StopDotsProps) {
+  const { mapRoute } = useTheme();
   const data = useMemo<FeatureCollection<Point>>(
     () => ({
       type: 'FeatureCollection',
@@ -63,7 +64,7 @@ export function StopDots({ stops, selectedCode, onPressStop }: StopDotsProps) {
         paint={{
           'circle-radius': radiusRamp(),
           'circle-color': ['case', ['get', 'selected'], mapRoute.stopSelectedColor, mapRoute.stopColor],
-          'circle-stroke-color': mapRoute.casingColor,
+          'circle-stroke-color': mapRoute.stopStrokeColor,
           'circle-stroke-width': mapRoute.stopStrokeWidth,
         }}
       />

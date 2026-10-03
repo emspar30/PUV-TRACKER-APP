@@ -6,7 +6,7 @@ import { FARE_DISCOUNTED_CLASSES, type Classification } from '@/shared/config';
 import type { FareResult } from '@/shared/fare/fare';
 import type { Itinerary, PlanFailureResult } from '@/shared/routing/plan';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 const ICON_SIZE = spacing.md + spacing.xs;
 const PERCENT = 100;
@@ -25,6 +25,8 @@ type TripFailureProps = {
 
 // Says why no trip was found, with the distance involved, and offers a fix where there is one
 export function TripFailure({ failure, actions }: TripFailureProps) {
+  const styles = useStyles();
+  const { typography } = useTheme();
   const distanceM = failure.reason === 'destination_too_far' ? failure.destinationDistanceM : failure.originDistanceM;
   return (
     <View style={styles.card}>
@@ -47,6 +49,8 @@ type TripResultProps = {
 };
 
 export function TripResult({ itinerary, fare, classification, isPlaceholder }: TripResultProps) {
+  const styles = useStyles();
+  const { colors, typography } = useTheme();
   const [walkIn, ride, walkOut] = itinerary.legs;
   const [showBreakdown, setShowBreakdown] = useState(false);
   const Chevron = showBreakdown ? ChevronUp : ChevronDown;
@@ -80,7 +84,7 @@ export function TripResult({ itinerary, fare, classification, isPlaceholder }: T
           <Text style={[typography.body, styles.grow]}>
             {showBreakdown ? strings.plan.hideBreakdown : strings.plan.showBreakdown}
           </Text>
-          <Chevron color={colors.textMuted} size={ICON_SIZE} />
+          <Chevron color={colors.textSecondary} size={ICON_SIZE} />
         </Pressable>
 
         {showBreakdown ? <FareBreakdownRows fare={fare} classification={classification} /> : null}
@@ -93,6 +97,8 @@ export function TripResult({ itinerary, fare, classification, isPlaceholder }: T
 
 // The fare, one line per step: base, extra kilometres, discount, rounding, total
 function FareBreakdownRows({ fare, classification }: { fare: FareResult; classification: Classification }) {
+  const styles = useStyles();
+  const { typography } = useTheme();
   const { breakdown } = fare;
   const label = strings.classification.labels[classification];
   const discounted = FARE_DISCOUNTED_CLASSES.includes(classification);
@@ -128,6 +134,8 @@ function FareBreakdownRows({ fare, classification }: { fare: FareResult; classif
 }
 
 function Row({ label, amount, strong = false }: { label: string; amount: string; strong?: boolean }) {
+  const styles = useStyles();
+  const { typography } = useTheme();
   const style = strong ? typography.body : typography.caption;
   return (
     <View style={styles.row}>
@@ -138,16 +146,18 @@ function Row({ label, amount, strong = false }: { label: string; amount: string;
 }
 
 function Step({ icon, text }: { icon: 'walk' | 'ride'; text: string }) {
+  const styles = useStyles();
+  const { colors, typography } = useTheme();
   const Icon = icon === 'walk' ? Footprints : Bus;
   return (
     <View style={styles.step}>
-      <Icon color={colors.textMuted} size={ICON_SIZE} />
+      <Icon color={colors.textSecondary} size={ICON_SIZE} />
       <Text style={[typography.body, styles.grow]}>{text}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography }) => ({
   card: {
     padding: spacing.md,
     gap: spacing.sm,
@@ -171,7 +181,7 @@ const styles = StyleSheet.create({
   },
   amber: {
     ...typography.caption,
-    color: colors.amber,
+    color: colors.warning,
   },
   toggle: {
     minHeight: MIN_TOUCH_TARGET,
@@ -189,7 +199,7 @@ const styles = StyleSheet.create({
   },
   rule: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.textMuted,
+    backgroundColor: colors.textSecondary,
   },
   action: {
     minHeight: MIN_TOUCH_TARGET,
@@ -198,6 +208,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: colors.cyan,
+    borderColor: colors.primary,
   },
-});
+}));

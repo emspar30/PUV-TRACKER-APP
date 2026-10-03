@@ -1,10 +1,10 @@
 import { CircleCheck, Eye, EyeOff, Maximize, X } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { DirectedLine as RouteLine, RouteDirection, RouteStop } from '@/shared/routing/types';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, mapRoute, radii, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 const DIRECTION_LABEL: Record<RouteDirection, string> = {
   outbound: strings.direction.outbound,
@@ -44,6 +44,8 @@ export function RoutePanel({
   isPlaceholder,
   offlineReady,
 }: RoutePanelProps) {
+  const styles = useStyles();
+  const { colors, typography } = useTheme();
   const routeCode = lines[0]?.routeCode;
 
   return (
@@ -52,7 +54,7 @@ export function RoutePanel({
         <Text style={typography.body}>{routeCode ? strings.map.route(routeCode) : strings.tabs.map}</Text>
         {offlineReady ? (
           <View style={styles.badge} accessibilityLabel={strings.map.offlineReadyHint}>
-            <CircleCheck color={colors.emerald} size={ICON_SIZE} />
+            <CircleCheck color={colors.success} size={ICON_SIZE} />
             <Text style={styles.badgeText}>{strings.map.offlineReady}</Text>
           </View>
         ) : null}
@@ -75,7 +77,7 @@ export function RoutePanel({
             accessibilityRole="button"
             accessibilityLabel={strings.common.close}
           >
-            <X color={colors.textMuted} size={ICON_SIZE} />
+            <X color={colors.textSecondary} size={ICON_SIZE} />
           </Pressable>
         </View>
       ) : (
@@ -98,22 +100,22 @@ export function RoutePanel({
             >
               <View style={[styles.swatch, { backgroundColor: line.color }, isReturn && styles.swatchReturn]} />
               <Text style={typography.body}>{DIRECTION_LABEL[line.direction]}</Text>
-              <Icon color={shown ? colors.textPrimary : colors.textMuted} size={ICON_SIZE} />
+              <Icon color={shown ? colors.textPrimary : colors.textSecondary} size={ICON_SIZE} />
             </Pressable>
           );
         })}
         <Pressable style={styles.chip} onPress={onShowWholeRoute} accessibilityRole="button">
-          <Maximize color={colors.textMuted} size={ICON_SIZE} />
+          <Maximize color={colors.textSecondary} size={ICON_SIZE} />
           <Text style={typography.body}>{strings.map.showWholeRoute}</Text>
         </Pressable>
       </View>
 
       <View style={styles.legend} accessibilityLabel={strings.map.legendTitle}>
         <LegendRow text={strings.map.legendOutbound}>
-          <View style={[styles.swatch, { backgroundColor: lines[0]?.color ?? colors.cyan }]} />
+          <View style={[styles.swatch, { backgroundColor: lines[0]?.color ?? colors.primary }]} />
         </LegendRow>
         <LegendRow text={strings.map.legendReturn}>
-          <View style={[styles.swatch, { backgroundColor: lines[0]?.color ?? colors.cyan }, styles.swatchReturn]} />
+          <View style={[styles.swatch, { backgroundColor: lines[0]?.color ?? colors.primary }, styles.swatchReturn]} />
         </LegendRow>
         <LegendRow text={strings.map.legendStops}>
           <View style={styles.legendDot} />
@@ -151,6 +153,8 @@ export function RoutePanel({
 }
 
 function LegendRow({ text, children }: { text: string; children: ReactNode }) {
+  const styles = useStyles();
+  const { typography } = useTheme();
   return (
     <View style={styles.legendRow}>
       <View style={styles.legendMark}>{children}</View>
@@ -159,7 +163,7 @@ function LegendRow({ text, children }: { text: string; children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors, typography, mapRoute }) => ({
   panel: {
     backgroundColor: colors.canvas,
   },
@@ -181,11 +185,11 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     ...typography.caption,
-    color: colors.emerald,
+    color: colors.success,
   },
   amber: {
     ...typography.caption,
-    color: colors.amber,
+    color: colors.warning,
   },
   card: {
     flexDirection: 'row',
@@ -226,7 +230,7 @@ const styles = StyleSheet.create({
   },
   // A switched-on direction has an outline; a switched-off one keeps full-contrast text
   chipOn: {
-    borderColor: colors.textMuted,
+    borderColor: colors.textSecondary,
   },
   swatch: {
     width: spacing.lg,
@@ -285,4 +289,4 @@ const styles = StyleSheet.create({
   stopSelected: {
     borderColor: mapRoute.stopSelectedColor,
   },
-});
+}));

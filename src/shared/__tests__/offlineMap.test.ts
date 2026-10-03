@@ -9,11 +9,13 @@ import {
   type MapPalette,
 } from '../../data/map/offlineStyle';
 import { TILESET } from '../../data/map/tileset';
+import { BASE_MAPS } from '../../theme/tokens';
 import { getSeedRouteData } from '../../data/routeSource';
 import { R4_STATIONS } from '../../data/seed/r4.placeholder';
 import { MAP_OVERZOOM_LEVELS } from '../config';
 import { boundsContain, boundsOfLines } from '../geo/bounds';
 
+// Distinct marker colours, so the test can tell where each one ends up
 const PALETTE: MapPalette = {
   background: '#000001',
   land: '#000002',
@@ -21,14 +23,23 @@ const PALETTE: MapPalette = {
   landuse: '#000004',
   building: '#000005',
   road: '#000006',
+  roadCasing: '#000008',
   boundary: '#000007',
+  landuseOpacity: 0.5,
+  buildingOpacity: 0.5,
+  roadOpacity: 0.5,
+  boundaryOpacity: 0.5,
 };
 
 const FILE_URI = 'file:///data/user/0/com.tunton.app/files/map/butuan.v1.pmtiles';
 const TILE_FILE = path.join(__dirname, '..', '..', '..', 'assets', 'map', 'butuan.pmtiles');
 
-describe('offline map style', () => {
-  const style = buildOfflineStyle(pmtilesUrl(FILE_URI), PALETTE);
+describe.each([
+  ['test palette', PALETTE],
+  ['light theme', BASE_MAPS.light],
+  ['dark theme', BASE_MAPS.dark],
+] as const)('offline map style, %s', (_name, palette) => {
+  const style = buildOfflineStyle(pmtilesUrl(FILE_URI), palette);
   const json = JSON.stringify(style);
 
   it('has no network URLs', () => {
@@ -48,14 +59,14 @@ describe('offline map style', () => {
   });
 
   it('draws the documented Protomaps v4 source layers and no others', () => {
-    const used = style.layers.map((layer) => layer['source-layer']).filter(Boolean);
-    expect(used).toEqual([...OFFLINE_SOURCE_LAYERS]);
+    const used = new Set(style.layers.map((layer) => layer['source-layer']).filter(Boolean));
+    expect([...used]).toEqual([...OFFLINE_SOURCE_LAYERS]);
   });
 
   it('takes every colour from the palette it is given', () => {
     const colours = json.match(/#[0-9a-fA-F]{6}/g) ?? [];
     expect(colours.length).toBeGreaterThan(0);
-    for (const colour of colours) expect(Object.values(PALETTE)).toContain(colour);
+    for (const colour of colours) expect(Object.values(palette)).toContain(colour);
   });
 });
 

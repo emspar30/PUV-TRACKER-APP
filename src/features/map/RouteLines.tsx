@@ -4,7 +4,7 @@ import { Fragment, useMemo } from 'react';
 
 import type { DirectedLine as RouteLine, RouteDirection } from '@/shared/routing/types';
 import { directionArrows } from '@/shared/geo/arrows';
-import { mapRoute } from '@/theme';
+import { MAP_GEOMETRY, useTheme } from '@/theme';
 
 type LinePaint = NonNullable<LineLayerSpecification['paint']>;
 type ZoomStops = readonly (readonly [zoom: number, size: number])[];
@@ -22,8 +22,8 @@ function arrowCollection(line: RouteLine, sizeM: number, spacingM: number): Feat
   const arrows = directionArrows(line.coordinates, {
     sizeM,
     spacingM,
-    wingAngleDeg: mapRoute.arrowWingAngleDeg,
-    startOffsetM: spacingM * mapRoute.arrowStartFraction[line.direction],
+    wingAngleDeg: MAP_GEOMETRY.arrowWingAngleDeg,
+    startOffsetM: spacingM * MAP_GEOMETRY.arrowStartFraction[line.direction],
   });
   return {
     type: 'FeatureCollection',
@@ -41,10 +41,13 @@ type RouteLinesProps = {
   visible: Record<RouteDirection, boolean>;
 };
 
-// Draws each directed route line with a dark outline, in its route colour, with direction arrows.
+// Draws each directed route line with an outline in the map colour, in its route colour, with direction arrows.
 // The return direction is a lighter band with dashes. Rendered as a child of OfflineMap.
 // Layers are added in this order, bottom to top: outlines, lines, return dashes, arrows.
 export function RouteLines({ lines, visible }: RouteLinesProps) {
+  const { mapRoute, routeColor } = useTheme();
+  // The stored route colour in dark mode; a colour readable on the light map in light mode
+  const colorOf = (line: RouteLine) => routeColor(line.routeCode, line.color);
   // Keep the GeoJSON objects stable between renders so the map does not reload them
   const prepared = useMemo(
     () =>
@@ -56,7 +59,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
           properties: {},
           geometry: { type: 'LineString', coordinates: line.coordinates },
         } satisfies Feature<LineString>,
-        arrowBands: mapRoute.arrowBands.map((band, index) => ({
+        arrowBands: MAP_GEOMETRY.arrowBands.map((band, index) => ({
           band,
           source: `route-${line.id}-arrows-${index}`,
           data: arrowCollection(line, band.sizeM, band.spacingM),
@@ -101,7 +104,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
           source={source}
           layout={ROUND}
           paint={{
-            'line-color': line.color,
+            'line-color': colorOf(line),
             'line-opacity': isReturn(line) ? mapRoute.returnBandOpacity : 1,
             'line-width': zoomRamp(mapRoute.lineWidthStops),
           }}
@@ -149,7 +152,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
             maxzoom={band.maxZoom}
             layout={ROUND}
             paint={{
-              'line-color': isReturn(line) ? mapRoute.returnDashColor : line.color,
+              'line-color': isReturn(line) ? mapRoute.returnArrowColor : colorOf(line),
               'line-width': zoomRamp(mapRoute.arrowWidthStops),
             }}
           />,

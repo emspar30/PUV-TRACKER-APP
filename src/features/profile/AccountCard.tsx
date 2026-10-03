@@ -1,13 +1,15 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { signOut } from '@/services/auth';
 import { useSessionStore } from '@/state/sessionStore';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, colors, radii, spacing, typography } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 // Shows the backend sign-in state and the sign-in or sign-out action.
 export function AccountCard() {
+  const styles = useStyles();
+  const { typography } = useTheme();
   const status = useSessionStore((state) => state.status);
   const email = useSessionStore((state) => state.email);
 
@@ -48,7 +50,7 @@ export function AccountCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors }) => ({
   root: {
     gap: spacing.sm,
   },
@@ -59,4 +61,4 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     backgroundColor: colors.canvas,
   },
-});
+}));
