@@ -1,5 +1,5 @@
 import type { ViewStateChangeEvent } from '@maplibre/maplibre-react-native';
-import { CircleDot, LocateFixed, Maximize, Navigation, X } from 'lucide-react-native';
+import { LocateFixed, Maximize, Navigation, X } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import {
   AvatarButton,
   BottomSheet,
   Chip,
+  Hint,
   Logo,
   RoundButton,
   RouteChip,
@@ -32,6 +33,7 @@ import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { lineLengthKm, projectOntoLine } from '@/shared/geo/line';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
 import { isSingleLegRoute, returnStyledIds, routeCodesOf, toggleRoute } from '@/shared/ui/routeVisibility';
+import { useHintsStore } from '@/state/hintsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -75,6 +77,10 @@ export default function LiveScreen() {
   const [sheetRequest, setSheetRequest] = useState<SheetRequest | null>(null);
   // Tunton's greeting shows on every app open until hidden
   const [greetingVisible, setGreetingVisible] = useState(true);
+  // AF1: the legend sits behind Details; one first-run hint, never shown again once dismissed
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const hintSeen = useHintsStore((state) => state.seen.live);
+  const dismissHint = useHintsStore((state) => state.dismiss);
   const fittedOnce = useRef(false);
 
   const location = useLiveLocation((center) =>
@@ -108,6 +114,8 @@ export default function LiveScreen() {
     const next = toggleRoute(selectedRoute, code);
     setSelectedRoute(next);
     setSelectedCode(null);
+    // Doing what the hint says retires it
+    if (next) dismissHint('live');
     if (next) {
       const ofRoute = lines.filter((line) => line.routeCode === next);
       // The sheet keeps its height, so the route is framed above it as it is now
@@ -298,9 +306,9 @@ export default function LiveScreen() {
           </View>
         ) : null}
 
-        {!selectedRoute ? (
-          <Text style={typography.bodyMd}>{strings.live.pickRoute}</Text>
-        ) : (
+        {!hintSeen ? <Hint text={strings.hints.live} onDismiss={() => dismissHint('live')} /> : null}
+
+        {!selectedRoute ? null : (
           <>
         <View style={styles.chipsRow}>
           {DIRECTIONS.filter((direction) => routeLines.some((line) => line.direction === direction)).map((direction) => (
@@ -314,8 +322,28 @@ export default function LiveScreen() {
           {isSingleLegRoute(lines, selectedRoute) ? <Chip label={strings.common.partial} /> : null}
         </View>
 
-        <Text style={typography.bodyMd}>{strings.live.noData}</Text>
+        <View style={styles.chipsRow}>
+          {routeStops.map((stop) => (
+            <Chip
+              key={stop.code}
+              label={stop.code}
+              selected={stop.code === selectedCode}
+              onPress={() => selectStop(stop.code)}
+              accessibilityLabel={`${strings.map.stop(stop.code)}, ${stop.name}`}
+            />
+          ))}
+        </View>
 
+        <Pressable
+          style={styles.details}
+          onPress={() => setDetailsOpen((open) => !open)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: detailsOpen }}
+        >
+          <Text style={[typography.labelLg, styles.detailsText]}>{detailsOpen ? strings.ride.hideDetails : strings.ride.details}</Text>
+        </Pressable>
+
+        {detailsOpen ? (
         <View style={styles.group}>
           {summaries.map(({ line, from, to, lengthKm }) => (
             <View key={line.id} style={styles.row}>
@@ -343,32 +371,7 @@ export default function LiveScreen() {
             <Text style={typography.bodySm}>{strings.live.legendDirection}</Text>
           </View>
         </View>
-
-        <Text style={typography.labelLg}>{strings.live.stopsTitle}</Text>
-        <View style={styles.group}>
-          {routeStops.map((stop) => {
-            const km = alongKm(stop);
-            return (
-              <Pressable
-                key={stop.code}
-                style={[styles.stopRow, stop.code === selectedCode && styles.stopRowSelected]}
-                onPress={() => selectStop(stop.code)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: stop.code === selectedCode }}
-                accessibilityLabel={`${strings.map.stop(stop.code)}, ${stop.name}`}
-              >
-                <CircleDot color={colors.textSecondary} size={ICON_SIZE} />
-                <View style={styles.grow}>
-                  <Text style={typography.labelLg}>{stop.code}</Text>
-                  <Text style={typography.bodySm} numberOfLines={2}>
-                    {stop.name}
-                  </Text>
-                </View>
-                {km !== null ? <Text style={typography.bodySm}>{strings.live.stopAlong(km)}</Text> : null}
-              </Pressable>
-            );
-          })}
-        </View>
+        ) : null}
           </>
         )}
       </BottomSheet>
@@ -492,20 +495,17 @@ const useStyles = makeStyles(({ colors, mapRoute }) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stopRow: {
-    minHeight: MIN_TOUCH_TARGET,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.sm,
-  },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  stopRowSelected: {
-    backgroundColor: colors.primaryContainer,
+  details: {
+    minHeight: MIN_TOUCH_TARGET,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  detailsText: {
+    color: colors.primary,
   },
 }));

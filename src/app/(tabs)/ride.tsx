@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AvatarButton, BottomSheet, Chip, LineBadge, Logo, type SheetRequest } from '@/components';
+import { AvatarButton, BottomSheet, Chip, Hint, LineBadge, Logo, type SheetRequest } from '@/components';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
@@ -26,6 +26,7 @@ import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/t
 import { useDestinationsStore } from '@/state/destinationsStore';
 import { isSingleLegRoute, stopsForRoute, toggleRoute } from '@/shared/ui/routeVisibility';
 import { useFareType } from '@/state/fareType';
+import { useHintsStore } from '@/state/hintsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -70,6 +71,8 @@ export default function MyRideScreen() {
   const { lines, stops, isPlaceholder } = useRouteData();
   const { state: tiles } = useOfflineTiles();
   const [fareType] = useFareType();
+  const hintSeen = useHintsStore((state) => state.seen.ride);
+  const dismissHint = useHintsStore((state) => state.dismiss);
 
   const [origin, setOrigin] = useState<PickedPoint | null>(null);
   const [destination, setDestination] = useState<PickedPoint | null>(null);
@@ -142,11 +145,13 @@ export default function MyRideScreen() {
         ]);
         moveCamera({ kind: 'bounds', bounds: withMinimumSpan(bounds, mapRoute.minFocusSpanDeg) });
         moveSheet('half');
+        // Doing what the hint says retires it
+        dismissHint('ride');
       } else {
         moveCamera({ kind: 'center', center: point });
       }
     },
-    [active, origin, destination, moveCamera, moveSheet, mapRoute.minFocusSpanDeg],
+    [active, origin, destination, moveCamera, moveSheet, mapRoute.minFocusSpanDeg, dismissHint],
   );
 
   const swap = useCallback(() => {
@@ -215,8 +220,16 @@ export default function MyRideScreen() {
     [moveSheet, moveCamera, selectedRoute],
   );
 
+  // AF1: one "Sample data" chip per screen, in the header only
   const header = (
-    <PointPills origin={origin} destination={destination} active={active} onActivate={setActive} onSwap={swap} />
+    <View style={styles.header}>
+      <PointPills origin={origin} destination={destination} active={active} onActivate={setActive} onSwap={swap} />
+      {isPlaceholder ? (
+        <View style={styles.headerChips}>
+          <Chip label={strings.common.sampleData} />
+        </View>
+      ) : null}
+    </View>
   );
 
   return (
@@ -257,16 +270,16 @@ export default function MyRideScreen() {
         onSnapChange={(_snap, visibleHeight) => setSheetHeight(visibleHeight)}
         header={header}
       >
-        <View style={styles.toolbar}>
-          {isPlaceholder ? <Chip label={strings.common.sampleData} /> : null}
-          <View style={styles.grow} />
-          {origin || destination ? (
+        {!hintSeen && !origin && !destination ? <Hint text={strings.hints.ride} onDismiss={() => dismissHint('ride')} /> : null}
+        {origin || destination ? (
+          <View style={styles.toolbar}>
+            <View style={styles.grow} />
             <Pressable style={styles.clear} onPress={clear} accessibilityRole="button" accessibilityLabel={strings.ride.clear}>
               <X color={colors.textSecondary} size={ICON_SIZE} />
               <Text style={typography.labelLg}>{strings.ride.clear}</Text>
             </Pressable>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stops}>
           {stops.map((stop) => (
@@ -335,6 +348,12 @@ const useStyles = makeStyles(({ colors }) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  header: {
+    gap: spacing.sm,
+  },
+  headerChips: {
+    flexDirection: 'row',
   },
   grow: {
     flex: 1,

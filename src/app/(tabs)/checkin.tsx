@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AvatarButton, BottomSheet, Chip, LineBadge, Logo, RouteChip, StatusPill, type SheetRequest } from '@/components';
+import { AvatarButton, BottomSheet, Chip, Hint, LineBadge, Logo, RouteChip, StatusPill, type SheetRequest } from '@/components';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
@@ -17,6 +17,7 @@ import type { RouteDirection } from '@/shared/routing/types';
 import { routeCodesOf, toggleRoute } from '@/shared/ui/routeVisibility';
 import { verifyCheckIn } from '@/shared/verification/verifyCheckIn';
 import { useCheckInStore } from '@/state/checkinStore';
+import { useHintsStore } from '@/state/hintsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -36,6 +37,8 @@ export default function CheckInScreen() {
   const checkIn = useCheckInStore((state) => state.checkIn);
   const checkInAt = useCheckInStore((state) => state.checkInAt);
   const clear = useCheckInStore((state) => state.clear);
+  const hintSeen = useHintsStore((state) => state.seen.checkin);
+  const dismissHint = useHintsStore((state) => state.dismiss);
 
   const routeCodes = useMemo(() => routeCodesOf(lines), [lines]);
   // UX3: route first. Nothing is drawn until a route is picked; kept while the app is open only.
@@ -83,6 +86,7 @@ export default function CheckInScreen() {
     const at = Date.now();
     setNow(at);
     checkInAt(selectedRoute, stationCode, at);
+    dismissHint('checkin');
     setSheetRequest((current) => ({ key: (current?.key ?? 0) + 1, snap: 'half' }));
   };
 
@@ -171,6 +175,7 @@ export default function CheckInScreen() {
           </View>
         ) : null}
 
+        {!hintSeen && !active ? <Hint text={strings.hints.checkin} onDismiss={() => dismissHint('checkin')} /> : null}
         <Text style={typography.labelLg}>{strings.checkin.route}</Text>
         <View style={styles.chips}>
           {routeCodes.map((code) => (
@@ -199,11 +204,12 @@ export default function CheckInScreen() {
           ))}
         </View>
 
-        <Text style={typography.labelLg}>{strings.checkin.waiting}</Text>
-        <View style={styles.row}>
-          <StatusPill label={strings.live.status.noData} tone="neutral" />
-          <Text style={typography.bodySm}>{strings.checkin.waitingLater}</Text>
-        </View>
+        {/* AF1: the count pill only; the sign-in note lives in Profile */}
+        {shownRoute ? (
+          <View style={styles.row} accessible accessibilityLabel={strings.checkin.waitingCount(strings.live.status.noData)}>
+            <StatusPill label={strings.live.status.noData} tone="neutral" />
+          </View>
+        ) : null}
       </BottomSheet>
     </View>
   );

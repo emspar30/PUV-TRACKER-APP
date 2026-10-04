@@ -76,15 +76,15 @@ export const en = {
   location: {
     locateMe: 'Locate me',
     following: 'Following your location',
-    explainerTitle: 'Show your location on the map?',
-    explainerBody:
-      'Tunton uses your location to show where you are on the map and to plan trips from your position. It is read only while the app is open.',
+    // AF1: at most 12 words in the explainer, at most 8 words in any notice
+    explainerTitle: 'Show your location?',
+    explainerBody: 'Used only while the app is open.',
     continue: 'Continue',
     notNow: 'Not now',
-    off: 'Location is off. Long-press the map to set your starting point.',
+    off: 'Location off · Long-press to set start',
     turnOn: 'Turn on',
     openSettings: 'Open settings',
-    outsideMap: 'You are outside the offline map area.',
+    outsideMap: 'Outside the offline map',
   },
 
   // My Ride: route discovery and the fare. Short labels; distances live behind "Details".
@@ -139,8 +139,8 @@ export const en = {
     phoneOnly: 'On this phone only',
     route: 'Route',
     stations: 'Stations',
-    waiting: 'Waiting here',
-    waitingLater: 'Counts need team sign-in',
+    // AF1: the count pill only; read aloud as "Waiting here, No data"
+    waitingCount: (count: string) => `Waiting here, ${count}`,
     pickStationFirst: 'Pick a station first',
   },
 
@@ -204,11 +204,11 @@ export const en = {
   },
 
   profile: {
-    backendMissing:
-      'The backend is not set up on this build, so live vehicle positions are unavailable. The map, routing and fares work without it.',
+    // AF1: short; the offline features never need an account
+    backendMissing: 'Team account · not set up',
     checkingSignIn: 'Checking sign-in',
     signedInAs: (email: string | null) => `Signed in as ${email ?? 'a team account'}`,
-    signedOut: 'Not signed in. Sign in with a team account to see live vehicle positions.',
+    signedOut: 'Not signed in',
     signIn: 'Sign in',
     signOut: 'Sign out',
   },
@@ -235,6 +235,14 @@ export const en = {
     } satisfies Record<GreetingPeriod, readonly string[]>,
   },
 
+  // AF1: one short first-run line per tab, at most 6 words, never shown again once dismissed
+  hints: {
+    live: 'Pick a route to see it',
+    checkin: 'Pick your route, then station',
+    ride: 'Where are you going?',
+    dismiss: 'Dismiss tip',
+  },
+
   greeting: {
     planRide: 'Plan a ride',
     goTo: (name: string) => `Plan a ride to ${name}`,
@@ -248,7 +256,7 @@ export const en = {
     next: 'Next',
     step: (current: number, total: number) => `Step ${current} of ${total}`,
     welcomeTitle: "Hi, I'm Tunton!",
-    welcomeBody: 'I help you find your multicab ride and its fare.',
+    welcomeBody: 'Find your multicab ride and fare.',
     genderTitle: 'About you',
     genderHint: 'Optional. Picks your avatar.',
     genders: { male: 'Male', female: 'Female', unstated: 'Prefer not to say' } satisfies Record<Gender, string>,

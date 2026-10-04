@@ -11,16 +11,16 @@
 | Blue dot and "Locate me" (location tests pending) | | Consent screen (G0). **Do not use outdoors or share yet.** |
 
 **Next three steps:**
-1. Emjay: check RR1 (backlog 69) and the labels plan (`docs/LABELS_PLAN.md`).
-2. Agent: AF1 to AF5 on "start AF1" (then G0, as ordered).
+1. Emjay: check AF1 (backlog 74 and 75); approve AF2; reply "download approved" for the label fonts (LB1a).
+2. Agent: AF2 to AF5 on approval (then G0, as ordered).
 3. Emjay: the location test results; the missing R4 and R5 legs when ready.
 
 ## Details
 
-- **Date:** 2026-10-04.
-- **Code:** `main`, ahead of `origin/main`, 0 behind. Last code commit: RR1 (real route lines, route data version 3).
+- **Date:** 2026-10-05.
+- **Code:** `main`, ahead of `origin/main`, 0 behind. Last code commits: tiles v2 (R5 covered, zoom 15), single-leg routes drawn solid, AF1 (text cleanup and first-run hints).
 - **Docs:** history files are in `docs/history/` (`f857cef`). Closed backlog items are in `docs/history/AUDIT_BACKLOG_CLOSED.md`. The index is `docs/README.md`.
-- **Tests:** 34 suites; 527 passed; 8 skipped. The skipped ones are the live Supabase tests, which have no `.env`.
+- **Tests:** 36 suites; 560 passed; 8 skipped. The skipped ones are the live Supabase tests, which have no `.env`.
 - **Quality gates, run today:**
 
 | Gate | Result |
@@ -76,6 +76,7 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | Done | RR1 real lines for R3, R4, R5 | UNVERIFIED | `routeImport.test.ts`, `routing.test.ts` (several routes), `routeDb.test.ts` (stop membership), `contrast.test.ts` (three routes); agent's RR1-M1 to M3 run; `scripts/import-route.ts` | You check backlog 69; supply the missing legs (70) |
 | Done | UX3 route lines only when selected | UNVERIFIED | `routeVisibility.test.ts` (14); agent's `UX3-M1` to `M4` run; `11b66b1` | You check backlog 65 to 67 |
 | Done | Merge: location on Live | UNVERIFIED | `locationStore.test.ts` (9), `privacy.test.ts`; `29cc0b0`. App, My Ride, sheet and theme passed in Emjay's run (2026-10-04); **location tests pending** | You send the location results |
+| Done | AF1 text cleanup and first-run hints | UNVERIFIED | `wordCount.test.ts` (≤ 8 words on the tabs, explainer ≤ 12, hints ≤ 6), `hintsStore.test.ts`; agent's AF1-M1 run | You check backlog 74 and 75 |
 | 0 | R1a rebuild | BLOCKED | `app.json`, icons, `expo-system-ui` and `expo-splash-screen` in `package.json`; `29cc0b0`, `45f9798`, `cdc0bbb` | Skipped for now (Emjay, 2026-10-04) |
 | 0 | ST1 smoke test | BLOCKED | — | R1a builds |
 | 0 | ST2 records and fixes | NOT-STARTED | — | After ST1 |
@@ -93,12 +94,12 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | 7 | B1 background | BLOCKED | No `backgroundLocation.ts` | T1, R1b, phone |
 | 8 | BLE, driver app, SMS, moderation | NOT-STARTED | SMS protocol and RSSI functions only | Field data, phones, SIMs |
 
-**Counts (31 rows):**
+**Counts (32 rows):**
 
 | Status | Rows |
 | --- | --- |
 | VERIFIED | 10 |
-| UNVERIFIED | 5 |
+| UNVERIFIED | 6 |
 | PARTIAL | 2 |
 | NOT-STARTED | 5 |
 | BLOCKED | 9 |
