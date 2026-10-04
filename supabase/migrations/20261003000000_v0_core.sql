@@ -136,20 +136,6 @@ create policy "vehicles: team accounts read active vehicles"
   on public.vehicles for select to authenticated
   using (active and (select public.is_team_account()));
 
--- Night Mode hides moving vehicles on the server (PRD 10.4); stationary ones stay visible.
-create policy "telemetry_latest: team accounts read active vehicles"
-  on public.telemetry_latest for select to authenticated
-  using (
-    (select public.is_team_account())
-    and exists (
-      select 1 from public.vehicles v
-      where v.vehicle_id = telemetry_latest.vehicle_id and v.active
-    )
-    and (
-      not public.is_night(now())
-      or telemetry_latest.speed_kmh < (select c.stationary_speed_kmh from public.app_config c)
-    )
-  );
 
 -- The Manila calendar day of a time, for the daily Energy caps
 create function public.manila_day(at_time timestamptz)
@@ -187,7 +173,21 @@ revoke all on public.telemetry_latest from anon, authenticated;
 grant select on public.telemetry_latest to authenticated;
 grant all on public.telemetry_latest to service_role;
 
--- The policy "telemetry_latest: team accounts read active vehicles" is created below, after is_team_account().
+-- Night Mode hides moving vehicles on the server (PRD 10.4); stationary ones stay visible.
+create policy "telemetry_latest: team accounts read active vehicles"
+  on public.telemetry_latest for select to authenticated
+  using (
+    (select public.is_team_account())
+    and exists (
+      select 1 from public.vehicles v
+      where v.vehicle_id = telemetry_latest.vehicle_id and v.active
+    )
+    and (
+      not public.is_night(now())
+      or telemetry_latest.speed_kmh < (select c.stationary_speed_kmh from public.app_config c)
+    )
+  );
+
 -- No INSERT, UPDATE or DELETE grant or policy for client roles, on purpose.
 
 -- Send row changes to subscribed clients (Realtime). Row Level Security still applies to them.
