@@ -3,7 +3,7 @@
 // the placeholder Route 4 stops, taken from the route seed file so no coordinate is repeated.
 // Pure data: no React Native or Expo imports.
 
-import { R4_STATIONS } from './r4.placeholder';
+import { SEED_STATIONS } from './routes';
 
 export type Landmark = {
   id: string;
@@ -17,7 +17,7 @@ export type Landmark = {
 
 export const LANDMARKS_ARE_PLACEHOLDER = true;
 
-export const LANDMARKS: readonly Landmark[] = R4_STATIONS.map((station) => ({
+export const LANDMARKS: readonly Landmark[] = SEED_STATIONS.map((station) => ({
   id: `stop-${station.code}`,
   label: station.code,
   name: station.name,

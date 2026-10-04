@@ -13,8 +13,10 @@ import { MAP_GEOMETRY } from '../../theme/theme';
 import { WCAG_AA_GRAPHICS, WCAG_AA_TEXT, contrastRatio, relativeLuminance } from '../ui/contrast';
 
 const SCHEMES: ThemeScheme[] = ['light', 'dark'];
-// Route 4's colour as stored in the route data (the seed file), used as the dark-theme colour
+// Route colours as stored with the route data, used as the dark-theme colours. Fixed values here,
+// so this test does not depend on the live seed file.
 const R4_STORED = '#00F5D4';
+const STORED: Readonly<Record<string, string>> = { R3: '#10B981', R4: R4_STORED, R5: '#F97316' };
 
 // The colour seen where a semi-transparent line lies over the map
 function blend(top: string, bottom: string, opacity: number): string {
@@ -70,13 +72,13 @@ describe.each(SCHEMES)('%s theme', (scheme) => {
     expect(best).toBeGreaterThanOrEqual(WCAG_AA_GRAPHICS);
   });
 
-  it('the return direction arrows stand out from the return band, which is drawn semi-transparent', () => {
-    const band = blend(routeColor(scheme, 'R4', R4_STORED), land, MAP_GEOMETRY.returnBandOpacity);
+  it.each(Object.keys(STORED))('%s: the return arrows stand out from the semi-transparent return band', (code) => {
+    const band = blend(routeColor(scheme, code, STORED[code]), land, MAP_GEOMETRY.returnBandOpacity);
     expect(contrastRatio(paint.returnArrow, band)).toBeGreaterThanOrEqual(WCAG_AA_GRAPHICS);
   });
 
-  it('the Route 4 line meets 3:1 on the map, and badge text 4.5:1 on the route colour', () => {
-    const route = routeColor(scheme, 'R4', R4_STORED);
+  it.each(Object.keys(STORED))('%s: the line meets 3:1 on the map, and badge text 4.5:1 on the route colour', (code) => {
+    const route = routeColor(scheme, code, STORED[code]);
     expect(contrastRatio(route, land)).toBeGreaterThanOrEqual(WCAG_AA_GRAPHICS);
     expect(contrastRatio(ROUTE_BADGE_TEXT[scheme], route)).toBeGreaterThanOrEqual(WCAG_AA_TEXT);
   });

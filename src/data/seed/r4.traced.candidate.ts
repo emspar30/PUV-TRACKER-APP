@@ -1,5 +1,5 @@
 // CANDIDATE Route 4 lines: NOT the active route data, and imported by nothing.
-// The active data stays in r4.placeholder.ts. The real-polyline import script (on hold) will
+// The active data is src/data/seed/routes.ts (Emjay's traced lines, RR1). The real-polyline import script (on hold) will
 // validate this file against the stations and activate it, or reject it.
 //
 // Provenance (recorded at the merge on 2026-10-04):

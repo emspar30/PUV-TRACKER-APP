@@ -1,4 +1,4 @@
-import { R4_LINES, R4_STATIONS } from '../../data/seed/r4.placeholder';
+import { R4_LINES, R4_STATIONS } from './fixtures/r4Placeholder';
 import { haversineMeters } from '../geo/haversine';
 import { isAhead, lineLengthKm, pointAtChainage, projectOntoLine, sliceLengthKm } from '../geo/line';
 

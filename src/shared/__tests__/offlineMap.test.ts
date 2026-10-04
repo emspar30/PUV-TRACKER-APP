@@ -10,10 +10,9 @@ import {
 } from '../../data/map/offlineStyle';
 import { TILESET } from '../../data/map/tileset';
 import { BASE_MAPS } from '../../theme/tokens';
-import { getSeedRouteData } from '../../data/routeSource';
-import { R4_STATIONS } from '../../data/seed/r4.placeholder';
+import { R4_LINES, R4_STATIONS } from './fixtures/r4Placeholder';
 import { MAP_OVERZOOM_LEVELS } from '../config';
-import { boundsContain, boundsOfLines } from '../geo/bounds';
+import { boundsContain, boundsOfLines, clipBounds } from '../geo/bounds';
 
 // Distinct marker colours, so the test can tell where each one ends up
 const PALETTE: MapPalette = {
@@ -101,7 +100,13 @@ describe('tile set facts', () => {
 });
 
 describe('initial map view', () => {
-  const routeBounds = boundsOfLines(getSeedRouteData().lines.map((line) => line.coordinates));
+  // Fixture lines (the old placeholder), not the live seed; plus one line that runs 1.5 km north
+  // of the tiles, like R5 in RR1
+  const routeBounds = boundsOfLines(R4_LINES.map((line) => line.coordinates));
+  const overrun = [
+    [125.6, 9.0],
+    [125.6, 9.034],
+  ];
 
   it('covers every route stop', () => {
     for (const stop of R4_STATIONS) {
@@ -109,8 +114,15 @@ describe('initial map view', () => {
     }
   });
 
-  it('lies inside the tile set, so the opening view has map data', () => {
-    expect(boundsContain(TILESET.bounds, routeBounds)).toBe(true);
+  it('is clipped to the tile set, so the opening view has map data even when a line runs past it', () => {
+    const all = boundsOfLines([...R4_LINES.map((line) => line.coordinates), overrun]);
+    expect(boundsContain(TILESET.bounds, all)).toBe(false);
+    expect(boundsContain(TILESET.bounds, clipBounds(all, TILESET.bounds))).toBe(true);
+    expect(clipBounds(routeBounds, TILESET.bounds)).toEqual(routeBounds);
+  });
+
+  it('a box with no overlap falls back to the tile set', () => {
+    expect(clipBounds([126, 10, 127, 11], TILESET.bounds)).toEqual(TILESET.bounds);
   });
 
   it('boundsOfLines returns west, south, east, north', () => {

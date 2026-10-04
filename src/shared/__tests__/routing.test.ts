@@ -148,3 +148,39 @@ describe('ride slice for drawing', () => {
     expect(sliceCoordinates(FIXTURE_OUTBOUND.coordinates, 3, 3)).toEqual([]);
   });
 });
+
+// RR1: several routes, no transfers. A second fixture route T2 runs one way only (like R4 and R5,
+// whose other leg is "not provided"), 300 m north of T1 and parallel to it.
+describe('trip planner with several routes', () => {
+  const T2_ONE_WAY = {
+    ...FIXTURE_OUTBOUND,
+    id: 'T2-RET',
+    routeCode: 'T2',
+    direction: 'return' as const,
+    coordinates: [
+      [pointAt(0, 300).lon, pointAt(0, 300).lat],
+      [pointAt(8, 300).lon, pointAt(8, 300).lat],
+    ],
+  };
+  const ALL = [...BOTH, T2_ONE_WAY];
+  const rideRoute = (result: ReturnType<typeof plan>) => {
+    if (!result.ok) throw new Error(result.reason);
+    return result.itinerary.legs[1].kind === 'ride' ? result.itinerary.legs[1].routeCode : null;
+  };
+
+  it('picks the route with the shorter total trip: T1 for points on T1, T2 for points on T2', () => {
+    expect(rideRoute(plan(ALL, 1, 5))).toBe('T1');
+    expect(rideRoute(plan(ALL, 1, 5, 300, 300))).toBe('T2');
+  });
+
+  it('serves the opposite direction on T1 (both directions stored), never on one-way T2', () => {
+    expect(rideRoute(plan(ALL, 5, 1, 300, 300))).toBe('T1');
+  });
+
+  it('a route with only one stored direction says "no trip found" for the other direction', () => {
+    const result = plan([T2_ONE_WAY], 5, 1, 300, 300);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('destination_not_ahead');
+    expect(plan([T2_ONE_WAY], 1, 5, 300, 300).ok).toBe(true);
+  });
+});

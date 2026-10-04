@@ -5,13 +5,13 @@
 
 import type { RouteData } from '../shared/routing/types';
 
-import { R4_LINES, R4_STATIONS, ROUTE_DATA_IS_PLACEHOLDER, ROUTE_DATA_VERSION } from './seed/r4.placeholder';
+import { ROUTE_DATA_IS_PLACEHOLDER, ROUTE_DATA_VERSION, SEED_LINES, SEED_STATIONS } from './seed/routes';
 
 export function getSeedRouteData(): RouteData {
   return {
     version: ROUTE_DATA_VERSION,
     isPlaceholder: ROUTE_DATA_IS_PLACEHOLDER,
-    lines: R4_LINES.map((line) => ({
+    lines: SEED_LINES.map((line) => ({
       id: line.routeId,
       routeCode: line.routeCode,
       direction: line.direction,
@@ -21,6 +21,6 @@ export function getSeedRouteData(): RouteData {
       coordinates: line.coordinates,
       fare: { baseFare: line.baseFare, baseKm: line.baseKm, perKmRate: line.perKmRate },
     })),
-    stops: R4_STATIONS.map((station) => ({ ...station })),
+    stops: SEED_STATIONS.map((station) => ({ ...station })),
   };
 }

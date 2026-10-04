@@ -62,6 +62,21 @@ export const ROUTING_P95_BUDGET_MS = 250;
 export const ROUTE_STOP_WARN_DISTANCE_M = 50;
 export const ROUTE_STOP_MAX_DISTANCE_M = 150;
 export const ROUTE_SIMPLIFY_TOLERANCE_M = 5;
+// Route import (RR1, scripts/import-route.ts). Run on the PC, never at app runtime.
+// A line with more points than this after simplification is reported
+export const ROUTE_MAX_POINTS_PER_LINE = 1500;
+// Points outside the map's tile bounds warn (more loudly beyond the first value); further
+// outside than the second fails the import (Emjay, 2026-10-04: raised to 2 km for R5)
+export const ROUTE_IMPORT_WARN_OUTSIDE_M = 1000;
+export const ROUTE_IMPORT_FAIL_OUTSIDE_M = 2000;
+// A line whose start and end are this close is a loop
+export const ROUTE_LOOP_CLOSE_M = 100;
+// Separate pieces of one line are joined only when the gap between them is at most this
+export const ROUTE_SEGMENT_JOIN_M = 20;
+// Coordinates must be near Butuan: longitude about 125 and latitude about 9, within this many degrees
+export const ROUTE_EXPECTED_LON = 125.5;
+export const ROUTE_EXPECTED_LAT = 9;
+export const ROUTE_EXPECTED_SPREAD_DEG = 1;
 
 // --- Local database start-up
 // If the database is still locked by a previous start of the app, wait and try again this many times

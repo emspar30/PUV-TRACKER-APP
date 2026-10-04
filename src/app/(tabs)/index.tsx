@@ -14,6 +14,7 @@ import {
   StatusPill,
   type SheetRequest,
 } from '@/components';
+import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { GreetingCard } from '@/features/greeting/GreetingCard';
 import { BlueDot } from '@/features/map/BlueDot';
@@ -27,7 +28,7 @@ import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { MAP_FOLLOW_ZOOM } from '@/shared/config';
-import { boundsOfLines } from '@/shared/geo/bounds';
+import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { lineLengthKm, projectOntoLine } from '@/shared/geo/line';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
 import { routeCodesOf, toggleRoute } from '@/shared/ui/routeVisibility';
@@ -88,9 +89,10 @@ export default function LiveScreen() {
   const routeCodes = useMemo(() => routeCodesOf(lines), [lines]);
   const routeLines = useMemo(() => lines.filter((line) => line.routeCode === selectedRoute), [lines, selectedRoute]);
 
-  const initialBounds = useMemo(() => boundsOfLines(lines.map((line) => line.coordinates)), [lines]);
+  // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
+  const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
   const routeBounds = useMemo(
-    () => (routeLines.length > 0 ? boundsOfLines(routeLines.map((line) => line.coordinates)) : initialBounds),
+    () => (routeLines.length > 0 ? clipBounds(boundsOfLines(routeLines.map((line) => line.coordinates)), TILESET.bounds) : initialBounds),
     [routeLines, initialBounds],
   );
   const summaries = useMemo(() => routeLines.map((line) => summarise(line, routeStops)), [routeLines, routeStops]);
@@ -198,9 +200,8 @@ export default function LiveScreen() {
           accessibilityLabel={strings.live.routeChip(code, code === selectedRoute)}
         />
       ))}
-      <Text style={[typography.bodyMd, styles.grow]} numberOfLines={1}>
-        {summaries[0] ? strings.live.ends(summaries[0].from, summaries[0].to) : ''}
-      </Text>
+      {/* Three route chips fill the peek row; the route's ends are shown in the sheet */}
+      <View style={styles.grow} />
       {isPlaceholder ? <Chip label={strings.common.sampleData} /> : null}
     </View>
   );
@@ -300,7 +301,7 @@ export default function LiveScreen() {
         ) : (
           <>
         <View style={styles.chipsRow}>
-          {DIRECTIONS.map((direction) => (
+          {DIRECTIONS.filter((direction) => routeLines.some((line) => line.direction === direction)).map((direction) => (
             <Chip
               key={direction}
               label={direction === 'outbound' ? strings.direction.outbound : strings.direction.return}
@@ -325,7 +326,7 @@ export default function LiveScreen() {
               <Text style={[typography.labelLg, styles.grow]}>
                 {line.direction === 'outbound' ? strings.direction.outbound : strings.direction.return}
                 {'  '}
-                <Text style={typography.bodyMd}>{strings.live.ends(from, to)}</Text>
+                <Text style={typography.bodyMd}>{from && to ? strings.live.ends(from, to) : ''}</Text>
               </Text>
               <Text style={typography.bodySm}>{strings.live.length(lengthKm)}</Text>
             </View>

@@ -159,7 +159,18 @@ describe('route repository', () => {
     expect(stored.version).toBe(FIXTURE_ROUTE_DATA.version);
     expect(stored.lines).toEqual(FIXTURE_ROUTE_DATA.lines);
     expect(stored.stops.map((s) => s.code)).toEqual(['AAA', 'BBB', 'CCC', 'FAR']);
-    expect(stored.stops[1]).toEqual(FIXTURE_STOPS[1]);
+    expect(stored.stops[1]).toEqual({ ...FIXTURE_STOPS[1], routeCodes: ['T1'] });
+    // FAR is too far from the line, so it belongs to no route
+    expect(stored.stops[3].routeCodes).toEqual([]);
+  });
+
+  it('links an assigned stop only to its own routes, even when another route passes by (RR1)', async () => {
+    const { db } = openMemoryDb();
+    const other = { ...FIXTURE_ROUTE_DATA.lines[0], id: 'T2-OUT', routeCode: 'T2' };
+    const stops = FIXTURE_STOPS.map((stop) => ({ ...stop, routeCodes: ['T1'] }));
+    await migrateRouteDb(db, { ...FIXTURE_ROUTE_DATA, lines: [...FIXTURE_ROUTE_DATA.lines, other], stops });
+    const stored = await loadRouteData(db);
+    expect(stored.stops.find((s) => s.code === 'AAA')?.routeCodes).toEqual(['T1']);
   });
 
   it('returns empty data from an empty database, without throwing', async () => {

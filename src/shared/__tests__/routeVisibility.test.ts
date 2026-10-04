@@ -75,6 +75,14 @@ describe('stops of a route', () => {
     expect(stopsForRoute(LINES, STOPS, 'T2').map((stop) => stop.code)).toEqual(['NTH']);
   });
 
+  it('stops assigned to a route belong only to it, even when another route passes them (RR1)', () => {
+    // T2 passes right by AAA, but AAA is assigned to T1 only
+    const T2_NEAR = { ...T2, coordinates: [[pointAt(0).lon, pointAt(0).lat], [pointAt(1).lon, pointAt(1).lat]] };
+    const assigned = FIXTURE_STOPS.map((stop) => ({ ...stop, routeCodes: ['T1'] }));
+    expect(stopsForRoute([FIXTURE_OUTBOUND, T2_NEAR], assigned, 'T2')).toEqual([]);
+    expect(stopsForRoute([FIXTURE_OUTBOUND, T2_NEAR], assigned, 'T1').map((stop) => stop.code)).toEqual(['AAA', 'BBB', 'CCC', 'FAR']);
+  });
+
   it('no route gives no stops', () => {
     expect(stopsForRoute(LINES, STOPS, null)).toEqual([]);
     expect(stopsForRoute(LINES, STOPS, 'R99')).toEqual([]);

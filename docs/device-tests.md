@@ -35,6 +35,7 @@ Rules:
 | 2026-10-03 | F1: onboarding v2, greeting and avatars (`F1-M1` to `M4`) | `Pixel_7` emulator (x86_64) | 34 | Same APK (no rebuild), Emjay's Metro server | **Pass**, one first-launch observation | Run by the agent after `pm clear`. Four steps shown ("Step 1 of 4" to 4). Female picked avatar 9 (ponytail, Female set); then Male kept it (no re-roll). Live: "Evening! Where are we off to?" at 19:25 Manila, with the chosen destination chips. Chip TSO opened My Ride with To = TSO and From active; From = IMA then gave "Board near IMA" and ₱15.00. Settings: all 12 avatars drawn; Shuffle moved to avatar 2 (Male set). After a force-stop: same avatar, same chips, greeting shown again; X hid it. **Observed:** on the very first launch after `pm clear` the route was framed too high (top edge of the screen); every later launch framed it correctly. Some of the agent's chained taps landed on stale coordinates and changed the theme and avatar in Settings; they were set back by hand. |
 | 2026-10-04 | Merged app on `main` (Emjay's test) | `Pixel_7` emulator (x86_64) | 34 | Old debug APK from 2026-10-02 23:48 (R1a **not** built), Emjay's Metro server | **Pass** for everything tested; location pending | Run and reported by Emjay. **Pass:** app opens; My Ride IMA to DEO; sheet dragging; Light and Dark; Settings avatars (own set plus Shuffle). **Not tested:** saved settings after the upgrade. **Expected behaviour:** replaying the intro offers no avatar choice. This is by design (D3: the avatar is assigned automatically; Shuffle is in Settings). **Pending, to be supplied by Emjay:** Locate me, blue dot, deny and manual pin, outside the map. |
 | 2026-10-04 | UX3-M1 to M4 | `Pixel_7` emulator (x86_64) | 34 | Old APK (2026-10-02), Emjay's Metro server | **Pass** | Run by the agent. Live: clean map, "Pick a route"; R4 showed the line, stops, "No data", Show whole route, direction chips, and the greeting hid. Check-in: the line and station chips after R4. My Ride: clean; IMA to DEO drew only the amber ride and the pins (₱26.50, Student); Clear removed it. **Fixed during the run:** "Pick a route" was shown twice; the route was framed before the sheet rose, so picking a route no longer opens the sheet. **Note:** at expanded, the chevron sits under the dev client's floating gear (development builds only). |
+| 2026-10-04 | RR1-M1 to M3, render before and after | `Pixel_7` emulator (x86_64) | 34 | Old APK (2026-10-02), Emjay's Metro server | **Pass** | Run by the agent. The three chips; R3 green with no stops; R4 return leg with stops; R5 return leg; others faint. DEO → RCA ₱36.00 (student); swapped: "Wrong direction for this route". Check-in R3: "No stations on this route yet". **Frame stats (`dumpsys gfxinfo`, scripted swipes and double-tap zoom, R4 selected; emulator, not representative of a phone; counts only the app's UI frames, not the MapLibre surface):** before 12 and 14 frames, janky 92 % and 100 %, p90 42 and 53 ms, p95 48 and 65 ms; after 13 and 13 frames, janky 100 %, p90 61 and 53 ms, p95 65 and 57 ms (within noise). |
 | — | R1a build and smoke test (`ST1`) | `Pixel_7` emulator; partner's Poco X6 Pro | 34; 36 | R1a (`expo-system-ui`, `expo-splash-screen`, new icons) | **Skipped for now** (Emjay, 2026-10-04) | Not built. |
 | | S2-M3 ten minute soak (without GPS) | | | | not run yet | Needs ten minutes of panning and zooming by hand. No crash was reported during Emjay's shorter manual check. |
 | | S2-M2 blue dot, S2-M4 permission denied | | | | deferred (GPS-free order) | Plan Revision 1. |
@@ -230,10 +231,29 @@ Press `r` in the Metro terminal first, to load the new JavaScript. No rebuild is
 
 | Script | Tab | Action | Expected |
 | --- | --- | --- | --- |
-| UX3-M1 | Live | Open the app | No route line and no stop dots on the map. "Pick a route" in the pill. One R4 chip in the sheet header. No "Show whole route" button (Locate me stays). |
-| UX3-M2 | Live | Tap the R4 chip | Line (outbound solid, return dashed) and stops appear, framed above the sheet. Pill "No data". "Show whole route" appears. The greeting card hides. In the sheet: Outbound and Return chips (each toggles its line; one stays on), the legend, the stops. Tap R4 again: everything clears. |
+| UX3-M1 | Live | Open the app | No route line and no stop dots on the map. "Pick a route" in the pill. Chips R3, R4 and R5 in the sheet header (since RR1). No "Show whole route" button (Locate me stays). |
+| UX3-M2 | Live | Tap the R4 chip | The R4 line (since RR1 only the return leg, drawn as the pale dashed band) and its six stops, framed above the sheet. Pill "No data". "Show whole route" appears. The greeting card hides. In the sheet: only a **Return** chip (R4 has no outbound), the legend, the stops. Tap R4 again: everything clears. |
 | UX3-M3 | Check-in | Open, then tap R4 | Nothing at first ("Pick a route"). After R4: the line and the six station dots in the route colour; station chips appear. Tap R4 again: clears. |
-| UX3-M4 | My Ride | From IMA, To DEO; then Clear; then tap the R4 card in "All routes" | No line before. The trip shows only the amber ride segment and the green and red pins. Clear removes it. The R4 card shows the route (card highlighted); tapping it again hides it. |
+| UX3-M4 | My Ride | From **DEO**, To **RCA**; then Clear; then tap the R4 card in "All routes" | No line before. The trip shows only the amber ride segment and the green and red pins. Clear removes it. The R4 card shows the route (card highlighted); tapping it again hides it. (IMA to DEO now says "Wrong direction": see RR1.) |
+
+## RR1 real route lines
+
+Press `r` in the Metro terminal. The first launch after the update replaces the route rows (data version 3) without clearing app data. If "The route data could not be loaded" appears, force-stop and reopen (backlog 68).
+
+| Script | Action | Expected |
+| --- | --- | --- |
+| RR1-M1 | Live: tap R3, then R4, then R5 | **R3:** a road-following green line Libertad to Ampayon, both directions overlapping, no stops. **R4:** the return leg De Oro to R. Calo with the six stops. **R5:** the return leg Santo Niño to J C Aquino Ave, no stops; its northern end lies past the tiles (blank map there). The other routes are faint (8 %). |
+| RR1-M2 | My Ride: plan the trips below | As in the table |
+| RR1-M3 | Check-in: tap R3, then R5 | "No stations on this route yet" |
+| RR1-M4 | Light and Dark | Each line readable on both map themes; badges R3 green, R4 teal, R5 orange |
+
+**Trips on R4 (stored direction: De Oro → R. Calo).** Stop order along the line: DEO, MCA, JCA, IMA, TSO, RCA.
+
+| Trip | Result |
+| --- | --- |
+| DEO → RCA | Works: 18.6 km, ₱45.00 regular (₱36.00 student) |
+| DEO → JCA, DEO → MCA, MCA → IMA, JCA → TSO, IMA → RCA | Work |
+| IMA → DEO, RCA → anything earlier, TSO → IMA, JCA → MCA | **"Wrong direction for this route"**: the outbound leg is not provided yet |
 
 ## Partner's phone results (merged from b21b0c1)
 

@@ -4,23 +4,23 @@
 
 | Works with real data | Works with demo data only | Not built |
 | --- | --- | --- |
-| Offline map of Butuan; Route 4 shown only when picked (UX3) | — (Demo mode is planned: `docs/APP_FEEL_PLAN.md`) | Live PUVs, tracking and ETA |
-| My Ride: trip and fare (the route, stops and fare values are **placeholders**) | | Cloud check-in and waiting counts |
+| Offline map of Butuan; **real traced lines for R3, R4 and R5**, shown only when picked (RR1, UX3). R4 and R5 have only their return leg, partial. | — (Demo mode is planned: `docs/APP_FEEL_PLAN.md`) | Live PUVs, tracking and ETA |
+| My Ride: trip and fare on the stored direction (the **stops and fares are still placeholders**) | | Cloud check-in and waiting counts |
 | Onboarding, greeting, avatars, Light and Dark | | Reports, newsfeed, Energy |
 | Local check-in countdown (never seen on a device) | | Profile with username and badges |
 | Blue dot and "Locate me" (location tests pending) | | Consent screen (G0). **Do not use outdoors or share yet.** |
 
 **Next three steps:**
-1. Emjay: the location test results.
-2. Emjay: approve or change `docs/APP_FEEL_PLAN.md`.
-3. Agent: G0 on "start G0", or AF1 to AF3 if the plan is approved first.
+1. Emjay: check RR1 (backlog 69) and the labels plan (`docs/LABELS_PLAN.md`).
+2. Agent: AF1 to AF5 on "start AF1" (then G0, as ordered).
+3. Emjay: the location test results; the missing R4 and R5 legs when ready.
 
 ## Details
 
 - **Date:** 2026-10-04.
-- **Code:** `main`, ahead of `origin/main`, 0 behind. Last code commit: `11b66b1` (UX3).
+- **Code:** `main`, ahead of `origin/main`, 0 behind. Last code commit: RR1 (real route lines, route data version 3).
 - **Docs:** history files are in `docs/history/` (`f857cef`). Closed backlog items are in `docs/history/AUDIT_BACKLOG_CLOSED.md`. The index is `docs/README.md`.
-- **Tests:** 33 suites; 497 passed; 8 skipped. The skipped ones are the live Supabase tests, which have no `.env`.
+- **Tests:** 34 suites; 527 passed; 8 skipped. The skipped ones are the live Supabase tests, which have no `.env`.
 - **Quality gates, run today:**
 
 | Gate | Result |
@@ -73,6 +73,7 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | Done | UX2 About | UNVERIFIED | No test, no device record; `403bedd` | Run backlog 51 |
 | Done | F1 onboarding, greeting, avatars | VERIFIED | `avatarPick`, `greeting`, `destinations`, `profileStore` tests; `F1-M1` to `M4`; `149023e` | — |
 | Done | F1 own-set picker | VERIFIED | `avatarPicker.test.ts`; Emjay's emulator run 2026-10-04; `b80aede` | — |
+| Done | RR1 real lines for R3, R4, R5 | UNVERIFIED | `routeImport.test.ts`, `routing.test.ts` (several routes), `routeDb.test.ts` (stop membership), `contrast.test.ts` (three routes); agent's RR1-M1 to M3 run; `scripts/import-route.ts` | You check backlog 69; supply the missing legs (70) |
 | Done | UX3 route lines only when selected | UNVERIFIED | `routeVisibility.test.ts` (14); agent's `UX3-M1` to `M4` run; `11b66b1` | You check backlog 65 to 67 |
 | Done | Merge: location on Live | UNVERIFIED | `locationStore.test.ts` (9), `privacy.test.ts`; `29cc0b0`. App, My Ride, sheet and theme passed in Emjay's run (2026-10-04); **location tests pending** | You send the location results |
 | 0 | R1a rebuild | BLOCKED | `app.json`, icons, `expo-system-ui` and `expo-splash-screen` in `package.json`; `29cc0b0`, `45f9798`, `cdc0bbb` | Skipped for now (Emjay, 2026-10-04) |
@@ -92,12 +93,12 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | 7 | B1 background | BLOCKED | No `backgroundLocation.ts` | T1, R1b, phone |
 | 8 | BLE, driver app, SMS, moderation | NOT-STARTED | SMS protocol and RSSI functions only | Field data, phones, SIMs |
 
-**Counts (30 rows):**
+**Counts (31 rows):**
 
 | Status | Rows |
 | --- | --- |
 | VERIFIED | 10 |
-| UNVERIFIED | 4 |
+| UNVERIFIED | 5 |
 | PARTIAL | 2 |
 | NOT-STARTED | 5 |
 | BLOCKED | 9 |

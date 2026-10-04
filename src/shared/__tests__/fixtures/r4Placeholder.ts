@@ -1,9 +1,8 @@
-// Route 4 (De Oro) placeholder data from PRD 12.5.
-// This is the ONLY file that holds placeholder route data. To replace it with surveyed
-// or official data, edit the values here and bump ROUTE_DATA_VERSION.
-// Pure data: no React Native or Expo imports.
+// TEST FIXTURE: the old Route 4 placeholder data from PRD 12.5 (straight segments between the
+// placeholder stops). Moved here from src/data/seed/ in RR1 (2026-10-04), when the app's seed
+// switched to Emjay's traced lines. Tests use this, never the live seed.
 
-import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP } from '../../shared/config';
+import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP } from '../../config';
 
 export const ROUTE_DATA_VERSION = 1;
 

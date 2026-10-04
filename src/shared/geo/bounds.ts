@@ -40,6 +40,19 @@ export function boundsContain(outer: Bounds, inner: Bounds): boolean {
   return iw >= ow && is >= os && ie <= oe && inn <= on;
 }
 
+// The part of `inner` that lies inside `outer`. Used so the opening map view never reaches past the
+// tile set, even when a route line does (R5 runs north of the current tiles, RR1).
+export function clipBounds(inner: Bounds, outer: Bounds): Bounds {
+  const [iw, is, ie, inn] = inner;
+  const [ow, os, oe, on] = outer;
+  const west = Math.max(iw, ow);
+  const south = Math.max(is, os);
+  const east = Math.min(ie, oe);
+  const north = Math.min(inn, on);
+  // No overlap: fall back to the outer box rather than an empty one
+  return west < east && south < north ? [west, south, east, north] : outer;
+}
+
 // True when the point lies inside the box, edges included (for example a fix inside the offline map)
 export function boundsContainPoint(bounds: Bounds, point: { lat: number; lon: number }): boolean {
   const [west, south, east, north] = bounds;

@@ -1,4 +1,4 @@
-import { R4_LINES, R4_STATIONS, ROUTE_DATA_VERSION } from '../../data/seed/r4.placeholder';
+import { R4_LINES, R4_STATIONS, ROUTE_DATA_VERSION } from './fixtures/r4Placeholder';
 import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP } from '../config';
 
 // Expected coordinate ranges for the Route 4 placeholders, from the values in PRD 12.5

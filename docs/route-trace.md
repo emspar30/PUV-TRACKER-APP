@@ -1,6 +1,37 @@
-# Route 4 placeholder trace
+# Route traces
 
-How the Route 4 lines in `src/data/seed/r4.placeholder.ts` (route data version 2) were made, so they can be checked or redone. Done on 2026-10-03.
+## Active lines (RR1, 2026-10-04): Emjay's traces of R3, R4 and R5
+
+| Item | Value |
+| --- | --- |
+| Source files | `assets/data/route_3_primary.geojson`, `route_4_primary.geojson`, `route_5_primary.geojson`, exported from Google My Maps |
+| Method | **To be confirmed by the user** (Emjay will describe how each line was made) |
+| Credit | The lines are Emjay's own tracing. OpenStreetMap (© OpenStreetMap contributors) is credited only for the basemap. |
+| Import | `npx tsx scripts/import-route.ts` (dry run), `--write` writes `src/data/seed/routes.generated.ts`; names, colours, fares and stops are in `src/data/seed/routes.ts` (route data version 3) |
+| Simplification | Turf, 5 m: R3 284 → 22 points, R4 412 → 57, R5 465 → 64; largest deviation 4.86 m |
+
+| Route | Stored | Length | Note |
+| --- | --- | --- | --- |
+| R3 Ampayon-Libertad | outbound (traced, Ampayon → Libertad) and return (**derived**: the reverse) | 11.42 km each | "Vice versa" on the PUJ map |
+| R4 De Oro | **return only**, De Oro Barangay Hall → 524 R. Calo; **partial: does not reach the Jeepney Terminal** | 18.64 km | Outbound not provided |
+| R5 Santo Niño | **return only**, Santo Niño → 1203 J C Aquino Ave; **partial: does not reach the Jeepney Terminal** | 22.71 km | Outbound not provided. 14 points lie up to 1.46 km north of the current tiles and draw over blank map until the larger tile set (north 9.07) arrives. |
+
+**Legs Emjay may supply later**
+
+| Leg | Streets (PUJ route map, October 2026) |
+| --- | --- |
+| R4 outbound | Jeepney Terminal, Rosales Ave, JAQNO, R. Calo St, T. Sanchez St, M. Calo St, Ampayon, De Oro |
+| Rest of the R4 return | R. Calo St, R. Rosales St, North Montilla Blvd, Jeepney Terminal |
+| R5 outbound | Jeepney Terminal, North Montilla Blvd, JAQNO, R. Calo St, T. Sanchez St, M. Calo St, Ampayon, Santo Niño |
+| Rest of the R5 return | J C Aquino Ave, Rosales Ave, Langihan, Jeepney Terminal |
+
+**What the app does meanwhile.** It plans only in the travel direction of a stored line. On R4 and R5 the outbound direction says "Wrong direction for this route" (no trip found). Only the stored direction appears in the Outbound and Return chips.
+
+**Stops.** The six placeholder stops belong to R4 only. Distance to the traced R4 line: IMA 5 m, TSO 2 m, RCA 9 m, JCA 2 m, MCA 12 m. DEO was 1,076 m off and was moved onto the start of the line (De Oro Barangay Hall), marked "location not verified" (Emjay's decision). R3 and R5 have no stops yet.
+
+## Earlier: the partner's candidate trace (not active)
+
+How the Route 4 lines in the partner's commit (now `src/data/seed/r4.traced.candidate.ts`, not active) were made, so they can be checked or redone. Done on 2026-10-03. Emjay's traced R4 lies up to 756 m from it.
 
 **Status:** placeholder. The lines follow real streets in the order the PRD 12.5 route description lists them, but nobody has ridden them. Replace them with a GPS trace of a real ride before the pilot, as PRD 12.5 asks.
 

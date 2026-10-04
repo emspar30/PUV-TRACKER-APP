@@ -1,6 +1,6 @@
 import type { Position } from 'geojson';
 
-import { R4_LINES } from '../../data/seed/r4.placeholder';
+import { R4_LINES } from './fixtures/r4Placeholder';
 import { directionArrows } from '../geo/arrows';
 import { haversineMeters } from '../geo/haversine';
 import { lineLengthKm, projectOntoLine } from '../geo/line';

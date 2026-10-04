@@ -125,6 +125,8 @@ export const en = {
   // Check-in: a local countdown in UX2; the cloud check-in, geofence and reminder arrive in G1
   checkin: {
     pickStation: 'Pick a station',
+    // RR1: R3 and R5 have no stations yet
+    noStations: 'No stations on this route yet',
     checkIn: 'Check in',
     checkInAt: (code: string) => `Check in at ${code}`,
     boarded: 'I boarded',

@@ -201,7 +201,12 @@ export const MAP_PAINTS: Record<ThemeScheme, MapPaint> = {
 // the route (the database value, #00F5D4 for R4), which is unreadable on a light map. Each entry
 // must reach 3:1 as a line on the light land and 4.5:1 for white badge text (checked by a test).
 export const LIGHT_ROUTE_COLORS: Readonly<Record<string, string>> = {
+  // Dark: #10B981
+  R3: '#1e7e34',
+  // Dark: #00F5D4
   R4: '#00796b',
+  // Dark: #F97316
+  R5: '#c2410c',
 };
 
 // Text on a route badge

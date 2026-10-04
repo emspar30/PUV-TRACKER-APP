@@ -23,6 +23,9 @@ export type RouteStop = {
   name: string;
   lat: number;
   lon: number;
+  // Routes this stop belongs to (RR1). When absent, as in older fixtures, a stop belongs to any
+  // line within ROUTE_STOP_MAX_DISTANCE_M.
+  routeCodes?: readonly string[];
 };
 
 export type RouteData = {

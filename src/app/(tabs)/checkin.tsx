@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvatarButton, BottomSheet, Chip, LineBadge, Logo, RouteChip, StatusPill, type SheetRequest } from '@/components';
+import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
@@ -11,7 +12,7 @@ import { StopDots } from '@/features/map/StopDots';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { formatCountdown, isActive, remainingMs } from '@/shared/checkin/localCheckin';
-import { boundsOfLines } from '@/shared/geo/bounds';
+import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import type { RouteDirection } from '@/shared/routing/types';
 import { routeCodesOf, toggleRoute } from '@/shared/ui/routeVisibility';
 import { verifyCheckIn } from '@/shared/verification/verifyCheckIn';
@@ -49,7 +50,8 @@ export default function CheckInScreen() {
   // A running check-in shows its own route
   const shownRoute = active ? checkIn.routeCode : selectedRoute;
   const layers = useRouteLayers(lines, stops, 'checkin', shownRoute);
-  const initialBounds = useMemo(() => boundsOfLines(lines.map((line) => line.coordinates)), [lines]);
+  // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
+  const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
   const badgeColor = (code: string) => routeColor(code, lines.find((line) => line.routeCode === code)?.color ?? colors.primary);
 
   const pickRoute = (code: string) => {
@@ -184,6 +186,7 @@ export default function CheckInScreen() {
         </View>
 
         {shownRoute ? <Text style={typography.labelLg}>{strings.checkin.stations}</Text> : null}
+        {shownRoute && layers.stops.length === 0 ? <Text style={typography.bodyMd}>{strings.checkin.noStations}</Text> : null}
         <View style={styles.chips}>
           {layers.stops.map((stop) => (
             <Chip

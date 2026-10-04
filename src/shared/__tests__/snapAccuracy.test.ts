@@ -4,7 +4,7 @@
 import { lineString, nearestPointOnLine, point } from '@turf/turf';
 import type { Position } from 'geojson';
 
-import { R4_LINES } from '../../data/seed/r4.placeholder';
+import { R4_LINES } from './fixtures/r4Placeholder';
 import { projectOntoLine } from '../geo/line';
 
 import { FIXTURE_OUTBOUND, KM_PER_DEG_LAT, KM_PER_DEG_LON } from './fixtures/routeFixture';

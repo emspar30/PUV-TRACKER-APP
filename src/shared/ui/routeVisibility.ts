@@ -55,8 +55,11 @@ export function stopsForRoute(
 ): RouteStop[] {
   if (routeCode === null) return [];
   const ofRoute = lines.filter((line) => line.routeCode === routeCode && line.coordinates.length > 1);
+  if (ofRoute.length === 0) return [];
   return stops.filter((stop) =>
-    ofRoute.some((line) => projectOntoLine(line.coordinates, stop).offsetM <= ROUTE_STOP_MAX_DISTANCE_M),
+    stop.routeCodes
+      ? stop.routeCodes.includes(routeCode)
+      : ofRoute.some((line) => projectOntoLine(line.coordinates, stop).offsetM <= ROUTE_STOP_MAX_DISTANCE_M),
   );
 }
 

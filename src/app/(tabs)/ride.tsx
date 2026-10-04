@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvatarButton, BottomSheet, Chip, LineBadge, Logo, type SheetRequest } from '@/components';
+import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
@@ -16,14 +17,14 @@ import { TripLayers, type TripPin } from '@/features/plan/TripLayers';
 import { PointPills, type PickTarget, type PickedPoint } from '@/features/ride/PointPills';
 import { RideFailure, RideResult } from '@/features/ride/RideResult';
 import { discountMultiplier } from '@/shared/fare/fare';
-import { boundsOfLines, withMinimumSpan } from '@/shared/geo/bounds';
+import { boundsOfLines, clipBounds, withMinimumSpan } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
 import { projectOntoLine } from '@/shared/geo/line';
 import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/describe';
 import { fareForItinerary, planTrip } from '@/shared/routing/plan';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
 import { useDestinationsStore } from '@/state/destinationsStore';
-import { toggleRoute } from '@/shared/ui/routeVisibility';
+import { stopsForRoute, toggleRoute } from '@/shared/ui/routeVisibility';
 import { useFareType } from '@/state/fareType';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
@@ -33,25 +34,27 @@ const LOGO_SIZE = spacing.xl * 3;
 const ICON_SIZE = spacing.md + spacing.xs;
 const FIELD_NAME: Record<PickTarget, string> = { origin: strings.ride.from, destination: strings.ride.to };
 
-type RouteCard = { code: string; color: string; from: string; to: string; lines: DirectedLine[]; hasMap: boolean };
+type RouteCard = { code: string; color: string; from: string; to: string; name: string; lines: DirectedLine[]; hasMap: boolean };
 
-// One card per public route code, with its two ends along the outbound line
+// One card per public route code, with its two end stops along its first stored line, or its name
+// when the route has no stops yet (R3 and R5 in RR1)
 function routeCards(lines: DirectedLine[], stops: RouteStop[]): RouteCard[] {
   const codes = [...new Set(lines.map((line) => line.routeCode))];
   return codes.map((code) => {
     const ofRoute = lines.filter((line) => line.routeCode === code);
-    const outbound = ofRoute.find((line) => line.direction === 'outbound') ?? ofRoute[0];
+    const first = ofRoute.find((line) => line.direction === 'outbound') ?? ofRoute[0];
     const hasMap = ofRoute.some((line) => line.coordinates.length >= 2);
     const ordered = hasMap
-      ? [...stops].sort(
-          (a, b) => projectOntoLine(outbound.coordinates, a).chainageKm - projectOntoLine(outbound.coordinates, b).chainageKm,
+      ? stopsForRoute(lines, stops, code).sort(
+          (a, b) => projectOntoLine(first.coordinates, a).chainageKm - projectOntoLine(first.coordinates, b).chainageKm,
         )
       : [];
     return {
       code,
-      color: outbound.color,
+      color: first.color,
       from: ordered[0]?.code ?? '',
       to: ordered[ordered.length - 1]?.code ?? '',
+      name: first.name.split(',')[0],
       lines: ofRoute,
       hasMap,
     };
@@ -90,7 +93,8 @@ export default function MyRideScreen() {
     }
   }
 
-  const initialBounds = useMemo(() => boundsOfLines(lines.map((line) => line.coordinates)), [lines]);
+  // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
+  const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
   const cards = useMemo(() => routeCards(lines, stops), [lines, stops]);
 
   const moveCamera = useCallback((next: MapFocusTarget) => {
@@ -301,7 +305,7 @@ export default function MyRideScreen() {
           >
             <LineBadge code={card.code} color={routeColor(card.code, card.color)} />
             <Text style={[typography.labelLg, styles.grow]}>
-              {card.hasMap ? strings.ride.routeEnds(card.from, card.to) : strings.ride.mapComingSoon}
+              {!card.hasMap ? strings.ride.mapComingSoon : card.from && card.to ? strings.ride.routeEnds(card.from, card.to) : card.name}
             </Text>
           </Pressable>
         ))}

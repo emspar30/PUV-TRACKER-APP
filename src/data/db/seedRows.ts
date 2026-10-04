@@ -49,6 +49,8 @@ export function buildRouteRows(data: RouteData): RouteRows {
   // the line are computed from the geometry, never typed in by hand
   const routeStations: RouteStationRow[] = data.lines.flatMap((line) =>
     data.stops
+      // A stop assigned to routes joins only the lines of those routes (RR1)
+      .filter((stop) => !stop.routeCodes || stop.routeCodes.includes(line.routeCode))
       .map((stop) => ({ stop, projection: projectOntoLine(line.coordinates, stop) }))
       .filter(({ projection }) => projection.offsetM <= ROUTE_STOP_MAX_DISTANCE_M)
       .sort((a, b) => a.projection.chainageKm - b.projection.chainageKm)
