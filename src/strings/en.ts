@@ -12,6 +12,7 @@ const km = (value: number) => `${value.toFixed(1)} km`;
 const peso = (value: number) => `₱${value.toFixed(2)}`;
 const WALK_STEP_M = 10;
 const METERS_PER_KM = 1000;
+const SECONDS_PER_MINUTE = 60;
 
 // "120 m", to the nearest 10 m, because a walking distance is an estimate
 const meters = (value: number) => {
@@ -61,6 +62,8 @@ export const en = {
       noData: 'No data',
     },
     noData: 'No data from riders right now',
+    // Age of the freshest position on a Stale route, in whole minutes
+    age: (seconds: number) => `${Math.max(1, Math.floor(seconds / SECONDS_PER_MINUTE))} min`,
     route: (code: string) => `Route ${code}`,
     // UX3: the map stays clean until a route is picked
     pickRoute: 'Pick a route',

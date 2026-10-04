@@ -4,23 +4,23 @@
 
 | Works with real data | Works with demo data only | Not built |
 | --- | --- | --- |
-| Offline map of Butuan; **real traced lines for R3, R4 and R5**, shown only when picked (RR1, UX3). R4 and R5 have only their return leg, partial. | — (Demo mode is planned: `docs/APP_FEEL_PLAN.md`) | Live PUVs, tracking and ETA |
+| Offline map of Butuan; **real traced lines for R3, R4 and R5**, shown only when picked (RR1, UX3). R4 and R5 have only their return leg, partial. | **Moving PUVs on Live** (AF3): 2 or 3 simulated vehicles per route on the real lines, seat tiers, Live / Stale / No data, stopped state, all marked "Demo". Settings → "Demo data" turns it off. | Real live PUVs, tracking and ETA |
 | My Ride: trip and fare on the stored direction (the **stops and fares are still placeholders**) | | Cloud check-in and waiting counts |
 | Onboarding, greeting, avatars, Light and Dark | | Reports, newsfeed, Energy |
 | Local check-in countdown (never seen on a device) | | Profile with username and badges |
 | Blue dot and "Locate me" (location tests pending) | | Consent screen (G0). **Do not use outdoors or share yet.** |
 
 **Next three steps:**
-1. Emjay: check AF1 (backlog 74 and 75); approve AF2; reply "download approved" for the label fonts (LB1a).
-2. Agent: AF2 to AF5 on approval (then G0, as ordered).
+1. Emjay: check AF1 to AF3 and LB1a (backlog 74 to 78, and 68); approve AF4.
+2. Agent: AF4 and AF5 on approval (then G0, as ordered); LB1b on approval.
 3. Emjay: the location test results; the missing R4 and R5 legs when ready.
 
 ## Details
 
 - **Date:** 2026-10-05.
-- **Code:** `main`, ahead of `origin/main`, 0 behind. Last code commits: tiles v2 (R5 covered, zoom 15), single-leg routes drawn solid, AF1 (text cleanup and first-run hints).
+- **Code:** `main`, ahead of `origin/main`, 0 behind. Last code commits: AF1 (text and hints), LB1a (offline glyphs), AF2 (repositories and the Demo switch, backlog 68 fix), AF3 (demo vehicles on Live).
 - **Docs:** history files are in `docs/history/` (`f857cef`). Closed backlog items are in `docs/history/AUDIT_BACKLOG_CLOSED.md`. The index is `docs/README.md`.
-- **Tests:** 36 suites; 560 passed; 8 skipped. The skipped ones are the live Supabase tests, which have no `.env`.
+- **Tests:** 41 suites; 619 passed; 8 skipped. The skipped ones are the live Supabase tests, which have no `.env`.
 - **Quality gates, run today:**
 
 | Gate | Result |
@@ -79,6 +79,7 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | Done | AF1 text cleanup and first-run hints | UNVERIFIED | `wordCount.test.ts` (≤ 8 words on the tabs, explainer ≤ 12, hints ≤ 6), `hintsStore.test.ts`; agent's AF1-M1 run | You check backlog 74 and 75 |
 | Done | LB1a offline glyph proof | UNVERIFIED | `glyphInstall.test.ts`, `offlineMap.test.ts` (no `http(s)`, `file://` glyphs, glyph facts); agent's LB1a-M1 run; `docs/LABELS_PLAN.md` §7a | You check backlog 76; LB1b on approval |
 | Done | AF2 repository interfaces and the Demo switch | UNVERIFIED | `repositories.test.ts` (switch, chip rule, backlog 68 reopen), `settingsStore.test.ts`, `privacy.test.ts` (demo sends nothing); agent's AF2-M1 run | You check backlog 77 and 68 |
+| Done | AF3 demo vehicles on Live | UNVERIFIED | `demoVehicles.test.ts` (fixed seeds: speeds, stops, direction, silent vehicle, coverage 89/100/600 s, tiers 6/7/13, stopped over 45 s), `vehicleMarkers.test.ts`; agent's AF3-M1 run and 50-marker stress on the emulator | You check backlog 78; the partner's phone for 79 |
 | 0 | R1a rebuild | BLOCKED | `app.json`, icons, `expo-system-ui` and `expo-splash-screen` in `package.json`; `29cc0b0`, `45f9798`, `cdc0bbb` | Skipped for now (Emjay, 2026-10-04) |
 | 0 | ST1 smoke test | BLOCKED | — | R1a builds |
 | 0 | ST2 records and fixes | NOT-STARTED | — | After ST1 |
@@ -96,12 +97,12 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | 7 | B1 background | BLOCKED | No `backgroundLocation.ts` | T1, R1b, phone |
 | 8 | BLE, driver app, SMS, moderation | NOT-STARTED | SMS protocol and RSSI functions only | Field data, phones, SIMs |
 
-**Counts (34 rows):**
+**Counts (35 rows):**
 
 | Status | Rows |
 | --- | --- |
 | VERIFIED | 10 |
-| UNVERIFIED | 8 |
+| UNVERIFIED | 9 |
 | PARTIAL | 2 |
 | NOT-STARTED | 5 |
 | BLOCKED | 9 |

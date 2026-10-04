@@ -73,8 +73,7 @@ describe.each([
 
 describe('offline map style with the LB1a test label', () => {
   const GLYPHS_ROOT = 'file:///data/user/0/com.tunton.app/files/glyphs/';
-  const style = buildOfflineStyle(pmtilesUrl(FILE_URI), BASE_MAPS.light, {
-    glyphsUrl: glyphsUrl(GLYPHS_ROOT, GLYPHSET),
+  const style = buildOfflineStyle(pmtilesUrl(FILE_URI), BASE_MAPS.light, glyphsUrl(GLYPHS_ROOT, GLYPHSET), {
     font: GLYPH_FONT_REGULAR,
     ...LABEL_PROOF,
     textColor: '#111111',
@@ -102,6 +101,16 @@ describe('offline map style with the LB1a test label', () => {
 
   it('the label sits inside the tile set', () => {
     expect(boundsContain(TILESET.bounds, [LABEL_PROOF.lon, LABEL_PROOF.lat, LABEL_PROOF.lon, LABEL_PROOF.lat])).toBe(true);
+  });
+});
+
+describe('offline map style with local glyphs and no test label (AF3: room for the DEMO badge)', () => {
+  const style = buildOfflineStyle(pmtilesUrl(FILE_URI), BASE_MAPS.dark, 'file:///data/user/0/com.tunton.app/files/glyphs/glyphs-v1/{fontstack}/{range}.pbf');
+
+  it('names the local glyphs but draws no text of its own, and has no network URL', () => {
+    expect(style.glyphs?.startsWith('file:///')).toBe(true);
+    expect(style.layers.filter((layer) => layer.type === 'symbol')).toEqual([]);
+    expect(JSON.stringify(style)).not.toMatch(/https?:\/\//);
   });
 });
 

@@ -44,12 +44,14 @@ const ROAD_WIDTH = ['interpolate', ['linear'], ['zoom'], 8, 0.4, 12, 1, 16, 4];
 // The casing is the road width plus this much on each side
 const ROAD_CASING_WIDTH = ['interpolate', ['linear'], ['zoom'], 8, 0.8, 12, 2, 16, 6];
 
-export function buildOfflineStyle(tilesUrl: string, palette: MapPalette, proof?: LabelProof): OfflineStyle {
-  const style = buildBaseStyle(tilesUrl, palette);
-  if (!proof) return style;
+// With `glyphsUrl` (the installed local glyphs), layers added on top of the map may draw text, such as
+// the "DEMO" badge on demo vehicles (AF3); the base style itself still has no text layer.
+export function buildOfflineStyle(tilesUrl: string, palette: MapPalette, glyphsUrl?: string | null, proof?: Omit<LabelProof, 'glyphsUrl'>): OfflineStyle {
+  const base = buildBaseStyle(tilesUrl, palette);
+  const style = glyphsUrl ? { ...base, glyphs: glyphsUrl } : base;
+  if (!proof || !glyphsUrl) return style;
   return {
     ...style,
-    glyphs: proof.glyphsUrl,
     sources: {
       ...style.sources,
       [LABEL_PROOF_SOURCE_ID]: {

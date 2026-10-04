@@ -1,4 +1,5 @@
 import type { ViewStateChangeEvent } from '@maplibre/maplibre-react-native';
+import { useIsFocused } from 'expo-router';
 import { LocateFixed, Maximize, Navigation, X } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -28,7 +29,12 @@ import { StopDots } from '@/features/map/StopDots';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
+import { useRepositories } from '@/data/repositories/useRepositories';
+import { useVehicles } from '@/features/vehicles/useVehicles';
+import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
 import { MAP_FOLLOW_ZOOM } from '@/shared/config';
+import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
+import { headerDataChip } from '@/shared/ui/dataChip';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { lineLengthKm, projectOntoLine } from '@/shared/geo/line';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
@@ -44,6 +50,8 @@ const ICON_SIZE = spacing.md + spacing.xs;
 const SWATCH_WIDTH = spacing.lg;
 // Room under the status bar for the map credit, above the DEV line
 const CREDIT_HEIGHT = spacing.lg;
+// Zoom assumed for the heading cones until the camera first reports one
+const DEFAULT_VEHICLE_ZOOM = 12;
 
 type LineSummary = { line: DirectedLine; from: string; to: string; lengthKm: number };
 
@@ -60,8 +68,9 @@ function summarise(line: DirectedLine, stops: RouteStop[]): LineSummary {
   };
 }
 
-// Live tab: a full-screen map of the route under a draggable sheet. Vehicles arrive in S5;
-// until then the status is "No data", never "no vehicles".
+// Live tab: a full-screen map of the route under a draggable sheet. Vehicles of the selected route
+// come from the vehicles repository: demo vehicles now (AF3), the relay later (L1). Without any,
+// the status is "No data", never "no vehicles".
 export default function LiveScreen() {
   const styles = useStyles();
   const { colors, typography, mapRoute, routeColor } = useTheme();
@@ -83,6 +92,11 @@ export default function LiveScreen() {
   const dismissHint = useHintsStore((state) => state.dismiss);
   const fittedOnce = useRef(false);
 
+  // AF2, AF3: live data through the repositories; demo vehicles move on the selected route only
+  const repos = useRepositories();
+  // Camera zoom, so vehicle heading cones keep their size on screen
+  const [zoom, setZoom] = useState(DEFAULT_VEHICLE_ZOOM);
+
   const location = useLiveLocation((center) =>
     setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center, zoom: MAP_FOLLOW_ZOOM })),
   );
@@ -96,6 +110,17 @@ export default function LiveScreen() {
   const routeLines = useMemo(() => lines.filter((line) => line.routeCode === selectedRoute), [lines, selectedRoute]);
   // The legend's return swatch follows the map: only a return beside an outbound looks like one
   const returnStyled = useMemo(() => returnStyledIds(lines), [lines]);
+
+  // Tabs stay mounted; vehicles refresh only while Live is the tab in front
+  const focused = useIsFocused();
+  const live = useVehicles(repos.vehicles, focused ? selectedRoute : null);
+  // A direction switched off hides its vehicles too
+  const vehicles = useMemo(() => {
+    const directionOf = new Map(lines.map((line) => [line.id, line.direction]));
+    return live.vehicles.filter((vehicle) => directions[directionOf.get(vehicle.lineId) ?? 'outbound']);
+  }, [live.vehicles, lines, directions]);
+  const coverage = routeCoverage(vehicles.map((vehicle) => ageSeconds(vehicle.lastPacketMs, live.nowMs)));
+  const dataChip = headerDataChip({ demoShowing: repos.vehicles.source === 'demo' && coverage.coverage !== 'none', isPlaceholder });
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
@@ -170,6 +195,7 @@ export default function LiveScreen() {
   }, []);
 
   const handleViewChange = useCallback((next: ViewStateChangeEvent) => {
+    setZoom(next.zoom);
     if (__DEV__) {
       console.log(`[map] view: zoom ${next.zoom.toFixed(2)} centre ${next.center[0]}, ${next.center[1]}`);
       setView(next);
@@ -212,9 +238,18 @@ export default function LiveScreen() {
       ))}
       {/* Three route chips fill the peek row; the route's ends are shown in the sheet */}
       <View style={styles.grow} />
-      {isPlaceholder ? <Chip label={strings.common.sampleData} /> : null}
+      {/* One data chip: "Demo" while demo vehicles show, otherwise "Sample data" (AF1, AF2) */}
+      {dataChip ? <Chip label={dataChip === 'demo' ? strings.common.demo : strings.common.sampleData} /> : null}
     </View>
   );
+
+  const statusPill = !selectedRoute
+    ? { label: strings.live.pickRoute, tone: 'neutral' as const }
+    : coverage.coverage === 'live'
+      ? { label: strings.live.status.live, tone: 'success' as const }
+      : coverage.coverage === 'stale'
+        ? { label: strings.live.status.stale(strings.live.age(coverage.youngestAgeS ?? 0)), tone: 'warning' as const }
+        : { label: strings.live.status.noData, tone: 'neutral' as const };
 
   return (
     <View style={styles.root}>
@@ -232,6 +267,15 @@ export default function LiveScreen() {
       >
         <RouteLines lines={layers.lines} visible={directions} opacity={layers.opacity} />
         <StopDots stops={routeStops} selectedCode={selectedCode} onPressStop={selectStop} />
+        {selectedRoute ? (
+          <VehicleMarkers
+            vehicles={vehicles}
+            nowMs={live.nowMs}
+            color={colorOfRoute(selectedRoute)}
+            zoom={zoom}
+            labels={state.tiles.glyphsUrl !== null}
+          />
+        ) : null}
         {!location.locationAllowed ? <OriginPin /> : null}
         <BlueDot />
       </OfflineMap>
@@ -269,7 +313,7 @@ export default function LiveScreen() {
               </View>
             ) : null}
             <View style={styles.floatingRow}>
-              <StatusPill label={selectedRoute ? strings.live.status.noData : strings.live.pickRoute} tone="neutral" />
+              <StatusPill label={statusPill.label} tone={statusPill.tone} />
               <View style={styles.buttons}>
                 <RoundButton
                   icon={LocateFixed}

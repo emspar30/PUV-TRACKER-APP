@@ -74,10 +74,10 @@ export function OfflineMap({
   const mapStyle = useMemo(() => {
     // LB1a: the dev-only test label proves the local glyph files draw
     const proof =
-      __DEV__ && MAP_LABEL_PROOF_DEV && glyphsUrl
-        ? { glyphsUrl, font: GLYPH_FONT_REGULAR, ...LABEL_PROOF, textColor: colors.textPrimary, haloColor: baseMap.land }
+      __DEV__ && MAP_LABEL_PROOF_DEV
+        ? { font: GLYPH_FONT_REGULAR, ...LABEL_PROOF, textColor: colors.textPrimary, haloColor: baseMap.land }
         : undefined;
-    return buildOfflineStyle(tilesUrl, baseMap, proof) as unknown as StyleSpecification;
+    return buildOfflineStyle(tilesUrl, baseMap, glyphsUrl, proof) as unknown as StyleSpecification;
   }, [tilesUrl, baseMap, glyphsUrl, colors.textPrimary]);
 
   useEffect(() => {

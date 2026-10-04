@@ -126,6 +126,19 @@ export const MAP_GEOMETRY = {
   cameraAnimationMs: 600,
   // A fitted area is never smaller than this, so two nearby points do not zoom the map in too far
   minFocusSpanDeg: 0.004,
+  // Vehicle markers (AF3): sizes on screen, in dp
+  vehicle: {
+    radius: 7,
+    ringWidth: 3,
+    stoppedRadius: 2.5,
+    coneLengthPx: 22,
+    coneHalfAngleDeg: 28,
+    coneOpacity: 0.35,
+    staleOpacity: 0.5,
+    badgeTextSize: 9,
+    badgeOffsetEm: 1.3,
+    badgeHalo: 1.5,
+  },
 } as const;
 
 function buildMapRoute(paint: MapPaint) {
