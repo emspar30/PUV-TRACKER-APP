@@ -2,11 +2,13 @@ import type { TextStyle, ViewStyle } from 'react-native';
 
 import {
   BASE_MAPS,
+  MAP_LABELS,
   MAP_PAINTS,
   PALETTES,
   ROUTE_BADGE_TEXT,
   routeColor,
   type BaseMapPalette,
+  type MapLabelPaint,
   type MapPaint,
   type Palette,
   type ThemeScheme,
@@ -177,6 +179,7 @@ export type Theme = {
   mapRoute: MapRoute;
   mapPaint: MapPaint;
   baseMap: BaseMapPalette;
+  mapLabels: MapLabelPaint;
   elevation: ReturnType<typeof buildElevation>;
   routeBadgeText: string;
   // A route's colour in this theme: the stored colour in dark, a readable one in light
@@ -192,6 +195,7 @@ function buildTheme(scheme: ThemeScheme): Theme {
     mapRoute: buildMapRoute(MAP_PAINTS[scheme]),
     mapPaint: MAP_PAINTS[scheme],
     baseMap: BASE_MAPS[scheme],
+    mapLabels: MAP_LABELS[scheme],
     elevation: buildElevation(colors),
     routeBadgeText: ROUTE_BADGE_TEXT[scheme],
     routeColor: (routeCode, storedColor) => routeColor(scheme, routeCode, storedColor),

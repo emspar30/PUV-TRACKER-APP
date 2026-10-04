@@ -14,7 +14,10 @@ import { TILESET } from '@/data/map/tileset';
 import { MAP_LABEL_PROOF_DEV, MAP_OVERZOOM_LEVELS } from '@/shared/config';
 import type { Bounds } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
+import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
+
+import { MapLabels } from './MapLabels';
 import { makeStyles, spacing, useTheme } from '@/theme';
 
 const PADDING = { top: spacing.xl, right: spacing.xl, bottom: spacing.xl, left: spacing.xl };
@@ -48,6 +51,8 @@ type OfflineMapProps = {
   bottomInset?: number;
   // Where the OpenStreetMap credit sits: a distance from the top, or (by default) the bottom-left corner
   attributionTop?: number;
+  // LB1b: labels at LABEL_DIMMED_OPACITY while a route is selected
+  labelsDimmed?: boolean;
   // Map content drawn on top of the base map: route line, stops, vehicle markers and, later, the blue dot
   children?: ReactNode;
 };
@@ -64,11 +69,16 @@ export function OfflineMap({
   onUserMove,
   bottomInset = 0,
   attributionTop,
+  labelsDimmed = false,
   children,
 }: OfflineMapProps) {
   const styles = useStyles();
   const { scheme, colors, typography, mapRoute, baseMap } = useTheme();
   const camera = useRef<CameraRef>(null);
+  // Labels need the local glyphs; switching them on or off mounts the map afresh, like a theme
+  // change, so they always stay under the layers drawn on top
+  const labelsOn = useSettingsStore((state) => state.mapLabels);
+  const showLabels = labelsOn && !!glyphsUrl;
   // The style object must keep its identity between renders, or the map reloads it.
   // It changes only with the tile file or the theme.
   const mapStyle = useMemo(() => {
@@ -103,7 +113,7 @@ export function OfflineMap({
       {/* A new theme loads a new base style, which drops the route layers drawn on top; mounting the
           map afresh for each theme draws everything again in the new colours. */}
       <Map
-        key={scheme}
+        key={`${scheme}-${showLabels ? 'labels' : 'plain'}`}
         style={styles.map}
         mapStyle={mapStyle}
         logo={false}
@@ -131,6 +141,8 @@ export function OfflineMap({
             : undefined
         }
       >
+        {/* LB1b: names first, so route lines, stops and vehicles are drawn over them */}
+        {showLabels ? <MapLabels dimmed={labelsDimmed} /> : null}
         <Camera
           ref={camera}
           initialViewState={{ bounds: initialBounds, padding: { ...PADDING, bottom: PADDING.bottom + bottomInset } }}

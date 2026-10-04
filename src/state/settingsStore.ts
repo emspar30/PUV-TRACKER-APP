@@ -2,7 +2,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { DEMO_MODE_DEFAULT } from '@/shared/config';
+import { DEMO_MODE_DEFAULT, MAP_LABELS_DEFAULT } from '@/shared/config';
 import type { ThemeScheme } from '@/theme/tokens';
 
 // App settings kept on this device only. Nothing here is sent anywhere.
@@ -13,15 +13,18 @@ type StoredSettings = {
   theme: ThemeScheme;
   // AF2: simulated live data, always labelled "Demo"
   demoData: boolean;
+  // LB1b: city, barangay and street names on the map
+  mapLabels: boolean;
 };
 
 type SettingsState = StoredSettings & {
   setTheme: (theme: ThemeScheme) => void;
   setDemoData: (on: boolean) => void;
+  setMapLabels: (on: boolean) => void;
 };
 
 // Light is the default (plan v2, Revision 2); Demo data is on by default for the prototype (Emjay, 2026-10-04)
-const DEFAULTS: StoredSettings = { theme: 'light', demoData: DEMO_MODE_DEFAULT };
+const DEFAULTS: StoredSettings = { theme: 'light', demoData: DEMO_MODE_DEFAULT, mapLabels: MAP_LABELS_DEFAULT };
 
 const deviceStorage = createJSONStorage<StoredSettings>(() => ({
   getItem: (key) => Storage.getItemSync(key),
@@ -37,11 +40,12 @@ export const useSettingsStore = create<SettingsState>()(
       ...DEFAULTS,
       setTheme: (theme) => set({ theme }),
       setDemoData: (demoData) => set({ demoData }),
+      setMapLabels: (mapLabels) => set({ mapLabels }),
     }),
     {
       name: 'settings',
       storage: deviceStorage,
-      partialize: ({ theme, demoData }) => ({ theme, demoData }),
+      partialize: ({ theme, demoData, mapLabels }) => ({ theme, demoData, mapLabels }),
       // Ignore a stored value this version does not know
       merge: (persisted, current) => {
         const stored = (persisted ?? {}) as Partial<StoredSettings>;
@@ -49,6 +53,7 @@ export const useSettingsStore = create<SettingsState>()(
           ...current,
           theme: stored.theme && SCHEMES.includes(stored.theme) ? stored.theme : current.theme,
           demoData: typeof stored.demoData === 'boolean' ? stored.demoData : current.demoData,
+          mapLabels: typeof stored.mapLabels === 'boolean' ? stored.mapLabels : current.mapLabels,
         };
       },
     },

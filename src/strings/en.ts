@@ -175,6 +175,8 @@ export const en = {
     on: 'On',
     off: 'Off',
     demoDataLabel: (on: boolean) => (on ? 'Demo data on' : 'Demo data off'),
+    mapLabels: 'Map labels',
+    mapLabelsLabel: (on: boolean) => (on ? 'Map labels on' : 'Map labels off'),
   },
 
   direction: {

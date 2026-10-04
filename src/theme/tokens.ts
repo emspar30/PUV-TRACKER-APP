@@ -156,6 +156,15 @@ export const BASE_MAPS: Record<ThemeScheme, BaseMapPalette> = {
   },
 };
 
+// Map label colours (LB1b): text on a halo in the map's land colour. Place and barangay names use
+// `text`; road and street names the quieter `muted`. Both must reach 4.5:1 on the halo (contrast test).
+export type MapLabelPaint = { text: string; muted: string; halo: string };
+
+export const MAP_LABELS: Record<ThemeScheme, MapLabelPaint> = {
+  light: { text: '#3c4043', muted: '#5f6368', halo: '#f8f9fa' },
+  dark: { text: '#E2E8F0', muted: '#A7B4C6', halo: '#161F30' },
+};
+
 export const MAP_PAINTS: Record<ThemeScheme, MapPaint> = {
   light: {
     casing: '#ffffff',

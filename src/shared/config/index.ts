@@ -105,6 +105,15 @@ export const MAP_OVERZOOM_LEVELS = 4;
 // Off except while checking the offline fonts (passed 2026-10-05); real labels come with LB1b.
 export const MAP_LABEL_PROOF_DEV = false;
 
+// --- Map labels (LB1b; docs/LABELS_PLAN.md §3). Labels sit under the route lines and dim while a
+// route is selected. "Map labels" in Settings, on by default, removes them when off.
+export const LABEL_CITY_MIN_ZOOM = 11;
+export const LABEL_BARANGAY_MIN_ZOOM = 13;
+export const LABEL_MAJOR_ROAD_MIN_ZOOM = 13;
+export const LABEL_STREET_MIN_ZOOM = 15;
+export const LABEL_DIMMED_OPACITY = 0.5;
+export const MAP_LABELS_DEFAULT = true;
+
 // --- Route lines on the map (UX3; PRD 7.2: other routes fade to 8% opacity)
 // Lines are drawn only for a selected route; routes that are not selected are drawn this faint
 export const UNSELECTED_ROUTE_OPACITY = 0.08;

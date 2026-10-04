@@ -125,6 +125,7 @@ export default function CheckInScreen() {
         <OfflineMap
           tilesUrl={tiles.tiles.url}
           glyphsUrl={tiles.tiles.glyphsUrl}
+          labelsDimmed={shownRoute !== null}
           initialBounds={initialBounds}
           focus={focus}
           bottomInset={sheetHeight}

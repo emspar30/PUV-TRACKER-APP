@@ -27,6 +27,8 @@ export default function SettingsSheet() {
   const setTheme = useSettingsStore((state) => state.setTheme);
   const demoData = useSettingsStore((state) => state.demoData);
   const setDemoData = useSettingsStore((state) => state.setDemoData);
+  const mapLabels = useSettingsStore((state) => state.mapLabels);
+  const setMapLabels = useSettingsStore((state) => state.setMapLabels);
 
   return (
     <View style={styles.root}>
@@ -80,6 +82,20 @@ export default function SettingsSheet() {
                 selected={on === demoData}
                 onPress={() => setDemoData(on)}
                 accessibilityLabel={strings.settings.demoDataLabel(on)}
+              />
+            ))}
+          </View>
+
+          {/* LB1b: street, barangay and city names on the map, on by default */}
+          <Text style={typography.labelLg}>{strings.settings.mapLabels}</Text>
+          <View style={styles.chips}>
+            {[true, false].map((on) => (
+              <Chip
+                key={String(on)}
+                label={on ? strings.settings.on : strings.settings.off}
+                selected={on === mapLabels}
+                onPress={() => setMapLabels(on)}
+                accessibilityLabel={strings.settings.mapLabelsLabel(on)}
               />
             ))}
           </View>

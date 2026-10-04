@@ -256,6 +256,7 @@ export default function LiveScreen() {
       <OfflineMap
         tilesUrl={state.tiles.url}
         glyphsUrl={state.tiles.glyphsUrl}
+        labelsDimmed={selectedRoute !== null}
         initialBounds={initialBounds}
         focus={focus}
         bottomInset={sheetHeight}

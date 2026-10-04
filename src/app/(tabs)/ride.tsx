@@ -247,6 +247,7 @@ export default function MyRideScreen() {
         <OfflineMap
           tilesUrl={tiles.tiles.url}
           glyphsUrl={tiles.tiles.glyphsUrl}
+          labelsDimmed={selectedRoute !== null || itinerary !== null}
           initialBounds={initialBounds}
           focus={focus}
           bottomInset={sheetHeight}
