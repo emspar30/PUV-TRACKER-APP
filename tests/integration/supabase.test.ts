@@ -141,9 +141,11 @@ live('S4 backend, live project', () => {
   );
 
   it(
-    'client reads active vehicles only',
+    'team account reads active vehicles only; an outsider sees none',
     async () => {
-      const { data, error } = await outsider.from('vehicles').select('vehicle_id, active');
+      const hidden = await outsider.from('vehicles').select('vehicle_id');
+      expect(hidden.error !== null || (hidden.data ?? []).length === 0).toBe(true);
+      const { data, error } = await writer.from('vehicles').select('vehicle_id, active');
       expect(error).toBeNull();
       const ids = (data ?? []).map((v) => v.vehicle_id);
       expect(ids).toContain(VEHICLE);

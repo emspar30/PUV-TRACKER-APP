@@ -101,9 +101,7 @@ revoke all on public.vehicles from anon, authenticated;
 grant select on public.vehicles to authenticated;
 grant all on public.vehicles to service_role;
 
-create policy "vehicles: signed-in users read active vehicles"
-  on public.vehicles for select to authenticated
-  using (active);
+-- The policy "vehicles: team accounts read active vehicles" is created below, after is_team_account().
 
 -- ---------------------------------------------------------------------------
 -- Helpers used by the policies and functions below
@@ -132,6 +130,26 @@ as $$
   end
   from public.app_config c;
 $$;
+
+-- Live map policies (v0: team accounts only, PRD 19 Q3). Created here because they call is_team_account().
+create policy "vehicles: team accounts read active vehicles"
+  on public.vehicles for select to authenticated
+  using (active and (select public.is_team_account()));
+
+-- Night Mode hides moving vehicles on the server (PRD 10.4); stationary ones stay visible.
+create policy "telemetry_latest: team accounts read active vehicles"
+  on public.telemetry_latest for select to authenticated
+  using (
+    (select public.is_team_account())
+    and exists (
+      select 1 from public.vehicles v
+      where v.vehicle_id = telemetry_latest.vehicle_id and v.active
+    )
+    and (
+      not public.is_night(now())
+      or telemetry_latest.speed_kmh < (select c.stationary_speed_kmh from public.app_config c)
+    )
+  );
 
 -- The Manila calendar day of a time, for the daily Energy caps
 create function public.manila_day(at_time timestamptz)
@@ -169,18 +187,7 @@ revoke all on public.telemetry_latest from anon, authenticated;
 grant select on public.telemetry_latest to authenticated;
 grant all on public.telemetry_latest to service_role;
 
-create policy "telemetry_latest: signed-in users read active vehicles"
-  on public.telemetry_latest for select to authenticated
-  using (
-    exists (
-      select 1 from public.vehicles v
-      where v.vehicle_id = telemetry_latest.vehicle_id and v.active
-    )
-    and (
-      not public.is_night(now())
-      or telemetry_latest.speed_kmh < (select c.stationary_speed_kmh from public.app_config c)
-    )
-  );
+-- The policy "telemetry_latest: team accounts read active vehicles" is created below, after is_team_account().
 -- No INSERT, UPDATE or DELETE grant or policy for client roles, on purpose.
 
 -- Send row changes to subscribed clients (Realtime). Row Level Security still applies to them.

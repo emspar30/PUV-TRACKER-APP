@@ -127,13 +127,14 @@ describe('migration: row level security and grants', () => {
     expect(policies).toHaveLength(1);
     expect(policies[0]).toContain('for select to authenticated');
     expect(policies[0]).toContain('v.active');
+    expect(policies[0]).toContain('public.is_team_account()');
   });
 
   it('vehicles is read-only for clients and limited to active vehicles', () => {
     expect(clientGrantsOn('public.vehicles')).toEqual(['grant select on public.vehicles to authenticated']);
     const policies = policiesOn('public.vehicles');
     expect(policies).toHaveLength(1);
-    expect(policies[0]).toMatch(/for select to authenticated using \(active\)/);
+    expect(policies[0]).toMatch(/for select to authenticated using \(active and \(select public\.is_team_account\(\)\)\)/);
   });
 
   it('server-only tables are invisible to clients: no grant and no policy', () => {
