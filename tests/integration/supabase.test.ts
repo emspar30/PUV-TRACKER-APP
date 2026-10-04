@@ -4,13 +4,15 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { parseEnv } from 'node:util';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { encodePacket, type TelemetryPacket } from '../../src/shared/telemetry/packet';
 
 const ENV_FILE = path.join(__dirname, '..', '..', '.env');
-if (fs.existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
+// Read .env directly: Expo's Babel preset swaps process.env for a copy taken before this file runs
+const env: Record<string, string | undefined> = fs.existsSync(ENV_FILE) ? parseEnv(fs.readFileSync(ENV_FILE, 'utf8')) : {};
 
 const REQUIRED = [
   'EXPO_PUBLIC_SUPABASE_URL',
@@ -21,7 +23,7 @@ const REQUIRED = [
   'TEST_OUTSIDER_PASSWORD',
 ] as const;
 
-const missing = REQUIRED.filter((name) => !process.env[name]);
+const missing = REQUIRED.filter((name) => !env[name]);
 const configured = missing.length === 0;
 if (!configured) {
   console.log(`[integration] SKIPPED: the live-project tests need these variables in .env: ${missing.join(', ')}`);
@@ -32,7 +34,7 @@ const VEHICLE = 'R4-TEST-01';
 const TIMEOUT_MS = 30000;
 
 function client(): SupabaseClient {
-  return createClient(process.env.EXPO_PUBLIC_SUPABASE_URL!, process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
+  return createClient(env.EXPO_PUBLIC_SUPABASE_URL!, env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
@@ -40,8 +42,8 @@ function client(): SupabaseClient {
 async function signedIn(emailVar: string, passwordVar: string): Promise<SupabaseClient> {
   const supabase = client();
   const { error } = await supabase.auth.signInWithPassword({
-    email: process.env[emailVar]!,
-    password: process.env[passwordVar]!,
+    email: env[emailVar]!,
+    password: env[passwordVar]!,
   });
   if (error) throw new Error(`Sign-in failed for ${emailVar}: ${error.message}`);
   return supabase;

@@ -90,10 +90,10 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | 2 | F3 suggestions | PARTIAL | `landmarks.placeholder.ts`, `destinationsStore.ts`, `destinations.test.ts`; no `suggest.ts`, no map tap | Real landmarks (you) |
 | 2 | F4 route-first Check-in | NOT-STARTED | Route chips exist from UX2; no route-coloured dots, no fading | — |
 | 2 | F5 badges | NOT-STARTED | No `badges.ts`, `countsStore.ts` | — |
-| 3 | SB1 commuter-side database (written, **not applied**) | PARTIAL | Migration with `app_config`, `team_accounts` (renamed), profiles (username only), check-ins, Energy ledger, feed, `telemetry_raw`, Night Mode policy, `delete_my_account`; `supabase/cron/retention.sql`; `migration.test.ts`, `backendRules.test.ts`; live tests skipped | "Supabase is ready", then each live command approved |
-| 3 | SB2 accounts, username, Energy | BLOCKED | — | SB1 |
+| 3 | SB1 commuter-side database (**applied 2026-10-05**) | VERIFIED (live) | `db push` applied `20261003000000_v0_core.sql`; seed, team account and `pg_cron` retention jobs pasted by Emjay; `ingest` deployed by Emjay; `npx jest tests/integration` 15 of 15 passed. Live map readable by team accounts only; night hides moving vehicles only. `delete_my_account` not run live (it would delete the test account) | — |
+| 3 | SB2 accounts, username, Energy | READY | — | — |
 | 4 | C1 cloud check-in | BLOCKED | No `checkin/rules.ts` | G0, SB1, R1b |
-| 5 | L1 live map | BLOCKED | No `vehiclesStore.ts`, `coverage.ts`, simulator | SB1 |
+| 5 | L1 live map | READY | Demo simulator and `coverage.ts` exist (AF3) | — |
 | 5 | L2 tracking with ETA | BLOCKED | No `eta.ts` | L1, SB2 |
 | 6 | T1 broadcast, RP1 report, N1 feed, V1 verification | BLOCKED | No `sendRule.ts`, `dev-broadcast.tsx` | L1, R1b; V1 needs the real polyline |
 | 7 | B1 background | BLOCKED | No `backgroundLocation.ts` | T1, R1b, phone |
