@@ -17,7 +17,11 @@ const sql = fs
   .replace(/--.*$/gm, '')
   .toLowerCase();
 
-const statements = sql.split(';').map((s) => s.replace(/\s+/g, ' ').trim());
+// Function bodies ($$ ... $$) are checked on their own; outside them, statements split on ';'
+const bodies = [...sql.matchAll(/\$\$([\s\S]*?)\$\$/g)].map((match) => match[1]);
+const outside = sql.replace(/\$\$[\s\S]*?\$\$/g, '$$body$$');
+const statements = outside.split(';').map((s) => s.replace(/\s+/g, ' ').trim());
+const functions = statements.filter((s) => s.startsWith('create function'));
 const tables = [...sql.matchAll(/create table (public\.\w+)/g)].map((match) => match[1]);
 const CLIENT_ROLES = /\b(anon|authenticated|public)\b/;
 
@@ -27,10 +31,62 @@ const clientGrantsOn = (table: string) =>
 const policiesOn = (table: string) => statements.filter((s) => s.startsWith('create policy') && s.includes(` on ${table} `));
 
 describe('migration: tables', () => {
-  it('creates the tables needed for the live map, and the allowlist', () => {
+  it('creates the commuter-side tables (SB1), with the allowlist renamed to team_accounts', () => {
     expect(tables).toEqual(
-      expect.arrayContaining(['public.profiles', 'public.vehicles', 'public.telemetry_latest', 'public.telemetry_writers']),
+      expect.arrayContaining([
+        'public.app_config',
+        'public.team_accounts',
+        'public.profiles',
+        'public.vehicles',
+        'public.telemetry_latest',
+        'public.telemetry_raw',
+        'public.telemetry_ingest_log',
+        'public.checkins',
+        'public.energy_ledger',
+        'public.feed_posts',
+        'public.feed_flags',
+        'public.feed_review_queue',
+      ]),
     );
+    expect(sql).not.toContain('telemetry_writers');
+  });
+
+  it('app_config holds the agreed rules', () => {
+    for (const rule of [
+      /night_start\s+time not null default '21:00'/,
+      /night_end\s+time not null default '04:59'/,
+      /night_tz\s+text not null default 'asia\/manila'/,
+      /energy_wallet_cap\s+numeric\(4, 1\) not null default 5/,
+      /energy_gps_report\s+numeric\(4, 1\) not null default 1\.0/,
+      /energy_no_gps_report\s+numeric\(4, 1\) not null default 0\.5/,
+      /energy_checkin\s+numeric\(4, 1\) not null default 0\.3/,
+      /energy_passive_interval_h\s+smallint not null default 12/,
+      /energy_passive_daily_max\s+smallint not null default 2/,
+      /tracking_session_min\s+smallint not null default 30/,
+      /feed_lifetime_min\s+smallint not null default 60/,
+      /feed_flag_hide_count\s+smallint not null default 3/,
+      /checkin_lifetime_min\s+smallint not null default 15/,
+    ]) {
+      expect(sql).toMatch(rule);
+    }
+  });
+
+  it('profiles hold the user id and a 3 to 20 character unique username only', () => {
+    const body = sql.slice(sql.indexOf('create table public.profiles'));
+    const columns = body.slice(0, body.indexOf(');'));
+    expect(columns).toMatch(/username\s+text unique check \(username ~ '\^\[a-za-z0-9_\]\{3,20\}\$'\)/);
+    for (const word of ['gender', 'avatar', 'fare', 'destination', 'email']) expect(columns).not.toContain(word);
+  });
+
+  it('feed posts carry no coordinates and no free text, and clients never see user_id', () => {
+    const body = sql.slice(sql.indexOf('create table public.feed_posts'));
+    const columns = body.slice(0, body.indexOf(');'));
+    expect(columns).not.toMatch(/\blat\b|\blon\b|\btext\s+text\b|message|comment/);
+    expect(columns).toMatch(/phrase\s+text not null check \(phrase in \('full', 'few_seats', 'not_moving', 'heavy_traffic', 'loading'\)\)/);
+    const grant = clientGrantsOn('public.feed_posts');
+    expect(grant).toHaveLength(1);
+    expect(grant[0]).toMatch(/^grant select \(/);
+    expect(grant[0]).not.toContain('user_id');
   });
 
   it('gives telemetry_latest the verification columns with safe defaults', () => {
@@ -80,18 +136,53 @@ describe('migration: row level security and grants', () => {
     expect(policies[0]).toMatch(/for select to authenticated using \(active\)/);
   });
 
-  it('the allowlist and the audit log are invisible to clients: no grant and no policy', () => {
-    for (const table of ['public.telemetry_writers', 'public.telemetry_ingest_log']) {
+  it('server-only tables are invisible to clients: no grant and no policy', () => {
+    for (const table of ['public.team_accounts', 'public.telemetry_ingest_log', 'public.telemetry_raw', 'public.feed_flags', 'public.feed_review_queue']) {
       expect(clientGrantsOn(table)).toEqual([]);
       expect(policiesOn(table)).toEqual([]);
     }
   });
 
-  it('profiles lets a user read and create only their own row, and never update or delete', () => {
-    expect(clientGrantsOn('public.profiles')).toEqual(['grant select, insert on public.profiles to authenticated']);
-    const policies = policiesOn('public.profiles');
-    expect(policies).toHaveLength(2);
-    for (const policy of policies) expect(policy).toContain('user_id = (select auth.uid())');
+  it('clients only read tables: every client grant is SELECT; writes go through functions', () => {
+    for (const table of tables) {
+      for (const grant of clientGrantsOn(table)) expect(grant).toMatch(/^grant select\b/);
+    }
+  });
+
+  it('own-row tables let a user read only their own rows', () => {
+    for (const table of ['public.profiles', 'public.checkins', 'public.energy_ledger']) {
+      const policies = policiesOn(table);
+      expect(policies).toHaveLength(1);
+      expect(policies[0]).toContain('for select to authenticated using (user_id = (select auth.uid()))');
+    }
+  });
+
+  it('the live map hides moving vehicles during Night Mode, on the server', () => {
+    expect(policiesOn('public.telemetry_latest')[0]).toContain('not public.is_night(now())');
+  });
+
+  it('every function is security definer with an empty search_path, and only signed-in users may run it', () => {
+    expect(functions.length).toBeGreaterThanOrEqual(14);
+    for (const fn of functions) {
+      expect(fn).toContain('security definer');
+      expect(fn).toContain("set search_path = ''");
+      const name = /create function (public\.\w+\([^)]*\))/.exec(fn)![1].replace(/\s*\w+\s+(\w+)(,|\))/g, '$1$2');
+      expect(statements.some((s) => s.startsWith(`revoke execute on function ${name.replace(/\(.*$/, '')}`) && / from public, anon/.test(s))).toBe(true);
+    }
+  });
+
+  it('team-only functions check the allowlist; the internal earn function is not callable by clients', () => {
+    expect(statements).toContain('revoke execute on function public.energy_earn(text, text) from public, anon, authenticated');
+    expect(statements.some((s) => s.startsWith('grant execute on function public.energy_earn'))).toBe(false);
+    const teamOnly = bodies.filter((body) => body.includes('team accounts only in v0'));
+    expect(teamOnly.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('delete_my_account removes the profile, ledger, check-ins, posts and flags of the caller', () => {
+    const body = bodies.find((b) => b.includes('delete from auth.users'))!;
+    for (const table of ['feed_flags', 'feed_posts', 'checkins', 'energy_ledger', 'profiles']) {
+      expect(body).toContain(`delete from public.${table} where user_id = uid`);
+    }
   });
 
   it('every policy names the authenticated role, never anon or public', () => {

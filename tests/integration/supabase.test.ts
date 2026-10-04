@@ -159,7 +159,7 @@ live('S4 backend, live project', () => {
   it(
     'the allowlist and the audit log are not readable by clients',
     async () => {
-      for (const table of ['telemetry_writers', 'telemetry_ingest_log']) {
+      for (const table of ['team_accounts', 'telemetry_ingest_log', 'telemetry_raw', 'feed_flags', 'feed_review_queue']) {
         const { data, error } = await writer.from(table).select('*');
         expect(error !== null || (data ?? []).length === 0).toBe(true);
       }
@@ -207,6 +207,106 @@ live('S4 backend, live project', () => {
           });
       });
       await expect(received).resolves.toMatchObject({ vehicle_id: VEHICLE, seats_taken: 9 });
+    },
+    TIMEOUT_MS,
+  );
+});
+
+// SB1: the commuter-side tables and functions. The writer is a team account; the outsider is not.
+live('SB1 commuter backend, live project', () => {
+  let writer: SupabaseClient;
+  let outsider: SupabaseClient;
+  const key = (label: string) => `it-${label}-${Date.now()}`;
+
+  beforeAll(async () => {
+    writer = await signedIn('TEST_WRITER_EMAIL', 'TEST_WRITER_PASSWORD');
+    outsider = await signedIn('TEST_OUTSIDER_EMAIL', 'TEST_OUTSIDER_PASSWORD');
+  }, TIMEOUT_MS);
+
+  it(
+    'app_config is readable and not writable',
+    async () => {
+      const { data, error } = await writer.from('app_config').select('feed_lifetime_min, feed_flag_hide_count, checkin_lifetime_min, energy_wallet_cap').single();
+      expect(error).toBeNull();
+      expect(data).toMatchObject({ feed_lifetime_min: 60, feed_flag_hide_count: 3, checkin_lifetime_min: 15 });
+      const write = await writer.from('app_config').update({ feed_lifetime_min: 1 }).eq('id', true).select();
+      expect(write.error !== null || (write.data ?? []).length === 0).toBe(true);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'tables are written only through functions',
+    async () => {
+      for (const table of ['profiles', 'checkins', 'energy_ledger', 'feed_posts']) {
+        const { error } = await writer.from(table).insert({});
+        expect([table, error !== null]).toEqual([table, true]);
+      }
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'set_username keeps 3 to 20 characters and refuses a bad name',
+    async () => {
+      const name = `team_${Date.now() % 1_000_000}`;
+      const ok = await writer.rpc('set_username', { new_username: name });
+      expect(ok.error).toBeNull();
+      const bad = await writer.rpc('set_username', { new_username: 'x' });
+      expect(bad.error).not.toBeNull();
+      const own = await writer.from('profiles').select('username').single();
+      expect(own.data?.username).toBe(name);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'a check-in counts at its station until it ends; outsiders cannot check in or read counts',
+    async () => {
+      const done = await writer.rpc('check_in', { route: 'R4', station: 'RCA', request_key: key('checkin') });
+      expect(done.error).toBeNull();
+      const counts = await writer.rpc('checkin_counts', { route: 'R4' });
+      expect(counts.error).toBeNull();
+      expect((counts.data as { station_code: string; waiting: number }[]).find((c) => c.station_code === 'RCA')?.waiting).toBeGreaterThanOrEqual(1);
+      expect((await writer.rpc('end_check_in')).error).toBeNull();
+      expect((await outsider.rpc('check_in', { route: 'R4', station: 'RCA', request_key: key('outsider') })).error).not.toBeNull();
+      expect((await outsider.rpc('checkin_counts', { route: 'R4' })).error).not.toBeNull();
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'the energy balance never exceeds the wallet cap, and tracking is free while Energy is off',
+    async () => {
+      const balance = await writer.rpc('energy_balance');
+      expect(balance.error).toBeNull();
+      expect(Number(balance.data)).toBeLessThanOrEqual(5);
+      const tracking = await writer.rpc('start_tracking', { request_key: key('track') });
+      expect(tracking.error).toBeNull();
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'a report appears in the feed with a username and no user id or coordinates',
+    async () => {
+      const post = await writer.rpc('post_report', {
+        route: 'R4',
+        phrase: 'few_seats',
+        seat_tier: 'amber',
+        vehicle: null,
+        with_gps: false,
+        request_key: key('report'),
+      });
+      expect(post.error).toBeNull();
+      const feed = await outsider.from('feed_posts').select('*').eq('id', post.data);
+      // Column grants hide user_id, so select('*') is refused; the listed columns work
+      expect(feed.error).not.toBeNull();
+      const visible = await outsider.from('feed_posts').select('id, author_username, phrase').eq('id', post.data).single();
+      expect(visible.error).toBeNull();
+      expect(visible.data).toMatchObject({ phrase: 'few_seats' });
+      const bad = await writer.rpc('post_report', { route: 'R4', phrase: 'free text here', seat_tier: null, vehicle: null, with_gps: false, request_key: key('bad') });
+      expect(bad.error).not.toBeNull();
     },
     TIMEOUT_MS,
   );

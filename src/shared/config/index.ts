@@ -180,6 +180,22 @@ export const CHECKIN_REMINDER_S = 300;
 export const NIGHT_MODE_START = '21:00';
 export const NIGHT_MODE_END = '04:59';
 export const NIGHT_MODE_TZ = 'Asia/Manila';
+
+// --- Energy, feed and tracking (PRD 19, D1, D2, D14; SB1). The same values are the defaults of the
+// server's app_config table, which is what the server enforces; these are for the app and the tests.
+export const ENERGY_ENABLED_DEFAULT = false;
+export const ENERGY_WALLET_CAP = 5;
+export const ENERGY_GPS_REPORT = 1.0;
+export const ENERGY_NO_GPS_REPORT = 0.5;
+export const ENERGY_CHECKIN = 0.3;
+export const ENERGY_PASSIVE_AMOUNT = 1;
+export const ENERGY_PASSIVE_INTERVAL_H = 12;
+export const ENERGY_PASSIVE_DAILY_MAX = 2;
+export const ENERGY_TRACKING_COST = 1;
+export const TRACKING_SESSION_MIN = 30;
+export const FEED_LIFETIME_MIN = 60;
+export const FEED_FLAG_HIDE_COUNT = 3;
+export const FEED_PHRASES = ['full', 'few_seats', 'not_moving', 'heavy_traffic', 'loading'] as const;
 // Asia/Manila is UTC+8 all year (no daylight saving).
 export const MANILA_UTC_OFFSET_MIN = 480;
 
