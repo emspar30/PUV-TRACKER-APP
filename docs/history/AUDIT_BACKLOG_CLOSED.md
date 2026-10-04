@@ -20,6 +20,9 @@ Moved out of `docs/AUDIT_BACKLOG.md` on 2026-10-04. Item numbers are unchanged. 
 | 53 | F1 | Greeting card on Live, its placement, and the chips opening My Ride | Emulator, decision | Confirmed by Emjay on 2026-10-04: keep it above the sheet  Confirmed by Emjay on 2026-10-04 |
 | 55 | F1 | Greeting lines: choose the final set from the 8 drafts | Decision | Decided 2026-10-04: keep all 8 for now  Decided by Emjay on 2026-10-04 |
 | 58 | Merge | Read `docs/MERGE_RESULT.md` and the `integrate-partner` diff; approve moving `main` | Reading, command | Confirmed by Emjay on 2026-10-04 (emulator test); `main` fast-forwarded  Confirmed by Emjay on 2026-10-04 |
+| 42 | UX2 | Swipe the Live sheet to peek, half and expanded by hand | Emulator (mouse) | Open  Confirmed by Emjay on 2026-10-04 (sheet dragging, emulator, old build) |
+| 46 | UX2 | Light and Dark from Settings, including the map and route line | Emulator | Open  Confirmed by Emjay on 2026-10-04 (Light and Dark, emulator, old build) |
+| 54 | F1 | The 12 new avatars, the two sets, Shuffle, kept after a restart | Emulator, decision | Drawings confirmed by Emjay on 2026-10-04; **picker now shows only the own set: not yet seen on the emulator**  Confirmed by Emjay on 2026-10-04 (own-set avatars plus Shuffle in Settings) |
 
 ## Items
 
@@ -111,3 +114,21 @@ Moved out of `docs/AUDIT_BACKLOG.md` on 2026-10-04. Item numbers are unchanged. 
 ### 58. (from "58 to 63. Partner merge")
 
 - **58:** `git diff main integrate-partner --stat`, then `docs/MERGE_RESULT.md`. On approval: `git switch main` and `git merge --ff-only integrate-partner`.
+
+### 42. Swipe the Live sheet by hand
+
+- **How:** on the Live tab, drag the grey handle (or the "R4 IMA → DEO" row) up slowly and let go about a third of the way up the screen; then drag it to near the top; then drag it back down. Do it with the mouse in the emulator window.
+- **Expected:** it settles at the nearest of three heights: a 72 dp strip (peek), about 40% of the screen (half), about 90% (expanded). It springs into place, never stops in between. At expanded the stop list scrolls; at half and peek it does not. Coming down from expanded, the content is back at its top.
+- **Note:** at expanded, dragging the content down does not collapse the sheet: drag the handle or the header row instead. This is the fallback you allowed for the nested gesture.
+
+### 46. Light and Dark
+
+- **How:** tap the avatar at the top right, choose Dark, close the sheet; then choose Light.
+- **Expected:** every screen, the sheet, the chips, the map and the route line follow. The choice survives a force-stop. The status bar icons follow; the navigation bar may not until R1 adds `expo-system-ui`.
+
+### 54. The 12 avatars (F1)
+
+- **How:** Settings shows all 12 in the grid. TalkBack reads them as Avatar 1 to 12: 1 to 6 are the Male set, 7 to 12 the Female set. Tap Shuffle several times, then force-stop and reopen.
+- **Expected:** simple drawn faces with different hair, glasses, a cap or headphones, four skin tones and seven colours; both sets include long and short hair and glasses. Shuffle stays within the set for your gender answer (all 12 if none). The avatar never changes on its own.
+- **Decided (2026-10-04):** keep all 12 drawings. The picker in Settings (Profile in F2) shows only the user's own set: the 6 for Male or Female, all 12 for "Prefer not to say" or no answer, plus Shuffle.
+- **Check (new):** with Female answered, Settings shows Avatars 7 to 12 only; with Male, 1 to 6; after Replay intro with "Prefer not to say", all 12. An avatar picked earlier from another set stays on the avatar button but is not in the grid until Shuffle or a pick. The agent could not check this on the emulator (Metro was stopped for the merge).

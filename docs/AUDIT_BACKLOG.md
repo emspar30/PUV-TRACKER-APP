@@ -6,6 +6,13 @@ Everything Emjay has not verified personally, kept current at every step. Each i
 
 Last updated: 2026-10-04, after the docs tidy-up (history files moved to `docs/history/`, closed items moved out). Next: Emjay's merge tests and the R1a build, then G0 on "start G0".
 
+> **Emjay's emulator run, 2026-10-04 (old build, R1a skipped):**
+> - Passed and closed: 42 (sheet dragging), 46 (Light and Dark), 54 (own-set avatars plus Shuffle).
+> - My Ride IMA to DEO passed (item 48 stays open for the fare-type chip agreeing with Settings).
+> - Replaying the intro offers no avatar choice. This is **expected behaviour** (D3: automatic assignment, Shuffle in Settings).
+> - Location tests (59) are pending.
+> - Saved settings after the upgrade were not tested.
+
 > **Do not use the app outdoors or share it before G0 adds the consent screen.** Since the merge, "Locate me" asks for location permission without the consent screen that PRD 7.1 and 15.1 require (Audit 3 §3).
 
 **Note on the UX2 commits.** The first four (`2eda9d0`, `d76f93d`, `3647293`, `9c8eb06`) were grouped by topic from one working tree, so they are not individually verified: an intermediate one may not type-check or pass the tests on its own. This matters only if someone checks out one of them. Every commit from `ebfc0a5` onwards was checked when it was made. **Check-in (49) and About (51) stay open.** The introduction (50) was replaced by F1's four-step version (52, confirmed).
@@ -69,19 +76,16 @@ Last updated: 2026-10-04, after the docs tidy-up (history files moved to `docs/h
 | 38 | Audit 2 | DESIGN.md: the choices between its front matter and its prose | Reading | Open |
 | 40 | Audit 2 | `braces` advisory recorded as deferred | Command | Open |
 | 41 | UX2 | Native crash on one launch (`SIGSEGV` in `MountingCoordinator::pullTransaction`), observed by the agent on the emulator, cause unknown | Emulator, over many launches (ST1) | Open, cause unknown |
-| 42 | UX2 | Swipe the Live sheet to peek, half and expanded by hand | Emulator (mouse) | Open |
 | 43 | UX2 | Flick speed: does a quick flick always go to the next point? | Emulator (mouse), later a phone | Open |
 | 44 | UX2 | Map stays usable above the sheet; floating pill and button follow the edge | Emulator | Open |
 | 45 | UX2 | Chevron and TalkBack expand and collapse actions | Emulator, TalkBack | Open |
-| 46 | UX2 | Light and Dark from Settings, including the map and route line | Emulator | Open |
 | 47 | UX2 | Three tabs and the Settings sheet; the interim Check-in and My Ride tabs | Emulator | Open |
-| 48 | UX2 | My Ride: fare as the big number, quick fare-type chip agrees with Settings | Emulator, command | Open (agent: seen on the emulator) |
+| 48 | UX2 | My Ride: fare as the big number, quick fare-type chip agrees with Settings | Emulator, command | Open. Emjay: IMA to DEO passed (2026-10-04). Chip-to-Settings agreement not yet confirmed. |
 | 49 | UX2 | Check-in tab: 15-minute countdown, I boarded, Cancel, survives a restart | Emulator | Open, **not yet seen on the emulator** |
 | 51 | UX2 | Short About screen | Emulator | Open, **not yet seen on the emulator** |
-| 54 | F1 | The 12 new avatars, the two sets, Shuffle, kept after a restart | Emulator, decision | Drawings confirmed by Emjay on 2026-10-04; **picker now shows only the own set: not yet seen on the emulator** |
 | 56 | F1 | Gender, commuter type, avatar and destinations never reach backend code | Command | Open |
 | 57 | F1 | First launch after `pm clear`: the route was framed too high, once | Emulator | Open, cause unknown |
-| 59 | Merge | "Locate me", explainer, blue dot, follow, location off, outside the map (MERGE_RESULT section 6, tests 3 to 6) | Emulator after R1a | Seen by Emjay on the old build on 2026-10-04; repeat after R1a |
+| 59 | Merge | "Locate me", explainer, blue dot, follow, location off, outside the map (MERGE_RESULT section 6, tests 3 to 6) | Emulator (old build is fine; R1a skipped for now) | **Pending: results to be supplied by Emjay** (his 2026-10-04 run did not include them) |
 | 60 | Merge | R1a: new launcher icon, light system bars, no crash on start | Emulator and phone after R1a | Open |
 | 61 | Merge | The merged app on the partner's phone, including the bottom sheet and the walk test | Partner's phone after his rebuild | Open |
 | 62 | Merge | Splash screen: `expo-splash-screen` added (approved) | Emulator and phone after R1a | Open: check the white splash with the logo on a cold start |
@@ -285,12 +289,6 @@ Last updated: 2026-10-04, after the docs tidy-up (history files moved to `docs/h
 - **How:** over normal use, note any launch where the app closes by itself. After one, run `adb logcat -d | findstr /C:"Fatal signal" /C:"pullTransaction"`.
 - **Expected:** none. If it repeats, record the time and what was on screen. It may be a React Native or `react-native-screens` start-up problem like item 14, and would be reported upstream rather than worked around without your approval.
 
-### 42. Swipe the Live sheet by hand
-
-- **How:** on the Live tab, drag the grey handle (or the "R4 IMA → DEO" row) up slowly and let go about a third of the way up the screen; then drag it to near the top; then drag it back down. Do it with the mouse in the emulator window.
-- **Expected:** it settles at the nearest of three heights: a 72 dp strip (peek), about 40% of the screen (half), about 90% (expanded). It springs into place, never stops in between. At expanded the stop list scrolls; at half and peek it does not. Coming down from expanded, the content is back at its top.
-- **Note:** at expanded, dragging the content down does not collapse the sheet: drag the handle or the header row instead. This is the fallback you allowed for the nested gesture.
-
 ### 43. Flick speed
 
 - **How:** from half, flick up quickly over a short distance; from expanded, flick down quickly.
@@ -306,11 +304,6 @@ Last updated: 2026-10-04, after the docs tidy-up (history files moved to `docs/h
 
 - **How:** tap the small chevron at the top right of the sheet four times. Then turn on TalkBack (Settings, Accessibility), focus the handle and use the "Expand" and "Collapse" actions (swipe up or down with one finger on Android's adjustable control).
 - **Expected:** the chevron goes peek, half, expanded, then back to peek. TalkBack reads "Panel, Half open" and expand and collapse move one step. TalkBack was not tested by the agent.
-
-### 46. Light and Dark
-
-- **How:** tap the avatar at the top right, choose Dark, close the sheet; then choose Light.
-- **Expected:** every screen, the sheet, the chips, the map and the route line follow. The choice survives a force-stop. The status bar icons follow; the navigation bar may not until R1 adds `expo-system-ui`.
 
 ### 47. Three tabs and Settings
 
@@ -350,13 +343,6 @@ Last updated: 2026-10-04, after the docs tidy-up (history files moved to `docs/h
 | Migration text checks (`migration.test.ts`) | 22 | `npm test`, plain Node | No |
 | Privacy checks (`privacy.test.ts`) | 3 | `npm test`, plain Node | No |
 | Live acceptance tests (`tests/integration/supabase.test.ts`) | 8 | `npm test`, plain Node, over the network | **Yes: skipped and waiting** |
-
-### 54. The 12 avatars (F1)
-
-- **How:** Settings shows all 12 in the grid. TalkBack reads them as Avatar 1 to 12: 1 to 6 are the Male set, 7 to 12 the Female set. Tap Shuffle several times, then force-stop and reopen.
-- **Expected:** simple drawn faces with different hair, glasses, a cap or headphones, four skin tones and seven colours; both sets include long and short hair and glasses. Shuffle stays within the set for your gender answer (all 12 if none). The avatar never changes on its own.
-- **Decided (2026-10-04):** keep all 12 drawings. The picker in Settings (Profile in F2) shows only the user's own set: the 6 for Male or Female, all 12 for "Prefer not to say" or no answer, plus Shuffle.
-- **Check (new):** with Female answered, Settings shows Avatars 7 to 12 only; with Male, 1 to 6; after Replay intro with "Prefer not to say", all 12. An avatar picked earlier from another set stays on the avatar button but is not in the grid until Shuffle or a pick. The agent could not check this on the emulator (Metro was stopped for the merge).
 
 ### 56. Private answers stay on the phone (F1)
 

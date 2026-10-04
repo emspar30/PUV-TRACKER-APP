@@ -55,9 +55,9 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | Done | UX2 local Check-in | UNVERIFIED | `localCheckin.test.ts`; no device record; `a6f89c5` | Run backlog 49 |
 | Done | UX2 About | UNVERIFIED | No test, no device record; `403bedd` | Run backlog 51 |
 | Done | F1 onboarding, greeting, avatars | VERIFIED | `avatarPick`, `greeting`, `destinations`, `profileStore` tests; `F1-M1` to `M4`; `149023e` | — |
-| Done | F1 own-set picker | UNVERIFIED | `avatarPicker.test.ts`; no device record; `b80aede` | Look at Settings once |
-| Done | Merge: location on Live | UNVERIFIED | `locationStore.test.ts` (9), `privacy.test.ts`; `29cc0b0`. Your emulator test is **not recorded**. | Send results; agent records them |
-| 0 | R1a rebuild | BLOCKED | `app.json`, icons, `expo-system-ui` and `expo-splash-screen` in `package.json`; `29cc0b0`, `45f9798`, `cdc0bbb` | **You build** (emulator); the partner builds after you push |
+| Done | F1 own-set picker | VERIFIED | `avatarPicker.test.ts`; Emjay's emulator run 2026-10-04; `b80aede` | — |
+| Done | Merge: location on Live | UNVERIFIED | `locationStore.test.ts` (9), `privacy.test.ts`; `29cc0b0`. App, My Ride, sheet and theme passed in Emjay's run (2026-10-04); **location tests pending** | You send the location results |
+| 0 | R1a rebuild | BLOCKED | `app.json`, icons, `expo-system-ui` and `expo-splash-screen` in `package.json`; `29cc0b0`, `45f9798`, `cdc0bbb` | Skipped for now (Emjay, 2026-10-04) |
 | 0 | ST1 smoke test | BLOCKED | — | R1a builds |
 | 0 | ST2 records and fixes | NOT-STARTED | — | After ST1 |
 | 1 | G0 location foundation | PARTIAL | Exists: explainer, permission, dot, follow, denied mode (`useLiveLocation.ts`). Missing: `consent.ts`, `accuracyGate.ts`, `consent.tsx`, fake source, "Use my location" | Write "start G0" |
@@ -78,8 +78,8 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 
 | Status | Rows |
 | --- | --- |
-| VERIFIED | 9 |
-| UNVERIFIED | 4 |
+| VERIFIED | 10 |
+| UNVERIFIED | 3 |
 | PARTIAL | 2 |
 | NOT-STARTED | 5 |
 | BLOCKED | 9 |
