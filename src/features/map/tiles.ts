@@ -11,7 +11,7 @@ import {
   type TileInstallResult,
 } from '@/shared/map/tileInstall';
 
-import bundledTiles from '../../../assets/map/butuan.pmtiles';
+import bundledTiles from '../../../assets/map/butuan_v2.pmtiles';
 
 const TILE_FOLDER = 'map';
 
@@ -52,6 +52,11 @@ function deviceTileFiles(folder: Directory): TileFiles {
 // Throws TileInstallError; the caller shows the message and offers a retry.
 export async function prepareOfflineTiles(): Promise<OfflineTiles> {
   const folder = tileFolder();
+  const startedMs = Date.now();
   const install = await installTiles(deviceTileFiles(folder), TILESET);
+  if (__DEV__) {
+    const files = folder.list().map((entry) => entry.name).join(', ');
+    console.log(`[tiles] ${install} ${tileFileName(TILESET)} in ${Date.now() - startedMs} ms; files: ${files}`);
+  }
   return { url: pmtilesUrl(new File(folder, tileFileName(TILESET)).uri), install };
 }

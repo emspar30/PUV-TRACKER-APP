@@ -1,4 +1,18 @@
-# Placeholder map tiles for S2
+# Offline map tiles
+
+## Current: v2 (2026-10-05)
+
+| Item | Value |
+| --- | --- |
+| File | `assets/map/butuan_v2.pmtiles`, made by Emjay |
+| Facts (`pmtiles show`, checked against the header by `offlineMap.test.ts`) | 3,674,024 bytes; PMTiles spec 3; `mvt`, gzip; bounds west 125.45, south 8.85, east 125.70, **north 9.07**; centre 125.575, 8.96; **zoom 0 to 15**; 732 addressed tiles, 700 entries; Protomaps basemap 4.15.2 (build 20261002), the same schema as v1 |
+| Constants | `src/data/map/tileset.ts`: version 2, size, bounds, max zoom 15. The map zooms 4 levels past the tiles (to 19). The pan limits and the opening view use the same bounds. |
+| On the phone | Installed as `butuan.v2.pmtiles` by the existing versioned copy: copied under a temporary name, size-checked, renamed; an older `butuan.v1.pmtiles` is removed only after v2 is in place |
+| Coverage | Every point of R3, R4 and R5 is inside (R5's northern end, up to 9.033, was outside v1) |
+| v1 | `assets/map/butuan.pmtiles` (1,775,640 bytes, north 9.02, zoom 0 to 14) removed from the bundle; it stays in git history |
+| Labels | The schema has names (`places`, `roads`, `pois`); see `docs/LABELS_PLAN.md` |
+
+## History: v1, the placeholder for S2
 
 How to make the small offline tile set for the Butuan area. You run these steps once, on your PC, before S2 starts. The result is one file, `butuan.pmtiles`.
 

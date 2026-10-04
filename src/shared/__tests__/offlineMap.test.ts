@@ -31,7 +31,7 @@ const PALETTE: MapPalette = {
 };
 
 const FILE_URI = 'file:///data/user/0/com.tunton.app/files/map/butuan.v1.pmtiles';
-const TILE_FILE = path.join(__dirname, '..', '..', '..', 'assets', 'map', 'butuan.pmtiles');
+const TILE_FILE = path.join(__dirname, '..', '..', '..', 'assets', 'map', 'butuan_v2.pmtiles');
 
 describe.each([
   ['test palette', PALETTE],
@@ -95,17 +95,17 @@ describe('tile set facts', () => {
   });
 
   it('allows zooming past the last tile level by the configured allowance', () => {
-    expect(TILESET.maxZoom + MAP_OVERZOOM_LEVELS).toBe(18);
+    expect(TILESET.maxZoom + MAP_OVERZOOM_LEVELS).toBe(19);
   });
 });
 
 describe('initial map view', () => {
-  // Fixture lines (the old placeholder), not the live seed; plus one line that runs 1.5 km north
+  // Fixture lines (the old placeholder), not the live seed; plus one line that runs 2 km north
   // of the tiles, like R5 in RR1
   const routeBounds = boundsOfLines(R4_LINES.map((line) => line.coordinates));
   const overrun = [
     [125.6, 9.0],
-    [125.6, 9.034],
+    [125.6, 9.09],
   ];
 
   it('covers every route stop', () => {
