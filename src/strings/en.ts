@@ -39,6 +39,8 @@ export const en = {
     skip: 'Skip',
     attribution: '© OpenStreetMap contributors',
     sampleData: 'Sample data',
+    // A route with only one stored leg (R4, R5): the rest is not traced yet
+    partial: 'Partial',
   },
 
   // The draggable panel over the map

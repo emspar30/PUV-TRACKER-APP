@@ -31,7 +31,7 @@ import { MAP_FOLLOW_ZOOM } from '@/shared/config';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { lineLengthKm, projectOntoLine } from '@/shared/geo/line';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
-import { routeCodesOf, toggleRoute } from '@/shared/ui/routeVisibility';
+import { isSingleLegRoute, returnStyledIds, routeCodesOf, toggleRoute } from '@/shared/ui/routeVisibility';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -88,6 +88,8 @@ export default function LiveScreen() {
   const routeStops = layers.stops;
   const routeCodes = useMemo(() => routeCodesOf(lines), [lines]);
   const routeLines = useMemo(() => lines.filter((line) => line.routeCode === selectedRoute), [lines, selectedRoute]);
+  // The legend's return swatch follows the map: only a return beside an outbound looks like one
+  const returnStyled = useMemo(() => returnStyledIds(lines), [lines]);
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
@@ -309,6 +311,7 @@ export default function LiveScreen() {
               onPress={() => toggleDirection(direction)}
             />
           ))}
+          {isSingleLegRoute(lines, selectedRoute) ? <Chip label={strings.common.partial} /> : null}
         </View>
 
         <Text style={typography.bodyMd}>{strings.live.noData}</Text>
@@ -320,7 +323,7 @@ export default function LiveScreen() {
                 style={[
                   styles.swatch,
                   { backgroundColor: routeColor(line.routeCode, line.color) },
-                  line.direction === 'return' && styles.swatchReturn,
+                  returnStyled.has(line.id) && styles.swatchReturn,
                 ]}
               />
               <Text style={[typography.labelLg, styles.grow]}>

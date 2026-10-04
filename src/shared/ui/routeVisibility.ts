@@ -63,6 +63,21 @@ export function stopsForRoute(
   );
 }
 
+// Return lines drawn in the return style (the pale band with dashes): only a return that runs
+// alongside a stored outbound of the same route. A route with a single stored leg (R4 and R5 in
+// RR1) draws that leg as a solid line with arrows, like an outbound.
+export function returnStyledIds(lines: readonly Pick<DirectedLine, 'id' | 'routeCode' | 'direction'>[]): Set<string> {
+  const withOutbound = new Set(lines.filter((line) => line.direction === 'outbound').map((line) => line.routeCode));
+  return new Set(lines.filter((line) => line.direction === 'return' && withOutbound.has(line.routeCode)).map((line) => line.id));
+}
+
+// A route with only one stored leg that is not a loop: its other leg is not provided yet.
+// RR1's traced R4 and R5 legs are the only such routes, and they are marked partial.
+export function isSingleLegRoute(lines: readonly Pick<DirectedLine, 'routeCode' | 'directionMode'>[], routeCode: string): boolean {
+  const ofRoute = lines.filter((line) => line.routeCode === routeCode);
+  return ofRoute.length === 1 && ofRoute[0].directionMode !== 'loop';
+}
+
 // Unique route codes, in the order the lines are listed
 export function routeCodesOf(lines: readonly Pick<DirectedLine, 'routeCode'>[]): string[] {
   return [...new Set(lines.map((line) => line.routeCode))];

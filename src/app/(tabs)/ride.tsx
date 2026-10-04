@@ -24,7 +24,7 @@ import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/descri
 import { fareForItinerary, planTrip } from '@/shared/routing/plan';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
 import { useDestinationsStore } from '@/state/destinationsStore';
-import { stopsForRoute, toggleRoute } from '@/shared/ui/routeVisibility';
+import { isSingleLegRoute, stopsForRoute, toggleRoute } from '@/shared/ui/routeVisibility';
 import { useFareType } from '@/state/fareType';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
@@ -307,6 +307,7 @@ export default function MyRideScreen() {
             <Text style={[typography.labelLg, styles.grow]}>
               {!card.hasMap ? strings.ride.mapComingSoon : card.from && card.to ? strings.ride.routeEnds(card.from, card.to) : card.name}
             </Text>
+            {isSingleLegRoute(lines, card.code) ? <Chip label={strings.common.partial} /> : null}
           </Pressable>
         ))}
 

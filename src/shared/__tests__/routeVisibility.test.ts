@@ -1,5 +1,5 @@
 import { UNSELECTED_ROUTE_OPACITY } from '../config';
-import { routeCodesOf, routeVisibility, stopsForRoute, toggleRoute } from '../ui/routeVisibility';
+import { isSingleLegRoute, returnStyledIds, routeCodesOf, routeVisibility, stopsForRoute, toggleRoute } from '../ui/routeVisibility';
 
 import { FIXTURE_OUTBOUND, FIXTURE_RETURN, FIXTURE_STOPS, pointAt } from './fixtures/routeFixture';
 
@@ -86,6 +86,25 @@ describe('stops of a route', () => {
   it('no route gives no stops', () => {
     expect(stopsForRoute(LINES, STOPS, null)).toEqual([]);
     expect(stopsForRoute(LINES, STOPS, 'R99')).toEqual([]);
+  });
+});
+
+describe('line style: single-leg routes draw solid', () => {
+  const T3_RETURN_ONLY = { ...FIXTURE_RETURN, id: 'T3-RET', routeCode: 'T3' };
+
+  it('a return alongside its outbound keeps the return style', () => {
+    expect([...returnStyledIds([FIXTURE_OUTBOUND, FIXTURE_RETURN])]).toEqual(['T1-RET']);
+  });
+
+  it('a route with only a return leg draws it solid (R4, R5)', () => {
+    expect(returnStyledIds([T3_RETURN_ONLY]).size).toBe(0);
+    expect([...returnStyledIds([FIXTURE_OUTBOUND, FIXTURE_RETURN, T3_RETURN_ONLY])]).toEqual(['T1-RET']);
+  });
+
+  it('a single stored leg that is not a loop is a single-leg route', () => {
+    expect(isSingleLegRoute([FIXTURE_OUTBOUND, FIXTURE_RETURN, T3_RETURN_ONLY], 'T3')).toBe(true);
+    expect(isSingleLegRoute([FIXTURE_OUTBOUND, FIXTURE_RETURN], 'T1')).toBe(false);
+    expect(isSingleLegRoute([{ ...T3_RETURN_ONLY, directionMode: 'loop' }], 'T3')).toBe(false);
   });
 });
 

@@ -4,6 +4,7 @@ import { Fragment, useMemo } from 'react';
 
 import type { DirectedLine as RouteLine, RouteDirection } from '@/shared/routing/types';
 import { directionArrows } from '@/shared/geo/arrows';
+import { returnStyledIds } from '@/shared/ui/routeVisibility';
 import { MAP_GEOMETRY, useTheme } from '@/theme';
 
 type LinePaint = NonNullable<LineLayerSpecification['paint']>;
@@ -71,7 +72,9 @@ export function RouteLines({ lines, visible, opacity }: RouteLinesProps) {
   );
 
   const shown = prepared.filter(({ line }) => visible[line.direction]);
-  const isReturn = (line: RouteLine) => line.direction === 'return';
+  // The return style only for a return beside its outbound; a single stored leg draws solid (RR1)
+  const returnStyled = useMemo(() => returnStyledIds(lines), [lines]);
+  const isReturn = (line: RouteLine) => returnStyled.has(line.id);
   const alpha = (line: RouteLine) => opacity?.[line.id] ?? 1;
 
   return (
