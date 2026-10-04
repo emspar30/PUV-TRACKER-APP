@@ -31,6 +31,10 @@ const mainScreen: Record<string, string> = {
   destinationTooFar: en.ride.failure.destination_too_far(1200),
   notAhead: en.ride.failure.destination_not_ahead(),
   noRoutes: en.ride.failure.no_routes(),
+  notMapped: en.ride.notMapped('R4'),
+  differentRoutes: en.ride.differentRoutes,
+  draft: en.common.draft,
+  demo: en.common.demo,
   backendMissing: en.profile.backendMissing,
   signedOut: en.profile.signedOut,
 };

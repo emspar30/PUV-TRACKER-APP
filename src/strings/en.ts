@@ -124,6 +124,12 @@ export const en = {
       no_routes: () => 'No route data on this phone',
     } satisfies Record<PlanFailure, (distanceM: number | null) => string>,
     walkLimit: (maxWalkM: number) => `Walking limit ${maxWalkM} m`,
+    // A route serves both points, but only in a direction that is not traced yet (no Swap)
+    notMapped: (code: string) => `${code} · this way isn't mapped yet`,
+    // No single route serves both points
+    differentRoutes: 'No one route serves both',
+    nearFrom: 'From',
+    nearTo: 'To',
     moveToRoute: 'Move pin to the route',
     allRoutes: 'All routes',
     mapComingSoon: 'Map coming soon',

@@ -6,6 +6,7 @@ import { Chip, LineBadge, StatusPill } from '@/components';
 import { DRAFT_ROUTE_CODES } from '@/data/seed/routes';
 import type { Classification } from '@/shared/config';
 import type { FareResult } from '@/shared/fare/fare';
+import type { FailureExplanation } from '@/shared/routing/explainFailure';
 import type { Itinerary, PlanFailureResult } from '@/shared/routing/plan';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
@@ -102,22 +103,46 @@ export function RideResult({
 
 type RideFailureProps = {
   failure: PlanFailureResult;
+  // Why, in the rider's terms (direction not mapped, or no single route serves both points)
+  explanation: FailureExplanation;
   // The fix offered under the message, such as "Move pin to the route"
   action: { label: string; onPress: () => void } | null;
+  badgeColor: (code: string) => string;
 };
 
 // Why no trip was found, in a few words with the number, and one way out
-export function RideFailure({ failure, action }: RideFailureProps) {
+export function RideFailure({ failure, explanation, action, badgeColor }: RideFailureProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const distanceM = failure.reason === 'destination_too_far' ? failure.destinationDistanceM : failure.originDistanceM;
-  const tooFar = failure.reason === 'origin_too_far' || failure.reason === 'destination_too_far';
+  const tooFar = explanation.kind === 'as_planned' && (failure.reason === 'origin_too_far' || failure.reason === 'destination_too_far');
+  const message =
+    explanation.kind === 'not_mapped'
+      ? strings.ride.notMapped(explanation.routeCode)
+      : explanation.kind === 'different_routes'
+        ? strings.ride.differentRoutes
+        : strings.ride.failure[failure.reason](distanceM);
   return (
     <View style={[styles.card, styles.failure]}>
       <View style={styles.row}>
         <CircleAlert color={colors.danger} size={ICON_SIZE} />
-        <Text style={[typography.labelLg, styles.danger, styles.grow]}>{strings.ride.failure[failure.reason](distanceM)}</Text>
+        <Text style={[typography.labelLg, styles.danger, styles.grow]}>{message}</Text>
       </View>
+      {explanation.kind === 'different_routes'
+        ? (
+            [
+              [strings.ride.nearFrom, explanation.originRoutes],
+              [strings.ride.nearTo, explanation.destinationRoutes],
+            ] as const
+          ).map(([label, codes]) => (
+            <View key={label} style={styles.row}>
+              <Text style={typography.bodySm}>{label}</Text>
+              {codes.map((code) => (
+                <LineBadge key={code} code={code} color={badgeColor(code)} />
+              ))}
+            </View>
+          ))
+        : null}
       {tooFar ? <Text style={typography.bodySm}>{strings.ride.walkLimit(failure.maxWalkM)}</Text> : null}
       {action ? (
         <Pressable style={styles.action} onPress={action.onPress} accessibilityRole="button">

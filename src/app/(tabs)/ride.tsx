@@ -22,6 +22,7 @@ import { boundsOfLines, clipBounds, withMinimumSpan } from '@/shared/geo/bounds'
 import type { LatLon } from '@/shared/geo/haversine';
 import { projectOntoLine } from '@/shared/geo/line';
 import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/describe';
+import { explainFailure, type FailureExplanation } from '@/shared/routing/explainFailure';
 import { fareForItinerary, planTrip } from '@/shared/routing/plan';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
 import { useDestinationsStore } from '@/state/destinationsStore';
@@ -180,9 +181,16 @@ export default function MyRideScreen() {
   const originPin = useMemo(() => pinOf(origin), [pinOf, origin]);
   const destinationPin = useMemo(() => pinOf(destination), [pinOf, destination]);
 
-  // The one way out of a failed plan
+  // Why a plan failed, in the rider's terms (the routing itself is unchanged)
+  const explanation = useMemo<FailureExplanation>(
+    () => (plan && !plan.ok && origin && destination ? explainFailure(lines, plan, origin, destination) : { kind: 'as_planned' }),
+    [plan, origin, destination, lines],
+  );
+
+  // The one way out of a failed plan; none when the direction is not mapped or no route serves both
   const failureAction = useMemo(() => {
     if (!plan || plan.ok || !origin || !destination) return null;
+    if (explanation.kind === 'not_mapped' || explanation.kind === 'different_routes') return null;
     if (plan.reason === 'destination_not_ahead') return { label: strings.ride.swap, onPress: swap };
     if (plan.reason === 'origin_too_far') {
       return { label: strings.ride.moveToRoute, onPress: () => setOrigin(pinnedPoint(snapToRoute(lines, origin))) };
@@ -194,7 +202,7 @@ export default function MyRideScreen() {
       };
     }
     return null;
-  }, [plan, origin, destination, lines, swap, pinnedPoint]);
+  }, [plan, origin, destination, lines, swap, pinnedPoint, explanation.kind]);
 
   const nearestCode = (point: LatLon) => nearestStop(stops, point)?.stop.code ?? '';
 
@@ -294,7 +302,14 @@ export default function MyRideScreen() {
           ))}
         </ScrollView>
 
-        {plan && !plan.ok ? <RideFailure failure={plan} action={failureAction} /> : null}
+        {plan && !plan.ok ? (
+          <RideFailure
+            failure={plan}
+            explanation={explanation}
+            action={failureAction}
+            badgeColor={(code) => routeColor(code, lines.find((line) => line.routeCode === code)?.color ?? colors.primary)}
+          />
+        ) : null}
         {itinerary && fare ? (
           <RideResult
             itinerary={itinerary}
