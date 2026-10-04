@@ -29,6 +29,18 @@ export const COVERAGE_LIVE_MAX_AGE_S = 90;
 export const COVERAGE_STALE_MAX_AGE_S = 600;
 export const LIVE_UI_REFRESH_INTERVAL_S = 5;
 
+// --- Live vehicles from the database (L1)
+// Speeds kept per vehicle for the stopped check (longer than STATIONARY_DURATION_S)
+export const LIVE_SPEED_HISTORY_S = 120;
+// Lines within this much of the nearest are compared by heading (two-way roads share a street)
+export const LIVE_LINE_TIE_M = 30;
+// The line's direction is read over this distance around the snapped point
+export const LIVE_HEADING_PROBE_M = 20;
+// The whole route is read again this often, in case a Realtime change was missed
+export const LIVE_RELOAD_INTERVAL_S = 30;
+// Development simulator (scripts/sim-ingest.ts): one packet per vehicle this often
+export const SIM_INGEST_INTERVAL_S = 5;
+
 // --- Offline buffer (PRD 8.4). Defined now, used later.
 export const OFFLINE_BUFFER_SIZE = 60;
 

@@ -29,7 +29,7 @@ import { StopDots } from '@/features/map/StopDots';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
-import { useRepositories } from '@/data/repositories/useRepositories';
+import { useRepositories } from '@/data/live/useRepositories';
 import { useVehicles } from '@/features/vehicles/useVehicles';
 import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
 import { MAP_FOLLOW_ZOOM } from '@/shared/config';

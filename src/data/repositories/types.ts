@@ -6,7 +6,8 @@
 import type { VehicleSnapshot } from '../../shared/telemetry/vehicle';
 
 // Where the data comes from. Every screen that shows "demo" data shows the "Demo" chip.
-export type LiveSource = 'demo' | 'none';
+// 'live' reads the database (L1); 'none' has no data, so screens say "No data".
+export type LiveSource = 'demo' | 'live' | 'none';
 
 export type Unsubscribe = () => void;
 

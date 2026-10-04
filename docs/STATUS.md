@@ -93,7 +93,7 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | 3 | SB1 commuter-side database (**applied 2026-10-05**) | VERIFIED (live) | `db push` applied `20261003000000_v0_core.sql`; seed, team account and `pg_cron` retention jobs pasted by Emjay; `ingest` deployed by Emjay; `npx jest tests/integration` 15 of 15 passed. Live map readable by team accounts only; night hides moving vehicles only. `delete_my_account` not run live (it would delete the test account) | — |
 | 3 | SB2 accounts, username, Energy | READY | — | — |
 | 4 | C1 cloud check-in | BLOCKED | No `checkin/rules.ts` | G0, SB1, R1b |
-| 5 | L1 live map | READY | Demo simulator and `coverage.ts` exist (AF3) | — |
+| 5 | L1 live map | PARTIAL (unit only) | `liveRow.ts` (row to snapshot, line by heading), `data/live/liveVehicles.ts` (load, Realtime, reload every 30 s, 5 s age tick), `services/liveVehicles.ts`, `scripts/sim-ingest.ts`; `liveVehicles.test.ts` 13 tests. Used with Demo data off. Not yet run against the live project or seen on the emulator | Emjay approves `npx tsx scripts/sim-ingest.ts`; check on the emulator |
 | 5 | L2 tracking with ETA | BLOCKED | No `eta.ts` | L1, SB2 |
 | 6 | T1 broadcast, RP1 report, N1 feed, V1 verification | BLOCKED | No `sendRule.ts`, `dev-broadcast.tsx` | L1, R1b; V1 needs the real polyline |
 | 7 | B1 background | BLOCKED | No `backgroundLocation.ts` | T1, R1b, phone |
