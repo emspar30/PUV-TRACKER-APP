@@ -5,6 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Logo } from '@/components';
 import { DB_LOCK_RETRY_ATTEMPTS, DB_LOCK_RETRY_DELAY_MS } from '@/shared/config';
 import type { RouteData } from '@/shared/routing/types';
+import { reopen, type Closable, type Holder } from '@/shared/util/reopen';
 import { isDatabaseLockedError, withRetry } from '@/shared/util/retry';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
@@ -28,11 +29,21 @@ export function useRouteData(): RouteData {
 // Opens the database, creates and seeds it if needed, and reads the route data back.
 // On a first launch the app can start twice in quick succession; the second start may find the
 // database still locked by the first, so a locked database is retried instead of reported.
+// Backlog 68: on a Fast Refresh, expo-sqlite gave the new handle the same cached native connection as
+// the old one; when the old handle was released it closed that shared connection, and every call
+// failed with a NullPointerException ("Try again" got the same broken connection). So each open
+// gets its own connection, and the handle opened last (kept on globalThis, which survives a Fast
+// Refresh) is closed before a new one is opened.
+type OpenDb = Db & Closable;
+const OPEN_OPTIONS = { useNewConnection: true } as const;
+const globalHolder = globalThis as { __tuntonRouteDb?: Holder<OpenDb> };
+const dbHolder: Holder<OpenDb> = (globalHolder.__tuntonRouteDb ??= { current: null });
+
 async function openRouteData(): Promise<RouteData> {
   const seed = getSeedRouteData();
   const stored = await withRetry(
     async () => {
-      const db = (await openDatabaseAsync(DATABASE_NAME)) as Db;
+      const db = await reopen(dbHolder, async () => (await openDatabaseAsync(DATABASE_NAME, OPEN_OPTIONS)) as OpenDb);
       await migrateRouteDb(db, seed);
       return loadRouteData(db);
     },

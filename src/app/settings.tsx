@@ -25,6 +25,8 @@ export default function SettingsSheet() {
   const insets = useSafeAreaInsets();
   const theme = useSettingsStore((state) => state.theme);
   const setTheme = useSettingsStore((state) => state.setTheme);
+  const demoData = useSettingsStore((state) => state.demoData);
+  const setDemoData = useSettingsStore((state) => state.setDemoData);
 
   return (
     <View style={styles.root}>
@@ -64,6 +66,20 @@ export default function SettingsSheet() {
                 label={SCHEME_LABEL[scheme]}
                 selected={scheme === theme}
                 onPress={() => setTheme(scheme)}
+              />
+            ))}
+          </View>
+
+          {/* AF2: simulated live data, on by default, always labelled "Demo" where it shows */}
+          <Text style={typography.labelLg}>{strings.settings.demoData}</Text>
+          <View style={styles.chips}>
+            {[true, false].map((on) => (
+              <Chip
+                key={String(on)}
+                label={on ? strings.settings.on : strings.settings.off}
+                selected={on === demoData}
+                onPress={() => setDemoData(on)}
+                accessibilityLabel={strings.settings.demoDataLabel(on)}
               />
             ))}
           </View>

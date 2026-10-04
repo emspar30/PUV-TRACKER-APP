@@ -39,6 +39,8 @@ export const en = {
     skip: 'Skip',
     attribution: '© OpenStreetMap contributors',
     sampleData: 'Sample data',
+    // AF2: replaces "Sample data" in the header while simulated live data shows
+    demo: 'Demo',
     // A route with only one stored leg (R4, R5): the rest is not traced yet
     partial: 'Partial',
   },
@@ -158,6 +160,10 @@ export const en = {
     replayIntro: 'Replay intro',
     account: 'Team account',
     close: 'Close settings',
+    demoData: 'Demo data',
+    on: 'On',
+    off: 'Off',
+    demoDataLabel: (on: boolean) => (on ? 'Demo data on' : 'Demo data off'),
   },
 
   direction: {

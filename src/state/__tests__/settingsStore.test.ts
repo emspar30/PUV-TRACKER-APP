@@ -1,0 +1,51 @@
+// AF2: the "Demo data" setting is on by default, kept on the device, and survives a restart.
+
+const mockSaved = new Map<string, string>();
+jest.mock('expo-sqlite/kv-store', () => ({
+  __esModule: true,
+  default: {
+    getItemSync: (key: string) => mockSaved.get(key) ?? null,
+    setItemSync: (key: string, value: string) => mockSaved.set(key, value),
+    removeItemSync: (key: string) => mockSaved.delete(key),
+  },
+}));
+
+type Store = typeof import('../settingsStore').useSettingsStore;
+
+function restart(): Store {
+  let store: Store | undefined;
+  jest.isolateModules(() => {
+    store = (jest.requireActual('../settingsStore') as typeof import('../settingsStore')).useSettingsStore;
+  });
+  if (!store) throw new Error('store not loaded');
+  return store;
+}
+
+afterEach(() => {
+  mockSaved.clear();
+});
+
+describe('settings store: Demo data', () => {
+  it('is on by default (Emjay, 2026-10-04)', () => {
+    expect(restart().getState().demoData).toBe(true);
+  });
+
+  it('a switch to off survives a restart and keeps the theme', () => {
+    const first = restart();
+    first.getState().setTheme('dark');
+    first.getState().setDemoData(false);
+    const second = restart().getState();
+    expect(second.demoData).toBe(false);
+    expect(second.theme).toBe('dark');
+  });
+
+  it('a phone from before AF2 (theme only) gets the default', () => {
+    mockSaved.set('settings', JSON.stringify({ state: { theme: 'dark' }, version: 0 }));
+    expect(restart().getState().demoData).toBe(true);
+  });
+
+  it('ignores a damaged value', () => {
+    mockSaved.set('settings', JSON.stringify({ state: { theme: 'dark', demoData: 'yes' }, version: 0 }));
+    expect(restart().getState().demoData).toBe(true);
+  });
+});

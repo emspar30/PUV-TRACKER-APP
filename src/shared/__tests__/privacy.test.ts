@@ -82,6 +82,19 @@ describe('no cloud payload contains classification', () => {
     expect(backend).toEqual([]);
   });
 
+  it('demo mode (AF2, AF3) imports no service and sends nothing', () => {
+    const demoFiles = [
+      ...sourceFiles(path.join(ROOT, 'src', 'data', 'demo')),
+      ...sourceFiles(path.join(ROOT, 'src', 'shared', 'demo')),
+      ...sourceFiles(path.join(ROOT, 'src', 'data', 'repositories')),
+    ].filter((file) => !file.includes(`${path.sep}__tests__${path.sep}`));
+    expect(demoFiles.length).toBeGreaterThanOrEqual(5);
+    const rel = (file: string) => path.relative(ROOT, file).split(path.sep).join('/');
+    const imports = (file: string) => [...code(file).matchAll(/from '([^']+)'/g)].map((match) => match[1]);
+    expect(demoFiles.filter((file) => imports(file).some((source) => /services|supabase|expo-location|http/i.test(source))).map(rel)).toEqual([]);
+    expect(demoFiles.filter(mentions(/\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon/)).map(rel)).toEqual([]);
+  });
+
   it('the session store, which does talk to the backend, does not read the profile store', () => {
     const session = fs.readFileSync(path.join(ROOT, 'src', 'state', 'sessionStore.ts'), 'utf8');
     const imports = [...session.matchAll(/from '([^']+)'/g)].map((match) => match[1]);

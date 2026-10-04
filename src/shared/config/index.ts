@@ -94,6 +94,32 @@ export const MAP_LABEL_PROOF_DEV = false;
 // Lines are drawn only for a selected route; routes that are not selected are drawn this faint
 export const UNSELECTED_ROUTE_OPACITY = 0.08;
 
+// --- Demo mode (AF2, AF3; docs/APP_FEEL_PLAN.md). Simulated data on the phone only, always labelled
+// "Demo". Emjay, 2026-10-04: on by default for the prototype and the panel; a Settings row turns it off.
+export const DEMO_MODE_DEFAULT = true;
+// One seed gives the same vehicles, speeds, stops and seats every time
+export const DEMO_SEED = 20261004;
+export const DEMO_VEHICLES_MIN_PER_ROUTE = 2;
+export const DEMO_VEHICLES_MAX_PER_ROUTE = 3;
+export const DEMO_SPEED_MIN_KMH = 15;
+export const DEMO_SPEED_MAX_KMH = 35;
+export const DEMO_STOP_MIN_S = 20;
+export const DEMO_STOP_MAX_S = 60;
+// A route with no stops (R3, R5) stops this often along its line
+export const DEMO_STOP_SPACING_KM = 1.2;
+// Seats taken change by at most this many at each stop
+export const DEMO_SEAT_CHANGE_MAX = 4;
+// One vehicle per route sends for this long, then is silent for this long (Live, Stale, No data), then repeats
+export const DEMO_SILENT_SEND_S = 60;
+export const DEMO_SILENT_GAP_S = 660;
+// How often demo positions are refreshed on screen
+export const DEMO_TICK_MS = 1000;
+// Speeds kept per vehicle for the stopped check, this far apart
+export const DEMO_SPEED_SAMPLE_S = 5;
+// Development stress setting: this many demo markers on the selected route (PRD 13: 55 FPS with 50)
+export const DEMO_STRESS_MARKERS = 50;
+export const DEMO_STRESS_DEV = false;
+
 // --- Bottom sheet over the map (docs/DESIGN.md "Layout Principles")
 // Visible height of the sheet at each snap point: a fixed peek, then shares of the screen height
 export const SHEET_PEEK_DP = 72;

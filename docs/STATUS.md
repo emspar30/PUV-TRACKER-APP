@@ -78,6 +78,7 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | Done | Merge: location on Live | UNVERIFIED | `locationStore.test.ts` (9), `privacy.test.ts`; `29cc0b0`. App, My Ride, sheet and theme passed in Emjay's run (2026-10-04); **location tests pending** | You send the location results |
 | Done | AF1 text cleanup and first-run hints | UNVERIFIED | `wordCount.test.ts` (≤ 8 words on the tabs, explainer ≤ 12, hints ≤ 6), `hintsStore.test.ts`; agent's AF1-M1 run | You check backlog 74 and 75 |
 | Done | LB1a offline glyph proof | UNVERIFIED | `glyphInstall.test.ts`, `offlineMap.test.ts` (no `http(s)`, `file://` glyphs, glyph facts); agent's LB1a-M1 run; `docs/LABELS_PLAN.md` §7a | You check backlog 76; LB1b on approval |
+| Done | AF2 repository interfaces and the Demo switch | UNVERIFIED | `repositories.test.ts` (switch, chip rule, backlog 68 reopen), `settingsStore.test.ts`, `privacy.test.ts` (demo sends nothing); agent's AF2-M1 run | You check backlog 77 and 68 |
 | 0 | R1a rebuild | BLOCKED | `app.json`, icons, `expo-system-ui` and `expo-splash-screen` in `package.json`; `29cc0b0`, `45f9798`, `cdc0bbb` | Skipped for now (Emjay, 2026-10-04) |
 | 0 | ST1 smoke test | BLOCKED | — | R1a builds |
 | 0 | ST2 records and fixes | NOT-STARTED | — | After ST1 |
@@ -95,12 +96,12 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | 7 | B1 background | BLOCKED | No `backgroundLocation.ts` | T1, R1b, phone |
 | 8 | BLE, driver app, SMS, moderation | NOT-STARTED | SMS protocol and RSSI functions only | Field data, phones, SIMs |
 
-**Counts (33 rows):**
+**Counts (34 rows):**
 
 | Status | Rows |
 | --- | --- |
 | VERIFIED | 10 |
-| UNVERIFIED | 7 |
+| UNVERIFIED | 8 |
 | PARTIAL | 2 |
 | NOT-STARTED | 5 |
 | BLOCKED | 9 |
