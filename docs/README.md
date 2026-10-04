@@ -25,7 +25,7 @@ Start with **`STATUS.md`**.
 | File | Purpose |
 | --- | --- |
 | `DESIGN.md` | Design tokens and components; cited in theme code comments |
-| `BACKEND_SETUP.md` | Supabase dashboard steps and S4 Part 2 commands. Planned change in SB1: `app_config` added, `telemetry_writers` renamed to `team_accounts`. |
+| `BACKEND_SETUP.md` | The commuter-side database design (SB1), dashboard steps and the live commands |
 | `PARTNER_BUILD_GUIDE.md` | How the partner builds, locally and with EAS |
 | `tiles.md` | How the offline tile file was made; cited by `tileset.ts` |
 | `route-trace.md` | How the candidate Route 4 trace was made; cited by `r4.traced.candidate.ts` |
