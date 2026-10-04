@@ -4,6 +4,9 @@
 // clock, so the same seed and time always give the same positions. Pure: no React Native or Expo.
 
 import {
+  DEMO_LAYOVER_S,
+  DEMO_LEG_JOIN_M,
+  DEMO_RESTART_FADE_S,
   DEMO_SEAT_CHANGE_MAX,
   DEMO_SILENT_GAP_S,
   DEMO_SILENT_SEND_S,
@@ -62,7 +65,15 @@ export function demoFleetConfig(seed: number): DemoFleetConfig {
 type PreparedLine = { id: string; coordinates: DirectedLine['coordinates']; cumKm: number[]; lengthKm: number };
 
 // One part of a vehicle's round: driving from one distance to another on a line, or standing still
-type Leg = { line: number; startS: number; durationS: number; fromKm: number; toKm: number; seats: number };
+// `layover`: the wait at a leg end that does not join the next leg; `restart`: the first drive after it
+type Leg = { line: number; startS: number; durationS: number; fromKm: number; toKm: number; seats: number; layover?: boolean; restart?: boolean };
+
+// The next leg starts where this one ends (within DEMO_LEG_JOIN_M)
+function endsMeet(line: PreparedLine, next: PreparedLine): boolean {
+  const [lonA, latA] = line.coordinates[line.coordinates.length - 1];
+  const [lonB, latB] = next.coordinates[0];
+  return haversineMeters({ lat: latA, lon: lonA }, { lat: latB, lon: lonB }) <= DEMO_LEG_JOIN_M;
+}
 
 export type DemoVehiclePlan = {
   id: string;
@@ -76,7 +87,20 @@ export type DemoVehiclePlan = {
   silentPhaseS: number;
 };
 
-export type DemoPosition = { lineId: string; chainageKm: number; lat: number; lon: number; headingDeg: number; speedKmh: number; seats: number };
+// `visible` is false for DEMO_RESTART_FADE_S either side of a restart, so the jump back to the
+// first leg's start is never drawn as a slide
+export type DemoPosition = {
+  lineId: string;
+  chainageKm: number;
+  lat: number;
+  lon: number;
+  headingDeg: number;
+  speedKmh: number;
+  seats: number;
+  // In a planned stop or a layover
+  standing: 'no' | 'stop' | 'layover';
+  visible: boolean;
+};
 
 const METERS_PER_KM = 1000;
 const S_PER_HOUR = 3600;
@@ -150,20 +174,30 @@ export function planDemoFleet(
       const legs: Leg[] = [];
       let seats = clampSeats(START_SEATS[index % START_SEATS.length] + random.int(-SEAT_JITTER, SEAT_JITTER));
       let clockS = 0;
+      let afterLayover = false;
       lines.forEach((line, lineIndex) => {
         let atKm = 0;
         for (const km of [...stopKm[lineIndex], line.lengthKm]) {
           const speedKmh = random.between(config.minSpeedKmh, config.maxSpeedKmh);
           const driveS = ((km - atKm) / speedKmh) * S_PER_HOUR;
-          legs.push({ line: lineIndex, startS: clockS, durationS: driveS, fromKm: atKm, toKm: km, seats });
+          legs.push({ line: lineIndex, startS: clockS, durationS: driveS, fromKm: atKm, toKm: km, seats, restart: afterLayover });
+          afterLayover = false;
           clockS += driveS;
           seats = clampSeats(seats + random.int(-config.seatChangeMax, config.seatChangeMax));
-          const dwellS = random.between(config.minStopS, config.maxStopS);
-          legs.push({ line: lineIndex, startS: clockS, durationS: dwellS, fromKm: km, toKm: km, seats });
+          const atLineEnd = km === line.lengthKm;
+          // At the end of a leg: drive on when the next leg (or, after the last, the first) starts
+          // close by, with a planned stop; otherwise lay over, then start again (AF3 fix)
+          const next = lines[(lineIndex + 1) % lines.length];
+          const joins = !atLineEnd || endsMeet(line, next);
+          const dwellS = joins ? random.between(config.minStopS, config.maxStopS) : DEMO_LAYOVER_S;
+          legs.push({ line: lineIndex, startS: clockS, durationS: dwellS, fromKm: km, toKm: km, seats, layover: !joins });
+          afterLayover = !joins;
           clockS += dwellS;
           atKm = km;
         }
       });
+      // The round repeats, so after a final layover the first leg is the restart
+      if (afterLayover) legs[0].restart = true;
       plans.push({
         id: `demo-${routeCode}-${index + 1}`,
         label: `DEMO ${String(number).padStart(LABEL_DIGITS, '0')}`,
@@ -216,7 +250,10 @@ export function positionAt(plan: DemoVehiclePlan, timeS: number): DemoPosition {
   const chainageKm = leg.fromKm + fraction * (leg.toKm - leg.fromKm);
   const line = plan.lines[leg.line];
   const speedKmh = leg.durationS > 0 ? ((leg.toKm - leg.fromKm) / leg.durationS) * S_PER_HOUR : 0;
-  return { lineId: line.id, chainageKm, ...pointOnLine(line, chainageKm), speedKmh, seats: leg.seats };
+  const standing = leg.toKm !== leg.fromKm ? 'no' : leg.layover ? 'layover' : 'stop';
+  const intoLeg = u - leg.startS;
+  const visible = !((leg.layover && leg.durationS - intoLeg < DEMO_RESTART_FADE_S) || (leg.restart && intoLeg < DEMO_RESTART_FADE_S));
+  return { lineId: line.id, chainageKm, ...pointOnLine(line, chainageKm), speedKmh, seats: leg.seats, standing, visible };
 }
 
 // When the vehicle last sent a position: now, unless it is the route's silent vehicle in its quiet spell
@@ -252,5 +289,7 @@ export function demoSnapshot(
     lastPacketMs: packetS * MS_PER_S,
     recentSpeeds,
     demo: true,
+    layover: at.standing === 'layover',
+    hidden: !at.visible,
   };
 }

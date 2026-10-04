@@ -46,12 +46,12 @@ export function vehicleMarkerFeatures(
   const cones: Feature<Polygon, MarkerProps>[] = [];
   for (const vehicle of vehicles) {
     const coverage = coverageOf(ageSeconds(vehicle.lastPacketMs, nowMs));
-    if (coverage === 'none') continue;
+    if (coverage === 'none' || vehicle.hidden) continue;
     const properties: MarkerProps = {
       id: vehicle.id,
       tier: seatTier(vehicle.seatsTaken),
       stale: coverage === 'stale',
-      stopped: isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs),
+      stopped: vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs),
       demo: vehicle.demo,
     };
     points.push({ type: 'Feature', id: vehicle.id, properties, geometry: { type: 'Point', coordinates: [vehicle.lon, vehicle.lat] } });

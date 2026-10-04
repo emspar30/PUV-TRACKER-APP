@@ -125,6 +125,66 @@ describe('demo fleet plan', () => {
   });
 });
 
+describe('end of a leg (AF3 turnaround fix)', () => {
+  const THIRTY_MIN_S = 30 * 60;
+  const STEP_S = 5;
+
+  // Every check over 30 minutes: on the line, and either moving or in a planned stop or the layover
+  const simulate = (lines: DirectedLine[]) => {
+    const fleet = planDemoFleet(lines, FIXTURE_STOPS, CONFIG, { perRoute: 2 });
+    for (const plan of fleet) {
+      let standingSince: number | null = null;
+      for (let s = 0; s <= THIRTY_MIN_S; s += STEP_S) {
+        const at = positionAt(plan, T0 + s);
+        const line = lines.find((candidate) => candidate.id === at.lineId)!;
+        expect(projectOntoLine(line.coordinates, at).offsetM).toBeLessThan(1);
+        if (at.speedKmh > 0) {
+          expect(at.standing).toBe('no');
+          standingSince = null;
+        } else {
+          expect(['stop', 'layover']).toContain(at.standing);
+          standingSince ??= s;
+          // Never standing longer than the longest planned stop (60 s) plus one check
+          expect(s - standingSince).toBeLessThanOrEqual(DEMO_STOP_MAX_S + STEP_S);
+        }
+      }
+    }
+    return fleet;
+  };
+
+  it('a two-leg cycle drives straight on from the outbound into the return, with no layover', () => {
+    const fleet = simulate([FIXTURE_OUTBOUND, FIXTURE_RETURN]);
+    for (const plan of fleet) {
+      expect(plan.legs.some((leg) => leg.layover)).toBe(false);
+      const endOfOutbound = plan.legs.findIndex((leg) => leg.line === 0 && leg.toKm === leg.fromKm && leg.fromKm === plan.lines[0].lengthKm);
+      const next = plan.legs[endOfOutbound + 1];
+      expect(next.line).toBe(1);
+      expect(next.fromKm).toBe(0);
+    }
+  });
+
+  it('a one-leg line lays over 30 s at its end (shown as Stopped), then restarts at its start, hidden for a moment', () => {
+    const fleet = simulate([SINGLE]);
+    for (const plan of fleet) {
+      const layovers = plan.legs.filter((leg) => leg.layover);
+      expect(layovers).toHaveLength(1);
+      expect(layovers[0].durationS).toBe(30);
+      expect(layovers[0].fromKm).toBeCloseTo(plan.lines[0].lengthKm, 9);
+      expect(plan.legs[0].restart).toBe(true);
+      // Mid-layover: Stopped; at the very end and the very start of the next round: hidden
+      const layoverAt = (u: number) => atRound(plan, layovers[0].startS + u);
+      const mid = demoSnapshot(plan, layoverAt(15) * 1000, CONFIG);
+      expect(mid.layover).toBe(true);
+      expect(mid.hidden).toBe(false);
+      expect(demoSnapshot(plan, layoverAt(29.5) * 1000, CONFIG).hidden).toBe(true);
+      expect(demoSnapshot(plan, layoverAt(30.5) * 1000, CONFIG).hidden).toBe(true);
+      const restarted = positionAt(plan, layoverAt(32));
+      expect(restarted.chainageKm).toBeLessThan(0.1);
+      expect(restarted.visible).toBe(true);
+    }
+  });
+});
+
 describe('the silent vehicle', () => {
   const fleet = planDemoFleet(LINES, FIXTURE_STOPS, CONFIG);
   const silent = fleet.find((plan) => plan.silent)!;

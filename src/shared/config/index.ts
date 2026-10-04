@@ -127,6 +127,12 @@ export const DEMO_SEAT_CHANGE_MAX = 4;
 // One vehicle per route sends for this long, then is silent for this long (Live, Stale, No data), then repeats
 export const DEMO_SILENT_SEND_S = 60;
 export const DEMO_SILENT_GAP_S = 660;
+// At the end of a leg a vehicle drives on to the route's next leg when it starts within this
+// distance; otherwise it lays over (shown as Stopped), then starts its trip again from the first leg
+export const DEMO_LEG_JOIN_M = 300;
+export const DEMO_LAYOVER_S = 30;
+// Around that restart the marker is hidden this long on each side, so it never slides across the map
+export const DEMO_RESTART_FADE_S = 1;
 // How often demo positions are refreshed on screen
 export const DEMO_TICK_MS = 1000;
 // Speeds kept per vehicle for the stopped check, this far apart

@@ -21,4 +21,8 @@ export type VehicleSnapshot = {
   recentSpeeds: readonly SpeedSample[];
   // True for simulated vehicles; they are always labelled "Demo"
   demo: boolean;
+  // Demo only: waiting at the end of its line before starting again (shown as Stopped), and hidden
+  // for a moment around that restart so the jump is never drawn as a slide
+  layover?: boolean;
+  hidden?: boolean;
 };
