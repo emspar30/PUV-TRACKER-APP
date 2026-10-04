@@ -58,6 +58,9 @@ export const en = {
     },
     noData: 'No data from riders right now',
     route: (code: string) => `Route ${code}`,
+    // UX3: the map stays clean until a route is picked
+    pickRoute: 'Pick a route',
+    routeChip: (code: string, selected: boolean) => (selected ? `Route ${code}, shown. Tap to hide` : `Show route ${code}`),
     ends: (from: string, to: string) => `${from} → ${to}`,
     length: (distanceKm: number) => km(distanceKm),
     legendStop: 'Stop',

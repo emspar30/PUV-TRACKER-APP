@@ -26,11 +26,13 @@ type StopDotsProps = {
   selectedCode: string | null;
   // When given, tapping a dot reports that stop's code
   onPressStop?: (code: string) => void;
+  // Fill of the dots, for example the route colour on Check-in (UX3); the theme stop colour otherwise
+  color?: string;
 };
 
 // Plain dots for the stops. No text is drawn on the map; names are shown in native views outside it.
 // Rendered as a child of OfflineMap, after the route lines so the dots sit on top.
-export function StopDots({ stops, selectedCode, onPressStop }: StopDotsProps) {
+export function StopDots({ stops, selectedCode, onPressStop, color }: StopDotsProps) {
   const { mapRoute } = useTheme();
   const data = useMemo<FeatureCollection<Point>>(
     () => ({
@@ -63,7 +65,7 @@ export function StopDots({ stops, selectedCode, onPressStop }: StopDotsProps) {
         type="circle"
         paint={{
           'circle-radius': radiusRamp(),
-          'circle-color': ['case', ['get', 'selected'], mapRoute.stopSelectedColor, mapRoute.stopColor],
+          'circle-color': ['case', ['get', 'selected'], mapRoute.stopSelectedColor, color ?? mapRoute.stopColor],
           'circle-stroke-color': mapRoute.stopStrokeColor,
           'circle-stroke-width': mapRoute.stopStrokeWidth,
         }}

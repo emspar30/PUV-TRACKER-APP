@@ -39,12 +39,14 @@ type RouteLinesProps = {
   lines: RouteLine[];
   // Directions to draw; a direction that is switched off is not drawn at all
   visible: Record<RouteDirection, boolean>;
+  // Opacity per line id (UX3: other routes are faint); lines not listed are drawn at full opacity
+  opacity?: Readonly<Record<string, number>>;
 };
 
 // Draws each directed route line with an outline in the map colour, in its route colour, with direction arrows.
 // The return direction is a lighter band with dashes. Rendered as a child of OfflineMap.
 // Layers are added in this order, bottom to top: outlines, lines, return dashes, arrows.
-export function RouteLines({ lines, visible }: RouteLinesProps) {
+export function RouteLines({ lines, visible, opacity }: RouteLinesProps) {
   const { mapRoute, routeColor } = useTheme();
   // The stored route colour in dark mode; a colour readable on the light map in light mode
   const colorOf = (line: RouteLine) => routeColor(line.routeCode, line.color);
@@ -70,6 +72,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
 
   const shown = prepared.filter(({ line }) => visible[line.direction]);
   const isReturn = (line: RouteLine) => line.direction === 'return';
+  const alpha = (line: RouteLine) => opacity?.[line.id] ?? 1;
 
   return (
     <>
@@ -82,7 +85,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
         </Fragment>
       ))}
 
-      {shown.map(({ source }) => (
+      {shown.map(({ line, source }) => (
         <Layer
           key={`${source}-casing`}
           id={`${source}-casing`}
@@ -91,6 +94,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
           layout={ROUND}
           paint={{
             'line-color': mapRoute.casingColor,
+            'line-opacity': alpha(line),
             'line-width': zoomRamp(mapRoute.lineWidthStops, 1, mapRoute.casingExtraWidth),
           }}
         />
@@ -105,7 +109,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
           layout={ROUND}
           paint={{
             'line-color': colorOf(line),
-            'line-opacity': isReturn(line) ? mapRoute.returnBandOpacity : 1,
+            'line-opacity': (isReturn(line) ? mapRoute.returnBandOpacity : 1) * alpha(line),
             'line-width': zoomRamp(mapRoute.lineWidthStops),
           }}
         />
@@ -113,7 +117,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
 
       {shown
         .filter(({ line }) => isReturn(line))
-        .map(({ source }) => (
+        .map(({ line, source }) => (
           <Layer
             key={`${source}-dashes`}
             id={`${source}-dashes`}
@@ -122,6 +126,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
             layout={FLAT}
             paint={{
               'line-color': mapRoute.returnDashColor,
+              'line-opacity': alpha(line),
               'line-width': zoomRamp(mapRoute.lineWidthStops, mapRoute.returnDashWidthRatio),
               'line-dasharray': [...mapRoute.returnDashPattern],
             }}
@@ -140,6 +145,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
             layout={ROUND}
             paint={{
               'line-color': mapRoute.casingColor,
+              'line-opacity': alpha(line),
               'line-width': zoomRamp(mapRoute.arrowWidthStops, 1, mapRoute.casingExtraWidth),
             }}
           />,
@@ -153,6 +159,7 @@ export function RouteLines({ lines, visible }: RouteLinesProps) {
             layout={ROUND}
             paint={{
               'line-color': isReturn(line) ? mapRoute.returnArrowColor : colorOf(line),
+              'line-opacity': alpha(line),
               'line-width': zoomRamp(mapRoute.arrowWidthStops),
             }}
           />,

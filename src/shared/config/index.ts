@@ -72,6 +72,10 @@ export const DB_LOCK_RETRY_DELAY_MS = 500;
 // How far the map may zoom in past the tile set's last zoom level by stretching its tiles
 export const MAP_OVERZOOM_LEVELS = 4;
 
+// --- Route lines on the map (UX3; PRD 7.2: other routes fade to 8% opacity)
+// Lines are drawn only for a selected route; routes that are not selected are drawn this faint
+export const UNSELECTED_ROUTE_OPACITY = 0.08;
+
 // --- Bottom sheet over the map (docs/DESIGN.md "Layout Principles")
 // Visible height of the sheet at each snap point: a fixed peek, then shares of the screen height
 export const SHEET_PEEK_DP = 72;

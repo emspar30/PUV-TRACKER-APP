@@ -70,7 +70,42 @@ export function LineBadge({ code, color }: { code: string; color: string }) {
   );
 }
 
+// A route choice chip (UX3): the route badge in its colour, with a check when selected. Tapping toggles.
+export function RouteChip({
+  code,
+  color,
+  selected,
+  onPress,
+  accessibilityLabel,
+}: {
+  code: string;
+  color: string;
+  selected: boolean;
+  onPress?: () => void;
+  accessibilityLabel: string;
+}) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      style={[styles.chip, styles.routeChip, selected && styles.chipSelected]}
+      onPress={onPress}
+      disabled={!onPress}
+      hitSlop={CHIP_HIT_SLOP}
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled: !onPress }}
+      accessibilityLabel={accessibilityLabel}
+    >
+      {selected ? <Check color={colors.onPrimaryContainer} size={CHECK_SIZE} /> : null}
+      <LineBadge code={code} color={color} />
+    </Pressable>
+  );
+}
+
 const useStyles = makeStyles(({ colors, typography }) => ({
+  routeChip: {
+    paddingHorizontal: spacing.xs,
+  },
   status: {
     flexDirection: 'row',
     alignItems: 'center',

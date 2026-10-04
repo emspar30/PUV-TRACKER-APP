@@ -3,15 +3,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AvatarButton, BottomSheet, Chip, LineBadge, Logo, StatusPill, type SheetRequest } from '@/components';
+import { AvatarButton, BottomSheet, Chip, LineBadge, Logo, RouteChip, StatusPill, type SheetRequest } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
+import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { formatCountdown, isActive, remainingMs } from '@/shared/checkin/localCheckin';
 import { boundsOfLines } from '@/shared/geo/bounds';
 import type { RouteDirection } from '@/shared/routing/types';
+import { routeCodesOf, toggleRoute } from '@/shared/ui/routeVisibility';
 import { verifyCheckIn } from '@/shared/verification/verifyCheckIn';
 import { useCheckInStore } from '@/state/checkinStore';
 import { strings } from '@/strings';
@@ -34,8 +36,9 @@ export default function CheckInScreen() {
   const checkInAt = useCheckInStore((state) => state.checkInAt);
   const clear = useCheckInStore((state) => state.clear);
 
-  const routeCodes = useMemo(() => [...new Set(lines.map((line) => line.routeCode))], [lines]);
-  const [routeCode, setRouteCode] = useState(routeCodes[0] ?? '');
+  const routeCodes = useMemo(() => routeCodesOf(lines), [lines]);
+  // UX3: route first. Nothing is drawn until a route is picked; kept while the app is open only.
+  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [stationCode, setStationCode] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [focus, setFocus] = useState<MapFocus | null>(null);
@@ -43,8 +46,21 @@ export default function CheckInScreen() {
   const [sheetRequest, setSheetRequest] = useState<SheetRequest | null>(null);
 
   const active = isActive(checkIn, now);
+  // A running check-in shows its own route
+  const shownRoute = active ? checkIn.routeCode : selectedRoute;
+  const layers = useRouteLayers(lines, stops, 'checkin', shownRoute);
   const initialBounds = useMemo(() => boundsOfLines(lines.map((line) => line.coordinates)), [lines]);
   const badgeColor = (code: string) => routeColor(code, lines.find((line) => line.routeCode === code)?.color ?? colors.primary);
+
+  const pickRoute = (code: string) => {
+    const next = toggleRoute(selectedRoute, code);
+    setSelectedRoute(next);
+    setStationCode(null);
+    if (next) {
+      const ofRoute = lines.filter((line) => line.routeCode === next);
+      setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds: boundsOfLines(ofRoute.map((line) => line.coordinates)) }));
+    }
+  };
 
   // Tick once a second while a check-in is running; the time left is always worked out from the
   // stored expiry, so a restart or a long time away gives the right answer
@@ -61,10 +77,10 @@ export default function CheckInScreen() {
   };
 
   const doCheckIn = () => {
-    if (!stationCode || active) return;
+    if (!stationCode || !selectedRoute || active) return;
     const at = Date.now();
     setNow(at);
-    checkInAt(routeCode, stationCode, at);
+    checkInAt(selectedRoute, stationCode, at);
     setSheetRequest((current) => ({ key: (current?.key ?? 0) + 1, snap: 'half' }));
   };
 
@@ -82,7 +98,7 @@ export default function CheckInScreen() {
     <View style={styles.peek}>
       <MapPin color={colors.textSecondary} size={ICON_SIZE} />
       <Text style={[stationCode ? typography.headlineSm : typography.bodyMd, styles.grow]} numberOfLines={1}>
-        {stationCode ?? strings.checkin.pickStation}
+        {stationCode ?? (selectedRoute ? strings.checkin.pickStation : strings.live.pickRoute)}
       </Text>
       <Pressable
         style={[styles.primary, !stationCode && styles.primaryDisabled]}
@@ -107,8 +123,13 @@ export default function CheckInScreen() {
           bottomInset={sheetHeight}
           attributionTop={insets.top + spacing.sm}
         >
-          <RouteLines lines={lines} visible={ALL_DIRECTIONS} />
-          <StopDots stops={stops} selectedCode={active ? checkIn.stationCode : stationCode} onPressStop={pickStation} />
+          <RouteLines lines={layers.lines} visible={ALL_DIRECTIONS} opacity={layers.opacity} />
+          <StopDots
+            stops={layers.stops}
+            selectedCode={active ? checkIn.stationCode : stationCode}
+            onPressStop={active ? undefined : pickStation}
+            color={shownRoute ? badgeColor(shownRoute) : undefined}
+          />
         </OfflineMap>
       ) : (
         <View style={styles.centered}>
@@ -151,13 +172,20 @@ export default function CheckInScreen() {
         <Text style={typography.labelLg}>{strings.checkin.route}</Text>
         <View style={styles.chips}>
           {routeCodes.map((code) => (
-            <Chip key={code} label={code} selected={code === routeCode} onPress={active ? undefined : () => setRouteCode(code)} />
+            <RouteChip
+              key={code}
+              code={code}
+              color={badgeColor(code)}
+              selected={code === shownRoute}
+              onPress={active ? undefined : () => pickRoute(code)}
+              accessibilityLabel={strings.live.routeChip(code, code === shownRoute)}
+            />
           ))}
         </View>
 
-        <Text style={typography.labelLg}>{strings.checkin.stations}</Text>
+        {shownRoute ? <Text style={typography.labelLg}>{strings.checkin.stations}</Text> : null}
         <View style={styles.chips}>
-          {stops.map((stop) => (
+          {layers.stops.map((stop) => (
             <Chip
               key={stop.code}
               label={stop.code}

@@ -8,9 +8,9 @@ import {
   AvatarButton,
   BottomSheet,
   Chip,
-  LineBadge,
   Logo,
   RoundButton,
+  RouteChip,
   StatusPill,
   type SheetRequest,
 } from '@/components';
@@ -25,14 +25,17 @@ import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
+import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { MAP_FOLLOW_ZOOM } from '@/shared/config';
 import { boundsOfLines } from '@/shared/geo/bounds';
 import { lineLengthKm, projectOntoLine } from '@/shared/geo/line';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
+import { routeCodesOf, toggleRoute } from '@/shared/ui/routeVisibility';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
+const DIRECTIONS: readonly RouteDirection[] = ['outbound', 'return'];
 const LOGO_SIZE = spacing.xl * 3;
 const ICON_SIZE = spacing.md + spacing.xs;
 const SWATCH_WIDTH = spacing.lg;
@@ -77,11 +80,43 @@ export default function LiveScreen() {
     setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center, zoom: MAP_FOLLOW_ZOOM })),
   );
 
+  // UX3: the map is clean until a route is picked. Kept while the app is open, not saved.
+  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
+  const [directions, setDirections] = useState<Record<RouteDirection, boolean>>(ALL_DIRECTIONS);
+  const layers = useRouteLayers(lines, stops, 'live', selectedRoute);
+  const routeStops = layers.stops;
+  const routeCodes = useMemo(() => routeCodesOf(lines), [lines]);
+  const routeLines = useMemo(() => lines.filter((line) => line.routeCode === selectedRoute), [lines, selectedRoute]);
+
   const initialBounds = useMemo(() => boundsOfLines(lines.map((line) => line.coordinates)), [lines]);
-  const summaries = useMemo(() => lines.map((line) => summarise(line, stops)), [lines, stops]);
-  const outbound = lines.find((line) => line.direction === 'outbound');
-  const routeCode = lines[0]?.routeCode ?? '';
-  const badgeColor = lines[0] ? routeColor(lines[0].routeCode, lines[0].color) : colors.primary;
+  const routeBounds = useMemo(
+    () => (routeLines.length > 0 ? boundsOfLines(routeLines.map((line) => line.coordinates)) : initialBounds),
+    [routeLines, initialBounds],
+  );
+  const summaries = useMemo(() => routeLines.map((line) => summarise(line, routeStops)), [routeLines, routeStops]);
+  const outbound = routeLines.find((line) => line.direction === 'outbound');
+  const colorOfRoute = (code: string) => {
+    const line = lines.find((candidate) => candidate.routeCode === code);
+    return line ? routeColor(code, line.color) : colors.primary;
+  };
+
+  const pickRoute = (code: string) => {
+    const next = toggleRoute(selectedRoute, code);
+    setSelectedRoute(next);
+    setSelectedCode(null);
+    if (next) {
+      const ofRoute = lines.filter((line) => line.routeCode === next);
+      // The sheet keeps its height, so the route is framed above it as it is now
+      setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds: boundsOfLines(ofRoute.map((line) => line.coordinates)) }));
+    }
+  };
+
+  // At least one direction stays on, so a selected route never disappears by accident
+  const toggleDirection = (direction: RouteDirection) =>
+    setDirections((current) => {
+      const next = { ...current, [direction]: !current[direction] };
+      return next.outbound || next.return ? next : current;
+    });
 
   const alongKm = useCallback(
     (stop: RouteStop) => (outbound ? projectOntoLine(outbound.coordinates, stop).chainageKm : null),
@@ -90,8 +125,8 @@ export default function LiveScreen() {
   const selected = stops.find((stop) => stop.code === selectedCode) ?? null;
 
   const showWholeRoute = useCallback(() => {
-    setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds: initialBounds }));
-  }, [initialBounds]);
+    setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds: routeBounds }));
+  }, [routeBounds]);
 
   const handleSnapChange = useCallback(
     (_snap: unknown, visibleHeight: number) => {
@@ -153,9 +188,18 @@ export default function LiveScreen() {
 
   const header = (
     <View style={styles.peek}>
-      <LineBadge code={routeCode} color={badgeColor} />
-      <Text style={[typography.headlineSm, styles.grow]} numberOfLines={1}>
-        {summaries[0] ? strings.live.ends(summaries[0].from, summaries[0].to) : strings.live.route(routeCode)}
+      {routeCodes.map((code) => (
+        <RouteChip
+          key={code}
+          code={code}
+          color={colorOfRoute(code)}
+          selected={code === selectedRoute}
+          onPress={() => pickRoute(code)}
+          accessibilityLabel={strings.live.routeChip(code, code === selectedRoute)}
+        />
+      ))}
+      <Text style={[typography.bodyMd, styles.grow]} numberOfLines={1}>
+        {summaries[0] ? strings.live.ends(summaries[0].from, summaries[0].to) : ''}
       </Text>
       {isPlaceholder ? <Chip label={strings.common.sampleData} /> : null}
     </View>
@@ -174,8 +218,8 @@ export default function LiveScreen() {
         onLongPress={location.setManualOrigin}
         onUserMove={location.stopFollowing}
       >
-        <RouteLines lines={lines} visible={ALL_DIRECTIONS} />
-        <StopDots stops={stops} selectedCode={selectedCode} onPressStop={selectStop} />
+        <RouteLines lines={layers.lines} visible={directions} opacity={layers.opacity} />
+        <StopDots stops={routeStops} selectedCode={selectedCode} onPressStop={selectStop} />
         {!location.locationAllowed ? <OriginPin /> : null}
         <BlueDot />
       </OfflineMap>
@@ -194,7 +238,7 @@ export default function LiveScreen() {
           <View style={styles.floating}>
             {location.showExplainer ? (
               <LocationExplainer onContinue={location.continueExplainer} onNotNow={location.dismissExplainer} />
-            ) : greetingVisible ? (
+            ) : greetingVisible && !selectedRoute ? (
               <GreetingCard onHide={() => setGreetingVisible(false)} />
             ) : null}
             {location.reducedMode ? (
@@ -213,7 +257,7 @@ export default function LiveScreen() {
               </View>
             ) : null}
             <View style={styles.floatingRow}>
-              <StatusPill label={strings.live.status.noData} tone="neutral" />
+              <StatusPill label={selectedRoute ? strings.live.status.noData : strings.live.pickRoute} tone="neutral" />
               <View style={styles.buttons}>
                 <RoundButton
                   icon={LocateFixed}
@@ -221,7 +265,9 @@ export default function LiveScreen() {
                   onPress={location.locateMe}
                   active={location.following && location.locationAllowed}
                 />
-                <RoundButton icon={Maximize} label={strings.map.showWholeRoute} onPress={showWholeRoute} />
+                {layers.view.showRouteControls ? (
+                  <RoundButton icon={Maximize} label={strings.map.showWholeRoute} onPress={showWholeRoute} />
+                ) : null}
               </View>
             </View>
           </View>
@@ -248,6 +294,21 @@ export default function LiveScreen() {
             </Pressable>
           </View>
         ) : null}
+
+        {!selectedRoute ? (
+          <Text style={typography.bodyMd}>{strings.live.pickRoute}</Text>
+        ) : (
+          <>
+        <View style={styles.chipsRow}>
+          {DIRECTIONS.map((direction) => (
+            <Chip
+              key={direction}
+              label={direction === 'outbound' ? strings.direction.outbound : strings.direction.return}
+              selected={directions[direction]}
+              onPress={() => toggleDirection(direction)}
+            />
+          ))}
+        </View>
 
         <Text style={typography.bodyMd}>{strings.live.noData}</Text>
 
@@ -281,7 +342,7 @@ export default function LiveScreen() {
 
         <Text style={typography.labelLg}>{strings.live.stopsTitle}</Text>
         <View style={styles.group}>
-          {stops.map((stop) => {
+          {routeStops.map((stop) => {
             const km = alongKm(stop);
             return (
               <Pressable
@@ -304,6 +365,8 @@ export default function LiveScreen() {
             );
           })}
         </View>
+          </>
+        )}
       </BottomSheet>
     </View>
   );
@@ -432,6 +495,11 @@ const useStyles = makeStyles(({ colors, mapRoute }) => ({
     gap: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: radii.sm,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   stopRowSelected: {
     backgroundColor: colors.primaryContainer,

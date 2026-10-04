@@ -90,6 +90,9 @@ Last updated: 2026-10-04, after the docs tidy-up (history files moved to `docs/h
 | 61 | Merge | The merged app on the partner's phone, including the bottom sheet and the walk test | Partner's phone after his rebuild | Open |
 | 62 | Merge | Splash screen: `expo-splash-screen` added (approved) | Emulator and phone after R1a | Open: check the white splash with the logo on a cold start |
 | 63 | Merge | Candidate Route 4 trace: validate before activating (JCA projects onto the junction) | Import script (on hold) | Open |
+| 65 | UX3 | Live: clean map until R4 is picked; line, stops, switches and "Show whole route" only then (UX3-M1, M2) | Emulator (press `r` in Metro) | Open (agent: seen on the emulator) |
+| 66 | UX3 | Check-in: route first, route-coloured station dots (UX3-M3) | Emulator | Open (agent: seen on the emulator) |
+| 67 | UX3 | My Ride: trip draws only the ride segment; "All routes" card toggles the route (UX3-M4) | Emulator | Open (agent: seen on the emulator) |
 | 64 | Merge | Dev-client crash "App react context shouldn't be created before" (`DevLauncherAppLoader`), on the old 2026-10-02 build; who observed it is not recorded | Emulator and phone after R1a (ST1-M5) | Open, cause unknown |
 
 ## Items

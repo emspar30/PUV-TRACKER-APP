@@ -10,6 +10,7 @@ import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/O
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
+import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { DevBenchmark } from '@/features/plan/DevBenchmark';
 import { TripLayers, type TripPin } from '@/features/plan/TripLayers';
 import { PointPills, type PickTarget, type PickedPoint } from '@/features/ride/PointPills';
@@ -22,6 +23,7 @@ import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/descri
 import { fareForItinerary, planTrip } from '@/shared/routing/plan';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
 import { useDestinationsStore } from '@/state/destinationsStore';
+import { toggleRoute } from '@/shared/ui/routeVisibility';
 import { useFareType } from '@/state/fareType';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
@@ -148,10 +150,16 @@ export default function MyRideScreen() {
     setDestination(origin);
   }, [origin, destination]);
 
+  // UX3: no route line until one is chosen from "All routes"; a trip draws only its ride segment.
+  // Kept while the app is open, not saved.
+  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
+  const layers = useRouteLayers(lines, stops, 'ride', selectedRoute, itinerary !== null);
+
   const clear = useCallback(() => {
     setOrigin(null);
     setDestination(null);
     setActive('origin');
+    setSelectedRoute(null);
     moveCamera({ kind: 'bounds', bounds: initialBounds });
   }, [initialBounds, moveCamera]);
 
@@ -194,10 +202,13 @@ export default function MyRideScreen() {
 
   const showRoute = useCallback(
     (card: RouteCard) => {
+      const next = toggleRoute(selectedRoute, card.code);
+      setSelectedRoute(next);
+      if (!next) return;
       moveSheet('peek');
       moveCamera({ kind: 'bounds', bounds: boundsOfLines(card.lines.map((line) => line.coordinates)) });
     },
-    [moveSheet, moveCamera],
+    [moveSheet, moveCamera, selectedRoute],
   );
 
   const header = (
@@ -215,9 +226,9 @@ export default function MyRideScreen() {
           attributionTop={insets.top + spacing.sm}
           onPress={(position) => pick(pinnedPoint(position))}
         >
-          <RouteLines lines={lines} visible={ALL_DIRECTIONS} />
+          <RouteLines lines={layers.lines} visible={ALL_DIRECTIONS} opacity={layers.opacity} />
           <StopDots
-            stops={stops}
+            stops={layers.stops}
             selectedCode={null}
             onPressStop={(code) => {
               const stop = stops.find((candidate) => candidate.code === code);
@@ -281,11 +292,12 @@ export default function MyRideScreen() {
         {cards.map((card) => (
           <Pressable
             key={card.code}
-            style={styles.routeCard}
+            style={[styles.routeCard, card.code === selectedRoute && styles.routeCardSelected]}
             onPress={() => (card.hasMap ? showRoute(card) : undefined)}
             disabled={!card.hasMap}
             accessibilityRole="button"
-            accessibilityLabel={strings.ride.showRoute(card.code)}
+            accessibilityState={{ selected: card.code === selectedRoute }}
+            accessibilityLabel={strings.live.routeChip(card.code, card.code === selectedRoute)}
           >
             <LineBadge code={card.code} color={routeColor(card.code, card.color)} />
             <Text style={[typography.labelLg, styles.grow]}>
@@ -332,6 +344,9 @@ const useStyles = makeStyles(({ colors }) => ({
   stops: {
     gap: spacing.sm,
     paddingVertical: spacing.sm,
+  },
+  routeCardSelected: {
+    backgroundColor: colors.primaryContainer,
   },
   routeCard: {
     minHeight: MIN_TOUCH_TARGET,
