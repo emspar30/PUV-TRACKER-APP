@@ -75,6 +75,17 @@ export const ROUTE_LOOP_CLOSE_M = 100;
 // line and the part beyond it is longer than the second value (Emjay, 2026-10-05)
 export const ROUTE_TRIM_MAX_OFFSET_M = 150;
 export const ROUTE_TRIM_MIN_TAIL_M = 300;
+// RR3 loop report: a self-overlap is the line coming back within the first value of a part at least
+// the second value earlier; a near return (a block loop such as R. Calo, T. Sanchez, M. Calo) comes
+// back within the third value of a part at least the fourth value earlier. Loops longer than the
+// last value are listed for Emjay's confirmation; none fails the import.
+export const ROUTE_OVERLAP_M = 20;
+export const ROUTE_OVERLAP_MIN_GAP_M = 150;
+export const ROUTE_NEAR_RETURN_M = 300;
+export const ROUTE_NEAR_RETURN_MIN_GAP_M = 600;
+export const ROUTE_LOOP_CONFIRM_M = 400;
+// Stops reported per leg when they lie this close to it
+export const ROUTE_STOP_REPORT_M = 150;
 // Separate pieces of one line are joined only when the gap between them is at most this
 export const ROUTE_SEGMENT_JOIN_M = 20;
 // Coordinates must be near Butuan: longitude about 125 and latitude about 9, within this many degrees

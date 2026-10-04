@@ -5,7 +5,7 @@
 | Item | Value |
 | --- | --- |
 | Source files | `assets/data/route_3_primary.geojson`, `route_4_primary.geojson`, `route_5_primary.geojson`, exported from Google My Maps |
-| Method | **To be confirmed by the user** (Emjay will describe how each line was made) |
+| Method | Google My Maps **Directions** tool with drag points (Emjay, 2026-10-05). The turns My Maps gave are Emjay's record: `assets/data/route_3_return_directions.txt`, `route_4_return_directions.txt`, `route_5_return_directions.txt`. `route_4_primary_updated.geojson` supersedes `route_4_primary.geojson` (kept in git history); the importer uses an `_updated` file where one exists. |
 | Credit | The lines are Emjay's own tracing. OpenStreetMap (© OpenStreetMap contributors) is credited only for the basemap. |
 | Import | `npx tsx scripts/import-route.ts` (dry run), `--write` writes `src/data/seed/routes.generated.ts`; names, colours, fares and stops are in `src/data/seed/routes.ts` (route data version 3) |
 | Simplification | Turf, 5 m: R3 284 → 22 points, R4 412 → 57, R5 465 → 64; largest deviation 4.86 m |
@@ -15,6 +15,22 @@
 | R3 Ampayon-Libertad | outbound (traced, Ampayon → Libertad) and return (**derived**: the reverse) | 11.42 km each | "Vice versa" on the PUJ map |
 | R4 De Oro | **return only**, De Oro Barangay Hall → 524 R. Calo; **partial: does not reach the Jeepney Terminal** | 18.64 km | Outbound not provided |
 | R5 Santo Niño | **return only**, Santo Niño → 1203 J C Aquino Ave; **partial: does not reach the Jeepney Terminal** | 22.71 km | Outbound not provided. 14 points lie up to 1.46 km north of the current tiles and draw over blank map until the larger tile set (north 9.07) arrives. |
+
+### Inspection of the files (RR2/RR3, 2026-10-05, read-only)
+
+| File | Points | Length | Start → end | Closed? | Farthest from start | Jeepney Terminal | Beyond the terminal | Self-overlaps |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `route_3_primary` | 284 | 11.43 km | Ampayon (125.60229, 8.96161) → Libertad (125.50182, 8.94379) | open (11.2 km) | its end | 1.29 km away: not served | — | none |
+| `route_4_primary` (old) | 412 | 18.65 km | De Oro (DEO) → R. Calo (125.54144, 8.94754) | open | 125.52796, 8.95356 at 16.53 km (Jose Rosales Ave) | 157 m at 15.50 km | 3.15 km, passes IMA, TSO, RCA again | none |
+| `route_4_primary_updated` | 427 | 19.56 km | De Oro (DEO) → M. Calo / J C Aquino (125.54426, 8.94720) | open | same | **157 m** at 15.50 km (Magsaysay St) | 4.06 km: J. Satorre, Jose Rosales Ave, JAQNO, R. Calo, T. Sanchez, M. Calo; passes IMA, TSO, RCA, JCA, MCA again | 37 m at 18.64 km over 13.05 km (the R. Calo / JAQNO corner) |
+| `route_5_primary` | 465 | 22.73 km | Santo Niño (125.59722, 9.03307) → M. Calo / J C Aquino (125.54427, 8.94728) | open | 125.53197, 8.94568 at 17.40 km | 23 m at 19.90 km (Andaya St) | 2.82 km: Andaya, Montilla, JAQNO, R. Calo, T. Sanchez, M. Calo; passes RCA, JCA, MCA again | 125 m at 21.71 km over 16.41 km (JAQNO, both ways) |
+
+- **What the files are.** Each R4 and R5 file starts at its turnaround (De Oro, Santo Niño), runs the whole return to the terminal, then **continues into the start of the next outbound** (the downtown loop R. Calo, T. Sanchez, M. Calo). None is a closed cycle, so "the point farthest from the start" is downtown, not a turnaround.
+- **Text files against the lines.** Street order matches in all three. Totals match: R3 11.42 km (text) vs 11.43 km; R4 19.56 km vs 19.56 km (`_updated`); R5 22.72 km vs 22.73 km. **No mismatch found.**
+- **Stops within 150 m of `route_4_primary_updated`:** DEO 0.00 km (0 m); MCA 12.74 km (12 m) and 19.55 km (1 m); JCA 13.00 km (5 m) and 18.65 km (59 m); RCA 13.05 km (9 m) and 18.66 km (1 m); IMA 17.32 km (7 m); TSO 17.70 km (4 m).
+- **RR2 diagnosis, DEO to RCA (stored R4 line):** DEO is passed once (0.00 km, 0 m); RCA twice (13.05 km, 9 m; 18.64 km, 9 m). Rides: 13.05 km ₱35.00 or 18.64 km ₱45.00 (regular). The planner took the nearest point, the second pass. **Cause: both** (the tail in the trace gives the second pass; the nearest-point snapping picked it). RR2 now rides to the first pass ahead of the origin: 13.05 km, ₱35.00.
+- **RR2 trim at the terminal (dry run):** R5 trimmed by 2.82 km (terminal 23 m from the line). **R4 not trimmed:** the terminal is 157 m from the line, over the 150 m limit (backlog 82).
+- **T. Sanchez loop.** It lies in the tails (the start of the outbound). The traced line never comes back within 20 m there, so it is not an overlap; the loop report lists it, and the R4 tail, as "comes back near itself" for confirmation. It never fails the import.
 
 **Legs Emjay may supply later**
 

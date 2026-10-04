@@ -12,7 +12,13 @@ import {
   ROUTE_IMPORT_FAIL_OUTSIDE_M,
   ROUTE_IMPORT_WARN_OUTSIDE_M,
   ROUTE_LOOP_CLOSE_M,
+  ROUTE_LOOP_CONFIRM_M,
   ROUTE_MAX_POINTS_PER_LINE,
+  ROUTE_NEAR_RETURN_M,
+  ROUTE_NEAR_RETURN_MIN_GAP_M,
+  ROUTE_OVERLAP_M,
+  ROUTE_OVERLAP_MIN_GAP_M,
+  ROUTE_STOP_REPORT_M,
   ROUTE_SEGMENT_JOIN_M,
   ROUTE_SIMPLIFY_TOLERANCE_M,
   ROUTE_TRIM_MAX_OFFSET_M,
@@ -20,7 +26,7 @@ import {
 } from '../config';
 import type { Bounds } from '../geo/bounds';
 import { haversineMeters } from '../geo/haversine';
-import { lineLengthKm, projectOntoLine, sliceCoordinates } from '../geo/line';
+import { lineLengthKm, linePasses, projectOntoLine, sliceCoordinates } from '../geo/line';
 
 const METERS_PER_DEGREE = 111320;
 const METERS_PER_KM = 1000;
@@ -233,6 +239,183 @@ export function importRoute(geojson: unknown, rule: ReturnRule, bounds: Bounds, 
     directions: [{ ...traced, direction: 'return', partial: true }],
     note: 'return leg traced, partial; outbound not provided',
   };
+}
+
+// --- RR3: per-direction and cycle files
+
+export type FileKind = 'outbound' | 'return' | 'primary' | 'cycle';
+export type RouteFile = { routeNumber: number; kind: FileKind; updated: boolean; file: string };
+
+// route_<n>_<outbound|return|primary|cycle>[_updated].geojson; the direction comes from the name,
+// never from a guess. Other names (and the .txt notes) are ignored.
+export function parseRouteFileName(file: string): RouteFile | null {
+  const match = /^route_(\d+)_(outbound|return|primary|cycle)(_updated)?\.geojson$/.exec(file);
+  if (!match) return null;
+  return { routeNumber: Number(match[1]), kind: match[2] as FileKind, updated: match[3] !== undefined, file };
+}
+
+// One file per route and kind: an _updated file supersedes the plain one
+export function pickRouteFiles(files: readonly string[]): RouteFile[] {
+  const parsed = files.map(parseRouteFileName).filter((f): f is RouteFile => f !== null);
+  const key = (f: RouteFile) => `${f.routeNumber}/${f.kind}`;
+  const best = new Map<string, RouteFile>();
+  for (const f of parsed) {
+    const current = best.get(key(f));
+    if (!current || (f.updated && !current.updated)) best.set(key(f), f);
+  }
+  return [...best.values()].sort((a, b) => a.routeNumber - b.routeNumber || a.kind.localeCompare(b.kind));
+}
+
+// The vertex farthest (straight line) from the start: the proposed turnaround of a cycle
+export function farthestFromStart(line: Position[]): { point: Position; chainageKm: number; distanceM: number } {
+  const ch = chainages(line);
+  let best = 0;
+  let bestM = 0;
+  line.forEach((p, i) => {
+    const d = haversineMeters(ll(line[0]), ll(p));
+    if (d > bestM) {
+      bestM = d;
+      best = i;
+    }
+  });
+  return { point: line[best], chainageKm: ch[best], distanceM: bestM };
+}
+
+// Splits a cycle at the position nearest `at`: outbound from the start to there, return from there to the end
+export function splitLine(line: Position[], at: Position): { outbound: Position[]; ret: Position[]; atKm: number; offsetM: number } {
+  const nearest = projectOntoLine(line, ll(at));
+  const totalKm = lineLengthKm(line);
+  return {
+    outbound: sliceCoordinates(line, 0, nearest.chainageKm),
+    ret: sliceCoordinates(line, nearest.chainageKm, totalKm),
+    atKm: nearest.chainageKm,
+    offsetM: nearest.offsetM,
+  };
+}
+
+export type LoopReport = { kind: 'overlap' | 'near_return'; fromKm: number; toKm: number; earlierKm: number; lengthKm: number; nearestM: number; confirm: boolean };
+
+const LOOP_STEP_M = 25;
+// Hits closer together than this along the line are one loop
+const LOOP_JOIN_M = 50;
+
+// Where the line comes back near an earlier part of itself (see the ROUTE_OVERLAP and
+// ROUTE_NEAR_RETURN settings). Reported for confirmation only; a loop never fails the import.
+export function findLoops(line: Position[]): LoopReport[] {
+  const dense: { p: Position; c: number }[] = [{ p: line[0], c: 0 }];
+  let c = 0;
+  for (let i = 1; i < line.length; i += 1) {
+    const seg = haversineMeters(ll(line[i - 1]), ll(line[i]));
+    const n = Math.max(1, Math.ceil(seg / LOOP_STEP_M));
+    for (let k = 1; k <= n; k += 1) {
+      const t = k / n;
+      dense.push({ p: [line[i - 1][0] + t * (line[i][0] - line[i - 1][0]), line[i - 1][1] + t * (line[i][1] - line[i - 1][1])], c: c + seg * t });
+    }
+    c += seg;
+  }
+  const scan = (kind: LoopReport['kind'], nearM: number, minGapM: number): LoopReport[] => {
+    const found: LoopReport[] = [];
+    let open: LoopReport | null = null;
+    for (let i = 0; i < dense.length; i += 1) {
+      let bestM = Infinity;
+      let bestC = 0;
+      for (let j = 0; j < dense.length && dense[i].c - dense[j].c >= minGapM; j += 1) {
+        const d = haversineMeters(ll(dense[i].p), ll(dense[j].p));
+        if (d < bestM) {
+          bestM = d;
+          bestC = dense[j].c;
+        }
+      }
+      const hit = bestM <= nearM;
+      if (hit && open && dense[i].c - open.toKm * METERS_PER_KM <= LOOP_JOIN_M) {
+        open.toKm = dense[i].c / METERS_PER_KM;
+        if (bestM < open.nearestM) open.nearestM = bestM;
+      } else if (hit) {
+        if (open) found.push(open);
+        const lengthKm = (dense[i].c - bestC) / METERS_PER_KM;
+        open = { kind, fromKm: dense[i].c / METERS_PER_KM, toKm: dense[i].c / METERS_PER_KM, earlierKm: bestC / METERS_PER_KM, lengthKm, nearestM: bestM, confirm: lengthKm * METERS_PER_KM > ROUTE_LOOP_CONFIRM_M };
+      }
+    }
+    if (open) found.push(open);
+    return found;
+  };
+  return [...scan('overlap', ROUTE_OVERLAP_M, ROUTE_OVERLAP_MIN_GAP_M), ...scan('near_return', ROUTE_NEAR_RETURN_M, ROUTE_NEAR_RETURN_MIN_GAP_M)];
+}
+
+export type StopReport = { code: string; passes: { chainageKm: number; offsetM: number }[] };
+
+// Every stop within ROUTE_STOP_REPORT_M of a leg, with each pass
+export function stopDistances(line: Position[], stops: readonly { code: string; lat: number; lon: number }[]): StopReport[] {
+  return stops
+    .map((stop) => ({ code: stop.code, passes: linePasses(line, stop, ROUTE_STOP_REPORT_M).passes.map((p) => ({ chainageKm: p.chainageKm, offsetM: p.offsetM })) }))
+    .filter((s) => s.passes.length > 0);
+}
+
+export type LegSource = { file: RouteFile; geojson: unknown };
+
+export type ImportedLegs = {
+  directions: ImportedDirection[];
+  issues: ImportIssue[];
+  // For a cycle: the proposed turnaround (farthest point from the start), for Emjay to confirm
+  turnaround?: { point: Position; chainageKm: number; distanceM: number };
+  split?: { atKm: number; offsetM: number };
+};
+
+function prepareLeg(geojson: unknown, bounds: Bounds): { line: Position[]; raw: Position[]; issues: ImportIssue[] } {
+  const merged = mergePieces(extractPieces(geojson).pieces);
+  const issues = [...merged.issues];
+  if (merged.line.length > 0) issues.push(...checkOrder(merged.line), ...checkBounds(merged.line, bounds));
+  return { line: merged.line, raw: merged.line, issues };
+}
+
+const asDirection = (direction: 'outbound' | 'return', line: Position[], perDirection: boolean): ImportedDirection => {
+  const simplified = simplifyLine(line).line;
+  return { direction, coordinates: simplified, lengthKm: lineLengthKm(simplified), derived: false, partial: false, perDirection };
+};
+
+// Legs from per-direction files, or from one cycle file split at `splitAt` (RR3). A leg that is
+// missing is reversed from the other only when `reverseMissing` is set (R3, "vice versa"); never for
+// R4 or R5.
+export function importLegs(
+  sources: readonly LegSource[],
+  bounds: Bounds,
+  options: { splitAt?: Position; reverseMissing?: boolean } = {},
+): ImportedLegs {
+  const issues: ImportIssue[] = [];
+  const directions: ImportedDirection[] = [];
+  const result: ImportedLegs = { directions, issues };
+
+  const cycle = sources.find((s) => s.file.kind === 'cycle');
+  if (cycle) {
+    const leg = prepareLeg(cycle.geojson, bounds);
+    issues.push(...leg.issues);
+    result.turnaround = farthestFromStart(leg.line);
+    if (!options.splitAt) {
+      issues.push({ level: 'fail', message: 'cycle file needs a splitAt point (the turnaround); proposed point reported' });
+      return result;
+    }
+    const split = splitLine(leg.line, options.splitAt);
+    result.split = { atKm: split.atKm, offsetM: split.offsetM };
+    if (split.offsetM > ROUTE_TRIM_MAX_OFFSET_M) {
+      issues.push({ level: 'fail', message: `splitAt point is ${Math.round(split.offsetM)} m from the line (limit ${ROUTE_TRIM_MAX_OFFSET_M} m)` });
+      return result;
+    }
+    directions.push(asDirection('outbound', split.outbound, true), asDirection('return', split.ret, true));
+    return result;
+  }
+
+  for (const kind of ['outbound', 'return'] as const) {
+    const source = sources.find((s) => s.file.kind === kind);
+    if (!source) continue;
+    const leg = prepareLeg(source.geojson, bounds);
+    issues.push(...leg.issues);
+    directions.push(asDirection(kind, leg.line, true));
+  }
+  if (directions.length === 1 && options.reverseMissing) {
+    const only = directions[0];
+    directions.push({ ...only, direction: only.direction === 'outbound' ? 'return' : 'outbound', coordinates: [...only.coordinates].reverse(), derived: true, perDirection: false });
+  }
+  return result;
 }
 
 // A route is a draft until both of its legs came from Emjay's per-direction files (RR2, RR3).
