@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { Lock, Map as MapIcon, TriangleAlert } from 'lucide-react-native';
+import { Lock, Map as MapIcon, TriangleAlert, Type } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -30,6 +30,7 @@ export default function AboutScreen() {
       </View>
 
       <Line icon={<MapIcon color={colors.textSecondary} size={ICON_SIZE} />} text={strings.common.attribution} />
+      <Line icon={<Type color={colors.textSecondary} size={ICON_SIZE} />} text={strings.about.fontCredit} />
       {isPlaceholder ? (
         <Line icon={<TriangleAlert color={colors.warning} size={ICON_SIZE} />} text={strings.about.sampleData} />
       ) : null}

@@ -1,6 +1,7 @@
 // Label-free map style for the Protomaps basemap v4 schema, in a light or a dark palette.
 // It has no text layers, so it needs no glyphs or sprites, and it names no remote URL:
-// the only source is the local tile file. Pure data: no React Native or Expo imports.
+// the only source is the local tile file. The LB1a proof adds one test label read from local
+// glyph files (file://). Pure data: no React Native or Expo imports.
 
 import type { BaseMapPalette } from '../../theme/tokens';
 
@@ -8,9 +9,26 @@ export type MapPalette = BaseMapPalette;
 
 export type OfflineStyle = {
   version: 8;
-  sources: Record<string, { type: 'vector'; url: string }>;
+  // Local glyph template (file://), only when the style has text (LB1a)
+  glyphs?: string;
+  sources: Record<string, { type: 'vector'; url: string } | { type: 'geojson'; data: unknown }>;
   layers: Record<string, unknown>[];
 };
+
+// LB1a: one test label drawn from the local glyph files
+export type LabelProof = {
+  glyphsUrl: string;
+  font: string;
+  text: string;
+  lon: number;
+  lat: number;
+  textColor: string;
+  haloColor: string;
+};
+
+export const LABEL_PROOF_SOURCE_ID = 'label-proof';
+const LABEL_PROOF_SIZE = 16;
+const LABEL_PROOF_HALO = 1.5;
 
 export const OFFLINE_SOURCE_ID = 'basemap';
 
@@ -26,7 +44,33 @@ const ROAD_WIDTH = ['interpolate', ['linear'], ['zoom'], 8, 0.4, 12, 1, 16, 4];
 // The casing is the road width plus this much on each side
 const ROAD_CASING_WIDTH = ['interpolate', ['linear'], ['zoom'], 8, 0.8, 12, 2, 16, 6];
 
-export function buildOfflineStyle(tilesUrl: string, palette: MapPalette): OfflineStyle {
+export function buildOfflineStyle(tilesUrl: string, palette: MapPalette, proof?: LabelProof): OfflineStyle {
+  const style = buildBaseStyle(tilesUrl, palette);
+  if (!proof) return style;
+  return {
+    ...style,
+    glyphs: proof.glyphsUrl,
+    sources: {
+      ...style.sources,
+      [LABEL_PROOF_SOURCE_ID]: {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [proof.lon, proof.lat] } },
+      },
+    },
+    layers: [
+      ...style.layers,
+      {
+        id: LABEL_PROOF_SOURCE_ID,
+        type: 'symbol',
+        source: LABEL_PROOF_SOURCE_ID,
+        layout: { 'text-field': proof.text, 'text-font': [proof.font], 'text-size': LABEL_PROOF_SIZE },
+        paint: { 'text-color': proof.textColor, 'text-halo-color': proof.haloColor, 'text-halo-width': LABEL_PROOF_HALO },
+      },
+    ],
+  };
+}
+
+function buildBaseStyle(tilesUrl: string, palette: MapPalette): OfflineStyle {
   const source = OFFLINE_SOURCE_ID;
   const roadCasing = palette.roadCasing
     ? [

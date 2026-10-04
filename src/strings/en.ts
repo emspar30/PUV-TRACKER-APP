@@ -273,6 +273,8 @@ export const en = {
     title: 'About',
     version: (version: string) => `Version ${version}`,
     sampleData: 'Sample route data, not official',
+    // LB1a: the bundled label fonts (licence text in assets/glyphs/glyphs-v1/OFL.txt)
+    fontCredit: 'Map labels use Noto Sans, SIL Open Font License 1.1',
     staysOnPhone: 'Your profile choices stay on your phone',
   },
 

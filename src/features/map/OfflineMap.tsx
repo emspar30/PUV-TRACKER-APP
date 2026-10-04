@@ -8,9 +8,10 @@ import {
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Text, View, type NativeSyntheticEvent } from 'react-native';
 
+import { GLYPH_FONT_REGULAR, LABEL_PROOF } from '@/data/map/glyphset';
 import { buildOfflineStyle } from '@/data/map/offlineStyle';
 import { TILESET } from '@/data/map/tileset';
-import { MAP_OVERZOOM_LEVELS } from '@/shared/config';
+import { MAP_LABEL_PROOF_DEV, MAP_OVERZOOM_LEVELS } from '@/shared/config';
 import type { Bounds } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
 import { strings } from '@/strings';
@@ -29,6 +30,8 @@ export type MapFocus = MapFocusTarget & { key: number };
 type OfflineMapProps = {
   // Style source URL of the installed tile file (see prepareOfflineTiles)
   tilesUrl: string;
+  // Style glyph template of the installed label fonts (see prepareOfflineTiles); null when missing
+  glyphsUrl?: string | null;
   // Area shown when the map first opens
   initialBounds: Bounds;
   // Moves the camera when it changes
@@ -51,6 +54,7 @@ type OfflineMapProps = {
 
 export function OfflineMap({
   tilesUrl,
+  glyphsUrl,
   initialBounds,
   focus,
   onStatusChange,
@@ -63,11 +67,18 @@ export function OfflineMap({
   children,
 }: OfflineMapProps) {
   const styles = useStyles();
-  const { scheme, typography, mapRoute, baseMap } = useTheme();
+  const { scheme, colors, typography, mapRoute, baseMap } = useTheme();
   const camera = useRef<CameraRef>(null);
   // The style object must keep its identity between renders, or the map reloads it.
   // It changes only with the tile file or the theme.
-  const mapStyle = useMemo(() => buildOfflineStyle(tilesUrl, baseMap) as unknown as StyleSpecification, [tilesUrl, baseMap]);
+  const mapStyle = useMemo(() => {
+    // LB1a: the dev-only test label proves the local glyph files draw
+    const proof =
+      __DEV__ && MAP_LABEL_PROOF_DEV && glyphsUrl
+        ? { glyphsUrl, font: GLYPH_FONT_REGULAR, ...LABEL_PROOF, textColor: colors.textPrimary, haloColor: baseMap.land }
+        : undefined;
+    return buildOfflineStyle(tilesUrl, baseMap, proof) as unknown as StyleSpecification;
+  }, [tilesUrl, baseMap, glyphsUrl, colors.textPrimary]);
 
   useEffect(() => {
     if (!focus) return;

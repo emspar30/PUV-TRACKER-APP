@@ -237,6 +237,7 @@ export default function MyRideScreen() {
       {tiles.status === 'ready' ? (
         <OfflineMap
           tilesUrl={tiles.tiles.url}
+          glyphsUrl={tiles.tiles.glyphsUrl}
           initialBounds={initialBounds}
           focus={focus}
           bottomInset={sheetHeight}

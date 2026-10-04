@@ -1,7 +1,7 @@
 # Map labels plan (LB1)
 
 - **Date:** 2026-10-04.
-- **Status:** plan only. No code, no download.
+- **Status:** LB1a done (glyph proof, 2026-10-05, §7a). LB1b to LB1f not started.
 - **Replaces** the earlier decision "no text labels in v0" (plan v2 Q7; S2).
 - **Constraints (Emjay):**
   - offline;
@@ -113,6 +113,27 @@ Names for places and major roads are already complete at z14. Text at z15 and ab
 | **LB1d** Own names layer | Emjay's puroks and buildings | Import script validates; layer draws above OSM labels from its `minZoom` | Unit tests for the import; manual | No | Medium |
 | **LB1e** Switch and fade | "Map labels" setting; fade on route select | Off removes the layers; selection dims to 0.5 | Unit: visibility rule; manual | No | Small |
 | **LB1f** Performance | Before and after numbers | Within the §6 budgets on the emulator; partner's phone queued | Manual, recorded in `device-tests.md` | No | Small |
+
+## 7a. LB1a record (2026-10-05)
+
+**Approved by Emjay** ("download approved"): only these 6 files, Noto Sans under the SIL OFL 1.1.
+
+| File (in `assets/glyphs/glyphs-v1/`) | Source URL | HTTP | Bytes | SHA-256 |
+| --- | --- | --- | --- | --- |
+| `Noto Sans Regular/0-255.pbf` | `https://protomaps.github.io/basemaps-assets/fonts/Noto%20Sans%20Regular/0-255.pbf` | 200 | 76,044 | `62c6d49b15fa836eb6aa45e259c7ca6762f44b011b09e47776efbe4a6db1b397` |
+| `Noto Sans Regular/256-511.pbf` | `…/Noto%20Sans%20Regular/256-511.pbf` | 200 | 127,726 | `2eca7561f9f566bcacfda5dd04fb5880baec1328ec0f5484678289a13994de8a` |
+| `Noto Sans Regular/8192-8447.pbf` | `…/Noto%20Sans%20Regular/8192-8447.pbf` | 200 | 64,220 | `8ea977a587352fe31b4159ffdbc9a40be79056f2472017c742ea1e4a931864b9` |
+| `Noto Sans Medium/0-255.pbf` | `…/Noto%20Sans%20Medium/0-255.pbf` | 200 | 77,628 | `ba2f0118dd024e3041b158e5f9eb49bc0a658019f53f458e9f5c0b8efcd79b91` |
+| `Noto Sans Medium/256-511.pbf` | `…/Noto%20Sans%20Medium/256-511.pbf` | 200 | 129,635 | `d5e801a1a5b1d409d3298c3a1e1ca76328e2314a751078833a618620e8e66e4d` |
+| `Noto Sans Medium/8192-8447.pbf` | `…/Noto%20Sans%20Medium/8192-8447.pbf` | 200 | 65,101 | `cc38e4956207f0edba1aaf749b61e8f6f1678ef1ad443d32ee285b21d0eb67aa` |
+| `OFL.txt` (licence) | `https://raw.githubusercontent.com/protomaps/basemaps-assets/main/fonts/OFL.txt` (the `fonts/` directory of the repository, found through the GitHub contents API) | 200 | 4,374 | `7713cfc8e3c36d5ec4aa3d6cffe7500a1b3310f8a86d914b8ea09c2a9dee7c2d` |
+
+- **Total:** 540,354 bytes of glyphs (0.54 MB), slightly above the §6 budget of 0.5 MB. Dropping `256-511` (Latin Extended-A) would save 257 KB if needed.
+- **Decode check** (scratch Node script, no library): every file is a glyph protobuf with one font stack, the expected range, and 193 to 256 glyphs. **One mismatch, accepted by Emjay:** the font name stored inside is `Sans Regular` and `Sans Medium`, not `Noto Sans Regular` and `Noto Sans Medium`. MapLibre picks the file by the folder name in the URL, and the device test below drew text, so the inner name does not matter.
+- **Licence:** the full text is in `assets/glyphs/glyphs-v1/OFL.txt` (Copyright 2022 The Noto Project Authors). About shows "Map labels use Noto Sans, SIL Open Font License 1.1". The `.txt` file is kept in the repository beside the fonts; it is **not** inside the app package (Metro does not bundle `.txt`).
+- **Install:** at start-up, after the tile file, the six files are copied from the bundle to `<files>/glyphs/glyphs-v1/<font>/<range>.pbf` through a `.part` name with a size check per file; older `glyphs-v*` folders are removed. A failure leaves the map without text and never blocks it. Code: `src/shared/map/glyphInstall.ts` (tested), `src/features/map/glyphs.ts`, facts in `src/data/map/glyphset.ts`.
+- **Style:** `glyphs: "file:///data/user/0/com.tunton.app/files/glyphs/glyphs-v1/{fontstack}/{range}.pbf"`. Folder names **with spaces work**; no rename was needed.
+- **Result:** pass. See `device-tests.md` (LB1a-M1). First-launch copy 1,991 ms in a development build (each file fetched from Metro; a release build reads them from the APK, unverified); later launches 26 ms. The test label stays in the code, development builds only, behind `MAP_LABEL_PROOF_DEV` (now `false`).
 
 ## 8. Questions
 

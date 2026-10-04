@@ -8,7 +8,9 @@ import {
   pmtilesUrl,
   type MapPalette,
 } from '../../data/map/offlineStyle';
+import { GLYPHSET, GLYPH_FONT_REGULAR, LABEL_PROOF } from '../../data/map/glyphset';
 import { TILESET } from '../../data/map/tileset';
+import { glyphsUrl } from '../map/glyphInstall';
 import { BASE_MAPS } from '../../theme/tokens';
 import { R4_LINES, R4_STATIONS } from './fixtures/r4Placeholder';
 import { MAP_OVERZOOM_LEVELS } from '../config';
@@ -66,6 +68,52 @@ describe.each([
     const colours = json.match(/#[0-9a-fA-F]{6}/g) ?? [];
     expect(colours.length).toBeGreaterThan(0);
     for (const colour of colours) expect(Object.values(palette)).toContain(colour);
+  });
+});
+
+describe('offline map style with the LB1a test label', () => {
+  const GLYPHS_ROOT = 'file:///data/user/0/com.tunton.app/files/glyphs/';
+  const style = buildOfflineStyle(pmtilesUrl(FILE_URI), BASE_MAPS.light, {
+    glyphsUrl: glyphsUrl(GLYPHS_ROOT, GLYPHSET),
+    font: GLYPH_FONT_REGULAR,
+    ...LABEL_PROOF,
+    textColor: '#111111',
+    haloColor: BASE_MAPS.light.land,
+  });
+  const json = JSON.stringify(style);
+
+  it('has no network URLs', () => {
+    expect(json).not.toMatch(/https?:\/\//);
+  });
+
+  it('reads glyphs from a local file:// template inside the versioned folder', () => {
+    expect(style.glyphs).toBe(`${GLYPHS_ROOT}glyphs-v1/{fontstack}/{range}.pbf`);
+    expect(style.glyphs?.startsWith('file:///')).toBe(true);
+  });
+
+  it('has exactly one text layer, in a bundled font, above the base map', () => {
+    const symbols = style.layers.filter((layer) => layer.type === 'symbol');
+    expect(symbols).toHaveLength(1);
+    expect(style.layers[style.layers.length - 1]).toBe(symbols[0]);
+    const fonts = (symbols[0].layout as Record<string, unknown>)['text-font'];
+    expect(fonts).toEqual([GLYPH_FONT_REGULAR]);
+    expect(GLYPHSET.files.map((file) => file.font)).toContain(GLYPH_FONT_REGULAR);
+  });
+
+  it('the label sits inside the tile set', () => {
+    expect(boundsContain(TILESET.bounds, [LABEL_PROOF.lon, LABEL_PROOF.lat, LABEL_PROOF.lon, LABEL_PROOF.lat])).toBe(true);
+  });
+});
+
+describe('glyph set facts', () => {
+  const GLYPH_DIR = path.join(__dirname, '..', '..', '..', 'assets', 'glyphs', `glyphs-v${GLYPHSET.version}`);
+
+  it.each(GLYPHSET.files.map((file) => [`${file.font} ${file.range}`, file] as const))('%s matches the bundled file', (_name, file) => {
+    expect(fs.statSync(path.join(GLYPH_DIR, file.font, `${file.range}.pbf`)).size).toBe(file.bytes);
+  });
+
+  it('ships the font licence beside the files', () => {
+    expect(fs.readFileSync(path.join(GLYPH_DIR, 'OFL.txt'), 'utf8')).toContain('SIL OPEN FONT LICENSE Version 1.1');
   });
 });
 

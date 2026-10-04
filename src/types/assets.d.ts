@@ -3,3 +3,8 @@ declare module '*.pmtiles' {
   const asset: number;
   export default asset;
 }
+
+declare module '*.pbf' {
+  const asset: number;
+  export default asset;
+}

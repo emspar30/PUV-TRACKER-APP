@@ -86,6 +86,9 @@ export const DB_LOCK_RETRY_DELAY_MS = 500;
 // --- Offline map (PRD 7.2)
 // How far the map may zoom in past the tile set's last zoom level by stretching its tiles
 export const MAP_OVERZOOM_LEVELS = 4;
+// LB1a glyph proof: in development builds only, print one test label ("Butuan") at the city centre.
+// Off except while checking the offline fonts (passed 2026-10-05); real labels come with LB1b.
+export const MAP_LABEL_PROOF_DEV = false;
 
 // --- Route lines on the map (UX3; PRD 7.2: other routes fade to 8% opacity)
 // Lines are drawn only for a selected route; routes that are not selected are drawn this faint

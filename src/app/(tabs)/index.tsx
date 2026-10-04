@@ -220,6 +220,7 @@ export default function LiveScreen() {
     <View style={styles.root}>
       <OfflineMap
         tilesUrl={state.tiles.url}
+        glyphsUrl={state.tiles.glyphsUrl}
         initialBounds={initialBounds}
         focus={focus}
         bottomInset={sheetHeight}

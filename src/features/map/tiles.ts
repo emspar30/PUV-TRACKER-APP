@@ -13,12 +13,16 @@ import {
 
 import bundledTiles from '../../../assets/map/butuan_v2.pmtiles';
 
+import { prepareOfflineGlyphs } from './glyphs';
+
 const TILE_FOLDER = 'map';
 
 export type OfflineTiles = {
   // Style source URL for the installed tile file
   url: string;
   install: TileInstallResult;
+  // Style glyph template for the installed label fonts, or null if they could not be installed (LB1a)
+  glyphsUrl: string | null;
 };
 
 function tileFolder(): Directory {
@@ -58,5 +62,15 @@ export async function prepareOfflineTiles(): Promise<OfflineTiles> {
     const files = folder.list().map((entry) => entry.name).join(', ');
     console.log(`[tiles] ${install} ${tileFileName(TILESET)} in ${Date.now() - startedMs} ms; files: ${files}`);
   }
-  return { url: pmtilesUrl(new File(folder, tileFileName(TILESET)).uri), install };
+  return { url: pmtilesUrl(new File(folder, tileFileName(TILESET)).uri), install, glyphsUrl: await glyphsOrNull() };
+}
+
+// The map works without text, so a glyph problem is logged and never blocks the map
+async function glyphsOrNull(): Promise<string | null> {
+  try {
+    return (await prepareOfflineGlyphs()).url;
+  } catch (error) {
+    if (__DEV__) console.warn('[glyphs] not installed:', error instanceof Error ? error.message : error);
+    return null;
+  }
 }
