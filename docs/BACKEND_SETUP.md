@@ -2,6 +2,8 @@
 
 What exists in the repository, what you do in the Supabase dashboard, and the commands for S4 part 2. **Nothing here has been run against the live project yet.**
 
+> **Planned change in SB1** (`app_config` added, `telemetry_writers` renamed to `team_accounts`). This file describes the migration as it is today; it will be updated in SB1.
+
 ## 1. What is in the repository
 
 | File | What it is |
@@ -20,7 +22,7 @@ What exists in the repository, what you do in the Supabase dashboard, and the co
 | `profiles` | nothing | read and create own row | all |
 | `vehicles` | nothing | read rows where `active` is true | all |
 | `telemetry_latest` | nothing | read rows of active vehicles; **no write** | all (the only writer) |
-| `telemetry_writers` (team allowlist) | nothing | nothing | all |
+| `telemetry_writers` (team allowlist; planned change in SB1: renamed to `team_accounts`) | nothing | nothing | all |
 | `telemetry_ingest_log` (audit trail, 30 days) | nothing | nothing | all |
 
 No table stores a rider's fare category, avatar, name, email or phone. `telemetry_latest` has no user column, so nothing about a rider can reach the map. The audit log links a team account to a vehicle and a time, not to a position.
@@ -28,7 +30,7 @@ No table stores a rider's fare category, avatar, name, email or phone. `telemetr
 Two things differ from a literal reading of the S4 request, both from earlier decisions:
 
 - `telemetry_ingest_log` is included because you approved a writer audit trail (team accounts only, kept 30 days).
-- There is no `app_config` table. The server constants live in `supabase/functions/_shared/serverConfig.ts`, which the app's config module re-exports, so each value has one definition.
+- There is no `app_config` table yet (planned change in SB1: `app_config` added). The server constants live in `supabase/functions/_shared/serverConfig.ts`, which the app's config module re-exports, so each value has one definition.
 
 ## 3. What you do in the dashboard before "Supabase is ready"
 

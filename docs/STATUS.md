@@ -1,7 +1,8 @@
 # Project status
 
 - **Date:** 2026-10-04.
-- **Code:** `main` at `19ee327`, 30 commits ahead of `origin/main`, 0 behind, working tree clean. No code has changed since `c148972`; the last two commits are docs only.
+- **Code:** `main`, ahead of `origin/main`, 0 behind. No code has changed since `c148972`; every later commit is docs only.
+- **Docs:** history files are in `docs/history/` (`f857cef`). Closed backlog items are in `docs/history/AUDIT_BACKLOG_CLOSED.md`. The index is `docs/README.md`.
 - **Tests:** 32 suites; 483 passed; 8 skipped. The skipped ones are the live Supabase tests, which have no `.env`.
 - **Quality gates, run today:**
 
@@ -87,13 +88,13 @@ The phase 6 row covers four steps.
 
 ## 4. Documents and code that disagree
 
-1. **`AGENTS.md`** names `IMPLEMENTATION_PLAN_v2.md` as the approved plan; the master plan replaced it.
-2. **`device-tests.md`** is missing your 2026-10-04 emulator test of the merge. It also still lists S0 as "pending on a phone", although the partner's S0-M1 passed (on his code).
-3. **`AUDIT_BACKLOG.md`** top note and the flow plan status say "F1 to F5 are being built". Only F1 exists.
-4. **`BACKEND_SETUP.md`** says "there is no `app_config`" and uses `telemetry_writers`. Both were decided otherwise for SB1.
+1. **`AGENTS.md`** still names `IMPLEMENTATION_PLAN_v2.md` (now in `docs/history/`). The one-line fix waits for your review; it is not committed.
+2. **`device-tests.md`**: your merge test and the R1a build now have rows marked "not yet recorded, to be supplied by the user". The S0 phone row now says it passed for the partner's own code only. *(Fixed in wording; results still owed.)*
+3. *(Fixed)* The "F1 to F5 are being built" notes now say only F1 exists.
+4. *(Fixed)* `BACKEND_SETUP.md` marks `app_config` and the `telemetry_writers` rename as planned changes in SB1.
 5. **PRD 7.1 and 15.1** require consent before location; the code asks without it (accepted until G0).
 6. **On Live,** "Long-press the map to set your starting point" describes a pin that My Ride does not use yet.
-7. **GPS plan G0** names `locationSource.ts` and a "Fare" tab. The code has `services/location.ts` and no Fare tab.
+7. **GPS plan G0** (now `docs/history/IMPLEMENTATION_PLAN_GPS.md`) names `locationSource.ts` and a "Fare" tab. The code has `services/location.ts` and no Fare tab.
 8. **PRD 12.2** lists `avatar_id` in `profiles`. The code follows D3: the avatar is never in the cloud.
 
 ## 5. Next 5 steps
@@ -115,3 +116,5 @@ The phase 6 row covers four steps.
 | Decisions | Master plan §10, questions 6 to 11: shorten the Live text now or in G0; validate the candidate trace; a UI test library; one R1b batch; consent review; faded-route opacity |
 | Data | Real Route 4 polylines; stations and terminals; landmarks; official fare; vehicle list; Supabase values and two test accounts; Cebuano strings; username blocklists; DPO review of the consent text |
 | Push | `main` (only you push) |
+| Review | The one-line `AGENTS.md` change (plan path), not yet committed |
+| Results | Your merge test and the R1a build results, for `device-tests.md` |

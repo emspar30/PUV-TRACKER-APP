@@ -33,6 +33,8 @@ Rules:
 | 2026-10-03 | UX2 parts 4 and 5: Check-in, introduction, About | — | — | — | **Not run** | Emjay's Metro server was not running when these parts were finished, and the agent does not start one. Covered by unit tests only (check-in lifecycle, verifyCheckIn, tabs, fare type). To check by hand: audit backlog items 49 to 51. |
 | 2026-10-03 | UX2 fix: avatar button reachable at every snap point | `Pixel_7` emulator (x86_64) | 34 | Same APK, Emjay's Metro server | **Pass** | Run by the agent. Live sheet dragged to expanded: the sheet now stops just below the avatar button (it reserves the status bar, 8 dp, the 48 dp button and 8 dp), and tapping the avatar opened Settings. Unit tests check the same clearance on 560 to 1280 dp screens. |
 | 2026-10-03 | F1: onboarding v2, greeting and avatars (`F1-M1` to `M4`) | `Pixel_7` emulator (x86_64) | 34 | Same APK (no rebuild), Emjay's Metro server | **Pass**, one first-launch observation | Run by the agent after `pm clear`. Four steps shown ("Step 1 of 4" to 4). Female picked avatar 9 (ponytail, Female set); then Male kept it (no re-roll). Live: "Evening! Where are we off to?" at 19:25 Manila, with the chosen destination chips. Chip TSO opened My Ride with To = TSO and From active; From = IMA then gave "Board near IMA" and ₱15.00. Settings: all 12 avatars drawn; Shuffle moved to avatar 2 (Male set). After a force-stop: same avatar, same chips, greeting shown again; X hid it. **Observed:** on the very first launch after `pm clear` the route was framed too high (top edge of the screen); every later launch framed it correctly. Some of the agent's chained taps landed on stale coordinates and changed the theme and avatar in Settings; they were set back by hand. |
+| 2026-10-04 | Merge tests on `integrate-partner` ("Locate me", explainer, blue dot, follow, location off, manual pin, My Ride, sheet, theme, avatar picker) | `Pixel_7` emulator | 34 | Old APK from 2026-10-02 (before R1a) | **Not yet recorded, to be supplied by the user** | Emjay ran these himself and approved the merge on 2026-10-04. No result details have been supplied yet; nothing here is invented. |
+| — | R1a build and smoke test (`ST1`) | `Pixel_7` emulator; partner's Poco X6 Pro | 34; 36 | R1a (`expo-system-ui`, `expo-splash-screen`, new icons) | **Not yet recorded, to be supplied by the user** | Builds run by Emjay (emulator) and the partner (EAS). |
 | | S2-M3 ten minute soak (without GPS) | | | | not run yet | Needs ten minutes of panning and zooming by hand. No crash was reported during Emjay's shorter manual check. |
 | | S2-M2 blue dot, S2-M4 permission denied | | | | deferred (GPS-free order) | Plan Revision 1. |
 
@@ -50,7 +52,8 @@ Rules:
 
 | PRD step | Check | Status |
 | --- | --- | --- |
-| S0 | App installs and opens on a physical Android 8.0+ phone | pending on a phone |
+| S0 | App installs and opens on a physical Android 8.0+ phone | Passed for the **partner's own code** on his Poco X6 Pro (partner section). Pending for the merged app (ST1). |
+| S2 blue dot | The dot follows a real walk | Covered only for the **blue dot of the partner's own code** (partner section). Pending for the merged app (ST1-P1). |
 
 ## S0
 
@@ -223,6 +226,8 @@ Avatars are numbered 1 to 12 as TalkBack reads them ("Avatar 1"): 1 to 6 are the
 ## Partner's phone results (merged from b21b0c1)
 
 Copied from the partner's commit `b21b0c1` (John Paul Palaran) at the merge on 2026-10-04, unchanged. They were run on **his** code: his Map, Plan and Profile tabs, the straight placeholder lines (route data version 1 at first, then his road-following trace, which the merge keeps only as a candidate). The script names (S0-M1, S2-M0 to S2-M2, S3-M1 to S3-M4) refer to his versions of the scripts. They show that the native build, the offline map, the foreground blue dot and the fares work on a real phone; they do **not** test the merged app, which needs a new development build (see `docs/MERGE_RESULT.md`).
+
+**What carries over to the merged app:** only the blue dot of his own code (a foreground location watch that follows a walk). The merge kept that code almost unchanged. His map, fare and benchmark results ran his own screens and planner, which the merge replaced with ours.
 
 | Date | Script | Device or emulator | Android API | Build | Result | Notes |
 | --- | --- | --- | --- | --- | --- | --- |

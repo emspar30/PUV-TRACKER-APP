@@ -1,7 +1,7 @@
 # Implementation plan: user flow v2
 
 - **Date:** 2026-10-03.
-- **Status:** approved by Emjay on 2026-10-03 with the answers in "Decisions after flow analysis". F1 to F5 are being built; F6 to F9 stay on hold.
+- **Status:** approved by Emjay on 2026-10-03 with the answers in "Decisions after flow analysis". Only F1 exists (approved 2026-10-04); F2 to F9 have not started. This plan is history: remaining work is in `docs/IMPLEMENTATION_PLAN_MASTER.md`.
 - **Builds on:** PRD section 19 (decisions D1 to D14) and `docs/FLOW_GAP_ANALYSIS.md`.
 - **Same rules as every plan:**
   - Pure logic in `src/shared` with Node tests on fixed fixtures.

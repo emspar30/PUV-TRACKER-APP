@@ -1,14 +1,16 @@
 # Audit backlog
 
+> Closed and superseded items (numbers unchanged) are in `docs/history/AUDIT_BACKLOG_CLOSED.md`.
+
 Everything Emjay has not verified personally, kept current at every step. Each item says what to check, exactly how, and what to expect. An item leaves this list only when Emjay confirms it; the agent's own runs are recorded in `docs/device-tests.md` and do not close an item.
 
-Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge tests and the R1a build, then G0 on "start G0".
+Last updated: 2026-10-04, after the docs tidy-up (history files moved to `docs/history/`, closed items moved out). Next: Emjay's merge tests and the R1a build, then G0 on "start G0".
 
 > **Do not use the app outdoors or share it before G0 adds the consent screen.** Since the merge, "Locate me" asks for location permission without the consent screen that PRD 7.1 and 15.1 require (Audit 3 §3).
 
-**Note on the UX2 commits.** The first four (`2eda9d0`, `d76f93d`, `3647293`, `9c8eb06`) were grouped by topic from one working tree, so they are not individually verified: an intermediate one may not type-check or pass the tests on its own. This matters only if someone checks out one of them. Every commit from `ebfc0a5` onwards was checked when it was made. **Check-in (49), introduction (50) and About (51) stay open:** user flow v2 rewrites them, so Emjay will test the new versions instead.
+**Note on the UX2 commits.** The first four (`2eda9d0`, `d76f93d`, `3647293`, `9c8eb06`) were grouped by topic from one working tree, so they are not individually verified: an intermediate one may not type-check or pass the tests on its own. This matters only if someone checks out one of them. Every commit from `ebfc0a5` onwards was checked when it was made. **Check-in (49) and About (51) stay open.** The introduction (50) was replaced by F1's four-step version (52, confirmed).
 
-**User flow v2:** plan approved with your answers (PRD 19.2 and 19.4, "Decisions after flow analysis" in `docs/IMPLEMENTATION_PLAN_FLOW.md`). F1 to F5 are being built. **Check two things in the plan:** the greeting placement (a card above the Live sheet) and the scope moved from F3 to F1 (landmark chips and the destinations store).
+**User flow v2:** approved with your answers (PRD 19.2 and 19.4; decisions now in `docs/IMPLEMENTATION_PLAN_MASTER.md` §9). **Only F1 exists** (approved 2026-10-04). F2 to F5 have not started; they come after G0.
 
 **UX2 is done.** The tabs are Live, Check-in and My Ride; Profile is the Settings sheet behind the avatar button. Older items that described UX1 screens now map to UX2 like this:
 
@@ -39,19 +41,15 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
 | --- | --- | --- | --- | --- |
 | 1 | S2 | 10-minute pan and zoom soak, Map and Plan tabs | Emulator, 10 minutes | Open |
 | 2 | S2 | Zoom to level 18 and how the stretched map looks | Emulator | Open |
-| 3 | S3 | Senior Citizen and PWD discounts | Emulator | Open |
 | 4 | S3 | "No trip found" message | Emulator | Open |
-| 5 | S3 | Outbound and Return switches, amber stop highlight | Emulator | Confirmed by Emjay on 2026-10-03; listed for the final audit |
 | 6 | S3 | 250 ms benchmark on a real 3 GB phone | A physical phone | Open, blocked on hardware |
 | 7 | S3 | Flat-map snapping: what it does and its accuracy | Command | Open |
 | 8 | S3 | Plan tab end to end (not yet tested by Emjay) | Emulator | Open |
 | 9 | S3 | Trip planning in airplane mode | Emulator | Open |
-| 10 | S3 | Classification survives a restart and stays on the device | Emulator, command | Open |
 | 11 | S2 | Pan limits and the blank strip at the edges | Emulator | Pan confirmed by Emjay; edge appearance open |
 | 12 | S2 | Odd straight-edged dark shapes when zoomed out | Emulator | Open, cause unconfirmed |
 | 13 | S2 | Tile copy on a fresh install | Emulator, command | Open |
 | 14 | S0 | Start-up patch: no red screen over many launches | Emulator | Open |
-| 15 | S0 | App on a physical Android phone | A physical phone | Open, blocked on hardware |
 | 16 | S0 | Partner's build on his own PC | Partner | Open |
 | 17 | S4 | Database security rules on the live project | Live project | Open, waits for S4 part 2 |
 | 18 | S4 | Ingest function running on Supabase | Live project | Open, waits for S4 part 2 |
@@ -62,20 +60,13 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
 | 23 | UX1 | Plan: camera fits both points, map can be made taller | Emulator | Open |
 | 24 | UX1 | Plan: dashed guides, amber ride, green and red markers | Emulator | Open |
 | 25 | UX1 | Plan: failure messages with numbers and the two fix buttons | Emulator | Open |
-| 26 | UX1 | Plan: fare breakdown arithmetic | Emulator, command | Open |
 | 27 | UX1 | Map: tappable stops, stop card, whole-route button, legend, "Offline ready" | Emulator | Open |
-| 28 | UX1 | Introduction on first launch, skip, and replay from Profile | Emulator | Open |
-| 29 | UX1 | Avatars: 12 presets, stored on the phone only | Emulator, command | Open |
-| 30 | UX1 | About screen | Emulator | Open |
 | 31 | UX1 | Text contrast and the new error colour | Command, emulator | Open |
 | 32 | UX1 | Larger system font size | Emulator | Open |
 | 33 | UX1 | Development-only controls hidden in a release build | Release build | Open, needs a release build |
 | 34 | UX1 | Loading screen, and the first-launch "database is locked" fix | Emulator, command | Open |
-| 35 | UX1 | Launcher icon and splash screen are still the Expo defaults | Decision, native rebuild | Open, waits for Emjay |
 | 36 | UX1 | All on-screen text comes from one strings file | Command | Open |
-| 37 | Audit 2 | Read `docs/AUDIT_2.md` and check its claims you care about | Reading, commands | Open |
 | 38 | Audit 2 | DESIGN.md: the choices between its front matter and its prose | Reading | Open |
-| 39 | Audit 2 | Decisions recorded as you gave them | Reading | Open |
 | 40 | Audit 2 | `braces` advisory recorded as deferred | Command | Open |
 | 41 | UX2 | Native crash on one launch (`SIGSEGV` in `MountingCoordinator::pullTransaction`), observed by the agent on the emulator, cause unknown | Emulator, over many launches (ST1) | Open, cause unknown |
 | 42 | UX2 | Swipe the Live sheet to peek, half and expanded by hand | Emulator (mouse) | Open |
@@ -86,15 +77,10 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
 | 47 | UX2 | Three tabs and the Settings sheet; the interim Check-in and My Ride tabs | Emulator | Open |
 | 48 | UX2 | My Ride: fare as the big number, quick fare-type chip agrees with Settings | Emulator, command | Open (agent: seen on the emulator) |
 | 49 | UX2 | Check-in tab: 15-minute countdown, I boarded, Cancel, survives a restart | Emulator | Open, **not yet seen on the emulator** |
-| 50 | UX2 | One-screen introduction: fare type, avatar, Start, Skip, Replay from Settings | Emulator | Open, **not yet seen on the emulator** |
 | 51 | UX2 | Short About screen | Emulator | Open, **not yet seen on the emulator** |
-| 52 | F1 | Four-step introduction: Tunton, gender, commuter type, destinations (replaces 50) | Emulator | Confirmed by Emjay on 2026-10-04; listed for the final audit |
-| 53 | F1 | Greeting card on Live, its placement, and the chips opening My Ride | Emulator, decision | Confirmed by Emjay on 2026-10-04: keep it above the sheet |
 | 54 | F1 | The 12 new avatars, the two sets, Shuffle, kept after a restart | Emulator, decision | Drawings confirmed by Emjay on 2026-10-04; **picker now shows only the own set: not yet seen on the emulator** |
-| 55 | F1 | Greeting lines: choose the final set from the 8 drafts | Decision | Decided 2026-10-04: keep all 8 for now |
 | 56 | F1 | Gender, commuter type, avatar and destinations never reach backend code | Command | Open |
 | 57 | F1 | First launch after `pm clear`: the route was framed too high, once | Emulator | Open, cause unknown |
-| 58 | Merge | Read `docs/MERGE_RESULT.md` and the `integrate-partner` diff; approve moving `main` | Reading, command | Confirmed by Emjay on 2026-10-04 (emulator test); `main` fast-forwarded |
 | 59 | Merge | "Locate me", explainer, blue dot, follow, location off, outside the map (MERGE_RESULT section 6, tests 3 to 6) | Emulator after R1a | Seen by Emjay on the old build on 2026-10-04; repeat after R1a |
 | 60 | Merge | R1a: new launcher icon, light system bars, no crash on start | Emulator and phone after R1a | Open |
 | 61 | Merge | The merged app on the partner's phone, including the bottom sheet and the walk test | Partner's phone after his rebuild | Open |
@@ -118,24 +104,12 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
 - **Expected:** zoom stops at 18.00. Roads and buildings stay sharp (they are shapes, not pictures) but show no extra detail; lines look thick and simple. The route line and stop dots grow with zoom and stay crisp.
 - **Decide:** whether 18 is useful, or whether it should come down. It is one constant, `MAP_OVERZOOM_LEVELS`.
 
-### 3. Senior Citizen and PWD discounts
-
-- **Why:** on the emulator the agent tapped only Regular and Student. The other two use the same multiplier and are covered by unit tests, but were not seen on screen.
-- **How:** Plan tab: tap stop IMA, then tap the map near the east end of the line. Note the fare. Profile tab: choose Senior Citizen; return to Plan. Repeat with Person with Disability, then Regular.
-- **Expected:** for an 8.9 km ride, Regular shows ₱25.00; Senior Citizen and PWD each show ₱20.00. Tap "Show how this was worked out": the discount line names the class ("Senior Citizen discount (20% off)") and the regular fare line reads ₱25.00. In general the discounted fare is 80% of regular, rounded to the nearest ₱0.25.
-
 ### 4. "No trip found" message
 
 - **Why:** the placeholder return line is the outbound line reversed, so swapping two points always finds a trip. The message cannot be triggered that way and was not seen on the device. Unit tests cover all three reasons.
 - **How:** Plan tab: tap the map more than 500 m away from the cyan line for the origin (for example well south of the line), then tap a point on the line for the destination. Then try the other way round.
 - **Expected:** a card titled "No trip found". Since UX1 the message gives the measured distance, for example "The origin is 4.2 km from the route. The walking limit is 500 m.", and two buttons (item 25). No crash, and no fare shown.
 - **Not reachable with placeholder data:** "the destination is not ahead of the origin". It will become reachable when the real outbound and return paths differ.
-
-### 5. Outbound and Return switches, amber stop highlight
-
-- **Status:** Emjay confirmed all four checkpoint checks on 2026-10-03. Kept here so the final audit covers it.
-- **How:** Map tab: tap Outbound to hide it, then Return. Tap a stop in the list under the map.
-- **Expected:** with Outbound off, a lighter band with white dashes and white arrows remains. With Return off, a solid cyan line with cyan arrows remains. The tapped stop's dot turns amber and larger; tapping it again clears it.
 
 ### 6. The 250 ms benchmark on a real 3 GB phone
 
@@ -174,11 +148,6 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
   Plan a trip as in item 8. Turn airplane mode off afterwards.
 - **Expected:** both maps draw and the itinerary and fare appear exactly as when online.
 
-### 10. Classification stays on the device and survives a restart
-
-- **How:** choose Student in Profile, force-stop the app, reopen it, open Profile. Then run `npx jest src/shared/__tests__/privacy.test.ts`.
-- **Expected:** Student is still selected. The three privacy tests pass: no code under `src/services` or `supabase/` mentions the classification, and the store that holds it imports no network code.
-
 ### 11. Pan limits and the edge of the map
 
 - **Status:** Emjay confirmed panning works and called the behaviour acceptable.
@@ -203,12 +172,6 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
 - **How:** over normal use, note any launch that shows a red screen mentioning `FabricUIManager` or `RNSModule`.
 - **Expected:** none. If one appears, check that `npm ci` printed `react-native-screens@4.26.2 ✔` and that the installed APK was built after the patch (2026-10-02, 11:48 PM or later).
 - **Reminder:** the patch is a temporary workaround, to be re-checked on any Expo or `react-native-screens` update.
-
-### 15. App on a physical Android phone
-
-- **Why:** PRD 0.2 verifies S0, S2 and S5 on a physical Android 8.0+ phone. Everything so far ran on the emulator.
-- **How, when a phone is available:** enable USB debugging, `adb install -r android\app\build\outputs\apk\debug\app-debug.apk`, start the dev server, open the app.
-- **Expected:** the same behaviour as on the emulator. Note launch time and any difference.
 
 ### 16. Partner's build on his own PC
 
@@ -265,32 +228,11 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
 - **Expected:** "No trip found", then the measured distance and the limit, for example "The destination is 2.6 km from the route. The walking limit is 500 m.". Two buttons: "Move destination to the route" moves the pin to the nearest point on the line; "Use stop IMA as destination" replaces it with the nearest stop. Either one produces a trip. If both points are too far, the message names both.
 - **Not reachable with placeholder data:** "wrong direction" (see item 4). It is covered by unit tests.
 
-### 26. Plan: fare breakdown
-
-- **How:** with a trip showing, scroll to the Fare card and tap "Show how this was worked out".
-- **Expected:** rows for the base fare and its distance, the extra kilometres and their cost, the regular fare, the discount (only for a discounted class), the rounding, and the total. The "Estimate only" label and the amber placeholder note stay. Seen by the agent for a 5.4 km Student trip: ₱15.00 + ₱4.00 = ₱19.00, less ₱3.80, rounding + ₱0.05, total ₱15.25.
-- **Tests:** `npx jest src/shared/__tests__/planGuidance.test.ts src/shared/__tests__/fare.test.ts`: 6.3 km regular is ₱21.00; Student is ₱16.80 before rounding and ₱16.75 after.
-
 ### 27. Map: stops, whole-route button, legend, "Offline ready"
 
 - **How:** Map tab. Tap a white dot on the map; tap a stop in the list under the map; tap the X on the card. Pan away, then tap "Show whole route".
 - **Expected:** a card with the stop's code, its name, "12.8 km from the start of the outbound line" (for DEO) and an amber "Placeholder data" line; the dot turns amber. "Show whole route" brings the full line back into view. A legend explains the solid line, the dashed line, the dots and the arrows. "Offline ready" with a green tick shows once the map file is installed.
 - **Not checked by the agent:** tapping a stop in the list after UX1 (only a dot on the map was tapped), and the two direction switches after their restyle.
-
-### 28. Introduction on first launch
-
-- **How:** `adb shell pm clear com.tunton.app`, open the app. Go through the three screens; on a second try use Skip. Later, Profile, "Show the introduction again".
-- **Expected:** three screens: welcome; fare classification and avatar; what stays on your phone. "Start using the app" or Skip opens the Map tab on a first launch and returns to Profile on a replay. Choices made on the second screen appear in Profile. No permission dialog appears at any point.
-
-### 29. Avatars
-
-- **How:** Profile tab: tap an avatar, force-stop and reopen. Then run `npx jest src/shared/__tests__/privacy.test.ts`.
-- **Expected:** 12 presets (four shapes in three colours), no photo or upload option. The choice survives a restart. The avatar appears on Profile and in the introduction only, never on the map. The privacy tests confirm that no code under `src/services` or `supabase/` mentions the avatar or the classification.
-
-### 30. About screen
-
-- **How:** Profile, "About this app".
-- **Expected:** app name and version; "© OpenStreetMap contributors" with a short explanation; an amber note that route and fare data are placeholders; a list of what is stored on the phone; a Back button.
 
 ### 31. Text contrast
 
@@ -316,35 +258,16 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
 - **How:** `adb shell pm clear com.tunton.app` and open the app, three times. Then `npx jest src/shared/__tests__/retry.test.ts`.
 - **Expected:** a brief screen with the logo and a loading line, then the introduction. Never the error screen. The agent saw one clean first launch after the fix; the fault was timing-dependent, so one run is not proof.
 
-### 35. Launcher icon and splash screen
-
-- **Status:** not changed. The app icon on the home screen and the splash screen are compiled into the APK, so replacing them needs a native rebuild, which UX1 forbade. A placeholder logo drawn from vector shapes exists in the app (`src/components/Logo.tsx`) and is used on the loading screen, the introduction and the About screen.
-- **Decide:** whether to rebuild for the icon and splash, and when.
-
 ### 36. One strings file
 
 - **How:** open `src/strings/en.ts`. Search the screens for quoted sentences: `npx expo lint` passes, and a search of `src/app` and `src/features` for text inside JSX should find only `strings.` references.
 - **Expected:** every sentence shown to the user is in that file, ready for a Cebuano copy. The `DEV` line and the benchmark row are development-only and are not translated.
-
-### 37. Audit 2
-
-- **What:** `docs/AUDIT_2.md` was written by the agent. Its statements are claims until you check them.
-- **How:** read sections 1, 7, 8 and 12. To re-run its gates: `npx tsc --noEmit`, `npx expo lint`, `npm test`, `npx expo-doctor`, `npx expo install --check`, `npm audit --omit=dev`. To check the push record: `git reflog show refs/remotes/origin/main`. To check package changes: `git diff 6cdd86a HEAD -- package.json`.
-- **Expected:** the same results as its section 10. Pushes only on 2026-10-02 at 19:55 and 21:28. Four package changes (`expo-asset`, `expo-file-system`, the `react-native-gesture-handler` pin, `patch-package`).
 
 ### 38. DESIGN.md: front matter against prose
 
 - **What:** `docs/DESIGN.md` gives two sets of colours. Its YAML front matter (for example primary `#0041a2`) disagrees with its prose "Colors" section (primary `#0b57d0`). By your decision the prose is used.
 - **How:** read the table at the end of Revision 2 in `docs/IMPLEMENTATION_PLAN_v2.md`.
 - **Decide:** whether any choice there is not what you meant. Points to look at: the type scale comes from the front matter, because the prose gives none; corners follow the prose tiers; buttons are 48 dp, not 44 px.
-
-### 39. Decisions recorded as you gave them
-
-- **How:** read "Decisions after Audit 2" at the top of `docs/IMPLEMENTATION_PLAN_GPS.md`, and its new questions N1 and N2 in section 11.
-- **Expected:** fifteen rows matching your message of 2026-10-03.
-- **Two assumptions to confirm:**
-  1. The Team account card is kept in the Settings sheet below your five rows (N1).
-  2. The G1 check-in allowlist reuses `telemetry_writers` unless you want a separate list (N2).
 
 ### 40. `braces` advisory deferred
 
@@ -413,11 +336,6 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
 - **Long time away:** not tested by hand. The unit test covers a check-in reopened three hours later: it is expired and shows nothing.
 - **Waiting here:** shows "No data" and "Counts need team sign-in" until G1.
 
-### 50. One-screen introduction
-
-- **How:** `adb shell pm clear com.tunton.app` (this also erases the saved fare type, avatar, theme and tile file), open the app; or Settings, "Replay intro".
-- **Expected:** one screen with the logo, "Welcome to Tunton", the fare-type chips, the 12 avatars, "Saved on your phone only", a Start button and Skip. Start or Skip opens the Live tab on first launch and returns to Settings on a replay. No permission prompt.
-
 ### 51. About
 
 - **How:** Settings, About.
@@ -433,29 +351,12 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
 | Privacy checks (`privacy.test.ts`) | 3 | `npm test`, plain Node | No |
 | Live acceptance tests (`tests/integration/supabase.test.ts`) | 8 | `npm test`, plain Node, over the network | **Yes: skipped and waiting** |
 
-### 52. Four-step introduction (F1)
-
-- **How:** `adb shell pm clear com.tunton.app`, open the app (or Settings, "Replay intro"). Follow `F1-M1` in `docs/device-tests.md`.
-- **Expected:** "Step 1 of 4" to "Step 4 of 4": "Hi, I'm Tunton!"; About you (Male, Female, Prefer not to say, optional) with the avatar it picks; How do you ride? (the four fare types); Where do you often go? (the six placeholder landmarks, up to 3). Skip on steps 1 to 3 ends the intro at once; Start on step 4. No permission prompt.
-- **Note:** the map-tap picker for destinations, and the suggested route with its fare at the end, come in F3.
-
-### 53. Greeting card on Live (F1)
-
-- **How:** open the app on Live. Tap a destination chip, then pick a From on My Ride. Back on Live, tap the X. Force-stop and reopen.
-- **Expected:** a small card above the sheet with one Tunton line and your chips ("Plan a ride" if you chose none). A chip opens My Ride with To set; From is highlighted. The X hides the card; it is back on the next app start. It fades as the sheet opens.
-- **Decide:** is this the right place (my proposal), or would you prefer it inside the sheet?
-
 ### 54. The 12 avatars (F1)
 
 - **How:** Settings shows all 12 in the grid. TalkBack reads them as Avatar 1 to 12: 1 to 6 are the Male set, 7 to 12 the Female set. Tap Shuffle several times, then force-stop and reopen.
 - **Expected:** simple drawn faces with different hair, glasses, a cap or headphones, four skin tones and seven colours; both sets include long and short hair and glasses. Shuffle stays within the set for your gender answer (all 12 if none). The avatar never changes on its own.
 - **Decided (2026-10-04):** keep all 12 drawings. The picker in Settings (Profile in F2) shows only the user's own set: the 6 for Male or Female, all 12 for "Prefer not to say" or no answer, plus Shuffle.
 - **Check (new):** with Female answered, Settings shows Avatars 7 to 12 only; with Male, 1 to 6; after Replay intro with "Prefer not to say", all 12. An avatar picked earlier from another set stays on the avatar button but is not in the grid until Shuffle or a pick. The agent could not check this on the emulator (Metro was stopped for the merge).
-
-### 55. Greeting lines
-
-- **How:** read `persona.greetings` in `src/strings/en.ts`: two lines each for morning (from 05:00), afternoon (11:00), evening (17:00) and night (21:00), Manila time. One line per period is shown per day.
-- **Decide:** keep, edit or replace them. The hours are config constants (`GREETING_*_START_H`).
 
 ### 56. Private answers stay on the phone (F1)
 
@@ -470,7 +371,6 @@ Last updated: 2026-10-04, after Audit 3 and its decisions. Next: Emjay's merge t
 
 ### 58 to 63. Partner merge
 
-- **58:** `git diff main integrate-partner --stat`, then `docs/MERGE_RESULT.md`. On approval: `git switch main` and `git merge --ff-only integrate-partner`.
 - **59 to 61:** the tests in `docs/MERGE_RESULT.md` section 6, after the R1a rebuild (section 5). Until then the emulator's current build may run the merged JavaScript (it does not import `expo-system-ui`), but this was **not checked**: Metro was stopped.
 - **60:** the icon images were drawn by the agent from the in-app logo; judge whether they are good enough as a placeholder (item 35).
 - **62:** answer question 1 in `docs/MERGE_RESULT.md`.
