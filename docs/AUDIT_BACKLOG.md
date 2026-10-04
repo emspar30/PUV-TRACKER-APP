@@ -93,6 +93,7 @@ Last updated: 2026-10-04, after the docs tidy-up (history files moved to `docs/h
 | 65 | UX3 | Live: clean map until R4 is picked; line, stops, switches and "Show whole route" only then (UX3-M1, M2) | Emulator (press `r` in Metro) | Open (agent: seen on the emulator) |
 | 66 | UX3 | Check-in: route first, route-coloured station dots (UX3-M3) | Emulator | Open (agent: seen on the emulator) |
 | 67 | UX3 | My Ride: trip draws only the ride segment; "All routes" card toggles the route (UX3-M4) | Emulator | Open (agent: seen on the emulator) |
+| 68 | RR1 | "The route data could not be loaded" (`NativeDatabase.execAsync` `NullPointerException`) after a Fast Refresh; "Try again" failed, a cold relaunch fixed it. Seen once by the agent on 2026-10-04 (old build). Likely development-only. | Emulator, watch over reloads | Open, cause unknown |
 | 64 | Merge | Dev-client crash "App react context shouldn't be created before" (`DevLauncherAppLoader`), on the old 2026-10-02 build; who observed it is not recorded | Emulator and phone after R1a (ST1-M5) | Open, cause unknown |
 
 ## Items

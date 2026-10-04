@@ -32,6 +32,7 @@ Start with **`STATUS.md`**.
 | `FLOW_GAP_ANALYSIS.md` | User flow v2 analysis; its privacy table still applies |
 | `MERGE_RESULT.md` | What the partner merge kept; R1a build steps; tests after the rebuild. Becomes history after ST1. |
 | `AUDIT_3.md` | Latest full audit (2026-10-04) |
+| `APP_FEEL_PLAN.md` | Demo mode and the clean-UI steps AF1 to AF10; approved 2026-10-04 with Emjay's answers |
 
 ## 3. History (`docs/history/`)
 
