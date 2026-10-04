@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { Lock, Map as MapIcon, TriangleAlert, Type } from 'lucide-react-native';
+import { ChevronRight, Lock, Map as MapIcon, TriangleAlert, Type } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -36,6 +36,11 @@ export default function AboutScreen() {
       ) : null}
       <Line icon={<Lock color={colors.textSecondary} size={ICON_SIZE} />} text={strings.about.staysOnPhone} />
 
+      <Pressable style={styles.link} onPress={() => router.push('/licences')} accessibilityRole="button">
+        <Text style={[typography.bodyLg, styles.grow]}>{strings.about.licences}</Text>
+        <ChevronRight color={colors.textSecondary} size={ICON_SIZE} />
+      </Pressable>
+
       <Pressable style={styles.back} onPress={() => router.back()} accessibilityRole="button">
         <Text style={typography.labelLg}>{strings.common.back}</Text>
       </Pressable>
@@ -70,6 +75,13 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   grow: {
     flex: 1,
+  },
+  link: {
+    minHeight: MIN_TOUCH_TARGET,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   back: {
     minHeight: MIN_TOUCH_TARGET,

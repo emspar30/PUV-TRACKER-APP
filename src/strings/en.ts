@@ -284,7 +284,18 @@ export const en = {
     sampleData: 'Sample route data, not official',
     // LB1a: the bundled label fonts (licence text in assets/glyphs/glyphs-v1/OFL.txt)
     fontCredit: 'Map labels use Noto Sans, SIL Open Font License 1.1',
+    licences: 'Licences',
     staysOnPhone: 'Your profile choices stay on your phone',
+  },
+
+  // About → Licences (LB1): the map data credit and the full font licence
+  licences: {
+    title: 'Licences',
+    mapTitle: 'Map data',
+    mapNote:
+      'Map data from OpenStreetMap, available under the Open Database License (ODbL). The offline map is built with Protomaps from OpenStreetMap and Natural Earth.',
+    fontTitle: 'Noto Sans (map labels)',
+    fontCopyright: 'Copyright 2022 The Noto Project Authors',
   },
 
   dev: {
