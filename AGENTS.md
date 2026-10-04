@@ -1,6 +1,6 @@
 This is an Expo/React Native mobile application for **Android only**. Prioritize mobile-first patterns and performance. Never add iOS code, config, scripts or dependencies.
 
-`docs/PRD.md` is the source of truth; its section 0 is the build guide. The approved plan is `docs/IMPLEMENTATION_PLAN_v2.md`. Where this file and the PRD disagree, the PRD wins.
+`docs/PRD.md` is the source of truth; its section 0 is the build guide. The approved plan is `docs/IMPLEMENTATION_PLAN_MASTER.md`. Where this file and the PRD disagree, the PRD wins.
 
 ## Expo has changed — do not trust your training data
 
