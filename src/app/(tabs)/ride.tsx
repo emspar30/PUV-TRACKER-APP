@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvatarButton, BottomSheet, Chip, Hint, LineBadge, Logo, type SheetRequest } from '@/components';
 import { TILESET } from '@/data/map/tileset';
+import { DRAFT_ROUTE_CODES } from '@/data/seed/routes';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
@@ -321,6 +322,7 @@ export default function MyRideScreen() {
             <Text style={[typography.labelLg, styles.grow]}>
               {!card.hasMap ? strings.ride.mapComingSoon : card.from && card.to ? strings.ride.routeEnds(card.from, card.to) : card.name}
             </Text>
+            {DRAFT_ROUTE_CODES.has(card.code) ? <Chip label={strings.common.draft} /> : null}
             {isSingleLegRoute(lines, card.code) ? <Chip label={strings.common.partial} /> : null}
           </Pressable>
         ))}

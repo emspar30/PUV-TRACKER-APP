@@ -90,6 +90,63 @@ export function projectOntoLine(coordinates: LineCoordinates, p: LatLon): LinePr
   };
 }
 
+const M_PER_DEG = 111195;
+
+export type LinePasses = {
+  // One projection per separate approach within the limit, in order along the line
+  passes: LineProjection[];
+  // Distance to the nearest position on the whole line (for "too far" messages)
+  nearestM: number;
+};
+
+// RR2: a line may pass the same place more than once (a loop, or a trace that runs on into the next
+// trip). Each run of segments that stays within `limitM` of the point is one pass; its closest
+// position is reported. Same flat-map segment test as projectOntoLine, in one walk along the line.
+export function linePasses(coordinates: LineCoordinates, p: LatLon, limitM: number): LinePasses {
+  if (coordinates.length === 0) throw new RangeError('linePasses needs at least one coordinate');
+  const chainages = pointChainagesKm(coordinates);
+  const lonScale = Math.cos(p.lat * DEG_TO_RAD);
+  const toX = (lon: number) => (lon - p.lon) * lonScale;
+  const toY = (lat: number) => lat - p.lat;
+  const limitDeg = limitM / M_PER_DEG;
+  const limitSquared = limitDeg * limitDeg;
+
+  const passes: LineProjection[] = [];
+  let nearestSquared = Infinity;
+  let open: { index: number; t: number; distance: number } | null = null;
+  const close = () => {
+    if (!open) return;
+    const [lonA, latA] = coordinates[open.index];
+    const [lonB, latB] = coordinates[Math.min(open.index + 1, coordinates.length - 1)];
+    const snapped = { lat: latA + open.t * (latB - latA), lon: lonA + open.t * (lonB - lonA) };
+    const segmentKm = (chainages[open.index + 1] ?? chainages[open.index]) - chainages[open.index];
+    passes.push({ chainageKm: chainages[open.index] + open.t * segmentKm, offsetM: haversineMeters(p, snapped), snapped });
+    open = null;
+  };
+
+  const segments = Math.max(1, coordinates.length - 1);
+  for (let i = 0; i < segments; i += 1) {
+    const ax = toX(coordinates[i][0]);
+    const ay = toY(coordinates[i][1]);
+    const next = coordinates[Math.min(i + 1, coordinates.length - 1)];
+    const dx = toX(next[0]) - ax;
+    const dy = toY(next[1]) - ay;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared === 0 ? 0 : Math.min(1, Math.max(0, -(ax * dx + ay * dy) / lengthSquared));
+    const cx = ax + t * dx;
+    const cy = ay + t * dy;
+    const distance = cx * cx + cy * cy;
+    nearestSquared = Math.min(nearestSquared, distance);
+    if (distance <= limitSquared) {
+      if (!open || distance < open.distance) open = { index: i, t, distance };
+    } else {
+      close();
+    }
+  }
+  close();
+  return { passes, nearestM: Math.sqrt(nearestSquared) * M_PER_DEG };
+}
+
 // Position on the line at a given distance from its start, clamped to the line's ends
 export function pointAtChainage(coordinates: LineCoordinates, chainageKm: number): LatLon {
   const clamped = Math.min(Math.max(chainageKm, 0), lineLengthKm(coordinates));

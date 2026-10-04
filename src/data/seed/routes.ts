@@ -5,6 +5,7 @@
 // Pure data: no React Native or Expo imports.
 
 import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP } from '../../shared/config';
+import { isDraftRoute } from '../../shared/routing/routeImport';
 
 import { GENERATED_LINES } from './routes.generated';
 
@@ -65,6 +66,19 @@ export const SEED_LINES: SeedRouteLine[] = GENERATED_LINES.map((line) => ({
   perKmRate: FARE_PER_KM_PHP,
   coordinates: line.coordinates,
 }));
+
+// RR2: routes whose two legs did not both come from Emjay's per-direction files. They show a small
+// "Draft" chip on My Ride. Lines written before RR3 carry no perDirection field and count as draft.
+export const DRAFT_ROUTE_CODES: ReadonlySet<string> = new Set(
+  [...new Set(GENERATED_LINES.map((line) => line.routeCode))].filter((code) =>
+    isDraftRoute(
+      GENERATED_LINES.filter((line) => line.routeCode === code).map((line) => ({
+        direction: line.direction,
+        perDirection: (line as { perDirection?: boolean }).perDirection,
+      })),
+    ),
+  ),
+);
 
 // TODO(placeholder): candidate stops, unconfirmed. They belong to R4; R3 and R5 have no stops yet.
 // DEO was moved onto the start of the traced R4 line (De Oro Barangay Hall) on Emjay's decision

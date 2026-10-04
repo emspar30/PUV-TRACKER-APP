@@ -44,6 +44,8 @@ export const en = {
     demo: 'Demo',
     // A route with only one stored leg (R4, R5): the rest is not traced yet
     partial: 'Partial',
+    // RR2: a route whose two legs are not both from Emjay's own files yet
+    draft: 'Draft',
   },
 
   // The draggable panel over the map

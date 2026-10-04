@@ -80,6 +80,8 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | Done | LB1a offline glyph proof | UNVERIFIED | `glyphInstall.test.ts`, `offlineMap.test.ts` (no `http(s)`, `file://` glyphs, glyph facts); agent's LB1a-M1 run; `docs/LABELS_PLAN.md` §7a | You check backlog 76; LB1b on approval |
 | Done | AF2 repository interfaces and the Demo switch | UNVERIFIED | `repositories.test.ts` (switch, chip rule, backlog 68 reopen), `settingsStore.test.ts`, `privacy.test.ts` (demo sends nothing); agent's AF2-M1 run | You check backlog 77 and 68 |
 | Done | AF3 demo vehicles on Live | UNVERIFIED | `demoVehicles.test.ts` (fixed seeds: speeds, stops, direction, silent vehicle, coverage 89/100/600 s, tiers 6/7/13, stopped over 45 s), `vehicleMarkers.test.ts`; agent's AF3-M1 run and 50-marker stress on the emulator | You check backlog 78; the partner's phone for 79 |
+| Done | LB1 licences screen | UNVERIFIED | `licences.test.ts`; agent's run | You check backlog 80 |
+| Done | RR2 first-pass snapping, terminal trim, Draft chips | UNVERIFIED | `firstPass.test.ts`, `trimDraft.test.ts`, `routing.bench.test.ts`; agent's run; stored lines not rewritten | You check backlog 81; decide 82 |
 | 0 | R1a rebuild | BLOCKED | `app.json`, icons, `expo-system-ui` and `expo-splash-screen` in `package.json`; `29cc0b0`, `45f9798`, `cdc0bbb` | Skipped for now (Emjay, 2026-10-04) |
 | 0 | ST1 smoke test | BLOCKED | — | R1a builds |
 | 0 | ST2 records and fixes | NOT-STARTED | — | After ST1 |
@@ -97,12 +99,12 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | 7 | B1 background | BLOCKED | No `backgroundLocation.ts` | T1, R1b, phone |
 | 8 | BLE, driver app, SMS, moderation | NOT-STARTED | SMS protocol and RSSI functions only | Field data, phones, SIMs |
 
-**Counts (35 rows):**
+**Counts (37 rows):**
 
 | Status | Rows |
 | --- | --- |
 | VERIFIED | 10 |
-| UNVERIFIED | 9 |
+| UNVERIFIED | 11 |
 | PARTIAL | 2 |
 | NOT-STARTED | 5 |
 | BLOCKED | 9 |

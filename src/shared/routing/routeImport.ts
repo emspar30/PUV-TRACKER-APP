@@ -15,14 +15,17 @@ import {
   ROUTE_MAX_POINTS_PER_LINE,
   ROUTE_SEGMENT_JOIN_M,
   ROUTE_SIMPLIFY_TOLERANCE_M,
+  ROUTE_TRIM_MAX_OFFSET_M,
+  ROUTE_TRIM_MIN_TAIL_M,
 } from '../config';
 import type { Bounds } from '../geo/bounds';
 import { haversineMeters } from '../geo/haversine';
-import { lineLengthKm, projectOntoLine } from '../geo/line';
+import { lineLengthKm, projectOntoLine, sliceCoordinates } from '../geo/line';
 
 const METERS_PER_DEGREE = 111320;
 const METERS_PER_KM = 1000;
 const DEGREES_PER_HALF_TURN = 180;
+const KM_DECIMALS = 2;
 // A line of two points cannot be simplified
 const MIN_POINTS_TO_SIMPLIFY = 3;
 
@@ -128,6 +131,37 @@ export function chainages(line: Position[]): number[] {
   return out;
 }
 
+export type TrimResult = {
+  line: Position[];
+  applied: boolean;
+  // Distance from the trim point to the line, and the length of the part beyond it
+  offsetM: number;
+  tailKm: number;
+  reason: string;
+};
+
+// RR2: keep the line from its start to the position nearest the trim point (the terminal), but only
+// when that point is on the line (within ROUTE_TRIM_MAX_OFFSET_M) and the tail beyond it is longer
+// than ROUTE_TRIM_MIN_TAIL_M. The source file is never changed.
+export function trimLine(line: Position[], at: Position): TrimResult {
+  const nearest = projectOntoLine(line, ll(at));
+  const totalKm = lineLengthKm(line);
+  const tailKm = totalKm - nearest.chainageKm;
+  const base = { offsetM: nearest.offsetM, tailKm };
+  if (nearest.offsetM > ROUTE_TRIM_MAX_OFFSET_M) {
+    return { ...base, line, applied: false, reason: `trim point is ${Math.round(nearest.offsetM)} m from the line (limit ${ROUTE_TRIM_MAX_OFFSET_M} m); not trimmed` };
+  }
+  if (tailKm * METERS_PER_KM <= ROUTE_TRIM_MIN_TAIL_M) {
+    return { ...base, line, applied: false, reason: `only ${Math.round(tailKm * METERS_PER_KM)} m beyond the trim point; not trimmed` };
+  }
+  return {
+    ...base,
+    line: sliceCoordinates(line, 0, nearest.chainageKm),
+    applied: true,
+    reason: `trimmed ${tailKm.toFixed(KM_DECIMALS)} km beyond the trim point (${Math.round(nearest.offsetM)} m from the line)`,
+  };
+}
+
 // What the traced line is, and how the other direction is obtained:
 // - vice_versa: the traced line is the outbound leg; the return is its reverse (marked derived)
 // - partial_return: the traced line is the first part of the return leg; the outbound leg is
@@ -142,6 +176,16 @@ export type ImportedDirection = {
   derived: boolean;
   // True when the traced leg stops before the end of the route (it does not reach the terminal)
   partial: boolean;
+  // True when this leg came from its own file or a cycle split (RR3); a route is a draft until
+  // both of its legs did
+  perDirection: boolean;
+  // The RR2 trim at the terminal, when one was asked for
+  trim?: Omit<TrimResult, 'line'>;
+};
+
+export type ImportOptions = {
+  // RR2: cut a leg at this point (the terminal), per direction
+  trimAt?: Partial<Record<'outbound' | 'return', Position>>;
 };
 
 export type ImportedRoute = {
@@ -155,18 +199,23 @@ export type ImportedRoute = {
 };
 
 // The whole import for one file: parse, check, simplify, and decide the directions
-export function importRoute(geojson: unknown, rule: ReturnRule, bounds: Bounds): ImportedRoute {
+export function importRoute(geojson: unknown, rule: ReturnRule, bounds: Bounds, options: ImportOptions = {}): ImportedRoute {
   const { pieces } = extractPieces(geojson);
   const merged = mergePieces(pieces);
   const issues = [...merged.issues];
   if (merged.line.length > 0) issues.push(...checkOrder(merged.line), ...checkBounds(merged.line, bounds));
-  const { line, maxDeviationM } = simplifyLine(merged.line);
+  // The traced line is the outbound of a "vice versa" route and the return of a partial one
+  const tracedDirection = rule === 'vice_versa' ? 'outbound' : 'return';
+  const trimPoint = options.trimAt?.[tracedDirection];
+  const trimmed = trimPoint && merged.line.length > 1 ? trimLine(merged.line, trimPoint) : null;
+  const { line, maxDeviationM } = simplifyLine(trimmed ? trimmed.line : merged.line);
   if (line.length > ROUTE_MAX_POINTS_PER_LINE) {
     issues.push({ level: 'warn', message: `${line.length} points after simplification (limit ${ROUTE_MAX_POINTS_PER_LINE})` });
   }
   const base = { pointsBefore: merged.line.length, pointsAfter: line.length, maxDeviationM, issues };
   const lengthKm = lineLengthKm(line);
-  const traced: ImportedDirection = { direction: 'outbound', coordinates: line, lengthKm, derived: false, partial: false };
+  const trim = trimmed ? { applied: trimmed.applied, offsetM: trimmed.offsetM, tailKm: trimmed.tailKm, reason: trimmed.reason } : undefined;
+  const traced: ImportedDirection = { direction: 'outbound', coordinates: line, lengthKm, derived: false, partial: false, perDirection: false, trim };
 
   if (isClosed(merged.line)) return { ...base, directionMode: 'loop', directions: [traced], note: 'traced loop' };
   if (rule === 'vice_versa') {
@@ -174,14 +223,21 @@ export function importRoute(geojson: unknown, rule: ReturnRule, bounds: Bounds):
     return {
       ...base,
       directionMode: 'two_way',
-      directions: [traced, { direction: 'return', coordinates: reversed, lengthKm, derived: true, partial: false }],
+      directions: [traced, { direction: 'return', coordinates: reversed, lengthKm, derived: true, partial: false, perDirection: false }],
       note: 'outbound traced; return derived (reverse)',
     };
   }
   return {
     ...base,
     directionMode: 'one_way',
-    directions: [{ direction: 'return', coordinates: line, lengthKm, derived: false, partial: true }],
+    directions: [{ ...traced, direction: 'return', partial: true }],
     note: 'return leg traced, partial; outbound not provided',
   };
+}
+
+// A route is a draft until both of its legs came from Emjay's per-direction files (RR2, RR3).
+// A derived reverse (R3) or a single traced leg (R4, R5 today) keeps it a draft.
+export function isDraftRoute(legs: readonly { direction: 'outbound' | 'return'; perDirection?: boolean }[]): boolean {
+  const fromFiles = (direction: 'outbound' | 'return') => legs.some((leg) => leg.direction === direction && leg.perDirection === true);
+  return !(fromFiles('outbound') && fromFiles('return'));
 }

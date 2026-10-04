@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Chip, LineBadge, StatusPill } from '@/components';
+import { DRAFT_ROUTE_CODES } from '@/data/seed/routes';
 import type { Classification } from '@/shared/config';
 import type { FareResult } from '@/shared/fare/fare';
 import type { Itinerary, PlanFailureResult } from '@/shared/routing/plan';
@@ -52,6 +53,8 @@ export function RideResult({
           <Text style={typography.labelLg}>{strings.ride.boardNear(boardNear)}</Text>
           <Text style={typography.labelLg}>{strings.ride.getOffNear(getOffNear)}</Text>
         </View>
+        {/* RR2: the route's two legs are not both from Emjay's files yet */}
+        {DRAFT_ROUTE_CODES.has(ride.routeCode) ? <Chip label={strings.common.draft} /> : null}
       </View>
 
       <View style={styles.row} accessible accessibilityLabel={strings.ride.fare(fare.rounded)}>

@@ -1,7 +1,7 @@
 import { MAX_WALK_PER_LEG_M } from '../config';
 import { computeFare, type FareResult } from '../fare/fare';
 import type { LatLon } from '../geo/haversine';
-import { isAhead, projectOntoLine, sliceLengthKm } from '../geo/line';
+import { isAhead, linePasses, sliceLengthKm, type LineProjection } from '../geo/line';
 
 import type { DirectedLine, RouteDirection } from './types';
 
@@ -81,41 +81,25 @@ export function planTrip(
   let destinationDistanceM = Infinity;
 
   for (const line of lines) {
-    const board = projectOntoLine(line.coordinates, origin);
-    const alight = projectOntoLine(line.coordinates, destination);
-    originDistanceM = Math.min(originDistanceM, board.offsetM);
-    destinationDistanceM = Math.min(destinationDistanceM, alight.offsetM);
+    const boards = linePasses(line.coordinates, origin, maxWalkM);
+    const alights = linePasses(line.coordinates, destination, maxWalkM);
+    originDistanceM = Math.min(originDistanceM, boards.nearestM);
+    destinationDistanceM = Math.min(destinationDistanceM, alights.nearestM);
 
-    if (board.offsetM > maxWalkM) continue;
+    if (boards.passes.length === 0) continue;
     originInReach = true;
 
-    if (alight.offsetM > maxWalkM) continue;
+    if (alights.passes.length === 0) continue;
     bothInReach = true;
 
-    if (!isAhead(board.chainageKm, alight.chainageKm)) continue;
-
-    const rideKm = sliceLengthKm(board.chainageKm, alight.chainageKm);
-    const candidate: Itinerary = {
-      legs: [
-        { kind: 'walk', from: origin, to: board.snapped, distanceM: board.offsetM },
-        {
-          kind: 'ride',
-          lineId: line.id,
-          routeCode: line.routeCode,
-          direction: line.direction,
-          from: board.snapped,
-          to: alight.snapped,
-          boardChainageKm: board.chainageKm,
-          alightChainageKm: alight.chainageKm,
-          distanceKm: rideKm,
-        },
-        { kind: 'walk', from: alight.snapped, to: destination, distanceM: alight.offsetM },
-      ],
-      rideKm,
-      walkM: board.offsetM + alight.offsetM,
-    };
-
-    if (!best || totalMeters(candidate) < totalMeters(best)) best = candidate;
+    // RR2: from each pass near the origin, ride to the first pass near the destination ahead of it,
+    // never to a later pass of a line that comes back past the destination
+    for (const board of boards.passes) {
+      const alight = alights.passes.find((candidate) => isAhead(board.chainageKm, candidate.chainageKm));
+      if (!alight) continue;
+      const candidate = itinerary(line, origin, destination, board, alight);
+      if (!best || totalMeters(candidate) < totalMeters(best)) best = candidate;
+    }
   }
 
   if (best) return { ok: true, itinerary: best };
@@ -130,6 +114,29 @@ export function planTrip(
   if (!originInReach) return fail('origin_too_far');
   if (!bothInReach) return fail('destination_too_far');
   return fail('destination_not_ahead');
+}
+
+function itinerary(line: DirectedLine, origin: LatLon, destination: LatLon, board: LineProjection, alight: LineProjection): Itinerary {
+  const rideKm = sliceLengthKm(board.chainageKm, alight.chainageKm);
+  return {
+    legs: [
+      { kind: 'walk', from: origin, to: board.snapped, distanceM: board.offsetM },
+      {
+        kind: 'ride',
+        lineId: line.id,
+        routeCode: line.routeCode,
+        direction: line.direction,
+        from: board.snapped,
+        to: alight.snapped,
+        boardChainageKm: board.chainageKm,
+        alightChainageKm: alight.chainageKm,
+        distanceKm: rideKm,
+      },
+      { kind: 'walk', from: alight.snapped, to: destination, distanceM: alight.offsetM },
+    ],
+    rideKm,
+    walkM: board.offsetM + alight.offsetM,
+  };
 }
 
 // Ranking: shortest trip overall, counting the ride and both walks

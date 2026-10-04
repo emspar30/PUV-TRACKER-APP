@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { TILESET } from '../src/data/map/tileset';
-import { importRoute, type ImportedRoute, type ReturnRule } from '../src/shared/routing/routeImport';
+import { importRoute, type ImportedRoute, type ImportOptions, type ReturnRule } from '../src/shared/routing/routeImport';
 
 type RouteSource = {
   code: string;
@@ -19,21 +19,35 @@ type RouteSource = {
   // R4 and R5 return by other roads; the traced files are the first part of each return leg
   // (De Oro toward R. Calo; Santo Niño toward J C Aquino Ave), decided by Emjay on 2026-10-04.
   rule: ReturnRule;
+  // RR2: cut a leg at this point when it runs on past it (see trimLine)
+  trimAt?: ImportOptions['trimAt'];
 };
+
+// The Jeepney Terminal: Butuan City Integrated Transport Terminal, an assumption Emjay will confirm
+// (docs/route-trace.md)
+const JEEPNEY_TERMINAL: [number, number] = [125.53601, 8.95933];
 
 const SOURCES: RouteSource[] = [
   { code: 'R3', name: 'Ampayon-Libertad', file: 'route_3_primary.geojson', rule: 'vice_versa' },
-  { code: 'R4', name: 'De Oro', file: 'route_4_primary.geojson', rule: 'partial_return' },
-  { code: 'R5', name: 'Santo Niño', file: 'route_5_primary.geojson', rule: 'partial_return' },
+  { code: 'R4', name: 'De Oro', file: 'route_4_primary.geojson', rule: 'partial_return', trimAt: { return: JEEPNEY_TERMINAL } },
+  { code: 'R5', name: 'Santo Niño', file: 'route_5_primary.geojson', rule: 'partial_return', trimAt: { return: JEEPNEY_TERMINAL } },
 ];
 
 const ROOT = path.join(__dirname, '..');
+const DATA = path.join(ROOT, 'assets', 'data');
 const OUT = path.join(ROOT, 'src', 'data', 'seed', 'routes.generated.ts');
 const write = process.argv.includes('--write');
 
-const results: { source: RouteSource; route: ImportedRoute }[] = SOURCES.map((source) => {
-  const geojson: unknown = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'data', source.file), 'utf8'));
-  return { source, route: importRoute(geojson, source.rule, TILESET.bounds) };
+// Emjay's newer trace of a file (name_updated.geojson) supersedes it; the older file stays in git
+const preferUpdated = (file: string) => {
+  const updated = file.replace(/\.geojson$/, '_updated.geojson');
+  return fs.existsSync(path.join(DATA, updated)) ? updated : file;
+};
+
+const results: { source: RouteSource; route: ImportedRoute }[] = SOURCES.map((listed) => {
+  const source = { ...listed, file: preferUpdated(listed.file) };
+  const geojson: unknown = JSON.parse(fs.readFileSync(path.join(DATA, source.file), 'utf8'));
+  return { source, route: importRoute(geojson, source.rule, TILESET.bounds, { trimAt: source.trimAt }) };
 });
 
 for (const { source, route } of results) {
@@ -42,6 +56,7 @@ for (const { source, route } of results) {
   console.log(`  points ${route.pointsBefore} -> ${route.pointsAfter}; largest deviation ${route.maxDeviationM.toFixed(2)} m`);
   for (const d of route.directions) {
     console.log(`  ${d.direction}: ${d.lengthKm.toFixed(2)} km${d.derived ? ' (derived)' : ''}${d.partial ? ' (partial)' : ''}`);
+    if (d.trim) console.log(`    trim at the terminal: ${d.trim.reason}`);
   }
   for (const issue of route.issues) console.log(`  ${issue.level.toUpperCase()}: ${issue.message}`);
 }
@@ -68,6 +83,7 @@ const body = results
     directionMode: '${route.directionMode}',
     derived: ${d.derived},
     partial: ${d.partial},
+    perDirection: ${d.perDirection},
     lengthKm: ${d.lengthKm.toFixed(3)},
     coordinates: ${JSON.stringify(d.coordinates.map((p) => [round(p[0]), round(p[1])]))},
   },`,
@@ -91,6 +107,8 @@ export type GeneratedLine = {
   derived: boolean;
   // The traced leg stops before the Jeepney Terminal (R4, R5)
   partial: boolean;
+  // The leg came from its own file or a cycle split (RR3); the route is a draft until both did
+  perDirection: boolean;
   lengthKm: number;
   coordinates: [number, number][];
 };

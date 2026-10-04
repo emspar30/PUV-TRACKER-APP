@@ -71,6 +71,10 @@ export const ROUTE_IMPORT_WARN_OUTSIDE_M = 1000;
 export const ROUTE_IMPORT_FAIL_OUTSIDE_M = 2000;
 // A line whose start and end are this close is a loop
 export const ROUTE_LOOP_CLOSE_M = 100;
+// RR2 trim: a leg is cut at its trim point (the terminal) only if the point lies this close to the
+// line and the part beyond it is longer than the second value (Emjay, 2026-10-05)
+export const ROUTE_TRIM_MAX_OFFSET_M = 150;
+export const ROUTE_TRIM_MIN_TAIL_M = 300;
 // Separate pieces of one line are joined only when the gap between them is at most this
 export const ROUTE_SEGMENT_JOIN_M = 20;
 // Coordinates must be near Butuan: longitude about 125 and latitude about 9, within this many degrees
