@@ -192,6 +192,14 @@ describe('migration: row level security and grants', () => {
     for (const policy of policies) expect(policy).toMatch(/ to authenticated /);
   });
 
+  it('open sign-up: the commuter functions and the live map take any participant; publishing positions stays team-only', () => {
+    expect(sql).toMatch(/alter table public.app_config add column open_signup boolean not null default true/);
+    expect(bodies.filter((body) => body.includes('sign in to take part')).length).toBeGreaterThanOrEqual(6);
+    expect(statements.filter((s) => s.startsWith('alter policy') && s.includes('may_participate()')).length).toBe(2);
+    const ingest = fs.readFileSync(path.join(ROOT, 'supabase', 'functions', 'ingest', 'index.ts'), 'utf8');
+    expect(ingest).toMatch(/from\('team_accounts'\)/);
+  });
+
   it('publishes telemetry_latest, and only it, to Realtime', () => {
     const published = statements.filter((s) => s.startsWith('alter publication supabase_realtime'));
     expect(published).toEqual(['alter publication supabase_realtime add table public.telemetry_latest']);

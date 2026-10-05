@@ -2,8 +2,19 @@ import { getSupabase } from './supabase';
 
 export type AuthResult = { ok: true } | { ok: false; message: string };
 
-// Prototype v0 (PRD 7.1): team accounts sign in with the email and password created for them
-// in the Supabase dashboard. There is no self sign-up in the app.
+// Open sign-up (2026-10-05): anyone creates an account with an email and a password. When the
+// project asks for email confirmation, the account works after the link in that email is opened.
+export async function signUpWithPassword(email: string, password: string): Promise<AuthResult & { confirm?: boolean }> {
+  try {
+    const { data, error } = await getSupabase().auth.signUp({ email: email.trim(), password });
+    if (error) return { ok: false, message: error.message };
+    return { ok: true, confirm: data.session === null };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+// Email and password, for any account (team accounts were created in the Supabase dashboard)
 export async function signInWithPassword(email: string, password: string): Promise<AuthResult> {
   try {
     const { error } = await getSupabase().auth.signInWithPassword({ email: email.trim(), password });

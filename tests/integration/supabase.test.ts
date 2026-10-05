@@ -144,10 +144,11 @@ live('S4 backend, live project', () => {
   );
 
   it(
-    'team account reads active vehicles only; an outsider sees none',
+    'any signed-in account reads active vehicles only (open sign-up); a signed-out caller sees none',
     async () => {
-      const hidden = await outsider.from('vehicles').select('vehicle_id');
-      expect(hidden.error !== null || (hidden.data ?? []).length === 0).toBe(true);
+      const seen = await outsider.from('vehicles').select('vehicle_id');
+      expect(seen.error).toBeNull();
+      expect((seen.data ?? []).map((v) => v.vehicle_id)).toContain(VEHICLE);
       const { data, error } = await writer.from('vehicles').select('vehicle_id, active');
       expect(error).toBeNull();
       const ids = (data ?? []).map((v) => v.vehicle_id);
@@ -217,7 +218,8 @@ live('S4 backend, live project', () => {
   );
 });
 
-// SB1: the commuter-side tables and functions. The writer is a team account; the outsider is not.
+// SB1: the commuter-side tables and functions. The writer is a team account; the outsider is an
+// ordinary signed-in account, which may take part since open sign-up (2026-10-05).
 live('SB1 commuter backend, live project', () => {
   let writer: SupabaseClient;
   let outsider: SupabaseClient;
@@ -266,7 +268,7 @@ live('SB1 commuter backend, live project', () => {
   );
 
   it(
-    'a check-in counts at its station until it ends; outsiders cannot check in or read counts',
+    'a check-in counts at its station until it ends; any signed-in account may check in (open sign-up)',
     async () => {
       const done = await writer.rpc('check_in', { route: 'R4', station: 'RCA', request_key: key('checkin') });
       expect(done.error).toBeNull();
@@ -274,8 +276,11 @@ live('SB1 commuter backend, live project', () => {
       expect(counts.error).toBeNull();
       expect((counts.data as { station_code: string; waiting: number }[]).find((c) => c.station_code === 'RCA')?.waiting).toBeGreaterThanOrEqual(1);
       expect((await writer.rpc('end_check_in')).error).toBeNull();
-      expect((await outsider.rpc('check_in', { route: 'R4', station: 'RCA', request_key: key('outsider') })).error).not.toBeNull();
-      expect((await outsider.rpc('checkin_counts', { route: 'R4' })).error).not.toBeNull();
+      expect((await outsider.rpc('check_in', { route: 'R4', station: 'RCA', request_key: key('outsider') })).error).toBeNull();
+      expect((await outsider.rpc('checkin_counts', { route: 'R4' })).error).toBeNull();
+      expect((await outsider.rpc('end_check_in')).error).toBeNull();
+      // Publishing positions stays team-only: see "ingest rejects a non-allowlisted account"
+      expect((await client().rpc('check_in', { route: 'R4', station: 'RCA', request_key: key('anon') })).error).not.toBeNull();
     },
     TIMEOUT_MS,
   );

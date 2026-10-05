@@ -1,119 +1,153 @@
 import { router } from 'expo-router';
+import { LogIn, Mail, UserPlus } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { Screen } from '@/components';
-import { signInWithPassword } from '@/services/auth';
+import { Button, Card, Screen } from '@/components';
+import { signInWithPassword, signUpWithPassword } from '@/services/auth';
 import { saveUsername } from '@/services/profile';
 import { useUsernameStore } from '@/state/usernameStore';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
-// Team sign-in for Prototype v0: an email and password created in the Supabase dashboard.
+// Supabase asks for at least this many characters
+const PASSWORD_MIN_LENGTH = 6;
+
+type Mode = 'signIn' | 'signUp';
+
+// Sign in, or create an account with an email and a password (open sign-up, 2026-10-05)
 export default function SignInScreen() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
+  const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const canSubmit = email.trim().length > 0 && password.length > 0 && !busy;
+  const canSubmit = email.trim().length > 0 && password.length >= (mode === 'signUp' ? PASSWORD_MIN_LENGTH : 1) && !busy;
+
+  // The handle picked in the introduction is sent once there is an account to hold it
+  const syncHandle = async () => {
+    const { username, synced, markSynced } = useUsernameStore.getState();
+    if (username && !synced && (await saveUsername(username)).ok) markSynced();
+  };
 
   const submit = async () => {
     if (!canSubmit) return;
     setBusy(true);
     setError(null);
+    setNotice(null);
+    if (mode === 'signUp') {
+      const result = await signUpWithPassword(email, password);
+      setBusy(false);
+      if (!result.ok) return setError(result.message);
+      if (result.confirm) {
+        setMode('signIn');
+        return setNotice(strings.signIn.checkEmail);
+      }
+      await syncHandle();
+      return router.back();
+    }
     const result = await signInWithPassword(email, password);
     setBusy(false);
-    if (result.ok) {
-      // The username picked in the introduction is sent once there is an account to hold it
-      const { username, synced, markSynced } = useUsernameStore.getState();
-      if (username && !synced && (await saveUsername(username)).ok) markSynced();
-      router.back();
-    } else {
-      setError(result.message);
-    }
+    if (!result.ok) return setError(result.message);
+    await syncHandle();
+    router.back();
   };
 
+  const field = { ...typography.bodyLg, color: colors.textPrimary };
+
   return (
-    <Screen title={strings.signIn.title}>
-      <Text style={typography.caption}>
-        {strings.signIn.note}
-      </Text>
+    <Screen title={mode === 'signIn' ? strings.signIn.title : strings.signIn.createTitle}>
+      <Card>
+        <Text style={typography.bodyMd}>{mode === 'signIn' ? strings.signIn.note : strings.signIn.createNote}</Text>
+      </Card>
       <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder={strings.signIn.email}
-          placeholderTextColor={colors.textSecondary}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          textContentType="emailAddress"
-          accessibilityLabel={strings.signIn.email}
-        />
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder={strings.signIn.password}
-          placeholderTextColor={colors.textSecondary}
-          autoCapitalize="none"
-          autoCorrect={false}
-          secureTextEntry
-          textContentType="password"
-          accessibilityLabel={strings.signIn.password}
-          onSubmitEditing={submit}
-        />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Pressable
-          style={[styles.button, !canSubmit && styles.buttonDisabled]}
+        <View style={styles.input}>
+          <Mail color={colors.textSecondary} size={spacing.md + spacing.xs} />
+          <TextInput
+            style={[field, styles.grow]}
+            value={email}
+            onChangeText={setEmail}
+            placeholder={strings.signIn.email}
+            placeholderTextColor={colors.textTertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            accessibilityLabel={strings.signIn.email}
+          />
+        </View>
+        <View style={styles.input}>
+          <TextInput
+            style={[field, styles.grow]}
+            value={password}
+            onChangeText={setPassword}
+            placeholder={mode === 'signUp' ? strings.signIn.newPassword(PASSWORD_MIN_LENGTH) : strings.signIn.password}
+            placeholderTextColor={colors.textTertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            secureTextEntry
+            textContentType={mode === 'signUp' ? 'newPassword' : 'password'}
+            accessibilityLabel={strings.signIn.password}
+            onSubmitEditing={submit}
+          />
+        </View>
+        {error ? <Text style={[typography.bodySm, styles.error]}>{error}</Text> : null}
+        {notice ? <Text style={[typography.bodySm, styles.notice]}>{notice}</Text> : null}
+        <Button
+          label={busy ? strings.signIn.submitting : mode === 'signIn' ? strings.signIn.submit : strings.signIn.create}
+          leadingIcon={mode === 'signIn' ? LogIn : UserPlus}
           onPress={submit}
           disabled={!canSubmit}
+        />
+        <Pressable
+          style={styles.link}
+          onPress={() => {
+            setMode(mode === 'signIn' ? 'signUp' : 'signIn');
+            setError(null);
+          }}
           accessibilityRole="button"
         >
-          <Text style={typography.body}>{busy ? strings.signIn.submitting : strings.signIn.submit}</Text>
-        </Pressable>
-        <Pressable style={styles.link} onPress={() => router.back()} accessibilityRole="button">
-          <Text style={typography.caption}>{strings.signIn.cancel}</Text>
+          <Text style={[typography.labelLg, styles.linkText]}>{mode === 'signIn' ? strings.signIn.toCreate : strings.signIn.toSignIn}</Text>
         </Pressable>
       </View>
     </Screen>
   );
 }
 
-const useStyles = makeStyles(({ colors, typography }) => ({
+const useStyles = makeStyles(({ colors }) => ({
   form: {
     gap: spacing.md,
   },
   input: {
-    ...typography.body,
-    minHeight: MIN_TOUCH_TARGET,
+    minHeight: MIN_TOUCH_TARGET + spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surface,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    backgroundColor: colors.card,
+  },
+  grow: {
+    flex: 1,
   },
   error: {
-    ...typography.caption,
     color: colors.danger,
   },
-  button: {
-    minHeight: MIN_TOUCH_TARGET,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
+  notice: {
+    color: colors.success,
   },
   link: {
     minHeight: MIN_TOUCH_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  linkText: {
+    color: colors.primary,
   },
 }));
