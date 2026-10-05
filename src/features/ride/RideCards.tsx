@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Footprints, Map as MapIcon, Route, ShieldCheck } from 'lucide-react-native';
+import { Bus, ChevronDown, ChevronUp, Footprints, Map as MapIcon, Route, ShieldCheck } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -79,6 +79,8 @@ export function SuggestedRouteCard({
   color,
   boardAt,
   getOffAt,
+  best,
+  supply,
   onViewOnMap,
   onCheckin,
 }: {
@@ -87,6 +89,10 @@ export function SuggestedRouteCard({
   color: string;
   boardAt: string;
   getOffAt: string;
+  // True for the top-ranked route
+  best: boolean;
+  // Multicabs still coming to the boarding point and their free seats; null without live data
+  supply: { approaching: number; freeSeats: number } | null;
   onViewOnMap: () => void;
   onCheckin: () => void;
 }) {
@@ -102,9 +108,11 @@ export function SuggestedRouteCard({
         <View style={styles.grow}>
           <View style={styles.titleRow}>
             <Text style={typography.headlineSm}>{routeName}</Text>
-            <View style={styles.best}>
-              <Text style={[typography.labelSm, styles.bestText]}>{strings.ride.bestMatch}</Text>
-            </View>
+            {best ? (
+              <View style={styles.best}>
+                <Text style={[typography.labelSm, styles.bestText]}>{strings.ride.bestMatch}</Text>
+              </View>
+            ) : null}
           </View>
           {DRAFT_ROUTE_CODES.has(ride.routeCode) ? <Chip label={strings.common.draft} /> : null}
         </View>
@@ -127,6 +135,12 @@ export function SuggestedRouteCard({
           <View style={styles.walk}>
             <Text style={[typography.labelSm, styles.link]}>{strings.ride.walkTo(walkOut.distanceM)}</Text>
           </View>
+        </View>
+        <View style={styles.step}>
+          <Bus color={supply && supply.approaching > 0 ? colors.success : colors.textSecondary} size={SMALL_ICON} />
+          <Text style={[typography.bodySm, styles.grow, supply && supply.approaching > 0 ? styles.bestText : null]}>
+            {supply && supply.approaching > 0 ? strings.ride.coming(supply.approaching, supply.freeSeats) : strings.ride.noneComing}
+          </Text>
         </View>
       </View>
       <Button label={strings.ride.viewRouteOnMap(ride.routeCode)} leadingIcon={MapIcon} onPress={onViewOnMap} />

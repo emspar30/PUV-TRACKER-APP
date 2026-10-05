@@ -8,6 +8,8 @@ import type { PlanFailure } from '@/shared/routing/plan';
 import type { SnapName } from '@/shared/ui/sheetSnap';
 
 const km = (value: number) => `${value.toFixed(1)} km`;
+const MINUTES_PER_HOUR = 60;
+const MINUTES_PER_DAY = 1440;
 const peso = (value: number) => `₱${value.toFixed(2)}`;
 const WALK_STEP_M = 10;
 const METERS_PER_KM = 1000;
@@ -247,9 +249,17 @@ export const en = {
     stationsCheckin: 'View stations & check-in',
     checkinNote: 'Let nearby multicabs know you are waiting at the stop',
     fareDetails: 'Fare details',
-    otherRoutes: 'All routes',
-    yourPlaces: 'Your places',
+    otherRoutes: 'Other routes',
     pickStop: 'Pick a stop',
+    coming: (count: number, seats: number) => `${count} multicab${count === 1 ? '' : 's'} coming · ${seats} free seats`,
+    noneComing: 'No multicab data near your stop',
+    recentRides: 'Recent rides',
+    recentRide: (code: string) => `Boarded at ${code}`,
+    recentFrom: (source: 'checkin' | 'report') => (source === 'checkin' ? 'Check-in' : 'Relay report'),
+    ago: (minutes: number) =>
+      minutes < 1 ? 'Just now' : minutes < MINUTES_PER_HOUR ? `${minutes} min ago` : minutes < MINUTES_PER_DAY ? `${Math.floor(minutes / MINUTES_PER_HOUR)} h ago` : `${Math.floor(minutes / MINUTES_PER_DAY)} d ago`,
+    expandMap: 'Make the map bigger',
+    shrinkMap: 'Make the map smaller',
   },
 
   // Check-in: a local countdown in UX2; the cloud check-in, geofence and reminder arrive in G1

@@ -116,6 +116,25 @@ export function planTrip(
   return fail('destination_not_ahead');
 }
 
+// Every route that serves the trip, each with its own shortest itinerary (restyle: alternatives).
+// Ordered shortest first; the screen may rank them again by live supply (rankRouteOptions).
+export function planOptions(lines: DirectedLine[], origin: LatLon, destination: LatLon, options: PlanOptions = {}): Itinerary[] {
+  const maxWalkM = options.maxWalkM ?? MAX_WALK_PER_LEG_M;
+  const bestByRoute = new Map<string, Itinerary>();
+  for (const line of lines) {
+    const boards = linePasses(line.coordinates, origin, maxWalkM);
+    const alights = linePasses(line.coordinates, destination, maxWalkM);
+    for (const board of boards.passes) {
+      const alight = alights.passes.find((candidate) => isAhead(board.chainageKm, candidate.chainageKm));
+      if (!alight) continue;
+      const candidate = itinerary(line, origin, destination, board, alight);
+      const current = bestByRoute.get(line.routeCode);
+      if (!current || totalMeters(candidate) < totalMeters(current)) bestByRoute.set(line.routeCode, candidate);
+    }
+  }
+  return [...bestByRoute.values()].sort((a, b) => totalMeters(a) - totalMeters(b));
+}
+
 function itinerary(line: DirectedLine, origin: LatLon, destination: LatLon, board: LineProjection, alight: LineProjection): Itinerary {
   const rideKm = sliceLengthKm(board.chainageKm, alight.chainageKm);
   return {
@@ -140,7 +159,7 @@ function itinerary(line: DirectedLine, origin: LatLon, destination: LatLon, boar
 }
 
 // Ranking: shortest trip overall, counting the ride and both walks
-function totalMeters(itinerary: Itinerary): number {
+export function totalMeters(itinerary: Itinerary): number {
   return itinerary.rideKm * METERS_PER_KM + itinerary.walkM;
 }
 

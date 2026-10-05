@@ -37,6 +37,7 @@ export default function CheckInScreen() {
   const checkIn = useCheckInStore((state) => state.checkIn);
   const checkInAt = useCheckInStore((state) => state.checkInAt);
   const clear = useCheckInStore((state) => state.clear);
+  const boarded = useCheckInStore((state) => state.boarded);
   const hintSeen = useHintsStore((state) => state.seen.checkin);
   const dismissHint = useHintsStore((state) => state.dismiss);
 
@@ -166,7 +167,7 @@ export default function CheckInScreen() {
             </View>
             <Text style={[typography.display, styles.time]}>{countdown}</Text>
             <View style={styles.row}>
-              <Pressable style={styles.primary} onPress={clear} accessibilityRole="button">
+              <Pressable style={styles.primary} onPress={() => boarded(Date.now())} accessibilityRole="button">
                 <Text style={[typography.labelLg, styles.primaryText]}>{strings.checkin.boarded}</Text>
               </Pressable>
               <Pressable style={styles.secondary} onPress={clear} accessibilityRole="button">

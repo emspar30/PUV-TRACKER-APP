@@ -1,17 +1,18 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronRight, MapPin } from 'lucide-react-native';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
+import { ChevronRight, Maximize2, Minimize2 } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Chip, Hint, LineBadge, Logo, TopBar } from '@/components';
+import { Chip, Hint, LineBadge, Logo, RoundButton, TopBar } from '@/components';
+import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
-import { DRAFT_ROUTE_CODES } from '@/data/seed/routes';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
+import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { DevBenchmark } from '@/features/plan/DevBenchmark';
 import { TripLayers, type TripPin } from '@/features/plan/TripLayers';
@@ -23,54 +24,44 @@ import { DEMO_COMMUTER_STOP_CODE, FARE_REGULAR_MULTIPLIER } from '@/shared/confi
 import { discountMultiplier } from '@/shared/fare/fare';
 import { boundsOfLines, clipBounds, withMinimumSpan } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
-import { projectOntoLine } from '@/shared/geo/line';
 import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/describe';
 import { explainFailure, type FailureExplanation } from '@/shared/routing/explainFailure';
-import { fareForItinerary, planTrip } from '@/shared/routing/plan';
+import { fareForItinerary, planOptions, planTrip } from '@/shared/routing/plan';
+import { rankRouteOptions } from '@/shared/routing/rankOptions';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
-import { isSingleLegRoute, stopsForRoute, toggleRoute } from '@/shared/ui/routeVisibility';
 import { useDestinationsStore } from '@/state/destinationsStore';
 import { useFareType } from '@/state/fareType';
 import { useHintsStore } from '@/state/hintsStore';
+import { useRidesStore } from '@/state/ridesStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
 const LOGO_SIZE = spacing.xl * 2;
-const MAP_HEIGHT = 260;
+// Share of the window the map preview takes, and when made bigger
+const MAP_SHARE = 0.42;
+const MAP_SHARE_EXPANDED = 0.72;
+const RECENT_SHOWN = 3;
+const MS_PER_MIN = 60000;
 const ICON_SIZE = spacing.md + spacing.xs;
 const FIELD_NAME: Record<PickTarget, string> = { origin: strings.ride.from, destination: strings.ride.to };
 
-type RouteCard = { code: string; color: string; from: string; to: string; name: string; lines: DirectedLine[]; hasMap: boolean };
+type RouteCard = { code: string; name: string };
 
-// One card per public route code, with its two end stops along its first stored line, or its name
-// when the route has no stops yet
-function routeCards(lines: DirectedLine[], stops: RouteStop[]): RouteCard[] {
+// Each public route's display name, from its first stored line
+function routeCards(lines: DirectedLine[]): RouteCard[] {
   const codes = [...new Set(lines.map((line) => line.routeCode))];
   return codes.map((code) => {
-    const ofRoute = lines.filter((line) => line.routeCode === code);
-    const first = ofRoute.find((line) => line.direction === 'outbound') ?? ofRoute[0];
-    const hasMap = ofRoute.some((line) => line.coordinates.length >= 2);
-    const ordered = hasMap
-      ? stopsForRoute(lines, stops, code).sort(
-          (a, b) => projectOntoLine(first.coordinates, a).chainageKm - projectOntoLine(first.coordinates, b).chainageKm,
-        )
-      : [];
-    return {
-      code,
-      color: first.color,
-      from: ordered[0]?.code ?? '',
-      to: ordered[ordered.length - 1]?.code ?? '',
-      name: first.name.split(',')[0],
-      lines: ofRoute,
-      hasMap,
-    };
+    const first =
+      lines.find((line) => line.routeCode === code && line.direction === 'outbound') ?? lines.find((line) => line.routeCode === code);
+    return { code, name: first?.name.split(',')[0] ?? code };
   });
 }
 
-// My Rides (restyle): a map preview, From and To, the distance and fare, the suggested route with
-// ways on to the Map and Check-in tabs, every route, and the user's places. Planning runs on the phone.
+// My Rides (restyle): a map preview, From and To, the distance and fare, the best-matching route with
+// ways on to the Map and Check-in tabs, the other routes that serve the trip, and recent rides.
+// Planning runs on the phone; the ranking uses the live (or demo) multicabs coming to the stop.
 export default function MyRidesScreen() {
   const styles = useStyles();
   const { colors, typography, mapRoute, routeColor } = useTheme();
@@ -82,6 +73,13 @@ export default function MyRidesScreen() {
   const hintSeen = useHintsStore((state) => state.seen.ride);
   const dismissHint = useHintsStore((state) => state.dismiss);
   const destinations = useDestinationsStore((state) => state.destinations);
+  const recentRides = useRidesStore((state) => state.rides);
+  const { height: windowHeight } = useWindowDimensions();
+  const [mapExpanded, setMapExpanded] = useState(false);
+  // "5 min ago" on recent rides counts from when this screen opened
+  const [openedAt] = useState(() => Date.now());
+  const repos = useRepositories();
+  const focused = useIsFocused();
 
   // Until "Use my location" (G0), the demo commuter waits at a fixed stop (the same one as on Map)
   const myStop = demo ? (stops.find((stop) => stop.code === DEMO_COMMUTER_STOP_CODE) ?? null) : null;
@@ -94,7 +92,8 @@ export default function MyRidesScreen() {
   const [destination, setDestination] = useState<PickedPoint | null>(null);
   const [active, setActive] = useState<PickTarget>(myPosition ? 'destination' : 'origin');
   const [focus, setFocus] = useState<MapFocus | null>(null);
-  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
+  // The route the rider picked among the alternatives; null follows the best match
+  const [chosenRoute, setChosenRoute] = useState<string | null>(null);
 
   const moveCamera = useCallback((next: MapFocusTarget) => {
     setFocus((current) => ({ ...next, key: (current?.key ?? 0) + 1 }));
@@ -115,7 +114,7 @@ export default function MyRidesScreen() {
   }
 
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
-  const cards = useMemo(() => routeCards(lines, stops), [lines, stops]);
+  const cards = useMemo(() => routeCards(lines), [lines]);
 
   const pinnedPoint = useCallback(
     (position: LatLon): PickedPoint => {
@@ -127,7 +126,12 @@ export default function MyRidesScreen() {
   const stopPoint = useCallback((stop: RouteStop): PickedPoint => ({ lat: stop.lat, lon: stop.lon, label: stop.code }), []);
 
   const plan = useMemo(() => (origin && destination ? planTrip(lines, origin, destination) : null), [lines, origin, destination]);
-  const itinerary = plan?.ok ? plan.itinerary : null;
+  const options = useMemo(() => (origin && destination ? planOptions(lines, origin, destination) : []), [lines, origin, destination]);
+  const optionRoutes = useMemo(() => options.map((option) => option.legs[1].routeCode), [options]);
+  const supply = useRoutesVehicles(repos.vehicles, optionRoutes, !focused);
+  const ranked = useMemo(() => rankRouteOptions(options, supply.vehicles, lines, supply.nowMs), [options, supply, lines]);
+  const chosen = ranked.find((option) => option.itinerary.legs[1].routeCode === chosenRoute) ?? ranked[0] ?? null;
+  const itinerary = chosen?.itinerary ?? null;
   const fare = useMemo(
     () => (itinerary ? fareForItinerary(lines, itinerary, discountMultiplier(fareType)) : null),
     [lines, itinerary, fareType],
@@ -180,7 +184,7 @@ export default function MyRidesScreen() {
     setActive(target);
   };
 
-  const layers = useRouteLayers(lines, stops, 'ride', selectedRoute, itinerary !== null);
+  const layers = useRouteLayers(lines, stops, 'ride', null, itinerary !== null);
 
   const pinOf = useCallback(
     (point: PickedPoint | null): TripPin | null => (point ? { point, snapped: describePoint(lines, stops, point).snapped } : null),
@@ -210,12 +214,6 @@ export default function MyRidesScreen() {
   const nearestCode = (point: LatLon) => nearestStop(stops, point)?.stop.code ?? '';
   const colorOf = (code: string) => routeColor(code, lines.find((line) => line.routeCode === code)?.color ?? colors.primary);
 
-  const showRoute = (card: RouteCard) => {
-    const next = toggleRoute(selectedRoute, card.code);
-    setSelectedRoute(next);
-    if (next) moveCamera({ kind: 'bounds', bounds: boundsOfLines(card.lines.map((line) => line.coordinates)) });
-  };
-
   const needsPick = !origin || !destination;
   const ride = itinerary?.legs[1] ?? null;
 
@@ -225,12 +223,12 @@ export default function MyRidesScreen() {
         <TopBar />
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.map}>
+        <View style={[styles.map, { height: windowHeight * (mapExpanded ? MAP_SHARE_EXPANDED : MAP_SHARE) }]}>
           {tiles.status === 'ready' ? (
             <OfflineMap
               tilesUrl={tiles.tiles.url}
               glyphsUrl={tiles.tiles.glyphsUrl}
-              labelsDimmed={selectedRoute !== null || itinerary !== null}
+              labelsDimmed={itinerary !== null}
               initialBounds={initialBounds}
               focus={focus}
               onPress={(position) => pick(pinnedPoint(position))}
@@ -251,11 +249,14 @@ export default function MyRidesScreen() {
               <Logo size={LOGO_SIZE} />
             </View>
           )}
-          {isPlaceholder ? (
-            <View style={styles.mapChip}>
-              <Chip label={strings.common.sampleData} />
-            </View>
-          ) : null}
+          <View style={styles.mapChip} pointerEvents="box-none">
+            {isPlaceholder ? <Chip label={strings.common.sampleData} /> : null}
+            <RoundButton
+              icon={mapExpanded ? Minimize2 : Maximize2}
+              label={mapExpanded ? strings.ride.shrinkMap : strings.ride.expandMap}
+              onPress={() => setMapExpanded((value) => !value)}
+            />
+          </View>
         </View>
 
         <TripCard
@@ -286,7 +287,7 @@ export default function MyRidesScreen() {
           </View>
         ) : null}
 
-        {plan && !plan.ok ? (
+        {plan && !plan.ok && ranked.length === 0 ? (
           <RideFailure failure={plan} explanation={explanation} action={failureAction} badgeColor={colorOf} />
         ) : null}
 
@@ -295,6 +296,8 @@ export default function MyRidesScreen() {
             <FareSummaryCard itinerary={itinerary} fare={fare} regularFare={regularFare} classification={fareType} />
             <Text style={typography.headlineSm}>{strings.ride.suggested}</Text>
             <SuggestedRouteCard
+              best={chosen === ranked[0]}
+              supply={supply.vehicles.length > 0 && chosen ? { approaching: chosen.approaching, freeSeats: chosen.freeSeats } : null}
               itinerary={itinerary}
               routeName={cards.find((card) => card.code === ride.routeCode)?.name ?? ride.routeCode}
               color={colorOf(ride.routeCode)}
@@ -306,50 +309,54 @@ export default function MyRidesScreen() {
           </>
         ) : null}
 
-        <Text style={typography.overline}>{strings.ride.otherRoutes}</Text>
-        {cards.map((card) => (
-          <Pressable
-            key={card.code}
-            style={[styles.routeRow, card.code === selectedRoute && styles.routeRowSelected]}
-            onPress={() => (card.hasMap ? showRoute(card) : undefined)}
-            disabled={!card.hasMap}
-            accessibilityRole="button"
-            accessibilityState={{ selected: card.code === selectedRoute }}
-            accessibilityLabel={strings.live.routeChip(card.code, card.code === selectedRoute)}
-          >
-            <LineBadge code={card.code} color={routeColor(card.code, card.color)} />
-            <View style={styles.grow}>
-              <Text style={typography.labelLg}>{card.name}</Text>
-              <Text style={typography.bodySm}>
-                {!card.hasMap ? strings.ride.mapComingSoon : card.from && card.to ? strings.ride.routeEnds(card.from, card.to) : ''}
-              </Text>
-            </View>
-            {DRAFT_ROUTE_CODES.has(card.code) ? <Chip label={strings.common.draft} /> : null}
-            {isSingleLegRoute(lines, card.code) ? <Chip label={strings.common.partial} /> : null}
-            <ChevronRight color={colors.textSecondary} size={ICON_SIZE} />
-          </Pressable>
-        ))}
-
-        {destinations.length > 0 ? (
+        {ranked.length > 1 ? (
           <>
-            <Text style={typography.overline}>{strings.ride.yourPlaces}</Text>
+            <Text style={typography.overline}>{strings.ride.otherRoutes}</Text>
+            {ranked
+              .filter((option) => option !== chosen)
+              .map((option) => {
+                const code = option.itinerary.legs[1].routeCode;
+                const summary = strings.ride.summary(option.itinerary.rideKm, option.itinerary.walkM);
+                return (
+                  <Pressable key={code} style={styles.routeRow} onPress={() => setChosenRoute(code)} accessibilityRole="button">
+                    <LineBadge code={code} color={colorOf(code)} />
+                    <View style={styles.grow}>
+                      <Text style={typography.labelLg}>{cards.find((card) => card.code === code)?.name ?? code}</Text>
+                      <Text style={typography.bodySm}>
+                        {option.approaching > 0 ? [summary, strings.ride.coming(option.approaching, option.freeSeats)].join(' · ') : summary}
+                      </Text>
+                    </View>
+                    {option === ranked[0] ? <Chip label={strings.ride.bestMatch} /> : null}
+                    <ChevronRight color={colors.textSecondary} size={ICON_SIZE} />
+                  </Pressable>
+                );
+              })}
+          </>
+        ) : null}
+
+        {recentRides.length > 0 ? (
+          <>
+            <Text style={typography.overline}>{strings.ride.recentRides}</Text>
             <View style={styles.places}>
-              {destinations.map((place, index) => (
-                <Pressable
-                  key={place.id}
-                  style={[styles.place, index > 0 && styles.placeDivider]}
-                  onPress={() => {
-                    setActive('destination');
-                    const point = { lat: place.lat, lon: place.lon, label: place.label };
-                    setDestination(point);
-                    if (origin) frameBoth(origin, point);
-                  }}
-                  accessibilityRole="button"
-                >
-                  <MapPin color={colors.textSecondary} size={ICON_SIZE} />
-                  <Text style={[typography.labelLg, styles.grow]}>{place.label}</Text>
-                </Pressable>
-              ))}
+              {recentRides.slice(0, RECENT_SHOWN).map((recent, index) => {
+                const station = stops.find((stop) => stop.code === recent.stationCode);
+                const when = strings.ride.ago(Math.floor((Math.max(openedAt, supply.nowMs) - recent.atMs) / MS_PER_MIN));
+                return (
+                  <Pressable
+                    key={[recent.atMs, index].join('-')}
+                    style={[styles.place, index > 0 && styles.placeDivider]}
+                    onPress={() => (station ? pick(stopPoint(station)) : undefined)}
+                    disabled={!station}
+                    accessibilityRole="button"
+                  >
+                    <LineBadge code={recent.routeCode} color={colorOf(recent.routeCode)} />
+                    <View style={styles.grow}>
+                      <Text style={typography.labelLg}>{strings.ride.recentRide(recent.stationCode)}</Text>
+                      <Text style={typography.bodySm}>{[strings.ride.recentFrom(recent.source), when].join(' · ')}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
           </>
         ) : null}
@@ -375,7 +382,6 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingTop: 0,
   },
   map: {
-    height: MAP_HEIGHT,
     overflow: 'hidden',
     borderRadius: radii.lg,
     backgroundColor: colors.surface,
@@ -384,6 +390,8 @@ const useStyles = makeStyles(({ colors }) => ({
     position: 'absolute',
     top: spacing.sm,
     right: spacing.sm,
+    alignItems: 'flex-end',
+    gap: spacing.sm,
   },
   centered: {
     flex: 1,
@@ -410,10 +418,6 @@ const useStyles = makeStyles(({ colors }) => ({
     borderWidth: 1,
     borderColor: colors.outline,
     backgroundColor: colors.card,
-  },
-  routeRowSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryContainer,
   },
   places: {
     borderRadius: radii.card,

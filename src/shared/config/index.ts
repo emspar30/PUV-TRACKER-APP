@@ -47,6 +47,9 @@ export const TRACK_OTHERS_OPACITY = 0.35;
 // Demo mode: the commuter waits at this stop, until "Use my location" (G0) gives a real position
 export const DEMO_COMMUTER_STOP_CODE = 'JCA';
 
+// My Rides keeps this many recent rides (from "I boarded" at check-in, later from relay reports)
+export const RECENT_RIDES_MAX = 5;
+
 // --- Live vehicles from the database (L1)
 // Speeds kept per vehicle for the stopped check (longer than STATIONARY_DURATION_S)
 export const LIVE_SPEED_HISTORY_S = 120;

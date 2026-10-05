@@ -4,6 +4,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { parseStoredCheckIn, startCheckIn, type LocalCheckIn } from '@/shared/checkin/localCheckin';
 
+import { useRidesStore } from './ridesStore';
+
 // The user's station check-in, kept on this phone only until the cloud check-in arrives (G1).
 // Only the expiry time is stored, so the countdown survives a restart.
 
@@ -13,7 +15,8 @@ type StoredCheckIn = {
 
 type CheckInState = StoredCheckIn & {
   checkInAt: (routeCode: string, stationCode: string, nowMs: number) => void;
-  // "I boarded" and "Cancel" both end it
+  // "I boarded" ends it and keeps the ride in My Rides' recent rides; "Cancel" only ends it
+  boarded: (nowMs: number) => void;
   clear: () => void;
 };
 
@@ -27,8 +30,13 @@ const deviceStorage = createJSONStorage<StoredCheckIn>(() => ({
 
 export const useCheckInStore = create<CheckInState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       checkIn: null,
+      boarded: (nowMs) => {
+        const current = get().checkIn;
+        if (current) useRidesStore.getState().add({ routeCode: current.routeCode, stationCode: current.stationCode, atMs: nowMs, source: 'checkin' });
+        set({ checkIn: null });
+      },
       checkInAt: (routeCode, stationCode, nowMs) => set({ checkIn: startCheckIn(routeCode, stationCode, nowMs) }),
       clear: () => set({ checkIn: null }),
     }),
