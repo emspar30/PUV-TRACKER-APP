@@ -17,7 +17,9 @@ import { BlueDot } from '@/features/map/BlueDot';
 import { LocationExplainer } from '@/features/map/LocationExplainer';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { OriginPin } from '@/features/map/OriginPin';
+import { RelayBar } from '@/features/report/RelayBar';
 import { ReportSheet } from '@/features/report/ReportSheet';
+import { useRelayBroadcast } from '@/features/report/useRelayBroadcast';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useCommuterPosition } from '@/features/map/useCommuterPosition';
@@ -52,6 +54,7 @@ import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import { isStopped } from '@/shared/telemetry/stopped';
 import { crossedDistance, crossesAlert, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
+import { inRouteOrder } from '@/shared/relay/broadcast';
 import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
 import { showDialog } from '@/state/dialogStore';
@@ -59,6 +62,7 @@ import { useHintsStore } from '@/state/hintsStore';
 import { useLocationStore } from '@/state/locationStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { showToast } from '@/state/toastStore';
+import { useRelayStore } from '@/state/relayStore';
 import { useTrackingStore } from '@/state/trackingStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
@@ -142,6 +146,17 @@ export default function MapScreen() {
   const [reportOpen, setReportOpen] = useState(false);
   const fixAccuracyM = useLocationStore((store) => store.fix?.accuracyM ?? null);
   const gpsAvailable = canReportWithGps(commuter ? { ...commuter, accuracyM: commuter.source === 'gps' ? fixAccuracyM : null } : null);
+  // B4: a relay sent with GPS shares the location until the rider reaches their destination
+  const relay = useRelayBroadcast(commuter);
+  const stopRelay = useRelayStore((store) => store.stop);
+  const relayStopsOf = useCallback(
+    (code: string) =>
+      inRouteOrder(
+        lines.filter((line) => line.routeCode === code).map((line) => line.coordinates),
+        stopsForRoute(lines, stops, code),
+      ),
+    [lines, stops],
+  );
   // The stop of the tracked route nearest to the commuter, shown as "Your stop"
   const myStop = commuter && trackedRoute ? (nearestStop(trackedStops, commuter)?.stop ?? null) : null;
   // A session lasts TRACKING_SESSION_MIN; tapping Track again starts (and pays for) a new one
@@ -465,6 +480,7 @@ export default function MapScreen() {
             </Pressable>
           </View>
         ) : null}
+        {relay ? <RelayBar routeCode={relay.routeCode} destination={relay.destination.name} onStop={stopRelay} /> : null}
         {trackedId && trackedRoute && !onTrackedRoute ? (
           <TrackingBar
             label={tracked?.label ?? null}
@@ -545,6 +561,8 @@ export default function MapScreen() {
           routes={routeOptions}
           initialRoute={selectedRoute}
           vehicles={repos.vehicles.source === 'live' ? live.vehicles.map((item) => ({ id: item.id, label: item.label })) : []}
+          stopsOf={relayStopsOf}
+          position={commuter}
           gpsAvailable={gpsAvailable}
           onClose={() => setReportOpen(false)}
         />

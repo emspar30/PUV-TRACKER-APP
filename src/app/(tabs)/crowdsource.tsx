@@ -197,7 +197,7 @@ function PostCard({ post, nowMs, color, mine }: { post: FeedPost; nowMs: number;
       </View>
       <View style={styles.postHead}>
         <LineBadge code={post.routeCode} color={color} />
-        <Text style={[typography.headlineSm, styles.grow]}>{strings.crowdsource.phrases[post.phrase]}</Text>
+        <Text style={[typography.headlineSm, styles.grow]}>{post.phrase ? strings.crowdsource.phrases[post.phrase] : post.seatTier ? strings.crowdsource.seats[post.seatTier] : ''}</Text>
       </View>
       {post.seatTier && tierColor ? (
         <View style={styles.meta}>

@@ -40,7 +40,8 @@ export type CheckinsRepository = {
 
 export type ReportInput = {
   routeCode: string;
-  phrase: FeedPhrase;
+  // B4: optional; the seat tier is what the Relay panel always asks for
+  phrase: FeedPhrase | null;
   seatTier: SeatTier | null;
   // The manual vehicle picker (D5, development builds); null when not picked
   vehicleId: string | null;

@@ -289,6 +289,12 @@ export const FEED_FLAG_HIDE_COUNT = 3;
 // N1: the neutral author badges cycle through this many theme colours (PRD 19 D2)
 export const FEED_BADGE_COLOR_COUNT = 6;
 export const FEED_PHRASES = ['full', 'few_seats', 'not_moving', 'heavy_traffic', 'loading'] as const;
+// B4: a relay with GPS shares the rider's location until they come this close to the destination
+// they picked, or for this long at most
+export const RELAY_DESTINATION_ARRIVED_M = 100;
+export const RELAY_BROADCAST_MAX_MIN = 90;
+// B4: how often the time limit is checked while the relay shares the location
+export const RELAY_CHECK_S = 30;
 // Asia/Manila is UTC+8 all year (no daylight saving).
 export const MANILA_UTC_OFFSET_MIN = 480;
 

@@ -89,6 +89,11 @@ describe('migration: tables', () => {
     expect(grant[0]).not.toContain('user_id');
   });
 
+  it('B4: the phrase is optional later, and still only a preset when given', () => {
+    expect(statements).toContain('alter table public.feed_posts alter column phrase drop not null');
+    expect(sql).not.toMatch(/drop constraint[^;]*phrase/);
+  });
+
   it('gives telemetry_latest the verification columns with safe defaults', () => {
     expect(sql).toMatch(/verified\s+boolean not null default false/);
     expect(sql).toMatch(/verification_reasons\s+jsonb not null default '\[\]'::jsonb/);

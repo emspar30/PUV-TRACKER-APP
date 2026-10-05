@@ -12,7 +12,8 @@ export type FeedPhrase = (typeof FEED_PHRASES)[number];
 export type FeedPost = {
   id: string;
   routeCode: string;
-  phrase: FeedPhrase;
+  // B4: null when the rider gave only the seats ("What's happening" is optional)
+  phrase: FeedPhrase | null;
   seatTier: SeatTier | null;
   username: string;
   withGps: boolean;

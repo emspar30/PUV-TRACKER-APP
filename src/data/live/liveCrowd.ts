@@ -13,7 +13,7 @@ export type FeedRow = {
   id: number | string;
   author_username: string;
   route_id: string;
-  phrase: string;
+  phrase: string | null;
   seat_tier: string | null;
   with_gps: boolean;
   created_at: string;
@@ -44,11 +44,11 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 const SEAT_TIERS: readonly string[] = ['green', 'amber', 'red'];
 
 export function feedPostOf(row: FeedRow): FeedPost | null {
-  if (!isFeedPhrase(row.phrase)) return null;
+  if (row.phrase !== null && !isFeedPhrase(row.phrase)) return null;
   return {
     id: String(row.id),
     routeCode: row.route_id,
-    phrase: row.phrase as FeedPhrase,
+    phrase: row.phrase as FeedPhrase | null,
     seatTier: row.seat_tier !== null && SEAT_TIERS.includes(row.seat_tier) ? (row.seat_tier as SeatTier) : null,
     username: row.author_username,
     withGps: row.with_gps,
