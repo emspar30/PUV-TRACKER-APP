@@ -1,203 +1,74 @@
 import { router } from 'expo-router';
-import { ChevronRight, X } from 'lucide-react-native';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Armchair, BellRing, FileText, Languages, Map as MapIcon, Moon, Route, ShieldCheck, Type } from 'lucide-react-native';
 
-import { Chip } from '@/components';
-import { AccountCard } from '@/features/profile/AccountCard';
-import { AvatarPicker, ShuffleAvatarChip } from '@/features/profile/AvatarPicker';
-import { FareTypeChips } from '@/features/ride/FareTypeChips';
+import { Screen, SettingsGroup, SettingsRow } from '@/components';
+import { useRouteData } from '@/data/RouteDataProvider';
+import { routeCodesOf } from '@/shared/ui/routeVisibility';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme, type ThemeScheme } from '@/theme';
 
-const ICON_SIZE = spacing.md + spacing.xs;
-const SCHEMES: ThemeScheme[] = ['light', 'dark'];
-const SCHEME_LABEL: Record<ThemeScheme, string> = { light: strings.settings.light, dark: strings.settings.dark };
-// The sheet never covers more of the screen than this share
-const MAX_HEIGHT_SHARE = '88%';
+// Settings & preferences (restyle), opened from the menu. Everything here is stored on this phone
+// only and never sent anywhere.
+export default function SettingsScreen() {
+  const { lines } = useRouteData();
+  const routes = routeCodesOf(lines);
+  const s = useSettingsStore();
 
-// Settings, opened from the avatar button at the top right of each tab. Everything here is stored
-// on this phone only: fare type, theme and avatar are never sent anywhere.
-export default function SettingsSheet() {
-  const styles = useStyles();
-  const { colors, typography } = useTheme();
-  const insets = useSafeAreaInsets();
-  const theme = useSettingsStore((state) => state.theme);
-  const setTheme = useSettingsStore((state) => state.setTheme);
-  const demoData = useSettingsStore((state) => state.demoData);
-  const setDemoData = useSettingsStore((state) => state.setDemoData);
-  const mapLabels = useSettingsStore((state) => state.mapLabels);
-  const setMapLabels = useSettingsStore((state) => state.setMapLabels);
+  // Tapping the default route steps through None and each route
+  const nextRoute = () => {
+    const steps: (string | null)[] = [null, ...routes];
+    s.setDefaultRoute(steps[(steps.indexOf(s.defaultRoute) + 1) % steps.length]);
+  };
 
   return (
-    <View style={styles.root}>
-      {/* Tapping the dimmed map behind the sheet closes it */}
-      <Pressable
-        style={styles.scrim}
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel={strings.settings.close}
-      />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.md }]}>
-        <View style={styles.handle} />
-        <View style={styles.titleRow}>
-          <Text style={[typography.headlineSm, styles.grow]} accessibilityRole="header">
-            {strings.settings.title}
-          </Text>
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel={strings.settings.close}
-          >
-            <X color={colors.textSecondary} size={ICON_SIZE} />
-          </Pressable>
-        </View>
+    <Screen title={strings.settings.title}>
+      <SettingsGroup title={strings.settings.transit}>
+        <SettingsRow
+          first
+          icon={Route}
+          title={strings.settings.defaultRoute}
+          detail={s.defaultRoute ? strings.live.vehicle.route(s.defaultRoute) : strings.settings.defaultRouteNone}
+          onPress={nextRoute}
+        />
+        <SettingsRow
+          icon={Armchair}
+          tone="success"
+          title={strings.settings.seatFilter}
+          subtitle={strings.settings.seatFilterBody}
+          value={s.seatFilter}
+          onValueChange={s.setSeatFilter}
+        />
+        <SettingsRow
+          icon={BellRing}
+          tone="warning"
+          title={strings.settings.arrivalAlert}
+          subtitle={strings.settings.arrivalAlertBody}
+          value={s.arrivalAlert}
+          onValueChange={s.setArrivalAlert}
+        />
+      </SettingsGroup>
 
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={typography.labelLg}>{strings.settings.fareType}</Text>
-          {/* The same chips, and the same stored value, as the quick fare-type chip on My Ride */}
-          <FareTypeChips />
+      <SettingsGroup title={strings.settings.appearance}>
+        <SettingsRow first icon={Moon} title={strings.settings.darkMode} value={s.theme === 'dark'} onValueChange={(on) => s.setTheme(on ? 'dark' : 'light')} />
+        <SettingsRow icon={Type} title={strings.settings.mapLabels} subtitle={strings.settings.mapLabelsBody} value={s.mapLabels} onValueChange={s.setMapLabels} />
+      </SettingsGroup>
 
-          <Text style={typography.labelLg}>{strings.settings.theme}</Text>
-          <View style={styles.chips}>
-            {SCHEMES.map((scheme) => (
-              <Chip
-                key={scheme}
-                label={SCHEME_LABEL[scheme]}
-                selected={scheme === theme}
-                onPress={() => setTheme(scheme)}
-              />
-            ))}
-          </View>
+      <SettingsGroup title={strings.settings.privacy}>
+        <SettingsRow
+          first
+          icon={ShieldCheck}
+          tone="success"
+          title={strings.settings.profileOnPhone}
+          subtitle={strings.settings.profileOnPhoneBody}
+          badge={strings.settings.localOnly}
+        />
+      </SettingsGroup>
 
-          {/* AF2: simulated live data, on by default, always labelled "Demo" where it shows */}
-          <Text style={typography.labelLg}>{strings.settings.demoData}</Text>
-          <View style={styles.chips}>
-            {[true, false].map((on) => (
-              <Chip
-                key={String(on)}
-                label={on ? strings.settings.on : strings.settings.off}
-                selected={on === demoData}
-                onPress={() => setDemoData(on)}
-                accessibilityLabel={strings.settings.demoDataLabel(on)}
-              />
-            ))}
-          </View>
-
-          {/* LB1b: street, barangay and city names on the map, on by default */}
-          <Text style={typography.labelLg}>{strings.settings.mapLabels}</Text>
-          <View style={styles.chips}>
-            {[true, false].map((on) => (
-              <Chip
-                key={String(on)}
-                label={on ? strings.settings.on : strings.settings.off}
-                selected={on === mapLabels}
-                onPress={() => setMapLabels(on)}
-                accessibilityLabel={strings.settings.mapLabelsLabel(on)}
-              />
-            ))}
-          </View>
-
-          <View style={styles.labelRow}>
-            <Text style={[typography.labelLg, styles.grow]}>{strings.settings.avatar}</Text>
-            <ShuffleAvatarChip />
-          </View>
-          <AvatarPicker />
-
-          <View style={styles.divider} />
-          <LinkRow label={strings.settings.about} onPress={() => router.push('/about')} />
-          <LinkRow label={strings.settings.replayIntro} onPress={() => router.push('/onboarding')} />
-
-          <View style={styles.divider} />
-          <Text style={typography.labelLg}>{strings.settings.account}</Text>
-          <AccountCard />
-        </ScrollView>
-      </View>
-    </View>
+      <SettingsGroup title={strings.settings.system}>
+        <SettingsRow first icon={Languages} title={strings.settings.language} detail={strings.settings.english} />
+        <SettingsRow icon={MapIcon} title={strings.settings.offlineMap} subtitle={strings.settings.offlineMapBody} badge={strings.settings.bundled} />
+        <SettingsRow icon={FileText} title={strings.settings.licences} onPress={() => router.push('/licences')} />
+      </SettingsGroup>
+    </Screen>
   );
 }
-
-function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
-  const styles = useStyles();
-  const { colors, typography } = useTheme();
-  return (
-    <Pressable style={styles.link} onPress={onPress} accessibilityRole="button">
-      <Text style={[typography.bodyLg, styles.grow]}>{label}</Text>
-      <ChevronRight color={colors.textSecondary} size={ICON_SIZE} />
-    </Pressable>
-  );
-}
-
-const useStyles = makeStyles(({ colors, elevation }) => ({
-  root: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  scrim: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: colors.shadow,
-    opacity: 0.32,
-  },
-  sheet: {
-    maxHeight: MAX_HEIGHT_SHARE,
-    borderTopLeftRadius: radii.sheet,
-    borderTopRightRadius: radii.sheet,
-    backgroundColor: colors.sheet,
-    ...elevation.level3,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: spacing.xl,
-    height: spacing.xs,
-    marginTop: spacing.sm,
-    borderRadius: spacing.xs,
-    backgroundColor: colors.outline,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: spacing.md,
-    paddingRight: spacing.sm,
-  },
-  grow: {
-    flex: 1,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  iconButton: {
-    width: MIN_TOUCH_TARGET,
-    height: MIN_TOUCH_TARGET,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    gap: spacing.sm + spacing.xs,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.outline,
-  },
-  link: {
-    minHeight: MIN_TOUCH_TARGET,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-}));

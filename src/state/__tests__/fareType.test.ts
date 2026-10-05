@@ -32,15 +32,17 @@ describe('fare type: one stored value for the quick chip and Settings', () => {
     expect(getFareType()).toBe('senior');
   });
 
-  it('Settings and the My Ride quick chip both use the same chips, which use useFareType', () => {
-    const settings = read('src/app/settings.tsx');
+  it('Profile and the My Ride quick chip both use the same chips, which use useFareType', () => {
+    // Restyle: the fare type moved from the Settings sheet to the Profile page
+    const settings = read('src/app/profile.tsx');
     const result = read('src/features/ride/RideResult.tsx');
     const chips = read('src/features/ride/FareTypeChips.tsx');
 
     expect(settings).toMatch(/import \{ FareTypeChips \} from '@\/features\/ride\/FareTypeChips'/);
     expect(result).toMatch(/import \{ QuickFareTypeChip \} from '\.\/FareTypeChips'/);
     expect(chips).toMatch(/import \{ useFareType \} from '@\/state\/fareType'/);
-    // Neither screen keeps a classification of its own
-    for (const source of [settings, result, chips]) expect(source).not.toMatch(/setClassification|useProfileStore/);
+    // Neither screen keeps a classification of its own (Profile reads the profile store for the avatar only)
+    for (const source of [settings, result, chips]) expect(source).not.toMatch(/setClassification/);
+    for (const source of [result, chips]) expect(source).not.toMatch(/useProfileStore/);
   });
 });

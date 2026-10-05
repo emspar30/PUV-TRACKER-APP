@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Bell, Settings } from 'lucide-react-native';
+import { Bell, Menu } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
 import { Avatar } from '@/features/profile/Avatar';
@@ -11,20 +11,22 @@ import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme'
 
 const AVATAR_SIZE = spacing.xl + spacing.xs;
 const ICON_SIZE = spacing.md + spacing.xs;
+// The icons sit close together; the slop keeps each touch target at 48 dp
+const ICON_BOX = spacing.xl + spacing.sm;
+const ICON_HIT_SLOP = (MIN_TOUCH_TARGET - ICON_BOX) / 2;
 
-// The bar at the top of every tab (restyle): the user's avatar, handle and fare type, the
-// notifications bell, and Settings.
-// It floats over the map on the map tabs and sits at the top of the list tabs.
+// The bar at the top of every tab (restyle): the user's avatar, handle and fare type (opens
+// Profile), room in the middle for Tracking Energy (SB2), and the bell and the menu close together
+// on the right. It floats over the map on the map tabs and sits at the top of the list tabs.
 export function TopBar() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const avatarId = useProfileStore((state) => state.avatarId);
   const username = useUsernameStore((state) => state.username);
   const [fareType] = useFareType();
-  const openSettings = () => router.push('/settings');
   return (
     <View style={styles.bar}>
-      <Pressable style={styles.who} onPress={openSettings} accessibilityRole="button" accessibilityLabel={strings.settings.open}>
+      <Pressable style={styles.who} onPress={() => router.push('/profile')} accessibilityRole="button" accessibilityLabel={strings.profilePage.title}>
         <Avatar id={avatarId} size={AVATAR_SIZE} />
         <View style={styles.text}>
           <Text style={typography.labelLg} numberOfLines={1}>
@@ -35,17 +37,28 @@ export function TopBar() {
           </Text>
         </View>
       </Pressable>
-      <Pressable
-        style={styles.icon}
-        onPress={() => router.push('/notifications')}
-        accessibilityRole="button"
-        accessibilityLabel={strings.topBar.notifications}
-      >
-        <Bell color={colors.textPrimary} size={ICON_SIZE} />
-      </Pressable>
-      <Pressable style={styles.icon} onPress={openSettings} accessibilityRole="button" accessibilityLabel={strings.settings.open}>
-        <Settings color={colors.textPrimary} size={ICON_SIZE} />
-      </Pressable>
+      {/* Room for Tracking Energy (SB2) */}
+      <View style={styles.grow} />
+      <View style={styles.icons}>
+        <Pressable
+          style={styles.icon}
+          hitSlop={ICON_HIT_SLOP}
+          onPress={() => router.push('/notifications')}
+          accessibilityRole="button"
+          accessibilityLabel={strings.topBar.notifications}
+        >
+          <Bell color={colors.textPrimary} size={ICON_SIZE} />
+        </Pressable>
+        <Pressable
+          style={styles.icon}
+          hitSlop={ICON_HIT_SLOP}
+          onPress={() => router.push('/menu')}
+          accessibilityRole="button"
+          accessibilityLabel={strings.menu.open}
+        >
+          <Menu color={colors.textPrimary} size={ICON_SIZE} />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -61,18 +74,25 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
     ...elevation.level2,
   },
   who: {
-    flex: 1,
+    flexShrink: 1,
     minHeight: MIN_TOUCH_TARGET + spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
   text: {
+    flexShrink: 1,
+  },
+  grow: {
     flex: 1,
   },
+  icons: {
+    flexDirection: 'row',
+    paddingRight: spacing.xs,
+  },
   icon: {
-    width: MIN_TOUCH_TARGET,
-    height: MIN_TOUCH_TARGET,
+    width: ICON_BOX,
+    height: ICON_BOX,
     alignItems: 'center',
     justifyContent: 'center',
   },

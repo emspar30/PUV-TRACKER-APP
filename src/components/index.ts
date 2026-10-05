@@ -11,5 +11,6 @@ export { Chip, LineBadge, RouteChip, StatusPill, type StatusTone } from './Pills
 export { OptionRow } from './OptionRow';
 export { RoundButton } from './RoundButton';
 export { Screen } from './Screen';
+export { SettingsGroup, SettingsRow } from './SettingsRow';
 export { StepHeader } from './StepHeader';
 export { TopBar } from './TopBar';

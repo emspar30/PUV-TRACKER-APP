@@ -34,9 +34,9 @@ function ThemedStack() {
       {/* Dark icons on the light theme, light icons on the dark one */}
       <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
-        {/* Settings slide up over the current tab, which stays visible behind a dimmed backdrop */}
+        {/* The menu slides up over the current tab, which stays visible behind a dimmed backdrop */}
         <Stack.Screen
-          name="settings"
+          name="menu"
           options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }}
         />
       </Stack>
