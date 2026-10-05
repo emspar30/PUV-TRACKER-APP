@@ -26,7 +26,8 @@ const FULL_TURN_DEG = 360;
 const HALF_TURN_DEG = 180;
 const DEG_TO_RAD = Math.PI / HALF_TURN_DEG;
 
-function bearingDeg(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+// Compass bearing from a to b, 0 to 360
+export function bearingDeg(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
   const raw = Math.atan2((b.lon - a.lon) * Math.cos(a.lat * DEG_TO_RAD), b.lat - a.lat) / DEG_TO_RAD;
   return (raw + FULL_TURN_DEG) % FULL_TURN_DEG;
 }

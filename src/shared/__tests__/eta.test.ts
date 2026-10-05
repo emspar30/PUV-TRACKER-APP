@@ -49,6 +49,30 @@ describe('ETA (D9)', () => {
   });
 });
 
+// A line that uses one street twice, like R4's downtown loop: east 4 km, north 500 m, west 2 km,
+// south 500 m back onto the street, then west on it to the start
+const ll = (km: number, northM = 0) => [pointAt(km, northM).lon, pointAt(km, northM).lat];
+const TWICE = { ...FIXTURE_OUTBOUND, id: 'T9', routeCode: 'T9', coordinates: [ll(0), ll(4), ll(4, 500), ll(2, 500), ll(2), ll(0)] };
+const EAST = 90;
+const WEST = 270;
+
+describe('a line that uses a street twice (B2 fix)', () => {
+  it('places the vehicle on the pass it is heading along, and measures forward to the next pass by the commuter', () => {
+    // Westbound at 1.5 km, on the way back: the commuter at 1 km is 0.5 km ahead
+    const back = etaTo({ ...at(1.5), lineId: 'T9', headingDeg: WEST }, [TWICE], pointAt(1));
+    expect(back.kind === 'approaching' && back.distanceKm).toBeCloseTo(0.5, 1);
+    // Eastbound at 1.5 km, on the way out: round the loop first, 2.5 + 0.5 + 2 + 0.5 + 1 = 6.5 km
+    const out = etaTo({ ...at(1.5), lineId: 'T9', headingDeg: EAST }, [TWICE], pointAt(1));
+    expect(out.kind === 'approaching' && out.distanceKm).toBeCloseTo(6.5, 1);
+  });
+
+  it('the next stop follows the pass the vehicle is on', () => {
+    const stops = [{ ...FIXTURE_STOPS[0], code: 'ONE', ...pointAt(1) }, { ...FIXTURE_STOPS[0], code: 'THREE', ...pointAt(3) }];
+    expect(trackProgress({ ...at(1.5), lineId: 'T9', headingDeg: EAST }, [TWICE], stops, null).next?.code).toBe('THREE');
+    expect(trackProgress({ ...at(1.5), lineId: 'T9', headingDeg: WEST }, [TWICE], stops, null).next?.code).toBe('ONE');
+  });
+});
+
 describe('tracking progress and alert', () => {
   it('names the stop passed and the next one', () => {
     const progress = trackProgress(at(3), LINES, FIXTURE_STOPS, FIXTURE_STOPS[2]);

@@ -10,9 +10,10 @@ import {
   ETA_SAMPLE_WINDOW_S,
   ROUTE_STOP_MAX_DISTANCE_M,
 } from '../config';
-import { lineLengthKm, projectOntoLine } from '../geo/line';
+import { lineEndKm } from '../geo/line';
 import type { LatLon } from '../geo/haversine';
 import { routeRound } from '../routing/loop';
+import { passesKm, vehicleChainageKm } from '../routing/progress';
 import type { DirectedLine, RouteStop } from '../routing/types';
 import type { VehicleSnapshot } from '../telemetry/vehicle';
 
@@ -27,7 +28,8 @@ const MS_PER_S = 1000;
 const S_PER_H = 3600;
 const METERS_PER_KM = 1000;
 
-type Tracked = Pick<VehicleSnapshot, 'lat' | 'lon' | 'lineId' | 'lastPacketMs' | 'recentSpeeds'>;
+// The heading, when known, places the vehicle on the right pass of a line that uses a street twice
+type Tracked = Pick<VehicleSnapshot, 'lat' | 'lon' | 'lineId' | 'lastPacketMs' | 'recentSpeeds'> & { headingDeg?: number };
 
 // maxOffsetM: how far the boarding point may be from the line (a stop is close; a rider may walk to it).
 // round: false keeps to the vehicle's own leg, so a vehicle past the point says 'passed' (route ranking).
@@ -51,31 +53,31 @@ export function etaTo(
   return { kind: 'approaching', distanceKm, etaS: (distanceKm / speedKmh) * S_PER_H, speedKmh };
 }
 
-// How far the vehicle drives to the point: ahead on its own leg, else on through the following legs
-// and round to its own leg again. Null when no leg passes within maxOffsetM of the point.
-function distanceRound(round: readonly DirectedLine[], vehicle: LatLon, point: LatLon, maxOffsetM: number): number | 'passed' | null {
+// How far the vehicle drives forward to the point: its next pass ahead on its own leg, else the
+// first pass on the following legs, round to its own leg again. Every pass counts, not just the
+// nearest, because a line may use the same street twice. Null when no leg comes within maxOffsetM.
+function distanceRound(round: readonly DirectedLine[], vehicle: LatLon & { headingDeg?: number }, point: LatLon, maxOffsetM: number): number | 'passed' | null {
   const [own, ...after] = round;
   if (!own) return null;
-  const atKm = projectOntoLine(own.coordinates, vehicle).chainageKm;
-  const onOwn = projectOntoLine(own.coordinates, point);
-  const ownPasses = onOwn.offsetM <= maxOffsetM;
-  if (ownPasses && onOwn.chainageKm > atKm) return onOwn.chainageKm - atKm;
-  if (after.length === 0) return ownPasses ? 'passed' : null;
-  let km = lineLengthKm(own.coordinates) - atKm;
+  const atKm = vehicleChainageKm(own.coordinates, vehicle);
+  const onOwn = passesKm(own.coordinates, point, maxOffsetM);
+  const ahead = onOwn.find((km) => km > atKm);
+  if (ahead !== undefined) return ahead - atKm;
+  if (after.length === 0) return onOwn.length > 0 ? 'passed' : null;
+  let km = lineEndKm(own.coordinates) - atKm;
   for (const line of after) {
-    const projection = projectOntoLine(line.coordinates, point);
-    if (projection.offsetM <= maxOffsetM) return km + projection.chainageKm;
-    km += lineLengthKm(line.coordinates);
+    const first = passesKm(line.coordinates, point, maxOffsetM)[0];
+    if (first !== undefined) return km + first;
+    km += lineEndKm(line.coordinates);
   }
-  return ownPasses ? km + onOwn.chainageKm : null;
+  return onOwn.length > 0 ? km + onOwn[0] : null;
 }
 
-// The stops on a line, in travel order
+// Each time the line passes a stop, in travel order (a stop on a street used twice is there twice)
 function stopsAlong(line: DirectedLine, stops: readonly RouteStop[]) {
   return stops
-    .map((stop) => ({ stop, projection: projectOntoLine(line.coordinates, stop) }))
-    .filter(({ projection }) => projection.offsetM <= ROUTE_STOP_MAX_DISTANCE_M)
-    .sort((a, b) => a.projection.chainageKm - b.projection.chainageKm);
+    .flatMap((stop) => passesKm(line.coordinates, stop, ROUTE_STOP_MAX_DISTANCE_M).map((km) => ({ stop, km })))
+    .sort((a, b) => a.km - b.km);
 }
 
 export type TrackProgress = {
@@ -87,13 +89,18 @@ export type TrackProgress = {
 
 // Stops on the vehicle's line, in travel order, split around the vehicle. Past the last stop of its
 // leg, the next stop is the first one on the leg that follows.
-export function trackProgress(vehicle: Pick<VehicleSnapshot, 'lat' | 'lon' | 'lineId'>, lines: readonly DirectedLine[], stops: readonly RouteStop[], mine: RouteStop | null): TrackProgress {
+export function trackProgress(
+  vehicle: Pick<VehicleSnapshot, 'lat' | 'lon' | 'lineId'> & { headingDeg?: number },
+  lines: readonly DirectedLine[],
+  stops: readonly RouteStop[],
+  mine: RouteStop | null,
+): TrackProgress {
   const [line, following] = routeRound(lines, vehicle.lineId);
   if (!line) return { passed: null, next: null, mine };
-  const atKm = projectOntoLine(line.coordinates, vehicle).chainageKm;
+  const atKm = vehicleChainageKm(line.coordinates, vehicle);
   const along = stopsAlong(line, stops);
-  const behind = along.filter(({ projection }) => projection.chainageKm <= atKm);
-  const ahead = along.filter(({ projection }) => projection.chainageKm > atKm);
+  const behind = along.filter(({ km }) => km <= atKm);
+  const ahead = along.filter(({ km }) => km > atKm);
   const next = ahead[0]?.stop ?? (following ? (stopsAlong(following, stops)[0]?.stop ?? null) : null);
   return { passed: behind[behind.length - 1]?.stop ?? null, next, mine };
 }

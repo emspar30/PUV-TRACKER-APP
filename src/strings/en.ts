@@ -192,7 +192,8 @@ export const en = {
     // L2: tracking one multicab to the commuter's stop
     tracking: {
       minutes: (seconds: number) => (seconds < SECONDS_PER_MINUTE ? '<1 min' : `${Math.round(seconds / SECONDS_PER_MINUTE)} min`),
-      away: (distanceKm: number) => `${km(distanceKm)} away`,
+      // B2: measured along the route, so it can fall while the multicab drives a loop that brings it back
+      away: (distanceKm: number) => `${km(distanceKm)} by road`,
       approaching: (stop: string) => `Approaching ${stop}`,
       // No boarding point known: the time shown is to the vehicle's next stop
       toNextStop: (stop: string) => `To next stop ${stop}`,

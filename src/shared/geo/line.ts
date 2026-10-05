@@ -19,6 +19,12 @@ export type LineProjection = {
   snapped: LatLon;
 };
 
+// The line's length by the same measure as its chainages (projectOntoLine, linePasses)
+export function lineEndKm(coordinates: LineCoordinates): number {
+  const chainages = pointChainagesKm(coordinates);
+  return chainages[chainages.length - 1] ?? 0;
+}
+
 export function lineLengthKm(coordinates: LineCoordinates): number {
   return length(lineString(coordinates), KM);
 }
