@@ -38,9 +38,8 @@ import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme'
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
 const LOGO_SIZE = spacing.xl * 2;
-// Share of the window the map preview takes, and when made bigger
-const MAP_SHARE = 0.42;
-const MAP_SHARE_EXPANDED = 0.72;
+// B5: share of the window the map preview takes; made bigger, it fills the space the fields leave
+const MAP_SHARE = 0.3;
 const RECENT_SHOWN = 3;
 const MS_PER_MIN = 60000;
 const ICON_SIZE = spacing.md + spacing.xs;
@@ -73,6 +72,7 @@ export default function MyRidesScreen() {
   const destinations = useDestinationsStore((state) => state.destinations);
   const recentRides = useRidesStore((state) => state.rides);
   const { height: windowHeight } = useWindowDimensions();
+  // B5: bigger map: it takes the free space and the results hide; From, To and the stop chips stay
   const [mapExpanded, setMapExpanded] = useState(false);
   // "5 min ago" on recent rides counts from when this screen opened
   const [openedAt] = useState(() => Date.now());
@@ -227,8 +227,8 @@ export default function MyRidesScreen() {
         <TopBar />
       </View>
       {/* The map sits outside the scrolling page, so a drag on it always pans the map */}
-      <View style={styles.mapWrap}>
-        <View style={[styles.map, { height: windowHeight * (mapExpanded ? MAP_SHARE_EXPANDED : MAP_SHARE) }]}>
+      <View style={[styles.mapWrap, mapExpanded && styles.grow]}>
+        <View style={[styles.map, mapExpanded ? styles.grow : { height: windowHeight * MAP_SHARE }]}>
           {tiles.status === 'ready' ? (
             <OfflineMap
               tilesUrl={tiles.tiles.url}
@@ -263,7 +263,8 @@ export default function MyRidesScreen() {
           </View>
         </View>
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {/* B5: From and To stay put under the map, in both sizes; only the results below them scroll */}
+      <View style={styles.fields}>
         <TripCard
           origin={origin}
           destination={destination}
@@ -273,100 +274,99 @@ export default function MyRidesScreen() {
           onSwap={swap}
           onUseMyPosition={myPosition ? () => pick(myPosition) : undefined}
         />
-
-        {!hintSeen && needsPick ? <Hint text={strings.hints.ride} onDismiss={() => dismissHint('ride')} /> : null}
-
         {needsPick ? (
-          <View style={styles.section}>
-            <Text style={typography.overline}>{strings.ride.pickStop}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              {stops.map((stop) => (
-                <Chip
-                  key={stop.code}
-                  label={stop.code}
-                  accessibilityLabel={strings.ride.pickFor(FIELD_NAME[active], `${stop.code}, ${stop.name}`)}
-                  onPress={() => pick(stopPoint(stop))}
-                />
-              ))}
-            </ScrollView>
-          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityLabel={strings.ride.pickStop}>
+            {stops.map((stop) => (
+              <Chip
+                key={stop.code}
+                label={stop.code}
+                accessibilityLabel={strings.ride.pickFor(FIELD_NAME[active], `${stop.code}, ${stop.name}`)}
+                onPress={() => pick(stopPoint(stop))}
+              />
+            ))}
+          </ScrollView>
         ) : null}
+      </View>
+      {mapExpanded ? null : (
+        <ScrollView style={styles.grow} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {!hintSeen && needsPick ? <Hint text={strings.hints.ride} onDismiss={() => dismissHint('ride')} /> : null}
 
-        {plan && !plan.ok && ranked.length === 0 ? (
-          <RideFailure failure={plan} explanation={explanation} action={failureAction} badgeColor={colorOf} />
-        ) : null}
+          {plan && !plan.ok && ranked.length === 0 ? (
+            <RideFailure failure={plan} explanation={explanation} action={failureAction} badgeColor={colorOf} />
+          ) : null}
 
-        {itinerary && fare && ride ? (
-          <>
-            <FareSummaryCard itinerary={itinerary} fare={fare} regularFare={regularFare} classification={fareType} />
-            <Text style={typography.headlineSm}>{strings.ride.suggested}</Text>
-            <SuggestedRouteCard
-              best={chosen === ranked[0]}
-              supply={supply.vehicles.length > 0 && chosen ? { approaching: chosen.approaching, freeSeats: chosen.freeSeats } : null}
-              itinerary={itinerary}
-              routeName={cards.find((card) => card.code === ride.routeCode)?.name ?? ride.routeCode}
-              color={colorOf(ride.routeCode)}
-              boardAt={nearestCode(ride.from)}
-              getOffAt={nearestCode(ride.to)}
-              onViewOnMap={() => router.navigate({ pathname: '/', params: { route: ride.routeCode, at: String(Date.now()) } })}
-              onCheckin={() => router.navigate('/checkin')}
-            />
-          </>
-        ) : null}
+          {itinerary && fare && ride ? (
+            <>
+              <FareSummaryCard itinerary={itinerary} fare={fare} regularFare={regularFare} classification={fareType} />
+              <Text style={typography.headlineSm}>{strings.ride.suggested}</Text>
+              <SuggestedRouteCard
+                best={chosen === ranked[0]}
+                supply={supply.vehicles.length > 0 && chosen ? { approaching: chosen.approaching, freeSeats: chosen.freeSeats } : null}
+                itinerary={itinerary}
+                routeName={cards.find((card) => card.code === ride.routeCode)?.name ?? ride.routeCode}
+                color={colorOf(ride.routeCode)}
+                boardAt={nearestCode(ride.from)}
+                getOffAt={nearestCode(ride.to)}
+                onViewOnMap={() => router.navigate({ pathname: '/', params: { route: ride.routeCode, at: String(Date.now()) } })}
+                onCheckin={() => router.navigate('/checkin')}
+              />
+            </>
+          ) : null}
 
-        {ranked.length > 1 ? (
-          <>
-            <Text style={typography.overline}>{strings.ride.otherRoutes}</Text>
-            {ranked
-              .filter((option) => option !== chosen)
-              .map((option) => {
-                const code = option.itinerary.legs[1].routeCode;
-                const summary = strings.ride.summary(option.itinerary.rideKm, option.itinerary.walkM);
-                return (
-                  <Pressable key={code} style={styles.routeRow} onPress={() => setChosenRoute(code)} accessibilityRole="button">
-                    <LineBadge code={code} color={colorOf(code)} />
-                    <View style={styles.grow}>
-                      <Text style={typography.labelLg}>{cards.find((card) => card.code === code)?.name ?? code}</Text>
-                      <Text style={typography.bodySm}>
-                        {option.approaching > 0 ? [summary, strings.ride.coming(option.approaching, option.freeSeats)].join(' · ') : summary}
-                      </Text>
-                    </View>
-                    {option === ranked[0] ? <Chip label={strings.ride.bestMatch} /> : null}
-                    <ChevronRight color={colors.textSecondary} size={ICON_SIZE} />
-                  </Pressable>
-                );
-              })}
-          </>
-        ) : null}
+          {ranked.length > 1 ? (
+            <>
+              <Text style={typography.overline}>{strings.ride.otherRoutes}</Text>
+              {ranked
+                .filter((option) => option !== chosen)
+                .map((option) => {
+                  const code = option.itinerary.legs[1].routeCode;
+                  const summary = strings.ride.summary(option.itinerary.rideKm, option.itinerary.walkM);
+                  return (
+                    <Pressable key={code} style={styles.routeRow} onPress={() => setChosenRoute(code)} accessibilityRole="button">
+                      <LineBadge code={code} color={colorOf(code)} />
+                      <View style={styles.grow}>
+                        <Text style={typography.labelLg}>{cards.find((card) => card.code === code)?.name ?? code}</Text>
+                        <Text style={typography.bodySm}>
+                          {option.approaching > 0 ? [summary, strings.ride.coming(option.approaching, option.freeSeats)].join(' · ') : summary}
+                        </Text>
+                      </View>
+                      {option === ranked[0] ? <Chip label={strings.ride.bestMatch} /> : null}
+                      <ChevronRight color={colors.textSecondary} size={ICON_SIZE} />
+                    </Pressable>
+                  );
+                })}
+            </>
+          ) : null}
 
-        {recentRides.length > 0 ? (
-          <>
-            <Text style={typography.overline}>{strings.ride.recentRides}</Text>
-            <View style={styles.places}>
-              {recentRides.slice(0, RECENT_SHOWN).map((recent, index) => {
-                const station = stops.find((stop) => stop.code === recent.stationCode);
-                const when = strings.ride.ago(Math.floor((Math.max(openedAt, supply.nowMs) - recent.atMs) / MS_PER_MIN));
-                return (
-                  <Pressable
-                    key={[recent.atMs, index].join('-')}
-                    style={[styles.place, index > 0 && styles.placeDivider]}
-                    onPress={() => (station ? pick(stopPoint(station)) : undefined)}
-                    disabled={!station}
-                    accessibilityRole="button"
-                  >
-                    <LineBadge code={recent.routeCode} color={colorOf(recent.routeCode)} />
-                    <View style={styles.grow}>
-                      <Text style={typography.labelLg}>{strings.ride.recentRide(recent.stationCode)}</Text>
-                      <Text style={typography.bodySm}>{[strings.ride.recentFrom(recent.source), when].join(' · ')}</Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
-        ) : null}
+          {recentRides.length > 0 ? (
+            <>
+              <Text style={typography.overline}>{strings.ride.recentRides}</Text>
+              <View style={styles.places}>
+                {recentRides.slice(0, RECENT_SHOWN).map((recent, index) => {
+                  const station = stops.find((stop) => stop.code === recent.stationCode);
+                  const when = strings.ride.ago(Math.floor((Math.max(openedAt, supply.nowMs) - recent.atMs) / MS_PER_MIN));
+                  return (
+                    <Pressable
+                      key={[recent.atMs, index].join('-')}
+                      style={[styles.place, index > 0 && styles.placeDivider]}
+                      onPress={() => (station ? pick(stopPoint(station)) : undefined)}
+                      disabled={!station}
+                      accessibilityRole="button"
+                    >
+                      <LineBadge code={recent.routeCode} color={colorOf(recent.routeCode)} />
+                      <View style={styles.grow}>
+                        <Text style={typography.labelLg}>{strings.ride.recentRide(recent.stationCode)}</Text>
+                        <Text style={typography.bodySm}>{[strings.ride.recentFrom(recent.source), when].join(' · ')}</Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
 
-      </ScrollView>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -383,6 +383,15 @@ const useStyles = makeStyles(({ colors }) => ({
   content: {
     gap: spacing.md,
     padding: spacing.md,
+    paddingTop: spacing.sm,
+  },
+  fields: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.outline,
   },
   mapWrap: {
     paddingHorizontal: spacing.md,
@@ -403,9 +412,6 @@ const useStyles = makeStyles(({ colors }) => ({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  section: {
-    gap: spacing.sm,
   },
   chips: {
     gap: spacing.sm,
