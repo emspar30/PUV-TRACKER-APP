@@ -1,7 +1,7 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { Bus, LocateFixed, Maximize, X } from 'lucide-react-native';
+import { Bus, LocateFixed, Maximize, Megaphone, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, Text, Vibration, View } from 'react-native';
+import { Pressable, Text, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Logo, RoundButton, TopBar, type StatusTone } from '@/components';
@@ -16,6 +16,7 @@ import { BlueDot } from '@/features/map/BlueDot';
 import { LocationExplainer } from '@/features/map/LocationExplainer';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { OriginPin } from '@/features/map/OriginPin';
+import { ReportSheet } from '@/features/report/ReportSheet';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useCommuterPosition } from '@/features/map/useCommuterPosition';
@@ -34,6 +35,7 @@ import {
   TRACK_OTHERS_OPACITY,
   TRACKING_SESSION_MIN,
 } from '@/shared/config';
+import { canReportWithGps } from '@/shared/checkin/geofence';
 import { nearestStop } from '@/shared/routing/describe';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { projectOntoLine } from '@/shared/geo/line';
@@ -45,7 +47,9 @@ import { isStopped } from '@/shared/telemetry/stopped';
 import { crossesAlert, etaTo, trackProgress } from '@/shared/tracking/eta';
 import { routeCodesOf } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
+import { showDialog } from '@/state/dialogStore';
 import { useHintsStore } from '@/state/hintsStore';
+import { useLocationStore } from '@/state/locationStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
@@ -121,6 +125,10 @@ export default function MapScreen() {
 
   // G0: the commuter's GPS fix, a simulated stop (Demo settings) or a long-press pin
   const commuter = useCommuterPosition();
+  // RP1: the Report panel; "with GPS" needs a good fix or the simulated stop
+  const [reportOpen, setReportOpen] = useState(false);
+  const fixAccuracyM = useLocationStore((store) => store.fix?.accuracyM ?? null);
+  const gpsAvailable = canReportWithGps(commuter ? { ...commuter, accuracyM: commuter.source === 'gps' ? fixAccuracyM : null } : null);
   // The stop of the picked route nearest to the commuter, shown as "Your stop"
   const myStop = commuter && selectedRoute ? (nearestStop(layers.stops, commuter)?.stop ?? null) : null;
   // A session lasts TRACKING_SESSION_MIN; tapping Track again starts (and pays for) a new one
@@ -195,8 +203,18 @@ export default function MapScreen() {
     if (!session.ok) {
       if (session.reason === 'sign_in') router.push('/sign-in');
       else if (session.reason === 'not_enough_energy')
-        Alert.alert(strings.live.tracking.noEnergyTitle, strings.live.tracking.noEnergyBody(ENERGY_TRACKING_COST, TRACKING_SESSION_MIN));
-      else Alert.alert(strings.live.tracking.failedTitle, session.message);
+        // The crowdsourcing loop: a report earns the Energy that tracking spends
+        showDialog({
+          tone: 'warning',
+          icon: Zap,
+          title: strings.live.tracking.noEnergyTitle,
+          body: strings.live.tracking.noEnergyBody(ENERGY_TRACKING_COST, TRACKING_SESSION_MIN),
+          actions: [
+            { label: strings.live.tracking.earnByReporting, onPress: () => setReportOpen(true) },
+            { label: strings.common.close, variant: 'secondary' },
+          ],
+        });
+      else showDialog({ tone: 'danger', title: strings.live.tracking.failedTitle, body: session.message ?? strings.checkin.failedBody });
       return;
     }
     const target = live.vehicles.find((candidate) => candidate.id === id);
@@ -385,6 +403,10 @@ export default function MapScreen() {
 
       <View style={styles.bottom} onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)} pointerEvents="box-none">
         <View style={styles.buttons} pointerEvents="box-none">
+          <Pressable style={styles.report} onPress={() => setReportOpen(true)} accessibilityRole="button" accessibilityLabel={strings.report.title}>
+            <Megaphone color={colors.onPrimary} size={ICON_SIZE} />
+            <Text style={[typography.labelLg, styles.reportText]}>{strings.report.button}</Text>
+          </Pressable>
           <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
           {selectedRoute ? <RoundButton icon={Maximize} label={strings.map.showWholeRoute} onPress={() => frame(selectedRoute)} /> : null}
           <RoundButton
@@ -464,6 +486,16 @@ export default function MapScreen() {
           onClose={() => setSelectorOpen(false)}
         />
       ) : null}
+
+      {reportOpen ? (
+        <ReportSheet
+          routes={routeOptions}
+          initialRoute={selectedRoute}
+          vehicles={repos.vehicles.source === 'live' ? live.vehicles.map((item) => ({ id: item.id, label: item.label })) : []}
+          gpsAvailable={gpsAvailable}
+          onClose={() => setReportOpen(false)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -507,7 +539,21 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
   },
   buttons: {
     alignSelf: 'flex-end',
+    alignItems: 'flex-end',
     gap: spacing.sm,
+  },
+  report: {
+    minHeight: MIN_TOUCH_TARGET,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.primary,
+    ...elevation.level3,
+  },
+  reportText: {
+    color: colors.onPrimary,
   },
   grow: {
     flex: 1,

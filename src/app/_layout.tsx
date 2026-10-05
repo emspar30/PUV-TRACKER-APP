@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { LoadingScreen } from '@/components';
+import { DialogHost, LoadingScreen } from '@/components';
 import { RouteDataProvider } from '@/data/RouteDataProvider';
 import { LOADING_MIN_MS } from '@/shared/config';
 import { startEnergySync } from '@/state/energyStore';
@@ -51,6 +51,7 @@ function ThemedStack() {
           options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }}
         />
       </Stack>
+      <DialogHost />
     </>
   );
 }

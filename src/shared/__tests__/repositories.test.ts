@@ -1,8 +1,8 @@
 // AF2: the Demo switch picks the implementation; the header shows one data chip; backlog 68's
 // reopen closes the old database handle first. Fixed fixtures only, never the live seed.
 
-import { noLiveCheckins, noLiveVehicles } from '../../data/repositories/noLiveData';
-import { selectRepositories } from '../../data/repositories/select';
+import { noLiveCheckins, noLiveReports, noLiveVehicles } from '../../data/repositories/noLiveData';
+import { selectCrowd, selectRepositories } from '../../data/repositories/select';
 import type { VehicleSnapshot } from '../telemetry/vehicle';
 import { headerDataChip } from '../ui/dataChip';
 import { reopen, type Holder } from '../util/reopen';
@@ -16,11 +16,9 @@ describe('the Demo switch', () => {
   it('off: the stand-ins with no data, so every screen says No data', () => {
     const repos = selectRepositories({ demo: false, seed: 1, lines: LINES, stops: STOPS });
     expect(repos.vehicles).toBe(noLiveVehicles);
-    expect(repos.checkins).toBe(noLiveCheckins);
     const seen: (readonly VehicleSnapshot[])[] = [];
     repos.vehicles.subscribe('T1', (vehicles) => seen.push(vehicles));
     expect(seen).toEqual([[]]);
-    expect(repos.checkins.waitingCount('T1', 'AAA')).toBeNull();
   });
 
   it('on: demo vehicles, every one marked as demo, with a DEMO plate', () => {
@@ -38,9 +36,15 @@ describe('the Demo switch', () => {
     expect(clock.clearInterval).toHaveBeenCalledWith('timer');
   });
 
-  it('on: check-in counts are not simulated yet (AF7), so Check-in shows no Demo chip', () => {
-    const repos = selectRepositories({ demo: true, seed: 7, lines: LINES, stops: STOPS });
-    expect(repos.checkins.source).toBe('none');
+  it('check-ins and reports: demo, live, or the stand-ins with no data', async () => {
+    const demo = { checkins: noLiveCheckins, reports: noLiveReports };
+    const live = { checkins: noLiveCheckins, reports: noLiveReports };
+    expect(selectCrowd(true, demo, live)).toBe(demo);
+    expect(selectCrowd(false, demo, live)).toBe(live);
+    const none = selectCrowd(false, demo, null);
+    expect(none.checkins.source).toBe('none');
+    expect(await none.checkins.waitingCounts('T1', ['AAA'])).toBeNull();
+    expect(await none.reports.recent()).toBeNull();
   });
 
   it('the stress setting puts 50 markers on the route', () => {

@@ -10,7 +10,7 @@ type ButtonProps = {
   icon?: LucideIcon;
   // Shown before the label, such as a mail icon
   leadingIcon?: LucideIcon;
-  variant?: 'primary' | 'secondary' | 'text';
+  variant?: 'primary' | 'secondary' | 'danger' | 'text';
   disabled?: boolean;
   accessibilityLabel?: string;
 };
@@ -19,11 +19,12 @@ const ICON_SIZE = spacing.md + spacing.xs;
 const BUTTON_HEIGHT = MIN_TOUCH_TARGET + spacing.xs;
 
 // The app's buttons (restyle): a filled blue pill for the main action, an outlined card-colour pill
-// for a second choice, and a plain text button for Skip or Later
+// for a second choice, a red pill for an action that cannot be undone, and a plain text button
+// for Skip or Later
 export function Button({ label, onPress, icon: Icon, leadingIcon: Leading, variant = 'primary', disabled, accessibilityLabel }: ButtonProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
-  const textColor = variant === 'primary' ? colors.onPrimary : variant === 'secondary' ? colors.textPrimary : colors.primary;
+  const textColor = variant === 'primary' || variant === 'danger' ? colors.onPrimary : variant === 'secondary' ? colors.textPrimary : colors.primary;
   return (
     <Pressable
       style={({ pressed }) => [styles.base, styles[variant], disabled && styles.disabled, pressed && styles.pressed]}
@@ -60,6 +61,10 @@ const useStyles = makeStyles(({ colors }) => ({
     borderWidth: 1,
     borderColor: colors.outline,
     backgroundColor: colors.card,
+  },
+  // A choice that cannot be undone, such as Reset
+  danger: {
+    backgroundColor: colors.danger,
   },
   text: {
     minHeight: MIN_TOUCH_TARGET,

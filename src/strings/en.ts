@@ -41,6 +41,8 @@ export const en = {
   crowdsource: {
     title: 'Crowdsource',
     body: 'Reports from commuters in the last hour',
+    // The user's own posts on live data come from the database (N1 reads the same table)
+    signIn: 'Sign in to see live reports',
     all: 'All routes',
     empty: 'No reports yet',
     emptyBody: 'Reports from commuters show here for one hour.',
@@ -58,6 +60,29 @@ export const en = {
     byline: (username: string, ago: string) => `@${username} · ${ago}`,
   },
 
+  // RP1: the Report button on the Live tab and its panel
+  report: {
+    button: 'Report',
+    title: 'Report a multicab',
+    close: 'Close report',
+    route: 'Route',
+    whatsHappening: "What's happening?",
+    seats: 'Seats (optional)',
+    vehicleDev: 'Vehicle (development builds)',
+    withGps: 'Share with GPS',
+    gpsEarns: (gps: number, noGps: number) => `Earns +${gps.toFixed(1)} Energy with GPS, +${noGps.toFixed(1)} without (once a day each)`,
+    gpsUnavailable: (noGps: number) => `No precise location right now. Sent without GPS: +${noGps.toFixed(1)} Energy (once a day).`,
+    unverified: 'Reports show as unverified for now.',
+    send: 'Send report',
+    sending: 'Sending…',
+    sentTitle: 'Report sent',
+    sentBody: (minutes: number) => `It shows in Crowdsource for ${minutes} minutes.`,
+    failedTitle: 'Report not sent',
+    failedBody: 'Try again in a moment.',
+    noUsername: 'Pick a handle in Profile first.',
+    openProfile: 'Open Profile',
+  },
+
   topBar: {
     // Shown until the user picks a handle
     guest: 'Commuter',
@@ -73,6 +98,8 @@ export const en = {
   },
 
   common: {
+    ok: 'OK',
+    close: 'Close',
     tryAgain: 'Try again',
     back: 'Back',
     skip: 'Skip',
@@ -176,6 +203,7 @@ export const en = {
       // SB2: paying for a session
       noEnergyTitle: 'Not enough Energy',
       noEnergyBody: (cost: number, minutes: number) => `Tracking costs ${cost} Energy for ${minutes} minutes. Earn Energy with check-ins and reports.`,
+      earnByReporting: 'Send a report',
       failedTitle: 'Tracking could not start',
     },
   },
@@ -279,15 +307,47 @@ export const en = {
     checkIn: 'Check in',
     checkInAt: (code: string) => `Check in at ${code}`,
     boarded: 'I boarded',
-    cancel: 'Cancel',
     countdown: (time: string) => `${time} left`,
     countdownLabel: (code: string, time: string) => `Checked in at ${code}, ${time} left`,
     notVerified: 'Not location-verified',
-    phoneOnly: 'On this phone only',
+    // C1
+    shared: 'Shared with commuters',
+    waiting: (count: number) => (count === 1 ? '1 waiting' : `${count} waiting`),
+    notHereTitle: 'Check in at the station',
+    tooFar: (distanceM: number, radiusM: number, code: string) =>
+      `You are ${distanceM} m from ${code}. Check in within ${radiusM} m of the station.`,
+    inaccurate: (gateM: number) => `Your location is not precise enough yet (needs ${gateM} m or better). Wait a moment outdoors and try again.`,
+    noPosition: 'Turn on location to check in. On the emulator, use a simulated stop in Demo & simulation.',
+    failedTitle: 'Check-in failed',
+    signIn: 'Sign in',
+    failedBody: 'Try again in a moment.',
     route: 'Route',
     stations: 'Stations',
-    // AF1: the count pill only; read aloud as "Waiting here, No data"
-    waitingCount: (count: string) => `Waiting here, ${count}`,
+    // C1 UI pass: the sheet, after Google Maps' place sheet
+    title: 'Stations & check-in',
+    nearest: 'Nearest to you',
+    picked: 'Selected station',
+    distance: (metres: number) => (metres < METERS_PER_KM ? `${metres} m` : km(metres / METERS_PER_KM)),
+    // "RCA · 120 m · 2 waiting"; parts that are unknown are left out
+    meta: (parts: readonly string[]) => parts.join(' · '),
+    routeOf: (code: string) => `Route ${code}`,
+    active: (time: string) => `Active · ${time}`,
+    waitingHere: 'Waiting here',
+    inclYou: 'incl. you',
+    visibility: 'Visibility',
+    sharedShort: 'Shared',
+    demoOnly: 'This phone',
+    locationCheck: 'Location check',
+    unverified: 'Unverified',
+    expires: 'Check-in expires',
+    window: (minutes: number) => `${minutes} min window`,
+    boardingNote: 'Bluetooth boarding confirmation comes in a later version.',
+    cancelCheckIn: 'Cancel check-in',
+    // The pill above the sheet: what the geofence will use
+    gpsPill: (accuracyM: number) => `GPS · ±${accuracyM} m`,
+    simulatedPill: (code: string) => `Simulated at ${code}`,
+    noLocationPill: 'Location off',
+    radiusPill: (radiusM: number) => `Check in within ${radiusM} m`,
     pickStationFirst: 'Pick a station first',
   },
 

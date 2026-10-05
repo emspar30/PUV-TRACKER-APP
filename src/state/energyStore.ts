@@ -23,7 +23,8 @@ type EnergyState = {
 
 export const useEnergyStore = create<EnergyState>(() => ({ source: 'none', snapshot: null, error: null }));
 
-const demoEnergy = createDemoEnergy();
+// Shared with the demo check-ins and reports (crowdStore), which earn into this wallet
+export const demoEnergy = createDemoEnergy();
 const liveEnergy = isSupabaseConfigured() ? createLiveEnergy(supabaseEnergyPort) : null;
 
 const currentEnergy = () => selectEnergy(useSettingsStore.getState().demoData, demoEnergy, liveEnergy);

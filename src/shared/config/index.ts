@@ -200,6 +200,9 @@ export const DEMO_SPEED_SAMPLE_S = 5;
 // Demo feed (Crowdsource tab, restyle): one slot of this many minutes holds 0 to DEMO_FEED_SLOT_MAX posts
 export const DEMO_FEED_SLOT_MIN = 6;
 export const DEMO_FEED_SLOT_MAX = 2;
+// Demo check-in counts (C1): other people waiting at a station, 0 to this many, new every slot
+export const DEMO_CHECKIN_OTHERS_MAX = 3;
+export const DEMO_CHECKIN_SLOT_MIN = 5;
 // Development stress setting: this many demo markers on the selected route (PRD 13: 55 FPS with 50)
 export const DEMO_STRESS_MARKERS = 50;
 export const DEMO_STRESS_DEV = false;
@@ -253,6 +256,9 @@ export const TRACKING_SESSION_MIN = 30;
 export const ENERGY_HISTORY_LIMIT = 20;
 // How often the refill countdown in the top bar and Profile updates
 export const ENERGY_COUNTDOWN_TICK_S = 30;
+// C1: how often the station counts reload while Check-in is open; RP1/N1: the feed lines read
+export const CHECKIN_COUNTS_REFRESH_S = 30;
+export const FEED_READ_LIMIT = 50;
 export const FEED_LIFETIME_MIN = 60;
 export const FEED_FLAG_HIDE_COUNT = 3;
 export const FEED_PHRASES = ['full', 'few_seats', 'not_moving', 'heavy_traffic', 'loading'] as const;

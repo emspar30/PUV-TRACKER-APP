@@ -3,7 +3,9 @@
 // screens. Until then the "none" implementation stands in: it has no data, so screens say "No data".
 // Pure types: no React Native or Expo imports.
 
-import type { EnergyKind } from '../../shared/backend/rules';
+import type { EnergyKind, FeedPhrase } from '../../shared/backend/rules';
+import type { FeedPost } from '../../shared/demo/feed';
+import type { SeatTier } from '../../shared/telemetry/occupancy';
 import type { VehicleSnapshot } from '../../shared/telemetry/vehicle';
 
 // Where the data comes from. Every screen that shows "demo" data shows the "Demo" chip.
@@ -18,10 +20,41 @@ export type VehiclesRepository = {
   subscribe(routeCode: string, listener: (vehicles: readonly VehicleSnapshot[]) => void): Unsubscribe;
 };
 
+// A failed cloud call: 'sign_in' when there is no account (live data), else the message
+export type CloudFailure = { ok: false; reason: 'sign_in' | 'error'; message?: string };
+
+export type CheckInResult = { ok: true; expiresAtMs: number } | CloudFailure;
+
+// C1: station check-ins. Demo keeps them on the phone; live calls check_in, checkin_counts and
+// end_check_in. The check-in earns Energy (once a Manila day) inside the same call.
 export type CheckinsRepository = {
   source: LiveSource;
-  // People waiting at a station, or null when unknown ("No data"). Demo counts arrive in AF7.
-  waitingCount(routeCode: string, stationCode: string): number | null;
+  // People waiting per station code on a route (the caller included; a station with nobody is
+  // left out), or null when unknown. The demo makes up counts for the route's `stationCodes`.
+  waitingCounts(routeCode: string, stationCodes: readonly string[]): Promise<ReadonlyMap<string, number> | null>;
+  checkIn(routeCode: string, stationCode: string, requestKey: string): Promise<CheckInResult>;
+  // "I boarded" or "Cancel": the caller's count drops at once
+  end(): Promise<void>;
+};
+
+export type ReportInput = {
+  routeCode: string;
+  phrase: FeedPhrase;
+  seatTier: SeatTier | null;
+  // The manual vehicle picker (D5, development builds); null when not picked
+  vehicleId: string | null;
+  withGps: boolean;
+};
+
+export type ReportResult = { ok: true } | CloudFailure | { ok: false; reason: 'no_username' };
+
+// RP1: the Report button. Demo keeps the posts on the phone; live calls post_report and reads
+// feed_posts. A report earns Energy (with GPS 1.0, without 0.5; once a Manila day each).
+export type ReportsRepository = {
+  source: LiveSource;
+  post(input: ReportInput, requestKey: string): Promise<ReportResult>;
+  // Live posts, newest first; null when unknown (signed out)
+  recent(): Promise<readonly FeedPost[] | null>;
 };
 
 // One line of the Energy history; spends are negative
@@ -47,5 +80,4 @@ export type EnergyRepository = {
 
 export type Repositories = {
   vehicles: VehiclesRepository;
-  checkins: CheckinsRepository;
 };

@@ -1,4 +1,4 @@
-// A station check-in kept on the phone (UX2; the cloud check-in is G1). Pure: time is passed in.
+// A station check-in as the phone keeps it (UX2), with the expiry from the cloud (C1). Pure: time is passed in.
 // Only the expiry time is stored, so the countdown is right after a restart and a check-in left
 // alone for a long time is simply expired.
 
@@ -16,8 +16,9 @@ export type LocalCheckIn = {
   expiresAtMs: number;
 };
 
-export function startCheckIn(routeCode: string, stationCode: string, nowMs: number): LocalCheckIn {
-  return { routeCode, stationCode, createdAtMs: nowMs, expiresAtMs: nowMs + CHECKIN_LIFETIME_S * MS_PER_S };
+// `expiresAtMs` is the server's expiry when the check-in is in the cloud (C1)
+export function startCheckIn(routeCode: string, stationCode: string, nowMs: number, expiresAtMs = nowMs + CHECKIN_LIFETIME_S * MS_PER_S): LocalCheckIn {
+  return { routeCode, stationCode, createdAtMs: nowMs, expiresAtMs };
 }
 
 export function remainingMs(checkIn: LocalCheckIn, nowMs: number): number {

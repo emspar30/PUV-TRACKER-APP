@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import { Bus, MapPin, RotateCcw } from 'lucide-react-native';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
 import { Chip, Screen, SettingsGroup, SettingsRow } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { signOut } from '@/services/auth';
+import { showDialog } from '@/state/dialogStore';
 import { resetApp } from '@/state/resetApp';
 import { useSessionStore } from '@/state/sessionStore';
 import { useSettingsStore } from '@/state/settingsStore';
@@ -21,19 +22,25 @@ export default function DemoSettingsScreen() {
   const status = useSessionStore((state) => state.status);
 
   const confirmReset = () =>
-    Alert.alert(strings.demo.resetConfirmTitle, strings.demo.resetConfirmBody, [
-      { text: strings.demo.cancel, style: 'cancel' },
-      {
-        text: strings.demo.resetConfirm,
-        style: 'destructive',
-        onPress: () => {
-          if (status === 'signed-in') void signOut();
-          resetApp();
-          router.dismissAll();
-          router.replace('/');
+    showDialog({
+      tone: 'danger',
+      icon: RotateCcw,
+      title: strings.demo.resetConfirmTitle,
+      body: strings.demo.resetConfirmBody,
+      actions: [
+        {
+          label: strings.demo.resetConfirm,
+          variant: 'danger',
+          onPress: () => {
+            if (status === 'signed-in') void signOut();
+            resetApp();
+            router.dismissAll();
+            router.replace('/');
+          },
         },
-      },
-    ]);
+        { label: strings.demo.cancel, variant: 'secondary' },
+      ],
+    });
 
   return (
     <Screen title={strings.demo.title}>

@@ -6,7 +6,7 @@ import { parseStoredCheckIn, startCheckIn, type LocalCheckIn } from '@/shared/ch
 
 import { useRidesStore } from './ridesStore';
 
-// The user's station check-in, kept on this phone only until the cloud check-in arrives (G1).
+// The user's station check-in as this phone shows it; crowdStore sends it to the cloud first (C1).
 // Only the expiry time is stored, so the countdown survives a restart.
 
 type StoredCheckIn = {
@@ -14,7 +14,7 @@ type StoredCheckIn = {
 };
 
 type CheckInState = StoredCheckIn & {
-  checkInAt: (routeCode: string, stationCode: string, nowMs: number) => void;
+  checkInAt: (routeCode: string, stationCode: string, nowMs: number, expiresAtMs?: number) => void;
   // "I boarded" ends it and keeps the ride in My Rides' recent rides; "Cancel" only ends it
   boarded: (nowMs: number) => void;
   clear: () => void;
@@ -37,7 +37,7 @@ export const useCheckInStore = create<CheckInState>()(
         if (current) useRidesStore.getState().add({ routeCode: current.routeCode, stationCode: current.stationCode, atMs: nowMs, source: 'checkin' });
         set({ checkIn: null });
       },
-      checkInAt: (routeCode, stationCode, nowMs) => set({ checkIn: startCheckIn(routeCode, stationCode, nowMs) }),
+      checkInAt: (routeCode, stationCode, nowMs, expiresAtMs) => set({ checkIn: startCheckIn(routeCode, stationCode, nowMs, expiresAtMs) }),
       clear: () => set({ checkIn: null }),
     }),
     {

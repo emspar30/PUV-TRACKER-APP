@@ -1,7 +1,7 @@
 // Stands in for the Supabase implementations until SB1: there is no live data, so every screen says
 // "No data", never "no vehicles". Pure: no React Native or Expo imports, and no network.
 
-import type { CheckinsRepository, EnergyRepository, VehiclesRepository } from './types';
+import type { CheckinsRepository, EnergyRepository, ReportsRepository, VehiclesRepository } from './types';
 
 export const noLiveVehicles: VehiclesRepository = {
   source: 'none',
@@ -11,9 +11,18 @@ export const noLiveVehicles: VehiclesRepository = {
   },
 };
 
+// No backend: no counts, and nowhere to check in or report
 export const noLiveCheckins: CheckinsRepository = {
   source: 'none',
-  waitingCount: () => null,
+  waitingCounts: async () => null,
+  checkIn: async () => ({ ok: false, reason: 'error' }),
+  end: async () => undefined,
+};
+
+export const noLiveReports: ReportsRepository = {
+  source: 'none',
+  post: async () => ({ ok: false, reason: 'error' }),
+  recent: async () => null,
 };
 
 // No backend: no wallet to show, and tracking (of no vehicles) has nothing to pay or end

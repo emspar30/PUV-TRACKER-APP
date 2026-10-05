@@ -54,7 +54,9 @@ const packet = (overrides: Partial<TelemetryPacket> = {}): TelemetryPacket => ({
   vehicle_id: VEHICLE,
   lat: 8.947459,
   lon: 125.541426,
-  speed: 20,
+  // Parked: Night Mode (21:00 to 04:59 Manila) hides moving vehicles, so a moving test vehicle
+  // could not be read back at night
+  speed: 0,
   heading: 90,
   seats: 5,
   ts: Date.now() / 1000,
@@ -286,13 +288,23 @@ live('SB1 commuter backend, live project', () => {
   );
 
   it(
-    'the energy balance never exceeds the wallet cap, and tracking is free while Energy is off',
+    'the energy balance never exceeds the wallet cap, and tracking spends 1 Energy once per request key',
     async () => {
+      // Energy is on since migration 20261006: a session costs 1, or is refused below 1
       const balance = await writer.rpc('energy_balance');
       expect(balance.error).toBeNull();
-      expect(Number(balance.data)).toBeLessThanOrEqual(5);
-      const tracking = await writer.rpc('start_tracking', { request_key: key('track') });
+      const before = Number(balance.data);
+      expect(before).toBeLessThanOrEqual(5);
+      const request = key('track');
+      const tracking = await writer.rpc('start_tracking', { request_key: request });
+      if (before < 1) {
+        expect(tracking.error?.message).toBe('not enough energy');
+        return;
+      }
       expect(tracking.error).toBeNull();
+      expect((await writer.rpc('start_tracking', { request_key: request })).error).toBeNull();
+      const after = await writer.rpc('energy_balance');
+      expect(Number(after.data)).toBeCloseTo(before - 1);
     },
     TIMEOUT_MS,
   );

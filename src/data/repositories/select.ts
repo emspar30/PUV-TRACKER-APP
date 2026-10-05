@@ -3,8 +3,8 @@
 
 import type { DirectedLine, RouteStop } from '../../shared/routing/types';
 import { createDemoVehicles, type DemoClock } from '../demo/demoVehicles';
-import { noLiveCheckins, noLiveEnergy, noLiveVehicles } from './noLiveData';
-import type { EnergyRepository, Repositories, VehiclesRepository } from './types';
+import { noLiveCheckins, noLiveEnergy, noLiveReports, noLiveVehicles } from './noLiveData';
+import type { CheckinsRepository, EnergyRepository, ReportsRepository, Repositories, VehiclesRepository } from './types';
 
 export type RepositoryInput = {
   demo: boolean;
@@ -18,12 +18,8 @@ export type RepositoryInput = {
 };
 
 export function selectRepositories({ demo, seed, lines, stops, stress, clock, live }: RepositoryInput): Repositories {
-  if (!demo) return { vehicles: live ?? noLiveVehicles, checkins: noLiveCheckins };
-  return {
-    vehicles: createDemoVehicles(lines, stops, { seed, stress, clock }),
-    // Demo waiting counts arrive in AF7; until then Check-in shows "No data" and no Demo chip
-    checkins: noLiveCheckins,
-  };
+  if (!demo) return { vehicles: live ?? noLiveVehicles };
+  return { vehicles: createDemoVehicles(lines, stops, { seed, stress, clock }) };
 }
 
 // SB2: the Energy wallet follows the same switch. It is chosen once per switch position (not per
@@ -31,4 +27,12 @@ export function selectRepositories({ demo, seed, lines, stops, stress, clock, li
 export function selectEnergy(demo: boolean, demoEnergy: EnergyRepository, live: EnergyRepository | null): EnergyRepository {
   if (demo) return demoEnergy;
   return live ?? noLiveEnergy;
+}
+
+// C1 and RP1 follow the same switch, with the same module-level instances as the wallet
+export type CrowdRepositories = { checkins: CheckinsRepository; reports: ReportsRepository };
+
+export function selectCrowd(demo: boolean, demoCrowd: CrowdRepositories, live: CrowdRepositories | null): CrowdRepositories {
+  if (demo) return demoCrowd;
+  return live ?? { checkins: noLiveCheckins, reports: noLiveReports };
 }
