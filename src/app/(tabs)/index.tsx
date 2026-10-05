@@ -5,17 +5,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  AvatarButton,
-  BottomSheet,
-  Chip,
-  Hint,
-  Logo,
-  RoundButton,
-  RouteChip,
-  StatusPill,
-  type SheetRequest,
-} from '@/components';
+import {BottomSheet, Chip, Hint, Logo, RoundButton, RouteChip, type SheetRequest, StatusPill, TopBar} from '@/components';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { GreetingCard } from '@/features/greeting/GreetingCard';
@@ -281,8 +271,8 @@ export default function LiveScreen() {
         <BlueDot />
       </OfflineMap>
       <MapDevOverlay install={state.tiles.install} mapStatus={mapStatus} view={view} offsetTop={CREDIT_HEIGHT + spacing.sm} />
-      <View style={[styles.topRight, { top: insets.top + spacing.sm }]}>
-        <AvatarButton />
+      <View style={[styles.topBar, { top: insets.top + spacing.sm }]}>
+        <TopBar />
       </View>
 
       <BottomSheet
@@ -480,8 +470,9 @@ const useStyles = makeStyles(({ colors, mapRoute }) => ({
   noticeAction: {
     color: colors.primary,
   },
-  topRight: {
+  topBar: {
     position: 'absolute',
+    left: spacing.md,
     right: spacing.md,
   },
   peek: {

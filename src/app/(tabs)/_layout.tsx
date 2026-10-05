@@ -1,19 +1,25 @@
 import { Redirect, Tabs } from 'expo-router';
-import { Compass, MapPin, Route, type LucideIcon } from 'lucide-react-native';
+import { Bus, Map, Radio, ShieldCheck, type LucideIcon } from 'lucide-react-native';
+import { View } from 'react-native';
 
 import { TAB_ROUTES, type TabRouteName } from '@/navigation/tabs';
 import { useProfileStore } from '@/state/profileStore';
-import { spacing, useTheme } from '@/theme';
+import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
-// Three tabs (plan v2, Revision 2); the fare is part of My Ride. Settings open from the avatar
-// button on each tab.
+// Four tabs (restyle): Map, Check-in, My Rides, Crowdsource. Settings open from the top bar.
 const ICONS: Record<TabRouteName, LucideIcon> = {
-  index: Compass,
-  checkin: MapPin,
-  ride: Route,
+  index: Map,
+  checkin: ShieldCheck,
+  ride: Bus,
+  crowdsource: Radio,
 };
 
+const ICON_SIZE = spacing.lg - spacing.xs / 2;
+const INDICATOR_WIDTH = spacing.xl * 2;
+const INDICATOR_HEIGHT = spacing.xl;
+
 export default function TabsLayout() {
+  const styles = useStyles();
   const onboarded = useProfileStore((state) => state.onboarded);
   const { colors } = useTheme();
   // First launch: show the introduction before the tabs
@@ -23,10 +29,10 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.onPrimaryContainer,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: colors.sheet,
+          backgroundColor: colors.card,
           borderTopColor: colors.outline,
         },
         tabBarItemStyle: { paddingVertical: spacing.xs },
@@ -41,7 +47,12 @@ export default function TabsLayout() {
             name={name}
             options={{
               title,
-              tabBarIcon: ({ color, size }) => <Icon color={color} size={size} />,
+              // Material 3: the active tab's icon sits in a tinted pill
+              tabBarIcon: ({ color, focused }) => (
+                <View style={[styles.indicator, focused && styles.indicatorOn]}>
+                  <Icon color={color} size={ICON_SIZE} />
+                </View>
+              ),
             }}
           />
         );
@@ -49,3 +60,16 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const useStyles = makeStyles(({ colors }) => ({
+  indicator: {
+    width: INDICATOR_WIDTH,
+    height: INDICATOR_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.pill,
+  },
+  indicatorOn: {
+    backgroundColor: colors.primaryContainer,
+  },
+}));

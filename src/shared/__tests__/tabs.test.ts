@@ -1,11 +1,12 @@
 import { TAB_ROUTES } from '../../navigation/tabs';
 
 describe('bottom tabs', () => {
-  it('are exactly Live, Check-in and My Ride, in that order', () => {
+  it('are exactly Map, Check-in, My Rides and Crowdsource, in that order (restyle)', () => {
     expect(TAB_ROUTES.map(({ name, title }) => [name, title])).toEqual([
-      ['index', 'Live'],
+      ['index', 'Map'],
       ['checkin', 'Check-in'],
-      ['ride', 'My Ride'],
+      ['ride', 'My Rides'],
+      ['crowdsource', 'Crowdsource'],
     ]);
   });
 

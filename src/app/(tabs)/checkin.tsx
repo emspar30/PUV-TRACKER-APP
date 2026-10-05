@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AvatarButton, BottomSheet, Chip, Hint, LineBadge, Logo, RouteChip, StatusPill, type SheetRequest } from '@/components';
+import {BottomSheet, Chip, Hint, LineBadge, Logo, RouteChip, type SheetRequest, StatusPill, TopBar} from '@/components';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
@@ -144,8 +144,8 @@ export default function CheckInScreen() {
           <Logo size={LOGO_SIZE} />
         </View>
       )}
-      <View style={[styles.topRight, { top: insets.top + spacing.sm }]}>
-        <AvatarButton />
+      <View style={[styles.topBar, { top: insets.top + spacing.sm }]}>
+        <TopBar />
       </View>
 
       <BottomSheet
@@ -227,8 +227,9 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topRight: {
+  topBar: {
     position: 'absolute',
+    left: spacing.md,
     right: spacing.md,
   },
   peek: {

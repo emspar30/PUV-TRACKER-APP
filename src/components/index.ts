@@ -12,3 +12,4 @@ export { OptionRow } from './OptionRow';
 export { RoundButton } from './RoundButton';
 export { Screen } from './Screen';
 export { StepHeader } from './StepHeader';
+export { TopBar } from './TopBar';

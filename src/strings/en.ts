@@ -28,9 +28,36 @@ export const en = {
   },
 
   tabs: {
-    live: 'Live',
+    live: 'Map',
     checkin: 'Check-in',
-    ride: 'My Ride',
+    ride: 'My Rides',
+    crowdsource: 'Crowdsource',
+  },
+
+  // Crowdsource tab (restyle; the real feed and the Report button come with N1 and RP1)
+  crowdsource: {
+    title: 'Crowdsource',
+    body: 'Reports from commuters in the last hour',
+    all: 'All routes',
+    empty: 'No reports yet',
+    emptyBody: 'Reports from commuters show here for one hour.',
+    phrases: {
+      full: 'Full',
+      few_seats: 'Few seats left',
+      not_moving: 'Not moving',
+      heavy_traffic: 'Heavy traffic',
+      loading: 'Loading passengers',
+    },
+    seats: { green: 'Seats available', amber: 'Filling up', red: 'Full' },
+    gps: 'With GPS',
+    noGps: 'No GPS',
+    ago: (minutes: number) => (minutes < 1 ? 'Just now' : `${minutes} min ago`),
+    byline: (username: string, ago: string) => `@${username} · ${ago}`,
+  },
+
+  topBar: {
+    // Shown until the user picks a handle
+    guest: 'Commuter',
   },
 
   common: {

@@ -162,6 +162,9 @@ export const DEMO_RESTART_FADE_S = 1;
 export const DEMO_TICK_MS = 1000;
 // Speeds kept per vehicle for the stopped check, this far apart
 export const DEMO_SPEED_SAMPLE_S = 5;
+// Demo feed (Crowdsource tab, restyle): one slot of this many minutes holds 0 to DEMO_FEED_SLOT_MAX posts
+export const DEMO_FEED_SLOT_MIN = 6;
+export const DEMO_FEED_SLOT_MAX = 2;
 // Development stress setting: this many demo markers on the selected route (PRD 13: 55 FPS with 50)
 export const DEMO_STRESS_MARKERS = 50;
 export const DEMO_STRESS_DEV = false;

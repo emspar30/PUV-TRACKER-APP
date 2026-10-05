@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AvatarButton, BottomSheet, Chip, Hint, LineBadge, Logo, type SheetRequest } from '@/components';
+import {BottomSheet, Chip, Hint, LineBadge, Logo, type SheetRequest, TopBar} from '@/components';
 import { TILESET } from '@/data/map/tileset';
 import { DRAFT_ROUTE_CODES } from '@/data/seed/routes';
 import { useRouteData } from '@/data/RouteDataProvider';
@@ -270,8 +270,8 @@ export default function MyRideScreen() {
           <Logo size={LOGO_SIZE} />
         </View>
       )}
-      <View style={[styles.topRight, { top: insets.top + spacing.sm }]}>
-        <AvatarButton />
+      <View style={[styles.topBar, { top: insets.top + spacing.sm }]}>
+        <TopBar />
       </View>
 
       <BottomSheet
@@ -359,8 +359,9 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topRight: {
+  topBar: {
     position: 'absolute',
+    left: spacing.md,
     right: spacing.md,
   },
   toolbar: {
