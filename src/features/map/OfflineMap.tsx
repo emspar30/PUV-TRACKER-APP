@@ -156,15 +156,16 @@ export function OfflineMap({
 }
 
 const MS_PER_S = 1000;
-const INFO_SIZE = spacing.md + spacing.xs;
+const INFO_SIZE = spacing.md;
+const ATTRIBUTION_FOLDED_OPACITY = 0.6;
 
-// The OpenStreetMap credit (ODbL). It shows in full when the map opens, then folds into an (i)
-// button after MAP_ATTRIBUTION_SHOW_S, as OSM's attribution guidelines allow on small screens.
-// Tapping the button shows it again.
+// The OpenStreetMap credit (ODbL): a faint (i) button in the corner, as OSM's attribution guidelines
+// allow on small screens. Tapping it shows the credit for MAP_ATTRIBUTION_SHOW_S; the licence
+// itself is in About, Licences.
 function Attribution({ bottom }: { bottom: number }) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return undefined;
     const timer = setTimeout(() => setOpen(false), MAP_ATTRIBUTION_SHOW_S * MS_PER_S);
@@ -172,7 +173,7 @@ function Attribution({ bottom }: { bottom: number }) {
   }, [open]);
   return (
     <Pressable
-      style={[styles.attribution, { bottom }]}
+      style={[styles.attribution, { bottom }, !open && styles.attributionFolded]}
       onPress={() => setOpen((value) => !value)}
       accessibilityRole="button"
       accessibilityLabel={strings.common.attribution}
@@ -200,5 +201,8 @@ const useStyles = makeStyles(({ colors }) => ({
     padding: spacing.xs,
     borderRadius: radii.pill,
     backgroundColor: colors.card,
+  },
+  attributionFolded: {
+    opacity: ATTRIBUTION_FOLDED_OPACITY,
   },
 }));

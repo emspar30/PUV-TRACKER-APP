@@ -1,10 +1,9 @@
 import { Redirect, Tabs } from 'expo-router';
 import { Bus, Map, Radio, ShieldCheck, type LucideIcon } from 'lucide-react-native';
-import { View } from 'react-native';
 
 import { TAB_ROUTES, type TabRouteName } from '@/navigation/tabs';
 import { useProfileStore } from '@/state/profileStore';
-import { makeStyles, radii, spacing, useTheme } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 // Four tabs (restyle): Map, Check-in, My Rides, Crowdsource. Settings open from the top bar.
 const ICONS: Record<TabRouteName, LucideIcon> = {
@@ -15,11 +14,8 @@ const ICONS: Record<TabRouteName, LucideIcon> = {
 };
 
 const ICON_SIZE = spacing.lg - spacing.xs / 2;
-const INDICATOR_WIDTH = spacing.xl * 2;
-const INDICATOR_HEIGHT = spacing.xl;
 
 export default function TabsLayout() {
-  const styles = useStyles();
   const onboarded = useProfileStore((state) => state.onboarded);
   const { colors } = useTheme();
   // First launch: show the introduction before the tabs
@@ -29,13 +25,14 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.onPrimaryContainer,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopColor: colors.outline,
         },
         tabBarItemStyle: { paddingVertical: spacing.xs },
+        tabBarLabelStyle: { fontWeight: '600' },
         sceneStyle: { backgroundColor: colors.canvas },
       }}
     >
@@ -47,12 +44,8 @@ export default function TabsLayout() {
             name={name}
             options={{
               title,
-              // Material 3: the active tab's icon sits in a tinted pill
-              tabBarIcon: ({ color, focused }) => (
-                <View style={[styles.indicator, focused && styles.indicatorOn]}>
-                  <Icon color={color} size={ICON_SIZE} />
-                </View>
-              ),
+              // The active tab is shown by colour only: its icon and label turn blue
+              tabBarIcon: ({ color }) => <Icon color={color} size={ICON_SIZE} />,
             }}
           />
         );
@@ -60,16 +53,3 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
-
-const useStyles = makeStyles(({ colors }) => ({
-  indicator: {
-    width: INDICATOR_WIDTH,
-    height: INDICATOR_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.pill,
-  },
-  indicatorOn: {
-    backgroundColor: colors.primaryContainer,
-  },
-}));

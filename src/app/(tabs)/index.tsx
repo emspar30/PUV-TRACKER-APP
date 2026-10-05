@@ -1,4 +1,4 @@
-import { useIsFocused } from 'expo-router';
+import { useIsFocused, useLocalSearchParams } from 'expo-router';
 import { Bus, LocateFixed, Maximize, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, Vibration, View } from 'react-native';
@@ -184,6 +184,26 @@ export default function MapScreen() {
     setSelectedStop(null);
     frame(null);
   };
+
+  // "View R4 on Map" from My Rides opens this tab with that route. Each tap carries a new time
+  // stamp; it is applied once, while rendering, with no effect.
+  const params = useLocalSearchParams<{ route?: string; at?: string }>();
+  const [appliedRequest, setAppliedRequest] = useState<string | undefined>(undefined);
+  if (params.at !== undefined && params.at !== appliedRequest) {
+    setAppliedRequest(params.at);
+    const ofRoute = lines.filter((line) => line.routeCode === params.route);
+    if (params.route && ofRoute.length > 0) {
+      setSelectedRoute(params.route);
+      setFilter('all');
+      setDirectionView('both');
+      setSelectedVehicle(null);
+      setSelectedStop(null);
+      setTrackedId(null);
+      setSelectorOpen(false);
+      const bounds = clipBounds(boundsOfLines(ofRoute.map((line) => line.coordinates)), TILESET.bounds);
+      setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds }));
+    }
+  }
 
   // Both, then each stored direction in turn
   const directionSteps: DirectionView[] = [
