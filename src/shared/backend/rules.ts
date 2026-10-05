@@ -18,6 +18,8 @@ import {
   MANILA_UTC_OFFSET_MIN,
   NIGHT_MODE_END,
   NIGHT_MODE_START,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
 } from '../config';
 
 const MS_PER_MIN = 60000;
@@ -113,4 +115,9 @@ export function feedExpiresAt(createdMs: number): number {
 // A post shows while it is younger than its lifetime and has fewer than FEED_FLAG_HIDE_COUNT unique flags
 export function isPostVisible(post: { createdMs: number; flaggedBy: readonly string[] }, nowMs: number): boolean {
   return nowMs < feedExpiresAt(post.createdMs) && new Set(post.flaggedBy).size < FEED_FLAG_HIDE_COUNT;
+}
+
+// A username is 3 to 20 letters, digits or underscores (D7), as set_username checks on the server
+export function isValidUsername(name: string): boolean {
+  return new RegExp(`^[A-Za-z0-9_]{${USERNAME_MIN_LENGTH},${USERNAME_MAX_LENGTH}}$`).test(name);
 }

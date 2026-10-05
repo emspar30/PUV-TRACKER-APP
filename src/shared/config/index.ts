@@ -29,6 +29,10 @@ export const COVERAGE_LIVE_MAX_AGE_S = 90;
 export const COVERAGE_STALE_MAX_AGE_S = 600;
 export const LIVE_UI_REFRESH_INTERVAL_S = 5;
 
+// --- Username (PRD 19 D7; the same rule as set_username in the migration)
+export const USERNAME_MIN_LENGTH = 3;
+export const USERNAME_MAX_LENGTH = 20;
+
 // --- Live vehicles from the database (L1)
 // Speeds kept per vehicle for the stopped check (longer than STATIONARY_DURATION_S)
 export const LIVE_SPEED_HISTORY_S = 120;

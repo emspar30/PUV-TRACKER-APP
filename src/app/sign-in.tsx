@@ -4,6 +4,8 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@/components';
 import { signInWithPassword } from '@/services/auth';
+import { saveUsername } from '@/services/profile';
+import { useUsernameStore } from '@/state/usernameStore';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
@@ -25,6 +27,9 @@ export default function SignInScreen() {
     const result = await signInWithPassword(email, password);
     setBusy(false);
     if (result.ok) {
+      // The username picked in the introduction is sent once there is an account to hold it
+      const { username, synced, markSynced } = useUsernameStore.getState();
+      if (username && !synced && (await saveUsername(username)).ok) markSynced();
       router.back();
     } else {
       setError(result.message);

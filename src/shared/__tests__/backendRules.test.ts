@@ -11,6 +11,7 @@ import {
   passiveRefillDue,
   startTracking,
   type LedgerRow,
+  isValidUsername,
 } from '../backend/rules';
 
 // Manila is UTC+8: 2026-10-05 21:00 Manila is 13:00 UTC
@@ -93,5 +94,16 @@ describe('feed', () => {
   it('is hidden at 3 unique flags; a repeat flag does not count', () => {
     expect(isPostVisible({ createdMs: created, flaggedBy: ['a', 'b', 'b'] }, created)).toBe(true);
     expect(isPostVisible({ createdMs: created, flaggedBy: ['a', 'b', 'c'] }, created)).toBe(false);
+  });
+});
+
+describe('username (D7)', () => {
+  it('accepts 3 to 20 letters, digits or underscores, as set_username does', () => {
+    expect(isValidUsername('JuanCommuter')).toBe(true);
+    expect(isValidUsername('a_1')).toBe(true);
+    expect(isValidUsername('ab')).toBe(false);
+    expect(isValidUsername('x'.repeat(21))).toBe(false);
+    expect(isValidUsername('juan dela')).toBe(false);
+    expect(isValidUsername('juan@x')).toBe(false);
   });
 });

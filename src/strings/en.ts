@@ -3,7 +3,6 @@
 // in src/strings/index.ts. No translation library is needed for that.
 
 import type { Classification } from '@/shared/config';
-import type { Gender } from '@/shared/profile/avatarPick';
 import type { GreetingPeriod } from '@/shared/profile/greeting';
 import type { PlanFailure } from '@/shared/routing/plan';
 import type { SnapName } from '@/shared/ui/sheetSnap';
@@ -269,23 +268,54 @@ export const en = {
   },
 
   onboarding: {
-    title: 'Welcome to Tunton',
     savedOnPhone: 'Saved on your phone only',
-    start: 'Start',
-    next: 'Next',
     step: (current: number, total: number) => `Step ${current} of ${total}`,
-    welcomeTitle: "Hi, I'm Tunton!",
-    welcomeBody: 'Find your multicab ride and fare.',
-    genderTitle: 'About you',
-    genderHint: 'Optional. Picks your avatar.',
-    genders: { male: 'Male', female: 'Female', unstated: 'Prefer not to say' } satisfies Record<Gender, string>,
-    yourAvatar: 'Your avatar',
-    shuffleLater: 'Shuffle it anytime in Settings',
-    typeTitle: 'How do you ride?',
-    typeHint: 'For your fare estimate',
-    placesTitle: 'Where do you often go?',
-    placesHint: (max: number) => `Pick up to ${max}`,
+    next: 'Continue',
+    finish: 'Finish setup',
+    welcomeTitle: 'Commute smarter in Butuan',
+    welcomeBody: 'Live multicab locations and fares.',
+    features: {
+      live: 'Live multicab locations and seats',
+      offline: 'Map, routes and fares work offline',
+      privacy: 'Private and battery-friendly',
+    },
+    signIn: 'Sign in with email',
+    withoutAccount: 'Continue without an account',
+    welcomeNote: 'No phone number needed · You can sign in later',
+    profileStep: 'Profile',
+    profileTitle: 'Choose your profile',
+    profileBody: 'Pick an avatar and a handle.',
+    persona: 'Your avatar',
+    personaCount: (count: number) => `${count} styles`,
+    handle: 'Handle',
+    handlePlaceholder: 'e.g. JuanCommuter',
+    handleHint: (min: number, max: number) => `${min} to ${max} letters, digits or _. Shown on your reports instead of your name.`,
+    handleInvalid: (min: number, max: number) => `Use ${min} to ${max} letters, digits or _`,
+    typeStep: 'Fare',
+    typeTitle: 'Select commuter type',
+    typeBody: 'Applies the fare discount to your estimates.',
+    typeSubtitles: {
+      regular: 'Standard fare',
+      student: 'With a valid school ID',
+      senior: '60 years and older',
+      pwd: 'With a PWD ID',
+    } satisfies Record<Classification, string>,
+    discount: (percent: number) => `${percent}% off`,
+    placesStep: 'Places',
+    placesTitle: 'Where do you usually go?',
+    placesBody: (max: number) => `Pick up to ${max}. They show up first in My Ride.`,
+    placesSearch: 'Search places',
+    placesNone: 'No place matches',
     placeLabel: (name: string) => `Frequent destination ${name}`,
+    permissionsStep: 'Permissions',
+    permissionsTitle: 'App permissions',
+    permissionsBody: 'Nothing is asked now. Each one is asked when you first need it.',
+    permissions: {
+      location: { title: 'Location', body: 'Asked when you tap "Use my location"', status: 'When used' },
+      nearby: { title: 'Nearby multicab detection', body: 'Finds the multicab you board', status: 'Coming later' },
+      alerts: { title: 'Arrival alerts', body: 'Tells you before your stop', status: 'Coming later' },
+    },
+    permissionsNote: 'Your location is never shared with your identity.',
   },
 
   about: {
