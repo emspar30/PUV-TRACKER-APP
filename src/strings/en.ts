@@ -103,6 +103,39 @@ export const en = {
     stopsTitle: 'Stops',
     stopAlong: (distanceKm: number) => `${km(distanceKm)} along`,
     closeStop: 'Close stop details',
+    // Restyle: the Explore card, route selector, active-route card and vehicle card
+    explore: {
+      title: 'Explore Butuan Transit',
+      search: 'Where are you heading today?',
+      hint: 'Tap a multicab on the map to see its seats',
+      allRoutes: 'All routes',
+    },
+    selector: {
+      title: 'Select route',
+      body: 'Choose a multicab line to see it live',
+      showOnMap: 'Show on map',
+      all: 'All',
+      seats: 'Seats available',
+      show: (code: string) => `Show ${code} on map`,
+      close: 'Close route list',
+      open: 'Choose a route',
+    },
+    active: {
+      count: (count: number) => `${count} active`,
+      swap: 'Change direction',
+      close: 'Hide route',
+      both: 'Both directions',
+    },
+    vehicle: {
+      route: (code: string) => `Route ${code}`,
+      next: (stop: string) => `Next: ${stop}`,
+      seats: (free: number, taken: number, capacity: number) => `${free} seats available (${taken}/${capacity})`,
+      ageSeconds: (seconds: number) => (seconds < SECONDS_PER_MINUTE ? `${Math.max(0, Math.round(seconds))} s ago` : `${Math.floor(seconds / SECONDS_PER_MINUTE)} min ago`),
+      liveGps: (age: string) => `Live GPS · ${age}`,
+      demo: (age: string) => `Demo · ${age}`,
+      stopped: 'Stopped',
+      close: 'Close multicab details',
+    },
   },
 
   // Location on the Live tab (from the partner's GPS work, b21b0c1). Foreground only.

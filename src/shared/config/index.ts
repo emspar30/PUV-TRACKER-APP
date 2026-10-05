@@ -116,6 +116,8 @@ export const DB_LOCK_RETRY_DELAY_MS = 500;
 
 // --- Offline map (PRD 7.2)
 // How far the map may zoom in past the tile set's last zoom level by stretching its tiles
+// The OpenStreetMap credit shows in full this long when a map opens, then folds into an (i) button
+export const MAP_ATTRIBUTION_SHOW_S = 5;
 export const MAP_OVERZOOM_LEVELS = 4;
 // LB1a glyph proof: in development builds only, print one test label ("Butuan") at the city centre.
 // Off except while checking the offline fonts (passed 2026-10-05); real labels come with LB1b.

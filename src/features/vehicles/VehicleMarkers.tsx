@@ -4,8 +4,7 @@ import { useMemo } from 'react';
 import { GLYPH_FONT_MEDIUM } from '@/data/map/glyphset';
 import { vehicleMarkerFeatures } from '@/shared/telemetry/markers';
 import type { VehicleSnapshot } from '@/shared/telemetry/vehicle';
-import { strings } from '@/strings';
-import { MAP_GEOMETRY, useTheme } from '@/theme';
+import { MAP_GEOMETRY, spacing, useTheme } from '@/theme';
 
 const POINTS = 'vehicles';
 const CONES = 'vehicle-cones';
@@ -17,14 +16,21 @@ type VehicleMarkersProps = {
   color: string;
   // Camera zoom, so the heading cone keeps its size on screen
   zoom: number;
-  // True when the style has local glyphs (LB1a); the "DEMO" badge needs them
+  // True when the style has local glyphs (LB1a); the plate labels need them
   labels: boolean;
+  // The tapped vehicle, drawn larger with a halo (restyle)
+  selectedId?: string | null;
+  onPressVehicle?: (id: string) => void;
 };
 
-// Vehicle markers (AF3): a dot in the route colour with a ring in its seat-tier colour, a heading cone,
-// a white centre while stopped, greyed while Stale, and a small "DEMO" badge on simulated vehicles.
+// Touch area around a marker, in dp
+const HITBOX = { top: spacing.lg, right: spacing.lg, bottom: spacing.lg, left: spacing.lg };
+
+// Vehicle markers (AF3, restyle): a dot in the route colour with a ring in its seat-tier colour, a
+// heading cone, a white centre while stopped, greyed while Stale, and the plate beside it ("DEMO 01"
+// on simulated vehicles). Tapping one selects it; the selected one has a halo.
 // The two sources keep their ids, so each refresh only replaces their data; the layers are never remounted.
-export function VehicleMarkers({ vehicles, nowMs, color, zoom, labels }: VehicleMarkersProps) {
+export function VehicleMarkers({ vehicles, nowMs, color, zoom, labels, selectedId = null, onPressVehicle }: VehicleMarkersProps) {
   const { mapPaint, colors, baseMap } = useTheme();
   const g = MAP_GEOMETRY.vehicle;
   const data = useMemo(
@@ -50,11 +56,11 @@ export function VehicleMarkers({ vehicles, nowMs, color, zoom, labels }: Vehicle
       stopped: { 'circle-radius': g.stoppedRadius, 'circle-color': mapPaint.locationDotStroke, 'circle-opacity': fade },
       badge: {
         layout: {
-          'text-field': strings.common.demo.toUpperCase(),
+          'text-field': ['get', 'label'],
           'text-font': [GLYPH_FONT_MEDIUM],
           'text-size': g.badgeTextSize,
-          'text-offset': [0, g.badgeOffsetEm],
-          'text-anchor': 'top',
+          'text-offset': [g.badgeOffsetEm, 0],
+          'text-anchor': 'left',
           'text-allow-overlap': false,
           'text-optional': true,
         },
@@ -68,14 +74,31 @@ export function VehicleMarkers({ vehicles, nowMs, color, zoom, labels }: Vehicle
       <GeoJSONSource id={CONES} data={data.cones}>
         <Layer id={`${CONES}-fill`} type="fill" paint={paints.cone as never} />
       </GeoJSONSource>
-      <GeoJSONSource id={POINTS} data={data.points}>
+      <GeoJSONSource
+        id={POINTS}
+        data={data.points}
+        hitbox={HITBOX}
+        onPress={
+          onPressVehicle
+            ? (event) => {
+                const id: unknown = event.nativeEvent.features[0]?.properties?.id;
+                if (typeof id === 'string') onPressVehicle(id);
+              }
+            : undefined
+        }
+      >
+        <Layer
+          id={`${POINTS}-halo`}
+          type="circle"
+          filter={['==', ['get', 'id'], selectedId ?? ''] as never}
+          paint={{ 'circle-radius': g.selectedHaloRadius, 'circle-color': color, 'circle-opacity': g.selectedHaloOpacity } as never}
+        />
         <Layer id={`${POINTS}-dot`} type="circle" paint={paints.dot as never} />
         <Layer id={`${POINTS}-stopped`} type="circle" filter={['get', 'stopped'] as never} paint={paints.stopped as never} />
         {labels ? (
           <Layer
-            id={`${POINTS}-demo`}
+            id={`${POINTS}-label`}
             type="symbol"
-            filter={['get', 'demo'] as never}
             layout={paints.badge.layout as never}
             paint={paints.badge.paint as never}
           />

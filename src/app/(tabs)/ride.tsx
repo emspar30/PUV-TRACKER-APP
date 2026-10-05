@@ -251,7 +251,6 @@ export default function MyRideScreen() {
           initialBounds={initialBounds}
           focus={focus}
           bottomInset={sheetHeight}
-          attributionTop={insets.top + spacing.sm}
           onPress={(position) => pick(pinnedPoint(position))}
         >
           <RouteLines lines={layers.lines} visible={ALL_DIRECTIONS} opacity={layers.opacity} />

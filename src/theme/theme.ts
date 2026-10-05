@@ -142,8 +142,11 @@ export const MAP_GEOMETRY = {
     coneHalfAngleDeg: 28,
     coneOpacity: 0.35,
     staleOpacity: 0.5,
-    badgeTextSize: 9,
-    badgeOffsetEm: 1.3,
+    badgeTextSize: 11,
+    badgeOffsetEm: 1.2,
+    // The tapped vehicle (restyle)
+    selectedHaloRadius: 16,
+    selectedHaloOpacity: 0.25,
     badgeHalo: 1.5,
   },
 } as const;

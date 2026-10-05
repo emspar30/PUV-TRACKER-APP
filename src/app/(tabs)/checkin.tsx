@@ -129,7 +129,6 @@ export default function CheckInScreen() {
           initialBounds={initialBounds}
           focus={focus}
           bottomInset={sheetHeight}
-          attributionTop={insets.top + spacing.sm}
         >
           <RouteLines lines={layers.lines} visible={ALL_DIRECTIONS} opacity={layers.opacity} />
           <StopDots

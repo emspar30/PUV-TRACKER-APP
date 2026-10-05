@@ -1,196 +1,175 @@
-import type { ViewStateChangeEvent } from '@maplibre/maplibre-react-native';
 import { useIsFocused } from 'expo-router';
-import { LocateFixed, Maximize, Navigation, X } from 'lucide-react-native';
+import { Bus, LocateFixed, Maximize, X } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {BottomSheet, Chip, Hint, Logo, RoundButton, RouteChip, type SheetRequest, StatusPill, TopBar} from '@/components';
+import { Logo, RoundButton, TopBar, type StatusTone } from '@/components';
+import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
-import { GreetingCard } from '@/features/greeting/GreetingCard';
+import { ActiveRouteCard } from '@/features/live/ActiveRouteCard';
+import { ExploreCard } from '@/features/live/ExploreCard';
+import { RouteSelector, type RouteOption, type VehicleFilter } from '@/features/live/RouteSelector';
+import { VehicleCard } from '@/features/live/VehicleCard';
 import { BlueDot } from '@/features/map/BlueDot';
 import { LocationExplainer } from '@/features/map/LocationExplainer';
-import { MapDevOverlay } from '@/features/map/MapDevOverlay';
-import { OfflineMap, type MapFocus, type MapStatus } from '@/features/map/OfflineMap';
+import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { OriginPin } from '@/features/map/OriginPin';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
-import { useRepositories } from '@/data/live/useRepositories';
 import { useVehicles } from '@/features/vehicles/useVehicles';
 import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
 import { MAP_FOLLOW_ZOOM } from '@/shared/config';
-import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
-import { headerDataChip } from '@/shared/ui/dataChip';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
-import { lineLengthKm, projectOntoLine } from '@/shared/geo/line';
-import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
-import { isSingleLegRoute, returnStyledIds, routeCodesOf, toggleRoute } from '@/shared/ui/routeVisibility';
+import { projectOntoLine } from '@/shared/geo/line';
+import type { RouteDirection } from '@/shared/routing/types';
+import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
+import { nextStopOf } from '@/shared/telemetry/nextStop';
+import { seatTier } from '@/shared/telemetry/occupancy';
+import { isStopped } from '@/shared/telemetry/stopped';
+import { routeCodesOf } from '@/shared/ui/routeVisibility';
 import { useHintsStore } from '@/state/hintsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
-const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
-const DIRECTIONS: readonly RouteDirection[] = ['outbound', 'return'];
 const LOGO_SIZE = spacing.xl * 3;
 const ICON_SIZE = spacing.md + spacing.xs;
-const SWATCH_WIDTH = spacing.lg;
-// Room under the status bar for the map credit, above the DEV line
-const CREDIT_HEIGHT = spacing.lg;
 // Zoom assumed for the heading cones until the camera first reports one
 const DEFAULT_VEHICLE_ZOOM = 12;
+// The route list shows each route's first, middle and last stop
+const LIST_STOPS = 3;
+const HALF = 2;
+// Which directions of the picked route show; the swap button steps through them
+type DirectionView = 'both' | RouteDirection;
+const SHOWS: Record<DirectionView, Record<RouteDirection, boolean>> = {
+  both: { outbound: true, return: true },
+  outbound: { outbound: true, return: false },
+  return: { outbound: false, return: true },
+};
 
-type LineSummary = { line: DirectedLine; from: string; to: string; lengthKm: number };
-
-// First and last stop along a line, in its direction of travel, and its length
-function summarise(line: DirectedLine, stops: RouteStop[]): LineSummary {
-  const ordered = [...stops].sort(
-    (a, b) => projectOntoLine(line.coordinates, a).chainageKm - projectOntoLine(line.coordinates, b).chainageKm,
-  );
-  return {
-    line,
-    from: ordered[0]?.code ?? '',
-    to: ordered[ordered.length - 1]?.code ?? '',
-    lengthKm: lineLengthKm(line.coordinates),
-  };
-}
-
-// Live tab: a full-screen map of the route under a draggable sheet. Vehicles of the selected route
-// come from the vehicles repository: demo vehicles now (AF3), the relay later (L1). Without any,
-// the status is "No data", never "no vehicles".
-export default function LiveScreen() {
+// Map tab (restyle of Live): a full-screen map with the top bar, an Explore card until a route is
+// picked, the route list as a panel, the picked route's card on top, and a card for a tapped
+// multicab or stop. Vehicles come from the repository: demo (AF3) or the database (L1).
+export default function MapScreen() {
   const styles = useStyles();
-  const { colors, typography, mapRoute, routeColor } = useTheme();
+  const { colors, typography, routeColor } = useTheme();
   const insets = useSafeAreaInsets();
   const { state, retry } = useOfflineTiles();
-  const { lines, stops, isPlaceholder } = useRouteData();
+  const { lines, stops } = useRouteData();
 
-  const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
-  const [view, setView] = useState<ViewStateChangeEvent | null>(null);
-  const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [focus, setFocus] = useState<MapFocus | null>(null);
-  const [sheetHeight, setSheetHeight] = useState(0);
-  const [sheetRequest, setSheetRequest] = useState<SheetRequest | null>(null);
-  // Tunton's greeting shows on every app open until hidden
-  const [greetingVisible, setGreetingVisible] = useState(true);
-  // AF1: the legend sits behind Details; one first-run hint, never shown again once dismissed
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const hintSeen = useHintsStore((state) => state.seen.live);
-  const dismissHint = useHintsStore((state) => state.dismiss);
+  const [bottomHeight, setBottomHeight] = useState(0);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
+  const [directionView, setDirectionView] = useState<DirectionView>('both');
+  const [filter, setFilter] = useState<VehicleFilter>('all');
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
+  const [selectedStop, setSelectedStop] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(DEFAULT_VEHICLE_ZOOM);
+  const dismissHint = useHintsStore((store) => store.dismiss);
   const fittedOnce = useRef(false);
 
-  // AF2, AF3: live data through the repositories; demo vehicles move on the selected route only
   const repos = useRepositories();
-  // Camera zoom, so vehicle heading cones keep their size on screen
-  const [zoom, setZoom] = useState(DEFAULT_VEHICLE_ZOOM);
-
   const location = useLiveLocation((center) =>
     setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center, zoom: MAP_FOLLOW_ZOOM })),
   );
 
-  // UX3: the map is clean until a route is picked. Kept while the app is open, not saved.
-  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
-  const [directions, setDirections] = useState<Record<RouteDirection, boolean>>(ALL_DIRECTIONS);
   const layers = useRouteLayers(lines, stops, 'live', selectedRoute);
-  const routeStops = layers.stops;
-  const routeCodes = useMemo(() => routeCodesOf(lines), [lines]);
   const routeLines = useMemo(() => lines.filter((line) => line.routeCode === selectedRoute), [lines, selectedRoute]);
-  // The legend's return swatch follows the map: only a return beside an outbound looks like one
-  const returnStyled = useMemo(() => returnStyledIds(lines), [lines]);
+  const directions = SHOWS[directionView];
 
-  // Tabs stay mounted; vehicles refresh only while Live is the tab in front
+  // Tabs stay mounted; vehicles refresh only while Map is the tab in front
   const focused = useIsFocused();
   const live = useVehicles(repos.vehicles, focused ? selectedRoute : null);
-  // A direction switched off hides its vehicles too
   const vehicles = useMemo(() => {
     const directionOf = new Map(lines.map((line) => [line.id, line.direction]));
-    return live.vehicles.filter((vehicle) => directions[directionOf.get(vehicle.lineId) ?? 'outbound']);
-  }, [live.vehicles, lines, directions]);
+    return live.vehicles.filter(
+      (vehicle) =>
+        directions[directionOf.get(vehicle.lineId) ?? 'outbound'] && (filter === 'all' || seatTier(vehicle.seatsTaken) === 'green'),
+    );
+  }, [live.vehicles, lines, directions, filter]);
   const coverage = routeCoverage(vehicles.map((vehicle) => ageSeconds(vehicle.lastPacketMs, live.nowMs)));
-  const dataChip = headerDataChip({ demoShowing: repos.vehicles.source === 'demo' && coverage.coverage !== 'none', isPlaceholder });
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
-  const routeBounds = useMemo(
-    () => (routeLines.length > 0 ? clipBounds(boundsOfLines(routeLines.map((line) => line.coordinates)), TILESET.bounds) : initialBounds),
-    [routeLines, initialBounds],
-  );
-  const summaries = useMemo(() => routeLines.map((line) => summarise(line, routeStops)), [routeLines, routeStops]);
-  const outbound = routeLines.find((line) => line.direction === 'outbound');
-  const colorOfRoute = (code: string) => {
-    const line = lines.find((candidate) => candidate.routeCode === code);
-    return line ? routeColor(code, line.color) : colors.primary;
-  };
-
-  const pickRoute = (code: string) => {
-    const next = toggleRoute(selectedRoute, code);
-    setSelectedRoute(next);
-    setSelectedCode(null);
-    // Doing what the hint says retires it
-    if (next) dismissHint('live');
-    if (next) {
-      const ofRoute = lines.filter((line) => line.routeCode === next);
-      // The sheet keeps its height, so the route is framed above it as it is now
-      setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds: boundsOfLines(ofRoute.map((line) => line.coordinates)) }));
-    }
-  };
-
-  // At least one direction stays on, so a selected route never disappears by accident
-  const toggleDirection = (direction: RouteDirection) =>
-    setDirections((current) => {
-      const next = { ...current, [direction]: !current[direction] };
-      return next.outbound || next.return ? next : current;
-    });
-
-  const alongKm = useCallback(
-    (stop: RouteStop) => (outbound ? projectOntoLine(outbound.coordinates, stop).chainageKm : null),
-    [outbound],
-  );
-  const selected = stops.find((stop) => stop.code === selectedCode) ?? null;
-
-  const showWholeRoute = useCallback(() => {
-    setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds: routeBounds }));
-  }, [routeBounds]);
-
-  const handleSnapChange = useCallback(
-    (_snap: unknown, visibleHeight: number) => {
-      setSheetHeight(visibleHeight);
-      // Once the sheet's size is known, frame the route above it
-      if (!fittedOnce.current) {
-        fittedOnce.current = true;
-        setFocus({ key: 1, kind: 'bounds', bounds: initialBounds });
-      }
+  const colorOfRoute = useCallback(
+    (code: string) => {
+      const line = lines.find((candidate) => candidate.routeCode === code);
+      return line ? routeColor(code, line.color) : colors.primary;
     },
-    [initialBounds],
+    [lines, routeColor, colors.primary],
   );
+
+  const routeOptions = useMemo<RouteOption[]>(
+    () =>
+      routeCodesOf(lines).map((code) => {
+        const ofRoute = lines.filter((line) => line.routeCode === code);
+        const main = ofRoute.find((line) => line.direction === 'outbound') ?? ofRoute[0];
+        const onRoute = stops
+          .filter((stop) => stop.routeCodes?.includes(code))
+          .sort((a, b) => projectOntoLine(main.coordinates, a).chainageKm - projectOntoLine(main.coordinates, b).chainageKm);
+        const picks =
+          onRoute.length <= LIST_STOPS ? onRoute : [onRoute[0], onRoute[Math.floor(onRoute.length / HALF)], onRoute[onRoute.length - 1]];
+        return { code, name: main.name, color: colorOfRoute(code), stops: picks.map((stop) => stop.code) };
+      }),
+    [lines, stops, colorOfRoute],
+  );
+
+  const frame = useCallback(
+    (code: string | null) => {
+      const ofRoute = code ? lines.filter((line) => line.routeCode === code) : lines;
+      const bounds = clipBounds(boundsOfLines(ofRoute.map((line) => line.coordinates)), TILESET.bounds);
+      setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds }));
+    },
+    [lines],
+  );
+
+  const showRoute = (code: string, nextFilter: VehicleFilter) => {
+    setSelectedRoute(code);
+    setFilter(nextFilter);
+    setDirectionView('both');
+    setSelectedVehicle(null);
+    setSelectedStop(null);
+    setSelectorOpen(false);
+    dismissHint('live');
+    frame(code);
+  };
+
+  const hideRoute = () => {
+    setSelectedRoute(null);
+    setSelectedVehicle(null);
+    setSelectedStop(null);
+    frame(null);
+  };
+
+  // Both, then each stored direction in turn
+  const directionSteps: DirectionView[] = [
+    'both',
+    ...(['outbound', 'return'] as const).filter((direction) => routeLines.some((line) => line.direction === direction)),
+  ];
+  const swap = () => setDirectionView((current) => directionSteps[(directionSteps.indexOf(current) + 1) % directionSteps.length]);
 
   const selectStop = useCallback(
     (code: string | null) => {
-      setSelectedCode(code);
+      setSelectedStop(code);
+      setSelectedVehicle(null);
       const stop = stops.find((candidate) => candidate.code === code);
-      if (stop) {
-        setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: stop }));
-        setSheetRequest((current) => ({ key: (current?.key ?? 0) + 1, snap: 'half' }));
-      }
+      if (stop) setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: stop }));
     },
     [stops],
   );
 
-  const handleStatusChange = useCallback((status: MapStatus) => {
-    if (__DEV__) console.log(`[map] status: ${status}`);
-    setMapStatus(status);
-  }, []);
-
-  const handleViewChange = useCallback((next: ViewStateChangeEvent) => {
-    setZoom(next.zoom);
-    if (__DEV__) {
-      console.log(`[map] view: zoom ${next.zoom.toFixed(2)} centre ${next.center[0]}, ${next.center[1]}`);
-      setView(next);
-    }
-  }, []);
+  const handleViewChange = useCallback((next: { zoom: number }) => setZoom(next.zoom), []);
+  // Once the map is ready and the bottom card measured, frame all routes above it
+  const handleStatusChange = useCallback(() => {
+    if (fittedOnce.current) return;
+    fittedOnce.current = true;
+    frame(null);
+  }, [frame]);
 
   if (state.status === 'preparing') {
     return (
@@ -202,44 +181,27 @@ export default function LiveScreen() {
   }
 
   if (state.status === 'error') {
-    if (__DEV__) console.log(`[map] tiles error: ${state.message}`);
     return (
       <View style={styles.centered}>
         <Text style={typography.bodyLg}>{strings.loading.tilesFailed}</Text>
         <Text style={[typography.bodySm, styles.center]}>{state.message}</Text>
-        <Pressable style={styles.button} onPress={retry} accessibilityRole="button">
+        <Pressable style={styles.retry} onPress={retry} accessibilityRole="button">
           <Text style={typography.labelLg}>{strings.common.tryAgain}</Text>
         </Pressable>
       </View>
     );
   }
 
-  const header = (
-    <View style={styles.peek}>
-      {routeCodes.map((code) => (
-        <RouteChip
-          key={code}
-          code={code}
-          color={colorOfRoute(code)}
-          selected={code === selectedRoute}
-          onPress={() => pickRoute(code)}
-          accessibilityLabel={strings.live.routeChip(code, code === selectedRoute)}
-        />
-      ))}
-      {/* Three route chips fill the peek row; the route's ends are shown in the sheet */}
-      <View style={styles.grow} />
-      {/* One data chip: "Demo" while demo vehicles show, otherwise "Sample data" (AF1, AF2) */}
-      {dataChip ? <Chip label={dataChip === 'demo' ? strings.common.demo : strings.common.sampleData} /> : null}
-    </View>
-  );
-
-  const statusPill = !selectedRoute
-    ? { label: strings.live.pickRoute, tone: 'neutral' as const }
-    : coverage.coverage === 'live'
-      ? { label: strings.live.status.live, tone: 'success' as const }
+  const status: { label: string; tone: StatusTone } =
+    coverage.coverage === 'live'
+      ? { label: strings.live.active.count(vehicles.length), tone: 'success' }
       : coverage.coverage === 'stale'
-        ? { label: strings.live.status.stale(strings.live.age(coverage.youngestAgeS ?? 0)), tone: 'warning' as const }
-        : { label: strings.live.status.noData, tone: 'neutral' as const };
+        ? { label: strings.live.status.stale(strings.live.age(coverage.youngestAgeS ?? 0)), tone: 'warning' }
+        : { label: strings.live.status.noData, tone: 'neutral' };
+  const directionLabel = directionView === 'both' ? strings.live.active.both : strings.direction[directionView];
+  const vehicle = vehicles.find((candidate) => candidate.id === selectedVehicle) ?? null;
+  const stop = stops.find((candidate) => candidate.code === selectedStop) ?? null;
+  const selectedOption = routeOptions.find((option) => option.code === selectedRoute) ?? null;
 
   return (
     <View style={styles.root}>
@@ -249,15 +211,14 @@ export default function LiveScreen() {
         labelsDimmed={selectedRoute !== null}
         initialBounds={initialBounds}
         focus={focus}
-        bottomInset={sheetHeight}
-        attributionTop={insets.top + spacing.sm}
+        bottomInset={bottomHeight}
         onStatusChange={handleStatusChange}
         onViewChange={handleViewChange}
         onLongPress={location.setManualOrigin}
         onUserMove={location.stopFollowing}
       >
         <RouteLines lines={layers.lines} visible={directions} opacity={layers.opacity} />
-        <StopDots stops={routeStops} selectedCode={selectedCode} onPressStop={selectStop} />
+        <StopDots stops={layers.stops} selectedCode={selectedStop} onPressStop={selectStop} />
         {selectedRoute ? (
           <VehicleMarkers
             vehicles={vehicles}
@@ -265,157 +226,98 @@ export default function LiveScreen() {
             color={colorOfRoute(selectedRoute)}
             zoom={zoom}
             labels={state.tiles.glyphsUrl !== null}
+            selectedId={selectedVehicle}
+            onPressVehicle={(id) => {
+              setSelectedVehicle(id);
+              setSelectedStop(null);
+            }}
           />
         ) : null}
         {!location.locationAllowed ? <OriginPin /> : null}
         <BlueDot />
       </OfflineMap>
-      <MapDevOverlay install={state.tiles.install} mapStatus={mapStatus} view={view} offsetTop={CREDIT_HEIGHT + spacing.sm} />
-      <View style={[styles.topBar, { top: insets.top + spacing.sm }]}>
+
+      <View style={[styles.top, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
         <TopBar />
+        {selectedOption ? (
+          <ActiveRouteCard
+            code={selectedOption.code}
+            name={selectedOption.name}
+            color={selectedOption.color}
+            status={status}
+            direction={directionLabel}
+            onSwap={directionSteps.length > 1 ? swap : undefined}
+            onClose={hideRoute}
+          />
+        ) : null}
       </View>
 
-      <BottomSheet
-        id="live"
-        defaultSnap="peek"
-        request={sheetRequest}
-        onSnapChange={handleSnapChange}
-        header={header}
-        floating={
-          <View style={styles.floating}>
-            {location.showExplainer ? (
-              <LocationExplainer onContinue={location.continueExplainer} onNotNow={location.dismissExplainer} />
-            ) : greetingVisible && !selectedRoute ? (
-              <GreetingCard onHide={() => setGreetingVisible(false)} />
-            ) : null}
-            {location.reducedMode ? (
-              <View style={styles.notice}>
-                <Text style={[typography.bodySm, styles.grow]}>{strings.location.off}</Text>
-                <Pressable style={styles.noticeButton} onPress={location.locateMe} accessibilityRole="button">
-                  <Text style={[typography.labelLg, styles.noticeAction]}>
-                    {location.canAskAgain ? strings.location.turnOn : strings.location.openSettings}
-                  </Text>
-                </Pressable>
-              </View>
-            ) : null}
-            {location.fix && !location.fixOnMap ? (
-              <View style={styles.notice}>
-                <Text style={[typography.bodySm, styles.grow]}>{strings.location.outsideMap}</Text>
-              </View>
-            ) : null}
-            <View style={styles.floatingRow}>
-              <StatusPill label={statusPill.label} tone={statusPill.tone} />
-              <View style={styles.buttons}>
-                <RoundButton
-                  icon={LocateFixed}
-                  label={location.following ? strings.location.following : strings.location.locateMe}
-                  onPress={location.locateMe}
-                  active={location.following && location.locationAllowed}
-                />
-                {layers.view.showRouteControls ? (
-                  <RoundButton icon={Maximize} label={strings.map.showWholeRoute} onPress={showWholeRoute} />
-                ) : null}
-              </View>
-            </View>
+      <View style={styles.bottom} onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)} pointerEvents="box-none">
+        <View style={styles.buttons} pointerEvents="box-none">
+          <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
+          {selectedRoute ? <RoundButton icon={Maximize} label={strings.map.showWholeRoute} onPress={() => frame(selectedRoute)} /> : null}
+          <RoundButton
+            icon={LocateFixed}
+            label={location.following ? strings.location.following : strings.location.locateMe}
+            onPress={location.locateMe}
+            active={location.following && location.locationAllowed}
+          />
+        </View>
+        {location.showExplainer ? <LocationExplainer onContinue={location.continueExplainer} onNotNow={location.dismissExplainer} /> : null}
+        {location.reducedMode ? (
+          <View style={styles.notice}>
+            <Text style={[typography.bodySm, styles.grow]}>{strings.location.off}</Text>
+            <Pressable style={styles.noticeButton} onPress={location.locateMe} accessibilityRole="button">
+              <Text style={[typography.labelLg, styles.noticeAction]}>
+                {location.canAskAgain ? strings.location.turnOn : strings.location.openSettings}
+              </Text>
+            </Pressable>
           </View>
-        }
-      >
-        {selected ? (
+        ) : null}
+        {vehicle ? (
+          <VehicleCard
+            vehicle={vehicle}
+            nowMs={live.nowMs}
+            nextStop={nextStopOf(vehicle, lines, layers.stops)?.code ?? null}
+            stopped={vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs)}
+            onClose={() => setSelectedVehicle(null)}
+          />
+        ) : stop ? (
           <View style={styles.stopCard}>
             <View style={styles.grow}>
-              <Text style={typography.headlineSm}>{selected.code}</Text>
+              <Text style={typography.headlineSm}>{stop.code}</Text>
               <Text style={typography.bodyMd} numberOfLines={2}>
-                {selected.name}
+                {stop.name}
               </Text>
-              {alongKm(selected) !== null ? (
-                <Text style={typography.bodySm}>{strings.live.stopAlong(alongKm(selected) ?? 0)}</Text>
-              ) : null}
             </View>
             <Pressable
               style={styles.iconButton}
-              onPress={() => setSelectedCode(null)}
+              onPress={() => setSelectedStop(null)}
               accessibilityRole="button"
               accessibilityLabel={strings.live.closeStop}
             >
               <X color={colors.textSecondary} size={ICON_SIZE} />
             </Pressable>
           </View>
+        ) : !selectedRoute ? (
+          <ExploreCard onAllRoutes={() => setSelectorOpen(true)} />
         ) : null}
+      </View>
 
-        {!hintSeen ? <Hint text={strings.hints.live} onDismiss={() => dismissHint('live')} /> : null}
-
-        {!selectedRoute ? null : (
-          <>
-        <View style={styles.chipsRow}>
-          {DIRECTIONS.filter((direction) => routeLines.some((line) => line.direction === direction)).map((direction) => (
-            <Chip
-              key={direction}
-              label={direction === 'outbound' ? strings.direction.outbound : strings.direction.return}
-              selected={directions[direction]}
-              onPress={() => toggleDirection(direction)}
-            />
-          ))}
-          {isSingleLegRoute(lines, selectedRoute) ? <Chip label={strings.common.partial} /> : null}
-        </View>
-
-        <View style={styles.chipsRow}>
-          {routeStops.map((stop) => (
-            <Chip
-              key={stop.code}
-              label={stop.code}
-              selected={stop.code === selectedCode}
-              onPress={() => selectStop(stop.code)}
-              accessibilityLabel={`${strings.map.stop(stop.code)}, ${stop.name}`}
-            />
-          ))}
-        </View>
-
-        <Pressable
-          style={styles.details}
-          onPress={() => setDetailsOpen((open) => !open)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: detailsOpen }}
-        >
-          <Text style={[typography.labelLg, styles.detailsText]}>{detailsOpen ? strings.ride.hideDetails : strings.ride.details}</Text>
-        </Pressable>
-
-        {detailsOpen ? (
-        <View style={styles.group}>
-          {summaries.map(({ line, from, to, lengthKm }) => (
-            <View key={line.id} style={styles.row}>
-              <View
-                style={[
-                  styles.swatch,
-                  { backgroundColor: routeColor(line.routeCode, line.color) },
-                  returnStyled.has(line.id) && styles.swatchReturn,
-                ]}
-              />
-              <Text style={[typography.labelLg, styles.grow]}>
-                {line.direction === 'outbound' ? strings.direction.outbound : strings.direction.return}
-                {'  '}
-                <Text style={typography.bodyMd}>{from && to ? strings.live.ends(from, to) : ''}</Text>
-              </Text>
-              <Text style={typography.bodySm}>{strings.live.length(lengthKm)}</Text>
-            </View>
-          ))}
-          <View style={styles.row}>
-            <View style={styles.swatchSlot}>
-              <View style={[styles.legendDot, { borderColor: mapRoute.stopStrokeColor }]} />
-            </View>
-            <Text style={[typography.bodySm, styles.grow]}>{strings.live.legendStop}</Text>
-            <Navigation color={colors.textSecondary} size={ICON_SIZE} />
-            <Text style={typography.bodySm}>{strings.live.legendDirection}</Text>
-          </View>
-        </View>
-        ) : null}
-          </>
-        )}
-      </BottomSheet>
+      {selectorOpen ? (
+        <RouteSelector
+          routes={routeOptions}
+          selectedCode={selectedRoute}
+          filter={filter}
+          onShow={showRoute}
+          onClose={() => setSelectorOpen(false)}
+        />
+      ) : null}
     </View>
   );
 }
 
-const useStyles = makeStyles(({ colors, mapRoute }) => ({
+const useStyles = makeStyles(({ colors, elevation }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.canvas,
@@ -431,7 +333,7 @@ const useStyles = makeStyles(({ colors, mapRoute }) => ({
   center: {
     textAlign: 'center',
   },
-  button: {
+  retry: {
     minHeight: MIN_TOUCH_TARGET,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
@@ -439,17 +341,25 @@ const useStyles = makeStyles(({ colors, mapRoute }) => ({
     borderRadius: radii.pill,
     backgroundColor: colors.surface,
   },
-  floating: {
-    flex: 1,
+  top: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
     gap: spacing.sm,
   },
-  floatingRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+  bottom: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
+    gap: spacing.sm,
   },
   buttons: {
+    alignSelf: 'flex-end',
     gap: spacing.sm,
+  },
+  grow: {
+    flex: 1,
   },
   notice: {
     minHeight: MIN_TOUCH_TARGET,
@@ -458,7 +368,7 @@ const useStyles = makeStyles(({ colors, mapRoute }) => ({
     gap: spacing.sm,
     paddingLeft: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: colors.sheet,
+    backgroundColor: colors.card,
   },
   noticeButton: {
     minHeight: MIN_TOUCH_TARGET,
@@ -470,79 +380,20 @@ const useStyles = makeStyles(({ colors, mapRoute }) => ({
   noticeAction: {
     color: colors.primary,
   },
-  topBar: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-  },
-  peek: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  grow: {
-    flex: 1,
-  },
-  group: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceLow,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  swatch: {
-    width: SWATCH_WIDTH,
-    height: spacing.xs,
-    borderRadius: spacing.xs,
-  },
-  swatchReturn: {
-    height: spacing.sm,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: mapRoute.returnDashColor,
-  },
-  swatchSlot: {
-    width: SWATCH_WIDTH,
-    alignItems: 'center',
-  },
-  legendDot: {
-    width: spacing.sm + spacing.xs,
-    height: spacing.sm + spacing.xs,
-    borderRadius: spacing.sm,
-    borderWidth: 2,
-    backgroundColor: mapRoute.stopColor,
-  },
   stopCard: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radii.md,
-    borderWidth: 2,
-    borderColor: mapRoute.stopSelectedColor,
-    backgroundColor: colors.surfaceLow,
+    paddingLeft: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.lg,
+    backgroundColor: colors.card,
+    ...elevation.level3,
   },
   iconButton: {
     width: MIN_TOUCH_TARGET,
     height: MIN_TOUCH_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  details: {
-    minHeight: MIN_TOUCH_TARGET,
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-  },
-  detailsText: {
-    color: colors.primary,
   },
 }));

@@ -5,20 +5,21 @@ import {
   type StyleSpecification,
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
-import { useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { Text, View, type NativeSyntheticEvent } from 'react-native';
+import { Info } from 'lucide-react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Pressable, Text, View, type NativeSyntheticEvent } from 'react-native';
 
 import { GLYPH_FONT_REGULAR, LABEL_PROOF } from '@/data/map/glyphset';
 import { buildOfflineStyle } from '@/data/map/offlineStyle';
 import { TILESET } from '@/data/map/tileset';
-import { MAP_LABEL_PROOF_DEV, MAP_OVERZOOM_LEVELS } from '@/shared/config';
+import { MAP_ATTRIBUTION_SHOW_S, MAP_LABEL_PROOF_DEV, MAP_OVERZOOM_LEVELS } from '@/shared/config';
 import type { Bounds } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 
 import { MapLabels } from './MapLabels';
-import { makeStyles, spacing, useTheme } from '@/theme';
+import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
 const PADDING = { top: spacing.xl, right: spacing.xl, bottom: spacing.xl, left: spacing.xl };
 
@@ -49,8 +50,6 @@ type OfflineMapProps = {
   onUserMove?: () => void;
   // Height of anything covering the bottom of the map, such as a bottom sheet. Fitted areas keep clear of it.
   bottomInset?: number;
-  // Where the OpenStreetMap credit sits: a distance from the top, or (by default) the bottom-left corner
-  attributionTop?: number;
   // LB1b: labels at LABEL_DIMMED_OPACITY while a route is selected
   labelsDimmed?: boolean;
   // Map content drawn on top of the base map: route line, stops, vehicle markers and, later, the blue dot
@@ -68,12 +67,11 @@ export function OfflineMap({
   onLongPress,
   onUserMove,
   bottomInset = 0,
-  attributionTop,
   labelsDimmed = false,
   children,
 }: OfflineMapProps) {
   const styles = useStyles();
-  const { scheme, colors, typography, mapRoute, baseMap } = useTheme();
+  const { scheme, colors, mapRoute, baseMap } = useTheme();
   const camera = useRef<CameraRef>(null);
   // Labels need the local glyphs; switching them on or off mounts the map afresh, like a theme
   // change, so they always stay under the layers drawn on top
@@ -152,13 +150,36 @@ export function OfflineMap({
         />
         {children}
       </Map>
-      <View
-        style={[styles.attribution, attributionTop !== undefined && { top: attributionTop, bottom: undefined }]}
-        pointerEvents="none"
-      >
-        <Text style={typography.caption}>{strings.common.attribution}</Text>
-      </View>
+      <Attribution bottom={bottomInset + spacing.sm} />
     </View>
+  );
+}
+
+const MS_PER_S = 1000;
+const INFO_SIZE = spacing.md + spacing.xs;
+
+// The OpenStreetMap credit (ODbL). It shows in full when the map opens, then folds into an (i)
+// button after MAP_ATTRIBUTION_SHOW_S, as OSM's attribution guidelines allow on small screens.
+// Tapping the button shows it again.
+function Attribution({ bottom }: { bottom: number }) {
+  const styles = useStyles();
+  const { colors, typography } = useTheme();
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    if (!open) return undefined;
+    const timer = setTimeout(() => setOpen(false), MAP_ATTRIBUTION_SHOW_S * MS_PER_S);
+    return () => clearTimeout(timer);
+  }, [open]);
+  return (
+    <Pressable
+      style={[styles.attribution, { bottom }]}
+      onPress={() => setOpen((value) => !value)}
+      accessibilityRole="button"
+      accessibilityLabel={strings.common.attribution}
+    >
+      <Info color={colors.textSecondary} size={INFO_SIZE} />
+      {open ? <Text style={typography.caption}>{strings.common.attribution}</Text> : null}
+    </Pressable>
   );
 }
 
@@ -173,10 +194,11 @@ const useStyles = makeStyles(({ colors }) => ({
   attribution: {
     position: 'absolute',
     left: spacing.sm,
-    bottom: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: spacing.xs,
-    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    padding: spacing.xs,
+    borderRadius: radii.pill,
+    backgroundColor: colors.card,
   },
 }));

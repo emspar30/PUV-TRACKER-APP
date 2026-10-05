@@ -39,6 +39,8 @@ export type Palette = {
   dangerContainer: string;
   // Shadows of floating elements
   shadow: string;
+  // Dims the map behind a panel
+  scrim: string;
 };
 
 // What is drawn on the map: route decoration, stops, trip markers and, from S5, vehicles.
@@ -105,6 +107,7 @@ export const PALETTES: Record<ThemeScheme, Palette> = {
     danger: '#b3261e',
     dangerContainer: '#fce8e6',
     shadow: '#3c4043',
+    scrim: 'rgba(31, 31, 31, 0.32)',
   },
   dark: {
     canvas: '#0e1116',
@@ -128,6 +131,7 @@ export const PALETTES: Record<ThemeScheme, Palette> = {
     danger: '#f2b8b5',
     dangerContainer: '#3f1d1b',
     shadow: '#000000',
+    scrim: 'rgba(0, 0, 0, 0.55)',
   },
 };
 

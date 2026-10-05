@@ -9,7 +9,8 @@ import { seatTier, type SeatTier } from './occupancy';
 import { isStopped } from './stopped';
 import type { VehicleSnapshot } from './vehicle';
 
-export type MarkerProps = { id: string; tier: SeatTier; stale: boolean; stopped: boolean; demo: boolean };
+// label: the plate shown beside the marker ("DEMO 01" for demo vehicles)
+export type MarkerProps = { id: string; label: string; tier: SeatTier; stale: boolean; stopped: boolean; demo: boolean };
 
 const EARTH_CIRCUMFERENCE_M = 40075016.686;
 const TILE_SIZE_PX = 512;
@@ -49,6 +50,7 @@ export function vehicleMarkerFeatures(
     if (coverage === 'none' || vehicle.hidden) continue;
     const properties: MarkerProps = {
       id: vehicle.id,
+      label: vehicle.label,
       tier: seatTier(vehicle.seatsTaken),
       stale: coverage === 'stale',
       stopped: vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs),
