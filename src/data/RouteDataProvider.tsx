@@ -2,7 +2,7 @@ import { openDatabaseAsync } from 'expo-sqlite';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { Logo } from '@/components';
+import { LoadingScreen } from '@/components';
 import { DB_LOCK_RETRY_ATTEMPTS, DB_LOCK_RETRY_DELAY_MS } from '@/shared/config';
 import type { RouteData } from '@/shared/routing/types';
 import { reopen, type Closable, type Holder } from '@/shared/util/reopen';
@@ -15,7 +15,6 @@ import { loadRouteData } from './db/routeRepository';
 import { getSeedRouteData } from './routeSource';
 
 const DATABASE_NAME = 'tunton.db';
-const LOGO_SIZE = spacing.xl * 3;
 
 const RouteDataContext = createContext<RouteData | null>(null);
 
@@ -84,12 +83,7 @@ export function RouteDataProvider({ children }: { children: ReactNode }) {
 
   if (state.status === 'loading') {
     // Shown while the local database is created and seeded, which takes a moment on first launch
-    return (
-      <View style={styles.centered}>
-        <Logo size={LOGO_SIZE} />
-        <Text style={typography.caption}>{strings.loading.routeData}</Text>
-      </View>
-    );
+    return <LoadingScreen message={strings.loading.routeData} />;
   }
 
   if (state.status === 'error') {

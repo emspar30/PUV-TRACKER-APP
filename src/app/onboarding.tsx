@@ -3,7 +3,6 @@ import {
   Accessibility,
   ArrowRight,
   BellRing,
-  Bus,
   GraduationCap,
   HeartHandshake,
   Lock,
@@ -21,7 +20,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Card, OptionRow, StepHeader } from '@/components';
+import { Button, Card, Logo, OptionRow, StepHeader } from '@/components';
 import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
 import { Avatar } from '@/features/profile/Avatar';
 import { isValidUsername } from '@/shared/backend/rules';
@@ -43,8 +42,7 @@ import { useUsernameStore } from '@/state/usernameStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
-const HERO_SIZE = spacing.xl * 2;
-const HERO_ICON = spacing.xl;
+const HERO_SIZE = spacing.xl * 3;
 const PREVIEW_SIZE = spacing.xl * 3;
 const GRID_AVATAR = MIN_TOUCH_TARGET;
 const ICON_SIZE = spacing.md;
@@ -162,9 +160,7 @@ function Welcome({ onSignIn, onContinue }: { onSignIn: () => void; onContinue: (
     <>
       <ScrollView contentContainerStyle={styles.content}>
         <Card style={styles.hero}>
-          <View style={styles.heroIcon}>
-            <Bus color={colors.primary} size={HERO_ICON} />
-          </View>
+          <Logo size={HERO_SIZE} />
           <Text style={[typography.headlineMd, styles.center]} accessibilityRole="header">
             {strings.onboarding.welcomeTitle}
           </Text>
@@ -395,14 +391,6 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
     gap: spacing.sm + spacing.xs,
     paddingVertical: spacing.lg,
-  },
-  heroIcon: {
-    width: HERO_SIZE,
-    height: HERO_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: HERO_SIZE,
-    backgroundColor: colors.primaryContainer,
   },
   center: {
     textAlign: 'center',

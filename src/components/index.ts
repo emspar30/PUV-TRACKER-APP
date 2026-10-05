@@ -6,6 +6,7 @@ export { Button } from './Button';
 export { Card } from './Card';
 export { Hint } from './Hint';
 export { IconTile, type IconTone } from './IconTile';
+export { LoadingScreen } from './LoadingScreen';
 export { Logo } from './Logo';
 export { Chip, LineBadge, RouteChip, StatusPill, type StatusTone } from './Pills';
 export { OptionRow } from './OptionRow';

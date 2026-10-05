@@ -27,6 +27,7 @@ export const en = {
 
   app: {
     name: 'Tunton APP',
+    tagline: 'Live multicabs and fares in Butuan',
   },
 
   tabs: {
