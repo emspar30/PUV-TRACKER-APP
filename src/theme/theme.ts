@@ -32,6 +32,8 @@ export const radii = {
   badge: 4,
   sm: 8,
   md: 12,
+  // Cards and option rows (restyle)
+  card: 16,
   lg: 24,
   sheet: 28,
   pill: 999,
@@ -58,6 +60,8 @@ const SCALE = {
   labelLg: { fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1 },
   labelMd: { fontSize: 12, lineHeight: 16, fontWeight: '500', letterSpacing: 0.5 },
   labelSm: { fontSize: 11, lineHeight: 14, fontWeight: '600', letterSpacing: 0.5 },
+  // Small capitals above a group, such as "STEP 2 OF 4"
+  overline: { fontSize: 11, lineHeight: 16, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
   // A big number, such as the fare
   display: { fontSize: 40, lineHeight: 48, fontWeight: '600', fontVariant: ['tabular-nums'] },
 } as const satisfies Record<string, TextStyle>;
@@ -75,6 +79,7 @@ function buildTypography(colors: Palette) {
     labelLg: primary(SCALE.labelLg),
     labelMd: primary(SCALE.labelMd),
     labelSm: secondary(SCALE.labelSm),
+    overline: { ...SCALE.overline, color: colors.primary } satisfies TextStyle,
     display: primary(SCALE.display),
     // Names used before UX2, kept so older screens read the same
     title: primary(SCALE.headlineLg),

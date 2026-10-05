@@ -5,13 +5,17 @@
 // Two of its text colours failed WCAG AA and were darkened, keeping their fills:
 //   text-tertiary #747775 -> #5f6368 (it was 4.07:1 on #f1f3f4)
 //   amber text    #ea8600 -> #9a5700 (it was 2.48:1 on its own fill #fef7e0; #9a5700 is 4.66:1 on #e8eaed)
-// Dark keeps the UX1 colours under the same semantic names, so the two themes are interchangeable.
+// Restyle (2026-10-05, Emjay's mockup): one look across the app. Light: a soft grey canvas with white
+// cards and the blue primary. Dark: the same layout and the same blue family, lightened for dark
+// backgrounds, so both themes read as one app.
 
 export type ThemeScheme = 'light' | 'dark';
 
 export type Palette = {
   // Backgrounds, from the screen up to raised containers
   canvas: string;
+  // Cards and list rows on the canvas
+  card: string;
   surfaceLow: string;
   surface: string;
   surfaceHigh: string;
@@ -80,12 +84,13 @@ export type BaseMapPalette = {
 
 export const PALETTES: Record<ThemeScheme, Palette> = {
   light: {
-    canvas: '#ffffff',
+    canvas: '#f5f6f8',
+    card: '#ffffff',
     surfaceLow: '#f8f9fa',
     surface: '#f1f3f4',
     surfaceHigh: '#e8eaed',
     sheet: '#ffffff',
-    outline: '#e8eaed',
+    outline: '#e3e6ea',
     textPrimary: '#1f1f1f',
     textSecondary: '#444746',
     textTertiary: '#5f6368',
@@ -102,25 +107,26 @@ export const PALETTES: Record<ThemeScheme, Palette> = {
     shadow: '#3c4043',
   },
   dark: {
-    canvas: '#0B0F17',
-    surfaceLow: '#111827',
-    surface: '#161F30',
-    surfaceHigh: '#1E293B',
-    sheet: '#111827',
-    outline: '#334155',
-    textPrimary: '#FFFFFF',
-    textSecondary: '#CBD5E1',
-    textTertiary: '#94A3B8',
-    primary: '#00F5D4',
-    onPrimary: '#0B0F17',
-    primaryContainer: '#0F3B3A',
-    onPrimaryContainer: '#00F5D4',
-    success: '#34D399',
-    successContainer: '#0F2E25',
-    warning: '#FFB703',
-    warningContainer: '#3A2C08',
-    danger: '#FF6B7A',
-    dangerContainer: '#3B1820',
+    canvas: '#0e1116',
+    card: '#171c25',
+    surfaceLow: '#141820',
+    surface: '#1a1f29',
+    surfaceHigh: '#232a36',
+    sheet: '#141820',
+    outline: '#2c3442',
+    textPrimary: '#f1f3f5',
+    textSecondary: '#c4cad4',
+    textTertiary: '#97a0ae',
+    primary: '#8ab4f8',
+    onPrimary: '#0a1a33',
+    primaryContainer: '#1d2b45',
+    onPrimaryContainer: '#d3e3fd',
+    success: '#6dd58c',
+    successContainer: '#123222',
+    warning: '#f6c65b',
+    warningContainer: '#3a2e0f',
+    danger: '#f2b8b5',
+    dangerContainer: '#3f1d1b',
     shadow: '#000000',
   },
 };
@@ -234,11 +240,13 @@ type TextToken = keyof Palette;
 // Every text colour and the backgrounds it may sit on. The contrast test checks each pair at 4.5:1.
 export const TEXT_PAIRS: readonly (readonly [text: TextToken, background: TextToken])[] = [
   ...(['textPrimary', 'textSecondary', 'textTertiary', 'primary', 'success', 'warning', 'danger'] as const).flatMap(
-    (text) => (['canvas', 'surfaceLow', 'surface', 'surfaceHigh', 'sheet'] as const).map((bg) => [text, bg] as const),
+    (text) => (['canvas', 'card', 'surfaceLow', 'surface', 'surfaceHigh', 'sheet'] as const).map((bg) => [text, bg] as const),
   ),
   ['onPrimary', 'primary'],
   ['onPrimaryContainer', 'primaryContainer'],
   ['textPrimary', 'primaryContainer'],
+  ['primary', 'primaryContainer'],
+  ['textSecondary', 'primaryContainer'],
   ['success', 'successContainer'],
   ['warning', 'warningContainer'],
   ['danger', 'dangerContainer'],
