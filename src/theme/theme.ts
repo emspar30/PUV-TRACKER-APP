@@ -49,9 +49,8 @@ export const motion = {
   sheetSpring: { damping: 24, stiffness: 240, mass: 0.9 },
   // A drag must move this far before the sheet follows it, so taps inside the sheet still work
   dragSlopDp: 8,
-  // The app dialog and floating cards: a short fade, the card settling with a soft spring
+  // The app dialog and floating cards: a short eased fade, never a spring
   dialogMs: 180,
-  dialogDamping: 18,
   cardMs: 220,
 } as const;
 

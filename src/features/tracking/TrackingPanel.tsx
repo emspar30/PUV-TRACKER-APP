@@ -29,7 +29,8 @@ const SEGMENT_HEIGHT = spacing.xs;
 const ICON_SIZE = spacing.md + spacing.xs;
 
 // Tracking one multicab (L2, PRD 19.2 D9): the ETA to the commuter's stop, where the vehicle is among
-// the stops, the vehicle and its seats, an in-app arrival alert, and Stop
+// the stops, the vehicle and its seats, an in-app arrival alert (blue when on), and Stop (red).
+// One update time only: the Last updated box.
 export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine', alertOn, alertMessage, onToggleAlert, onStop }: TrackingPanelProps) {
   const styles = useStyles();
   const { colors, typography, elevation } = useTheme();
@@ -92,7 +93,6 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine
                 {vehicle.label}
               </Text>
               <Text style={typography.bodySm}>{strings.live.vehicle.route(vehicle.routeCode)}</Text>
-              {age ? <Text style={typography.bodySm}>{t.synced(age)}</Text> : null}
             </View>
           </View>
           <View style={styles.card}>
@@ -117,12 +117,12 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine
           <Button
             label={alertOn ? t.alertOn : t.alert}
             leadingIcon={BellRing}
-            variant={alertOn ? 'success' : 'secondary'}
+            variant={alertOn ? 'primary' : 'secondary'}
             onPress={onToggleAlert}
           />
         </View>
         <Pressable style={styles.stop} onPress={onStop} accessibilityRole="button" accessibilityLabel={t.stop}>
-          <Square color={colors.textPrimary} size={ICON_SIZE} />
+          <Square color={colors.onPrimary} size={ICON_SIZE} fill={colors.onPrimary} />
         </Pressable>
       </View>
     </View>
@@ -220,7 +220,7 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.outline,
+    // Stopping ends the session, so it reads as the red action
+    backgroundColor: colors.danger,
   },
 }));

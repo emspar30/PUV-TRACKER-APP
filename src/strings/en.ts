@@ -202,7 +202,6 @@ export const en = {
       departed: 'Departed',
       next: 'Next',
       yourStop: 'Your stop',
-      synced: (age: string) => `Synced ${age}`,
       seatsOpen: (free: number) => `${free} seats open`,
       onboard: (taken: number, capacity: number) => `${taken}/${capacity} onboard`,
       alert: 'Alert near arrival',
@@ -322,9 +321,7 @@ export const en = {
     cancel: 'Cancel',
     countdown: (time: string) => `${time} left`,
     countdownLabel: (code: string, time: string) => `Checked in at ${code}, ${time} left`,
-    notVerified: 'Not location-verified',
     // C1
-    shared: 'Shared with commuters',
     waiting: (count: number) => (count === 1 ? '1 waiting' : `${count} waiting`),
     notHereTitle: 'Check in at the station',
     tooFar: (distanceM: number, radiusM: number, code: string) =>
@@ -350,8 +347,6 @@ export const en = {
     distance: (metres: number) => (metres < METERS_PER_KM ? `${metres} m` : km(metres / METERS_PER_KM)),
     // "RCA · 120 m · 2 waiting"; parts that are unknown are left out
     meta: (parts: readonly string[]) => parts.join(' · '),
-    expires: 'Check-in expires',
-    window: (minutes: number) => `${minutes} min window`,
     cancelCheckIn: 'Cancel check-in',
   },
 
@@ -401,8 +396,8 @@ export const en = {
 
   // The burger menu in the top bar (restyle)
   menu: {
+    title: 'Menu',
     open: 'Open menu',
-    close: 'Close menu',
     profile: 'Profile',
     settings: 'Settings & preferences',
     demo: 'Demo & simulation',

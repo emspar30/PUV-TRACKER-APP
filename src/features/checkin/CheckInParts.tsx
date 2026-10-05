@@ -2,30 +2,9 @@ import { Text, View } from 'react-native';
 
 import { Chip } from '@/components';
 import { strings } from '@/strings';
-import { makeStyles, radii, spacing, useTheme } from '@/theme';
-
-const BAR_HEIGHT = spacing.xs + spacing.xs / 2;
-const PERCENT = 100;
+import { makeStyles, spacing, useTheme } from '@/theme';
 
 // Pieces of the Check-in card (C1 UI pass).
-
-// The time left of a check-in as a bar that empties, with its label and the window length
-export function ExpiryBar({ fraction, minutes }: { fraction: number; minutes: number }) {
-  const styles = useStyles();
-  const { typography } = useTheme();
-  const clamped = Math.min(Math.max(fraction, 0), 1);
-  return (
-    <View style={styles.expiry}>
-      <View style={styles.between}>
-        <Text style={typography.bodySm}>{strings.checkin.expires}</Text>
-        <Text style={typography.bodySm}>{strings.checkin.window(minutes)}</Text>
-      </View>
-      <View style={styles.track}>
-        <View style={[styles.fill, { width: `${clamped * PERCENT}%` }]} />
-      </View>
-    </View>
-  );
-}
 
 type RoutePingProps = {
   routes: readonly string[];
@@ -66,25 +45,11 @@ export function RoutePing({ routes, picked, onChange }: RoutePingProps) {
 }
 
 const useStyles = makeStyles(({ colors }) => ({
-  expiry: {
-    gap: spacing.xs + spacing.xs / 2,
-  },
   between: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  track: {
-    height: BAR_HEIGHT,
-    borderRadius: radii.pill,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceHigh,
-  },
-  fill: {
-    height: '100%',
-    borderRadius: radii.pill,
-    backgroundColor: colors.primary,
   },
   ping: {
     gap: spacing.xs + spacing.xs / 2,

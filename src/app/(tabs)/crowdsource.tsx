@@ -95,7 +95,6 @@ export default function CrowdsourceScreen() {
             </Text>
             <Text style={typography.bodySm}>{strings.crowdsource.body}</Text>
           </View>
-          {demo ? <Chip label={strings.common.demo} /> : null}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
           <Chip label={strings.crowdsource.all} selected={filter === null} onPress={() => setFilter(null)} />

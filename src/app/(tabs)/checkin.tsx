@@ -5,10 +5,10 @@ import { ScrollView, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Hint, IconTile, LineBadge, Logo, RouteChip, StatusPill, TopBar } from '@/components';
+import { Button, Hint, IconTile, LineBadge, Logo, RouteChip, TopBar } from '@/components';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
-import { ExpiryBar, RoutePing } from '@/features/checkin/CheckInParts';
+import { RoutePing } from '@/features/checkin/CheckInParts';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
@@ -18,12 +18,11 @@ import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { checkInGeofence, type Place } from '@/shared/checkin/geofence';
 import { formatCountdown, isActive, remainingMs } from '@/shared/checkin/localCheckin';
-import { CHECKIN_COUNTS_REFRESH_S, CHECKIN_LIFETIME_S, CHECKIN_RADIUS_M, GPS_ACCURACY_GATE_CHECKIN_M, WALK_SPEED_M_PER_MIN } from '@/shared/config';
+import { CHECKIN_COUNTS_REFRESH_S, CHECKIN_RADIUS_M, GPS_ACCURACY_GATE_CHECKIN_M, WALK_SPEED_M_PER_MIN } from '@/shared/config';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { haversineMeters } from '@/shared/geo/haversine';
 import type { RouteDirection } from '@/shared/routing/types';
 import { routeCodesOf, routesAtStop, toggleRoute } from '@/shared/ui/routeVisibility';
-import { verifyCheckIn } from '@/shared/verification/verifyCheckIn';
 import { useCheckInStore } from '@/state/checkinStore';
 import { checkIn as cloudCheckIn, endCheckIn, useCrowd } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
@@ -37,7 +36,6 @@ const LOGO_SIZE = spacing.xl * 3;
 const ICON_SIZE = spacing.md;
 const TICK_MS = 1000;
 const MS_PER_S = 1000;
-const S_PER_MIN = 60;
 
 // Check-in (C1): a map with one floating card, no dragging. The card shows the routes, then the
 // station (the nearest on the picked route, or the dot tapped on the map) with its distance, walk
@@ -202,8 +200,6 @@ export default function CheckInScreen() {
     setCountsKey((key) => key + 1);
   };
 
-  // While verification is off this always answers "unverified"
-  const verification = active ? verifyCheckIn({ routeCode: checkIn.routeCode, stationCode: checkIn.stationCode }) : null;
   const left = active ? remainingMs(checkIn, now) : 0;
   const countdown = active ? formatCountdown(left) : '';
   const activeStop = active ? stops.find((stop) => stop.code === checkIn.stationCode) : undefined;
@@ -235,11 +231,6 @@ export default function CheckInScreen() {
           <Clock color={colors.success} size={ICON_SIZE} />
           <Text style={[typography.labelMd, styles.activeText]}>{countdown}</Text>
         </View>
-      </View>
-      <ExpiryBar fraction={left / (CHECKIN_LIFETIME_S * MS_PER_S)} minutes={CHECKIN_LIFETIME_S / S_PER_MIN} />
-      <View style={styles.pills}>
-        <StatusPill label={crowd.checkins.source === 'demo' ? strings.common.demo : strings.checkin.shared} tone="neutral" />
-        <StatusPill label={verification?.status === 'verified' ? strings.checkin.checkIn : strings.checkin.notVerified} tone="warning" />
       </View>
       <View style={styles.buttons}>
         <View style={styles.grow}>
@@ -414,11 +405,6 @@ const useStyles = makeStyles(({ colors }) => ({
   activeText: {
     color: colors.success,
     fontVariant: ['tabular-nums'],
-  },
-  pills: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
   },
   buttons: {
     flexDirection: 'row',

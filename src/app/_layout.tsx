@@ -44,13 +44,8 @@ function ThemedStack() {
     <>
       {/* Dark icons on the light theme, light icons on the dark one */}
       <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
-        {/* The menu slides up over the current tab, which stays visible behind a dimmed backdrop */}
-        <Stack.Screen
-          name="menu"
-          options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }}
-        />
-      </Stack>
+      {/* Every page, the menu included, slides in from the right over the whole screen, with no dimming */}
+      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: colors.canvas } }} />
       <DialogHost />
     </>
   );

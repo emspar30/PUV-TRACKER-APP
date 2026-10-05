@@ -65,7 +65,7 @@ export default function MyRidesScreen() {
   const styles = useStyles();
   const { colors, typography, mapRoute, routeColor } = useTheme();
   const insets = useSafeAreaInsets();
-  const { lines, stops, isPlaceholder } = useRouteData();
+  const { lines, stops } = useRouteData();
   const { state: tiles } = useOfflineTiles();
   const [fareType] = useFareType();
   const hintSeen = useHintsStore((state) => state.seen.ride);
@@ -255,7 +255,6 @@ export default function MyRidesScreen() {
             </View>
           )}
           <View style={styles.mapChip} pointerEvents="box-none">
-            {isPlaceholder ? <Chip label={strings.common.sampleData} /> : null}
             <RoundButton
               icon={mapExpanded ? Minimize2 : Maximize2}
               label={mapExpanded ? strings.ride.shrinkMap : strings.ride.expandMap}

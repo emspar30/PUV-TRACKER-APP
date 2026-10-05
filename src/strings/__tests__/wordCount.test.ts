@@ -22,8 +22,6 @@ const mainScreen: Record<string, string> = {
   pickStation: en.checkin.pickStation,
   noStations: en.checkin.noStations,
   checkIn: en.checkin.checkIn,
-  notVerified: en.checkin.notVerified,
-  shared: en.checkin.shared,
   waiting: en.checkin.waiting(3),
   placeholder: en.ride.placeholder,
   allRoutes: en.ride.allRoutes,

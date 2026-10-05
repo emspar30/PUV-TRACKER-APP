@@ -1,7 +1,7 @@
 import { CircleAlert, CircleCheck, Info, TriangleAlert, type LucideIcon } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { useDialogStore, type DialogAction, type DialogTone } from '@/state/dialogStore';
 import { strings } from '@/strings';
@@ -17,7 +17,7 @@ const TONE_ICON: Record<DialogTone, LucideIcon> = { primary: Info, success: Circ
 // The app's dialog (C1 UI pass), in place of the system alert: a white card over a dimmed screen
 // with a tinted icon, a title, a short body and stacked pill buttons, the main action first.
 // Mounted once at the root, drawn above every screen (no system Modal, so no window flicker); the
-// scrim fades and the card scales in. Screens call showDialog() from the dialog store.
+// scrim fades and the card eases up a little (B1: no spring, no bounce). Screens call showDialog() from the dialog store.
 export function DialogHost() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
@@ -55,7 +55,7 @@ export function DialogHost() {
       exiting={FadeOut.duration(motion.dialogMs)}
     >
       <Pressable style={StyleSheet.absoluteFill} onPress={dismissable ? close : undefined} accessible={false} />
-      <Animated.View style={styles.card} entering={ZoomIn.duration(motion.dialogMs).springify().damping(motion.dialogDamping)} accessibilityViewIsModal>
+      <Animated.View style={styles.card} entering={FadeInDown.duration(motion.dialogMs).easing(Easing.out(Easing.cubic))} accessibilityViewIsModal>
         <View style={[styles.tile, { backgroundColor: fill }]} importantForAccessibility="no-hide-descendants">
           <Icon color={ink} size={ICON_SIZE} />
         </View>
