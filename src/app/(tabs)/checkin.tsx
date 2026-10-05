@@ -1,13 +1,14 @@
 import { router } from 'expo-router';
-import { Bus, Clock, LocateOff, MapPin, MapPinOff, Navigation, Radio, ShieldQuestionMark, Users, X } from 'lucide-react-native';
+import { Bus, Clock, Footprints, LocateOff, MapPin, MapPinOff, Navigation, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomSheet, Button, Hint, IconTile, LineBadge, Logo, RouteChip, type SheetRequest, StatusPill, TopBar } from '@/components';
+import { Button, Hint, IconTile, LineBadge, Logo, RouteChip, StatusPill, TopBar } from '@/components';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
-import { ExpiryBar, StationRow, StatTile } from '@/features/checkin/CheckInParts';
+import { ExpiryBar, RoutePing } from '@/features/checkin/CheckInParts';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
@@ -17,11 +18,11 @@ import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { checkInGeofence, type Place } from '@/shared/checkin/geofence';
 import { formatCountdown, isActive, remainingMs } from '@/shared/checkin/localCheckin';
-import { CHECKIN_COUNTS_REFRESH_S, CHECKIN_LIFETIME_S, CHECKIN_RADIUS_M, GPS_ACCURACY_GATE_CHECKIN_M } from '@/shared/config';
+import { CHECKIN_COUNTS_REFRESH_S, CHECKIN_LIFETIME_S, CHECKIN_RADIUS_M, GPS_ACCURACY_GATE_CHECKIN_M, WALK_SPEED_M_PER_MIN } from '@/shared/config';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { haversineMeters } from '@/shared/geo/haversine';
 import type { RouteDirection } from '@/shared/routing/types';
-import { routeCodesOf, toggleRoute } from '@/shared/ui/routeVisibility';
+import { routeCodesOf, routesAtStop, toggleRoute } from '@/shared/ui/routeVisibility';
 import { verifyCheckIn } from '@/shared/verification/verifyCheckIn';
 import { useCheckInStore } from '@/state/checkinStore';
 import { checkIn as cloudCheckIn, endCheckIn, useCrowd } from '@/state/crowdStore';
@@ -29,7 +30,7 @@ import { showDialog } from '@/state/dialogStore';
 import { useHintsStore } from '@/state/hintsStore';
 import { useLocationStore } from '@/state/locationStore';
 import { strings } from '@/strings';
-import { makeStyles, radii, spacing, useTheme } from '@/theme';
+import { MAP_GEOMETRY, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
 const LOGO_SIZE = spacing.xl * 3;
@@ -38,15 +39,15 @@ const TICK_MS = 1000;
 const MS_PER_S = 1000;
 const S_PER_MIN = 60;
 
-// Check-in (C1, laid out after Google Maps' place sheet): the peek row always names one station,
-// the nearest on the picked route or the one tapped, with its distance, the people waiting and a
-// Check in button. Higher up: the routes and a list of stations. The phone must be within the
-// station's radius (or at the simulated stop); the check-in goes to the cloud (or the demo), earns
-// Energy and lasts 15 minutes. While it runs, the sheet shows the station, the time left as a pill
-// and a bar, three facts and the two endings. Refusals and failures open the app's dialog.
+// Check-in (C1): a map with one floating card, no dragging. The card shows the routes, then the
+// station (the nearest on the picked route, or the dot tapped on the map) with its distance, walk
+// time, people waiting and a Check in button. A stop served by several routes adds "Ping routes",
+// so only the drivers of the routes picked get the SMS. While a check-in runs, the same card shows
+// the station, the time left and both endings, always in view. The route is drawn faint so the
+// station dots stand out. The phone must be within the station's radius (or at the simulated stop).
 export default function CheckInScreen() {
   const styles = useStyles();
-  const { colors, typography, routeColor } = useTheme();
+  const { colors, typography, routeColor, elevation } = useTheme();
   const insets = useSafeAreaInsets();
   const { lines, stops } = useRouteData();
   const { state: tiles } = useOfflineTiles();
@@ -63,15 +64,20 @@ export default function CheckInScreen() {
   // UX3: route first. Nothing is drawn until a route is picked; kept while the app is open only.
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [stationCode, setStationCode] = useState<string | null>(null);
+  // Routes to ping at a shared stop, for the station they were picked at
+  const [ping, setPing] = useState<{ station: string; routes: string[] } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [focus, setFocus] = useState<MapFocus | null>(null);
-  const [sheetHeight, setSheetHeight] = useState(0);
-  const [sheetRequest, setSheetRequest] = useState<SheetRequest | null>(null);
+  const [cardHeight, setCardHeight] = useState(0);
 
   const active = isActive(checkIn, now);
   // A running check-in shows its own route
   const shownRoute = active ? checkIn.routeCode : selectedRoute;
   const layers = useRouteLayers(lines, stops, 'checkin', shownRoute);
+  const faint = useMemo(
+    () => Object.fromEntries(Object.entries(layers.opacity).map(([id, value]) => [id, value * MAP_GEOMETRY.checkinLineOpacity])),
+    [layers.opacity],
+  );
   const [counts, setCounts] = useState<{ route: string; byStation: ReadonlyMap<string, number> | null } | null>(null);
   const [countsKey, setCountsKey] = useState(0);
   const [sending, setSending] = useState(false);
@@ -107,23 +113,22 @@ export default function CheckInScreen() {
   const byStation = counts && counts.route === shownRoute ? counts.byStation : null;
   const waitingAt = (code: string) => byStation?.get(code) ?? 0;
 
-  // The stations of the shown route with their distance, nearest first when the position is known
-  const rows = useMemo(() => {
-    const withDistance = layers.stops.map((stop) => ({
-      stop,
-      distanceM: positioned ? Math.round(haversineMeters(positioned, stop)) : null,
-    }));
-    return positioned ? [...withDistance].sort((a, b) => (a.distanceM ?? 0) - (b.distanceM ?? 0)) : withDistance;
-  }, [layers.stops, positioned]);
-  // The station of the peek row: the one tapped, else the nearest
-  const candidate = rows.find((row) => row.stop.code === stationCode) ?? (positioned ? rows[0] : undefined) ?? null;
-  const isNearest = candidate !== null && stationCode === null;
-  const metaOf = (code: string, distanceM: number | null) =>
-    strings.checkin.meta([
-      code,
-      ...(distanceM !== null ? [strings.checkin.distance(distanceM)] : []),
-      ...(byStation ? [strings.checkin.waiting(waitingAt(code))] : []),
-    ]);
+  // The station of the card: the dot tapped, else the nearest on the route when the position is known
+  const positionKey = positioned ? `${positioned.lat},${positioned.lon}` : null;
+  const candidate = useMemo(() => {
+    const at = positionKey ? { lat: Number(positionKey.split(',')[0]), lon: Number(positionKey.split(',')[1]) } : null;
+    const distanceOf = (stop: { lat: number; lon: number }) => (at ? Math.round(haversineMeters(at, stop)) : null);
+    const picked = layers.stops.find((stop) => stop.code === stationCode);
+    if (picked) return { stop: picked, distanceM: distanceOf(picked), nearest: false };
+    if (!at || layers.stops.length === 0) return null;
+    let best = layers.stops[0];
+    for (const stop of layers.stops) if (haversineMeters(at, stop) < haversineMeters(at, best)) best = stop;
+    return { stop: best, distanceM: distanceOf(best), nearest: true };
+  }, [layers.stops, stationCode, positionKey]);
+
+  // A shared stop lists every route that stops there; the picked route is pinged by default
+  const stopRoutes = useMemo(() => (candidate ? routesAtStop(lines, candidate.stop) : []), [lines, candidate]);
+  const pinged = candidate && ping && ping.station === candidate.stop.code ? ping.routes : shownRoute ? [shownRoute] : [];
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
@@ -133,6 +138,7 @@ export default function CheckInScreen() {
     const next = toggleRoute(selectedRoute, code);
     setSelectedRoute(next);
     setStationCode(null);
+    setPing(null);
     if (next) {
       const ofRoute = lines.filter((line) => line.routeCode === next);
       setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds: boundsOfLines(ofRoute.map((line) => line.coordinates)) }));
@@ -154,7 +160,7 @@ export default function CheckInScreen() {
   };
 
   const doCheckIn = async () => {
-    if (!candidate || !selectedRoute || active || sendingRef.current) return;
+    if (!candidate || !selectedRoute || active || sendingRef.current || pinged.length === 0) return;
     const code = candidate.stop.code;
     const fence = checkInGeofence(place, candidate.stop);
     if (!fence.ok) {
@@ -174,7 +180,9 @@ export default function CheckInScreen() {
     sendingRef.current = true;
     setSending(true);
     try {
-      const result = await cloudCheckIn(selectedRoute, code);
+      // The route the card shows comes first, so it stays the check-in's main route
+      const routes = pinged.includes(selectedRoute) ? [selectedRoute, ...pinged.filter((value) => value !== selectedRoute)] : pinged;
+      const result = await cloudCheckIn(routes, code);
       if (!result.ok) {
         if (result.reason === 'sign_in') router.push('/sign-in');
         else showDialog({ tone: 'danger', title: strings.checkin.failedTitle, body: result.message ?? strings.checkin.failedBody });
@@ -183,7 +191,6 @@ export default function CheckInScreen() {
       setNow(Date.now());
       setCountsKey((key) => key + 1);
       dismissHint('checkin');
-      setSheetRequest((current) => ({ key: (current?.key ?? 0) + 1, snap: 'half' }));
     } finally {
       sendingRef.current = false;
       setSending(false);
@@ -201,68 +208,103 @@ export default function CheckInScreen() {
   const countdown = active ? formatCountdown(left) : '';
   const activeStop = active ? stops.find((stop) => stop.code === checkIn.stationCode) : undefined;
 
-  const header = active ? (
-    <View style={styles.peek} accessible accessibilityLabel={strings.checkin.countdownLabel(checkIn.stationCode, countdown)}>
-      <LineBadge code={checkIn.routeCode} color={badgeColor(checkIn.routeCode)} />
-      <View style={styles.grow}>
-        <Text style={typography.headlineSm} numberOfLines={1}>
-          {activeStop?.name ?? checkIn.stationCode}
-        </Text>
-        <Text style={typography.bodySm} numberOfLines={1}>
-          {strings.checkin.meta([checkIn.stationCode, strings.checkin.routeOf(checkIn.routeCode)])}
-        </Text>
-      </View>
-      <View style={styles.activePill}>
-        <Clock color={colors.success} size={ICON_SIZE} />
-        <Text style={[typography.labelMd, styles.activeText]}>{strings.checkin.active(strings.checkin.countdown(countdown))}</Text>
-      </View>
-    </View>
-  ) : (
-    <View style={styles.peek}>
-      <IconTile icon={isNearest ? Navigation : MapPin} />
-      <View style={styles.grow}>
-        {candidate ? (
-          <>
-            <Text style={typography.headlineSm} numberOfLines={1}>
-              {candidate.stop.name}
-            </Text>
-            {/* Two lines only, so the row fits the peek height */}
-            <Text style={typography.bodySm} numberOfLines={1}>
-              <Text style={styles.overline}>{isNearest ? strings.checkin.nearest : strings.checkin.picked}</Text>
-              {` · ${metaOf(candidate.stop.code, candidate.distanceM)}`}
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text style={typography.headlineSm} numberOfLines={1}>
-              {strings.checkin.title}
-            </Text>
-            <Text style={typography.bodySm} numberOfLines={1}>
-              {selectedRoute ? strings.checkin.pickStation : strings.live.pickRoute}
-            </Text>
-          </>
-        )}
-      </View>
-      <Button
-        label={strings.checkin.checkIn}
-        onPress={() => void doCheckIn()}
-        disabled={!candidate || sending}
-        accessibilityLabel={candidate ? strings.checkin.checkInAt(candidate.stop.code) : strings.checkin.pickStationFirst}
-      />
-    </View>
-  );
+  const metaOf = (code: string, distanceM: number | null) =>
+    strings.checkin.meta([
+      code,
+      ...(distanceM !== null ? [strings.checkin.distance(distanceM), strings.checkin.walkMin(Math.round(distanceM / WALK_SPEED_M_PER_MIN))] : []),
+      ...(byStation ? [strings.checkin.waiting(waitingAt(code))] : []),
+    ]);
 
-  // Above the sheet: what the geofence will use, so a refusal is never a surprise
-  const locationPill = positioned
-    ? positioned.source === 'simulated'
-      ? strings.checkin.simulatedPill(commuter?.stopCode ?? '')
-      : strings.checkin.gpsPill(Math.round(positioned.accuracyM ?? 0))
-    : strings.checkin.noLocationPill;
-  const floating = active ? null : (
-    <View style={styles.floating} pointerEvents="none">
-      <StatusPill label={locationPill} tone={positioned ? 'success' : 'warning'} />
-      <StatusPill label={strings.checkin.radiusPill(CHECKIN_RADIUS_M)} tone="neutral" />
-    </View>
+  const activeCard = active ? (
+    <Animated.View key="active" entering={FadeIn.duration(motion.cardMs)} style={styles.section}>
+      <View style={styles.row} accessible accessibilityLabel={strings.checkin.countdownLabel(checkIn.stationCode, countdown)}>
+        <View style={styles.badges}>
+          {checkIn.routeCodes.map((code) => (
+            <LineBadge key={code} code={code} color={badgeColor(code)} />
+          ))}
+        </View>
+        <View style={styles.grow}>
+          <Text style={typography.headlineSm} numberOfLines={1}>
+            {activeStop?.name ?? checkIn.stationCode}
+          </Text>
+          <Text style={typography.bodySm} numberOfLines={1}>
+            {strings.checkin.meta([checkIn.stationCode, strings.checkin.waiting(Math.max(waitingAt(checkIn.stationCode), 1))])}
+          </Text>
+        </View>
+        <View style={styles.activePill}>
+          <Clock color={colors.success} size={ICON_SIZE} />
+          <Text style={[typography.labelMd, styles.activeText]}>{countdown}</Text>
+        </View>
+      </View>
+      <ExpiryBar fraction={left / (CHECKIN_LIFETIME_S * MS_PER_S)} minutes={CHECKIN_LIFETIME_S / S_PER_MIN} />
+      <View style={styles.pills}>
+        <StatusPill label={crowd.checkins.source === 'demo' ? strings.common.demo : strings.checkin.shared} tone="neutral" />
+        <StatusPill label={verification?.status === 'verified' ? strings.checkin.checkIn : strings.checkin.notVerified} tone="warning" />
+      </View>
+      <View style={styles.buttons}>
+        <View style={styles.grow}>
+          <Button label={strings.checkin.boarded} leadingIcon={Bus} onPress={() => finish(true)} />
+        </View>
+        <View style={styles.grow}>
+          <Button label={strings.checkin.cancel} leadingIcon={X} variant="secondary" onPress={() => finish(false)} accessibilityLabel={strings.checkin.cancelCheckIn} />
+        </View>
+      </View>
+    </Animated.View>
+  ) : null;
+
+  const pickCard = active ? null : (
+    <Animated.View key="pick" entering={FadeIn.duration(motion.cardMs)} style={styles.section}>
+      <View>
+        <Text style={typography.headlineSm} accessibilityRole="header">
+          {strings.checkin.title}
+        </Text>
+        <Text style={typography.bodySm}>
+          {shownRoute ? strings.checkin.meta([strings.checkin.tapHint, strings.checkin.stopsCount(layers.stops.length)]) : strings.checkin.pickHint}
+        </Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        {routeCodes.map((code) => (
+          <RouteChip
+            key={code}
+            code={code}
+            color={badgeColor(code)}
+            selected={code === shownRoute}
+            onPress={() => pickRoute(code)}
+            accessibilityLabel={strings.live.routeChip(code, code === shownRoute)}
+          />
+        ))}
+      </ScrollView>
+      {shownRoute && layers.stops.length === 0 ? <Text style={typography.bodyMd}>{strings.checkin.noStations}</Text> : null}
+      {candidate ? (
+        <Animated.View key={candidate.stop.code} entering={FadeInDown.duration(motion.cardMs)} style={styles.inner}>
+          <View style={styles.row}>
+            <IconTile icon={candidate.nearest ? Navigation : MapPin} />
+            <View style={styles.grow}>
+              <Text style={[typography.labelSm, styles.overline]}>{candidate.nearest ? strings.checkin.nearest : strings.checkin.picked}</Text>
+              <Text style={typography.labelLg} numberOfLines={1}>
+                {candidate.stop.name}
+              </Text>
+              <View style={styles.metaRow}>
+                <Footprints color={colors.textSecondary} size={ICON_SIZE} />
+                <Text style={[typography.bodySm, styles.grow]} numberOfLines={1}>
+                  {metaOf(candidate.stop.code, candidate.distanceM)}
+                </Text>
+              </View>
+            </View>
+            <Button
+              label={strings.checkin.checkIn}
+              onPress={() => void doCheckIn()}
+              disabled={sending || pinged.length === 0}
+              accessibilityLabel={strings.checkin.checkInAt(candidate.stop.code)}
+            />
+          </View>
+          {stopRoutes.length > 1 ? (
+            <RoutePing routes={stopRoutes} picked={pinged} onChange={(routes) => setPing({ station: candidate.stop.code, routes })} />
+          ) : null}
+        </Animated.View>
+      ) : null}
+      {!hintSeen ? <Hint text={strings.hints.checkin} onDismiss={() => dismissHint('checkin')} /> : null}
+    </Animated.View>
   );
 
   return (
@@ -274,9 +316,9 @@ export default function CheckInScreen() {
           labelsDimmed={shownRoute !== null}
           initialBounds={initialBounds}
           focus={focus}
-          bottomInset={sheetHeight}
+          bottomInset={cardHeight}
         >
-          <RouteLines lines={layers.lines} visible={ALL_DIRECTIONS} opacity={layers.opacity} />
+          <RouteLines lines={layers.lines} visible={ALL_DIRECTIONS} opacity={faint} />
           <StopDots
             stops={layers.stops}
             selectedCode={active ? checkIn.stationCode : (candidate?.stop.code ?? null)}
@@ -293,77 +335,14 @@ export default function CheckInScreen() {
         <TopBar />
       </View>
 
-      <BottomSheet
-        id="checkin"
-        defaultSnap="half"
-        request={sheetRequest}
-        onSnapChange={(_snap, visibleHeight) => setSheetHeight(visibleHeight)}
-        header={header}
-        floating={floating}
+      <Animated.View
+        style={[styles.card, elevation.level3]}
+        layout={LinearTransition.duration(motion.cardMs)}
+        onLayout={(event) => setCardHeight(Math.round(event.nativeEvent.layout.height) + spacing.md)}
       >
-        {active ? (
-          <View style={styles.section}>
-            <View style={styles.tiles}>
-              <StatTile icon={Users} value={strings.checkin.waiting(waitingAt(checkIn.stationCode) || 1)} caption={strings.checkin.inclYou} />
-              <StatTile
-                icon={Radio}
-                value={crowd.checkins.source === 'demo' ? strings.common.demo : strings.checkin.sharedShort}
-                caption={crowd.checkins.source === 'demo' ? strings.checkin.demoOnly : strings.checkin.visibility}
-              />
-              <StatTile
-                icon={ShieldQuestionMark}
-                value={verification?.status === 'verified' ? strings.checkin.checkIn : strings.checkin.unverified}
-                caption={strings.checkin.locationCheck}
-              />
-            </View>
-            <ExpiryBar fraction={left / (CHECKIN_LIFETIME_S * MS_PER_S)} minutes={CHECKIN_LIFETIME_S / S_PER_MIN} />
-            <View style={styles.note}>
-              <ShieldQuestionMark color={colors.textSecondary} size={ICON_SIZE} />
-              <Text style={[typography.bodySm, styles.grow]}>{strings.checkin.boardingNote}</Text>
-            </View>
-            <Button label={strings.checkin.boarded} leadingIcon={Bus} onPress={() => finish(true)} />
-            <Button label={strings.checkin.cancelCheckIn} leadingIcon={X} variant="secondary" onPress={() => finish(false)} />
-          </View>
-        ) : (
-          <View style={styles.section}>
-            {!hintSeen ? <Hint text={strings.hints.checkin} onDismiss={() => dismissHint('checkin')} /> : null}
-            <Text style={[typography.labelSm, styles.overline]}>{strings.checkin.route}</Text>
-            <View style={styles.chips}>
-              {routeCodes.map((code) => (
-                <RouteChip
-                  key={code}
-                  code={code}
-                  color={badgeColor(code)}
-                  selected={code === shownRoute}
-                  onPress={() => pickRoute(code)}
-                  accessibilityLabel={strings.live.routeChip(code, code === shownRoute)}
-                />
-              ))}
-            </View>
-
-            {shownRoute ? (
-              <>
-                <Text style={[typography.labelSm, styles.overline]}>{strings.checkin.stations}</Text>
-                {layers.stops.length === 0 ? <Text style={typography.bodyMd}>{strings.checkin.noStations}</Text> : null}
-                <View style={styles.list}>
-                  {rows.map(({ stop, distanceM }) => (
-                    <StationRow
-                      key={stop.code}
-                      name={stop.name}
-                      meta={metaOf(stop.code, distanceM)}
-                      waiting={waitingAt(stop.code)}
-                      color={badgeColor(shownRoute)}
-                      selected={stop.code === candidate?.stop.code}
-                      onPress={() => pickStation(stop.code)}
-                      accessibilityLabel={`${stop.name}, ${metaOf(stop.code, distanceM)}`}
-                    />
-                  ))}
-                </View>
-              </>
-            ) : null}
-          </View>
-        )}
-      </BottomSheet>
+        {activeCard}
+        {pickCard}
+      </Animated.View>
     </View>
   );
 }
@@ -383,13 +362,41 @@ const useStyles = makeStyles(({ colors }) => ({
     left: spacing.md,
     right: spacing.md,
   },
-  peek: {
+  card: {
+    position: 'absolute',
+    left: spacing.sm + spacing.xs,
+    right: spacing.sm + spacing.xs,
+    bottom: spacing.sm + spacing.xs,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.card,
+  },
+  section: {
+    gap: spacing.sm + spacing.xs,
+  },
+  inner: {
+    gap: spacing.sm + spacing.xs,
+    padding: spacing.sm + spacing.xs,
+    borderRadius: radii.card,
+    backgroundColor: colors.surfaceLow,
+    borderWidth: 1,
+    borderColor: colors.outline,
+  },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm + spacing.xs,
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   grow: {
     flex: 1,
+  },
+  badges: {
+    gap: spacing.xs,
   },
   overline: {
     color: colors.primary,
@@ -400,7 +407,7 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
     gap: spacing.xs,
     paddingHorizontal: spacing.sm + spacing.xs,
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: spacing.xs + spacing.xs / 2,
     borderRadius: radii.pill,
     backgroundColor: colors.successContainer,
   },
@@ -408,32 +415,16 @@ const useStyles = makeStyles(({ colors }) => ({
     color: colors.success,
     fontVariant: ['tabular-nums'],
   },
-  floating: {
+  pills: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  section: {
-    gap: spacing.sm + spacing.xs,
-  },
-  tiles: {
+  buttons: {
     flexDirection: 'row',
     gap: spacing.sm,
-  },
-  note: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.sm + spacing.xs,
-    borderRadius: radii.card,
-    backgroundColor: colors.surfaceLow,
   },
   chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
-  },
-  list: {
-    gap: spacing.xs,
   },
 }));

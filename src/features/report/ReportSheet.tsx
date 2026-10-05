@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 
 import { Button, Chip, RouteChip } from '@/components';
 import type { FeedPhrase } from '@/shared/backend/rules';
@@ -10,7 +11,7 @@ import type { SeatTier } from '@/shared/telemetry/occupancy';
 import { sendReport } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
+import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
 const ICON_SIZE = spacing.md + spacing.xs;
 const PANEL_MAX_HEIGHT = '80%';
@@ -51,7 +52,7 @@ export function ReportSheet({ routes, initialRoute, vehicles, gpsAvailable, onCl
       const result = await sendReport({ routeCode: route, phrase, seatTier, vehicleId, withGps: gps });
       if (result.ok) {
         onClose();
-        showDialog({ tone: 'success', title: strings.report.sentTitle, body: strings.report.sentBody(FEED_LIFETIME_MIN) });
+        showDialog({ tone: 'success', title: strings.report.sentTitle, body: gps ? strings.report.sentBodyGps : strings.report.sentBody(FEED_LIFETIME_MIN) });
       } else if (result.reason === 'sign_in') {
         onClose();
         router.push('/sign-in');
@@ -75,9 +76,9 @@ export function ReportSheet({ routes, initialRoute, vehicles, gpsAvailable, onCl
   };
 
   return (
-    <View style={styles.backdrop}>
+    <Animated.View style={styles.backdrop} entering={FadeIn.duration(motion.dialogMs)}>
       <Pressable style={styles.grow} onPress={onClose} accessibilityLabel={strings.report.close} />
-      <View style={styles.panel}>
+      <Animated.View style={styles.panel} entering={SlideInDown.duration(motion.cardMs)}>
         <View style={styles.head}>
           <Text style={[typography.headlineSm, styles.grow]} accessibilityRole="header">
             {strings.report.title}
@@ -154,8 +155,8 @@ export function ReportSheet({ routes, initialRoute, vehicles, gpsAvailable, onCl
 
           <Button label={sending ? strings.report.sending : strings.report.send} onPress={() => void send()} disabled={!ready} />
         </ScrollView>
-      </View>
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 

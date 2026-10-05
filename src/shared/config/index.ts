@@ -49,7 +49,7 @@ export const USERNAME_BLOCKED_WORDS: readonly string[] = [
 export const ETA_MIN_SPEED_KMH = 5;
 export const ETA_SAMPLE_WINDOW_S = 90;
 export const ETA_MIN_SAMPLES = 2;
-export const ETA_MAX_KM = 10;
+export const ETA_MAX_KM = 30;
 // "Alert near arrival" fires once when the ETA drops to this (in-app banner and a short vibration)
 export const TRACK_ALERT_ETA_S = 120;
 // Other vehicles fade to this while one is tracked
@@ -101,6 +101,8 @@ export const FARE_DISCOUNTED_CLASSES: readonly Classification[] = ['student', 's
 
 // --- Routing (PRD 7.2, 3.3)
 export const MAX_WALK_PER_LEG_M = 500;
+// Check-in card: "2 min walk" from the distance, at an unhurried 80 m a minute (about 4.8 km/h)
+export const WALK_SPEED_M_PER_MIN = 80;
 export const ROUTING_P95_BUDGET_MS = 250;
 
 // --- Route data checks (seeding now, the import script later)
@@ -261,6 +263,8 @@ export const CHECKIN_COUNTS_REFRESH_S = 30;
 export const FEED_READ_LIMIT = 50;
 export const FEED_LIFETIME_MIN = 60;
 export const FEED_FLAG_HIDE_COUNT = 3;
+// N1: the neutral author badges cycle through this many theme colours (PRD 19 D2)
+export const FEED_BADGE_COLOR_COUNT = 6;
 export const FEED_PHRASES = ['full', 'few_seats', 'not_moving', 'heavy_traffic', 'loading'] as const;
 // Asia/Manila is UTC+8 all year (no daylight saving).
 export const MANILA_UTC_OFFSET_MIN = 480;

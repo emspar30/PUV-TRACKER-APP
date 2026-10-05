@@ -15,6 +15,8 @@ type TrackingPanelProps = {
   nowMs: number;
   eta: Eta | null;
   progress: TrackProgress;
+  // What the ETA is to: the commuter's boarding point, or (without one) the vehicle's next stop
+  etaTarget?: 'mine' | 'next';
   alertOn: boolean;
   // Shown once the alert has fired
   alertMessage: string | null;
@@ -28,7 +30,7 @@ const ICON_SIZE = spacing.md + spacing.xs;
 
 // Tracking one multicab (L2, PRD 19.2 D9): the ETA to the commuter's stop, where the vehicle is among
 // the stops, the vehicle and its seats, an in-app arrival alert, and Stop
-export function TrackingPanel({ vehicle, nowMs, eta, progress, alertOn, alertMessage, onToggleAlert, onStop }: TrackingPanelProps) {
+export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine', alertOn, alertMessage, onToggleAlert, onStop }: TrackingPanelProps) {
   const styles = useStyles();
   const { colors, typography, elevation } = useTheme();
   const t = strings.live.tracking;
@@ -51,7 +53,11 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, alertOn, alertMes
             <Text style={typography.headlineLg}>{headline}</Text>
             {eta?.kind === 'approaching' ? <Text style={typography.bodySm}>{t.away(eta.distanceKm)}</Text> : null}
           </View>
-          {eta?.kind === 'approaching' && progress.mine ? (
+          {eta?.kind === 'approaching' && etaTarget === 'next' && progress.next ? (
+            <View style={styles.row}>
+              <StatusPill label={t.toNextStop(progress.next.code)} tone="neutral" />
+            </View>
+          ) : eta?.kind === 'approaching' && progress.mine ? (
             <View style={styles.row}>
               <StatusPill label={t.approaching(progress.mine.code)} tone="success" />
             </View>
@@ -111,7 +117,7 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, alertOn, alertMes
           <Button
             label={alertOn ? t.alertOn : t.alert}
             leadingIcon={BellRing}
-            variant={alertOn ? 'secondary' : 'primary'}
+            variant={alertOn ? 'success' : 'secondary'}
             onPress={onToggleAlert}
           />
         </View>

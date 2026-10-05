@@ -76,13 +76,25 @@ describe('the demo loop: earn by checking in and reporting, spend by tracking', 
     const { energy, crowd } = setup();
     await energy.refresh();
     const before = (await crowd.checkins.waitingCounts('R4', ['AAA']))?.get('AAA') ?? 0;
-    expect(await crowd.checkins.checkIn('R4', 'AAA', 'checkin-aaaaaaaa')).toEqual({ ok: true, expiresAtMs: T0 + CHECKIN_LIFETIME_S * 1000 });
+    expect(await crowd.checkins.checkIn(['R4'], 'AAA', 'checkin-aaaaaaaa')).toEqual({ ok: true, expiresAtMs: T0 + CHECKIN_LIFETIME_S * 1000 });
     expect((await crowd.checkins.waitingCounts('R4', ['AAA']))?.get('AAA')).toBe(before + 1);
     expect((await energy.refresh())?.balance).toBe(ENERGY_PASSIVE_AMOUNT + ENERGY_CHECKIN);
-    await crowd.checkins.checkIn('R4', 'AAA', 'checkin-bbbbbbbb');
+    await crowd.checkins.checkIn(['R4'], 'AAA', 'checkin-bbbbbbbb');
     expect((await energy.refresh())?.balance).toBe(ENERGY_PASSIVE_AMOUNT + ENERGY_CHECKIN);
     await crowd.checkins.end();
     expect((await crowd.checkins.waitingCounts('R4', ['AAA']))?.get('AAA') ?? 0).toBe(before);
+  });
+
+  it('a check-in at a shared stop counts on each route pinged, and earns once', async () => {
+    const { energy, crowd } = setup();
+    await energy.refresh();
+    const count = async (route: string) => (await crowd.checkins.waitingCounts(route, ['RCA']))?.get('RCA') ?? 0;
+    const before = { R3: await count('R3'), R4: await count('R4'), R5: await count('R5') };
+    await crowd.checkins.checkIn(['R4', 'R3'], 'RCA', 'checkin-aaaaaaaa');
+    expect(await count('R4')).toBe(before.R4 + 1);
+    expect(await count('R3')).toBe(before.R3 + 1);
+    expect(await count('R5')).toBe(before.R5);
+    expect((await energy.refresh())?.balance).toBe(ENERGY_PASSIVE_AMOUNT + ENERGY_CHECKIN);
   });
 
   it('reports earn 1.0 with GPS and 0.5 without, once a day each; the next Manila day pays again', async () => {
@@ -129,6 +141,7 @@ const port = (over: Partial<CrowdPort> = {}): CrowdPort => ({
   feed: async () => [
     { id: 5, author_username: 'juan', route_id: 'R4', phrase: 'full', seat_tier: 'red', with_gps: false, created_at: new Date(T0).toISOString() },
   ],
+  flagPost: async () => ({ hidden: false }),
   ...over,
 });
 
@@ -136,14 +149,14 @@ describe('the live check-ins and reports', () => {
   it('signed out: no counts or feed, and both actions ask to sign in', async () => {
     const crowd = createLiveCrowd(port({ signedIn: async () => false }));
     expect(await crowd.checkins.waitingCounts('R4', [])).toBeNull();
-    expect(await crowd.checkins.checkIn('R4', 'AAA', 'checkin-aaaaaaaa')).toEqual({ ok: false, reason: 'sign_in' });
+    expect(await crowd.checkins.checkIn(['R4'], 'AAA', 'checkin-aaaaaaaa')).toEqual({ ok: false, reason: 'sign_in' });
     expect(await crowd.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: false, reason: 'sign_in' });
     expect(await crowd.reports.recent()).toBeNull();
   });
 
   it('maps the server answers: expiry, counts sent as text, feed rows', async () => {
     const crowd = createLiveCrowd(port());
-    expect(await crowd.checkins.checkIn('R4', 'AAA', 'checkin-aaaaaaaa')).toEqual({ ok: true, expiresAtMs: T0 + CHECKIN_LIFETIME_S * 1000 });
+    expect(await crowd.checkins.checkIn(['R4'], 'AAA', 'checkin-aaaaaaaa')).toEqual({ ok: true, expiresAtMs: T0 + CHECKIN_LIFETIME_S * 1000 });
     expect(await crowd.checkins.waitingCounts('R4', [])).toEqual(new Map([['AAA', 2]]));
     expect(await crowd.reports.recent()).toEqual([
       { id: '5', routeCode: 'R4', phrase: 'full', seatTier: 'red', username: 'juan', withGps: false, postedMs: T0, demo: false },
@@ -158,11 +171,32 @@ describe('the live check-ins and reports', () => {
         endCheckIn: async () => Promise.reject(new Error('offline')),
       }),
     );
-    expect(await crowd.checkins.checkIn('R4', 'AAA', 'checkin-aaaaaaaa')).toEqual({ ok: false, reason: 'sign_in' });
+    expect(await crowd.checkins.checkIn(['R4'], 'AAA', 'checkin-aaaaaaaa')).toEqual({ ok: false, reason: 'sign_in' });
     expect(await crowd.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: false, reason: 'no_username' });
     await expect(crowd.checkins.end()).resolves.toBeUndefined();
     const failing = createLiveCrowd(port({ postReport: async () => ({ code: '42501', message: 'sign in to take part' }) }));
     expect(await failing.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: false, reason: 'error', message: 'sign in to take part' });
+  });
+
+  it('N1: flags by numeric id, reports when the post got hidden, and maps the errors', async () => {
+    const sent: number[] = [];
+    const crowd = createLiveCrowd(
+      port({
+        flagPost: async (id) => {
+          sent.push(id);
+          return { hidden: id === 9 };
+        },
+      }),
+    );
+    expect(await crowd.reports.flag('5')).toEqual({ ok: true, hidden: false });
+    expect(await crowd.reports.flag('9')).toEqual({ ok: true, hidden: true });
+    expect(sent).toEqual([5, 9]);
+    // A demo id never reaches the server
+    expect(await crowd.reports.flag('report-aaaaaaaa')).toEqual({ ok: false, reason: 'error' });
+    expect(sent).toHaveLength(2);
+    expect(await createLiveCrowd(port({ signedIn: async () => false })).reports.flag('5')).toEqual({ ok: false, reason: 'sign_in' });
+    const failing = createLiveCrowd(port({ flagPost: async () => ({ code: '42501', message: 'sign in to take part' }) }));
+    expect(await failing.reports.flag('5')).toEqual({ ok: false, reason: 'error', message: 'sign in to take part' });
   });
 
   it('drops a feed row with an unknown phrase and an unknown seat tier', () => {

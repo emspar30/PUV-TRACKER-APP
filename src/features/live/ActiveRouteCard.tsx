@@ -1,4 +1,4 @@
-import { ArrowUpDown, X } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
 import { StatusPill, type StatusTone } from '@/components';
@@ -11,18 +11,15 @@ type ActiveRouteCardProps = {
   color: string;
   // "3 active", "Stale · 4 min" or "No data"
   status: { label: string; tone: StatusTone };
-  // The direction shown, such as "Outbound" or "Both directions"
-  direction: string;
-  // Omitted for a route with one stored direction
-  onSwap?: () => void;
   onClose: () => void;
 };
 
 const BADGE = spacing.xl + spacing.sm;
 const ICON_SIZE = spacing.md + spacing.xs;
 
-// The picked route, under the top bar (restyle): its badge, name, live status and direction
-export function ActiveRouteCard({ code, name, color, status, direction, onSwap, onClose }: ActiveRouteCardProps) {
+// The picked route, under the top bar (restyle): its badge, name and live status. No direction
+// label: commuters read the way a vehicle goes from its icon on the map.
+export function ActiveRouteCard({ code, name, color, status, onClose }: ActiveRouteCardProps) {
   const styles = useStyles();
   const { colors, typography, routeBadgeText, elevation } = useTheme();
   return (
@@ -36,16 +33,8 @@ export function ActiveRouteCard({ code, name, color, status, direction, onSwap, 
         </Text>
         <View style={styles.meta}>
           <StatusPill label={status.label} tone={status.tone} />
-          <Text style={typography.bodySm} numberOfLines={1}>
-            {direction}
-          </Text>
         </View>
       </View>
-      {onSwap ? (
-        <Pressable style={styles.icon} onPress={onSwap} accessibilityRole="button" accessibilityLabel={strings.live.active.swap}>
-          <ArrowUpDown color={colors.textPrimary} size={ICON_SIZE} />
-        </Pressable>
-      ) : null}
       <Pressable style={styles.icon} onPress={onClose} accessibilityRole="button" accessibilityLabel={strings.live.active.close}>
         <X color={colors.textPrimary} size={ICON_SIZE} />
       </Pressable>

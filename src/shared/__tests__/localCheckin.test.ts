@@ -12,7 +12,7 @@ describe('local check-in lifecycle', () => {
 
   it('lasts 15 minutes from the moment of checking in', () => {
     expect(CHECKIN_LIFETIME_S).toBe(900);
-    expect(checkIn).toEqual({ routeCode: 'R4', stationCode: 'RCA', createdAtMs: T0, expiresAtMs: T0 + 15 * MINUTE });
+    expect(checkIn).toEqual({ routeCode: 'R4', routeCodes: ['R4'], stationCode: 'RCA', createdAtMs: T0, expiresAtMs: T0 + 15 * MINUTE });
     expect(isActive(checkIn, T0)).toBe(true);
     expect(isActive(checkIn, T0 + 15 * MINUTE - 1)).toBe(true);
     expect(isActive(checkIn, T0 + 15 * MINUTE)).toBe(false);
@@ -32,6 +32,14 @@ describe('local check-in lifecycle', () => {
     const restored = parseStoredCheckIn(stored);
     expect(restored).toEqual(checkIn);
     expect(formatCountdown(remainingMs(restored!, T0 + 6 * MINUTE))).toBe('09:00');
+  });
+
+  it('keeps every route pinged at a shared stop; a value stored before that has one route', () => {
+    const shared = startCheckIn(['R4', 'R3'], 'RCA', T0);
+    expect(shared).toMatchObject({ routeCode: 'R4', routeCodes: ['R4', 'R3'] });
+    expect(parseStoredCheckIn(JSON.parse(JSON.stringify(shared)))).toEqual(shared);
+    const { routeCodes: _dropped, ...older } = checkIn;
+    expect(parseStoredCheckIn(older)?.routeCodes).toEqual(['R4']);
   });
 
   it('is expired after a long time away, and never shows a negative time', () => {

@@ -10,7 +10,8 @@ import { isStopped } from './stopped';
 import type { VehicleSnapshot } from './vehicle';
 
 // label: the plate shown beside the marker ("DEMO 01" for demo vehicles)
-export type MarkerProps = { id: string; label: string; tier: SeatTier; stale: boolean; stopped: boolean; demo: boolean };
+// heading: degrees clockwise from north, which the vehicle icon is rotated to
+export type MarkerProps = { id: string; label: string; tier: SeatTier; stale: boolean; stopped: boolean; demo: boolean; heading: number };
 
 const EARTH_CIRCUMFERENCE_M = 40075016.686;
 const TILE_SIZE_PX = 512;
@@ -55,6 +56,7 @@ export function vehicleMarkerFeatures(
       stale: coverage === 'stale',
       stopped: vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs),
       demo: vehicle.demo,
+      heading: vehicle.headingDeg,
     };
     points.push({ type: 'Feature', id: vehicle.id, properties, geometry: { type: 'Point', coordinates: [vehicle.lon, vehicle.lat] } });
     const lengthM = cone.lengthPx * metersPerPixel(vehicle.lat, cone.zoom);

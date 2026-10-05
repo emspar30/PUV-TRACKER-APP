@@ -21,13 +21,15 @@ export type FeedRow = {
 
 export type CrowdPort = {
   signedIn(): Promise<boolean>;
-  // check_in(route, station, request_key): the expiry time
-  checkIn(routeCode: string, stationCode: string, requestKey: string): Promise<{ expiresAt: string } | PortFailure>;
+  // check_in(route, ...) for one route, check_in_routes(routes, ...) for several: the expiry time
+  checkIn(routeCodes: readonly string[], stationCode: string, requestKey: string): Promise<{ expiresAt: string } | PortFailure>;
   checkinCounts(routeCode: string): Promise<{ station_code: string; waiting: number | string }[]>;
   endCheckIn(): Promise<PortFailure | null>;
   postReport(input: ReportInput, requestKey: string): Promise<PortFailure | null>;
   // Live, visible feed_posts, newest first
   feed(): Promise<FeedRow[]>;
+  // flag_post(post): true once the post is hidden
+  flagPost(postId: number): Promise<{ hidden: boolean } | PortFailure>;
 };
 
 const NOT_SIGNED_IN = '28000';
@@ -66,10 +68,10 @@ export function createLiveCrowd(port: CrowdPort): CrowdRepositories {
         return new Map(rows.map((row) => [row.station_code, Number(row.waiting)]));
       },
 
-      async checkIn(routeCode, stationCode, requestKey) {
+      async checkIn(routeCodes, stationCode, requestKey) {
         if (!(await port.signedIn())) return { ok: false, reason: 'sign_in' };
         try {
-          const result = await port.checkIn(routeCode, stationCode, requestKey);
+          const result = await port.checkIn(routeCodes, stationCode, requestKey);
           return 'expiresAt' in result ? { ok: true, expiresAtMs: Date.parse(result.expiresAt) } : failure(result);
         } catch (error) {
           return { ok: false, reason: 'error', message: messageOf(error) };
@@ -101,6 +103,18 @@ export function createLiveCrowd(port: CrowdPort): CrowdRepositories {
       async recent() {
         if (!(await port.signedIn())) return null;
         return (await port.feed()).map(feedPostOf).filter((post): post is FeedPost => post !== null);
+      },
+
+      async flag(postId) {
+        if (!(await port.signedIn())) return { ok: false, reason: 'sign_in' };
+        const id = Number(postId);
+        if (!Number.isSafeInteger(id)) return { ok: false, reason: 'error' };
+        try {
+          const result = await port.flagPost(id);
+          return 'hidden' in result ? { ok: true, hidden: result.hidden } : failure(result);
+        } catch (error) {
+          return { ok: false, reason: 'error', message: messageOf(error) };
+        }
       },
     },
   };

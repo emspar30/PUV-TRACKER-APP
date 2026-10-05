@@ -1,9 +1,11 @@
 import { CircleAlert, CircleCheck, Info, TriangleAlert, type LucideIcon } from 'lucide-react-native';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
 
 import { useDialogStore, type DialogAction, type DialogTone } from '@/state/dialogStore';
 import { strings } from '@/strings';
-import { makeStyles, radii, spacing, useTheme } from '@/theme';
+import { makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
 import { Button } from './Button';
 
@@ -14,12 +16,24 @@ const TONE_ICON: Record<DialogTone, LucideIcon> = { primary: Info, success: Circ
 
 // The app's dialog (C1 UI pass), in place of the system alert: a white card over a dimmed screen
 // with a tinted icon, a title, a short body and stacked pill buttons, the main action first.
-// Mounted once at the root; screens call showDialog() from the dialog store.
+// Mounted once at the root, drawn above every screen (no system Modal, so no window flicker); the
+// scrim fades and the card scales in. Screens call showDialog() from the dialog store.
 export function DialogHost() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const current = useDialogStore((state) => state.current);
   const close = useDialogStore((state) => state.close);
+
+  // The Back button closes the dialog instead of leaving the screen
+  useEffect(() => {
+    if (!current) return undefined;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      close();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [current, close]);
+
   if (!current) return null;
 
   const Icon = current.icon ?? TONE_ICON[current.tone];
@@ -34,42 +48,37 @@ export function DialogHost() {
   };
 
   return (
-    <Modal key={current.key} transparent animationType="fade" statusBarTranslucent onRequestClose={close}>
-      <View style={styles.backdrop}>
-        <Pressable style={styles.fill} onPress={dismissable ? close : undefined} accessible={false} />
-        <View style={styles.card} accessibilityViewIsModal>
-          <View style={[styles.tile, { backgroundColor: fill }]} importantForAccessibility="no-hide-descendants">
-            <Icon color={ink} size={ICON_SIZE} />
-          </View>
-          <Text style={[typography.headlineSm, styles.center]} accessibilityRole="header">
-            {current.title}
-          </Text>
-          <Text style={[typography.bodyMd, styles.body]}>{current.body}</Text>
-          <View style={styles.actions}>
-            {actions.map((action) => (
-              <Button key={action.label} label={action.label} variant={action.variant ?? 'primary'} onPress={() => run(action)} />
-            ))}
-          </View>
+    <Animated.View
+      key={current.key}
+      style={[StyleSheet.absoluteFill, styles.backdrop]}
+      entering={FadeIn.duration(motion.dialogMs)}
+      exiting={FadeOut.duration(motion.dialogMs)}
+    >
+      <Pressable style={StyleSheet.absoluteFill} onPress={dismissable ? close : undefined} accessible={false} />
+      <Animated.View style={styles.card} entering={ZoomIn.duration(motion.dialogMs).springify().damping(motion.dialogDamping)} accessibilityViewIsModal>
+        <View style={[styles.tile, { backgroundColor: fill }]} importantForAccessibility="no-hide-descendants">
+          <Icon color={ink} size={ICON_SIZE} />
         </View>
-      </View>
-    </Modal>
+        <Text style={[typography.headlineSm, styles.center]} accessibilityRole="header">
+          {current.title}
+        </Text>
+        <Text style={[typography.bodyMd, styles.body]}>{current.body}</Text>
+        <View style={styles.actions}>
+          {actions.map((action) => (
+            <Button key={action.label} label={action.label} variant={action.variant ?? 'primary'} onPress={() => run(action)} />
+          ))}
+        </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
 const useStyles = makeStyles(({ colors }) => ({
   backdrop: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
     backgroundColor: colors.scrim,
-  },
-  fill: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
   },
   card: {
     width: '100%',

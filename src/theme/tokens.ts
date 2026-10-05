@@ -229,6 +229,28 @@ export const LIGHT_ROUTE_COLORS: Readonly<Record<string, string>> = {
 };
 
 // Text on a route badge
+// N1: neutral author badges in the feed (PRD 19 D2), a tinted circle with a dark (light theme) or
+// light (dark theme) initial. As many as FEED_BADGE_COLOR_COUNT.
+export type FeedBadgeColor = { fill: string; ink: string };
+export const FEED_BADGES: Record<ThemeScheme, readonly FeedBadgeColor[]> = {
+  light: [
+    { fill: '#e8f0fe', ink: '#0b57d0' },
+    { fill: '#e6f4ea', ink: '#137333' },
+    { fill: '#fef7e0', ink: '#9a5700' },
+    { fill: '#fce8e6', ink: '#b3261e' },
+    { fill: '#f3e8fd', ink: '#7627bb' },
+    { fill: '#e4f7fb', ink: '#00727a' },
+  ],
+  dark: [
+    { fill: '#1d2b45', ink: '#d3e3fd' },
+    { fill: '#123222', ink: '#6dd58c' },
+    { fill: '#3a2e0f', ink: '#f6c65b' },
+    { fill: '#3f1d1b', ink: '#f2b8b5' },
+    { fill: '#2e1f42', ink: '#e2c6ff' },
+    { fill: '#0f3236', ink: '#7fdfe8' },
+  ],
+};
+
 export const ROUTE_BADGE_TEXT: Record<ThemeScheme, string> = {
   light: '#ffffff',
   dark: '#0B0F17',

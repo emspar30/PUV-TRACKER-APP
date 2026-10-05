@@ -32,7 +32,8 @@ export type CheckinsRepository = {
   // People waiting per station code on a route (the caller included; a station with nobody is
   // left out), or null when unknown. The demo makes up counts for the route's `stationCodes`.
   waitingCounts(routeCode: string, stationCodes: readonly string[]): Promise<ReadonlyMap<string, number> | null>;
-  checkIn(routeCode: string, stationCode: string, requestKey: string): Promise<CheckInResult>;
+  // One route, or several at a shared stop (each counted, and each driver's SMS, separately)
+  checkIn(routeCodes: readonly string[], stationCode: string, requestKey: string): Promise<CheckInResult>;
   // "I boarded" or "Cancel": the caller's count drops at once
   end(): Promise<void>;
 };
@@ -55,7 +56,12 @@ export type ReportsRepository = {
   post(input: ReportInput, requestKey: string): Promise<ReportResult>;
   // Live posts, newest first; null when unknown (signed out)
   recent(): Promise<readonly FeedPost[] | null>;
+  // N1: flags someone else's post (flag_post; one flag per account). hidden: it reached
+  // FEED_FLAG_HIDE_COUNT flags and went to the review queue
+  flag(postId: string): Promise<FlagResult>;
 };
+
+export type FlagResult = { ok: true; hidden: boolean } | CloudFailure;
 
 // One line of the Energy history; spends are negative
 export type EnergyEntry = { kind: EnergyKind; amount: number; atMs: number };

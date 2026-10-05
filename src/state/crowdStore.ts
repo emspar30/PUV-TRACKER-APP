@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
+import { create } from 'zustand';
 
 import { createDemoCrowd } from '@/data/demo/demoCrowd';
 import { createLiveCrowd } from '@/data/live/liveCrowd';
 import { selectCrowd, type CrowdRepositories } from '@/data/repositories/select';
-import type { CheckInResult, ReportInput, ReportResult } from '@/data/repositories/types';
+import type { CheckInResult, FlagResult, ReportInput, ReportResult } from '@/data/repositories/types';
 import { supabaseCrowdPort } from '@/services/crowd';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { newRequestKey } from '@/shared/backend/rules';
@@ -29,11 +30,11 @@ export function useCrowd(): CrowdRepositories {
 
 // Checks in on the server (or the demo), then keeps the countdown on the phone with the server's
 // expiry. The check-in earns Energy, so the wallet is read again.
-export async function checkIn(routeCode: string, stationCode: string): Promise<CheckInResult> {
+export async function checkIn(routeCodes: readonly string[], stationCode: string): Promise<CheckInResult> {
   const nowMs = Date.now();
-  const result = await currentCrowd().checkins.checkIn(routeCode, stationCode, newRequestKey('checkin', nowMs, Math.random()));
+  const result = await currentCrowd().checkins.checkIn(routeCodes, stationCode, newRequestKey('checkin', nowMs, Math.random()));
   if (result.ok) {
-    useCheckInStore.getState().checkInAt(routeCode, stationCode, nowMs, result.expiresAtMs);
+    useCheckInStore.getState().checkInAt(routeCodes, stationCode, nowMs, result.expiresAtMs);
     void refreshEnergy();
   }
   return result;
@@ -45,6 +46,20 @@ export function endCheckIn(boarded: boolean): void {
   if (boarded) store.boarded(Date.now());
   else store.clear();
   void currentCrowd().checkins.end();
+}
+
+// N1: posts this user flagged are hidden for them at once (while the app is open); the server
+// hides a post for everyone at FEED_FLAG_HIDE_COUNT flags
+export const useFlaggedStore = create<{ ids: ReadonlySet<string>; add: (id: string) => void }>((set) => ({
+  ids: new Set(),
+  add: (id) => set((state) => ({ ids: new Set([...state.ids, id]) })),
+}));
+
+export async function flagPost(postId: string, demo: boolean): Promise<FlagResult> {
+  // A made-up demo post is only hidden on this phone
+  const result: FlagResult = demo ? { ok: true, hidden: false } : await currentCrowd().reports.flag(postId);
+  if (result.ok) useFlaggedStore.getState().add(postId);
+  return result;
 }
 
 export async function sendReport(input: ReportInput): Promise<ReportResult> {

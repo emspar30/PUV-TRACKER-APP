@@ -13,8 +13,12 @@ export const supabaseCrowdPort: CrowdPort = {
     return Boolean(data.session);
   },
 
-  async checkIn(routeCode, stationCode, requestKey) {
-    const { data, error } = await getSupabase().rpc('check_in', { route: routeCode, station: stationCode, request_key: requestKey });
+  async checkIn(routeCodes, stationCode, requestKey) {
+    const [only] = routeCodes;
+    const { data, error } =
+      routeCodes.length === 1 && only
+        ? await getSupabase().rpc('check_in', { route: only, station: stationCode, request_key: requestKey })
+        : await getSupabase().rpc('check_in_routes', { routes: routeCodes, station: stationCode, request_key: requestKey });
     if (error) return failureOf(error);
     return { expiresAt: data as string };
   },
@@ -42,10 +46,18 @@ export const supabaseCrowdPort: CrowdPort = {
     return error ? failureOf(error) : null;
   },
 
+  async flagPost(postId) {
+    const { data, error } = await getSupabase().rpc('flag_post', { post: postId });
+    if (error) return failureOf(error);
+    return { hidden: data === true };
+  },
+
   async feed() {
     const { data, error } = await getSupabase()
       .from('feed_posts')
       .select('id, author_username, route_id, phrase, seat_tier, with_gps, created_at')
+      // Crowdsource lists updates sent without GPS; those with GPS feed the live map
+      .eq('with_gps', false)
       .order('created_at', { ascending: false })
       .limit(FEED_READ_LIMIT);
     if (error) throw new Error(error.message);

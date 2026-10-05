@@ -1,7 +1,8 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { Bus, LocateFixed, Maximize, Megaphone, X, Zap } from 'lucide-react-native';
+import { Bus, LocateFixed, RadioTower, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, Vibration, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Logo, RoundButton, TopBar, type StatusTone } from '@/components';
@@ -31,6 +32,7 @@ import {
   ENERGY_TRACKING_COST,
   MAP_FOLLOW_ZOOM,
   MAX_WALK_PER_LEG_M,
+  ROUTE_STOP_MAX_DISTANCE_M,
   TRACK_ALERT_ETA_S,
   TRACK_OTHERS_OPACITY,
   TRACKING_SESSION_MIN,
@@ -52,22 +54,15 @@ import { useHintsStore } from '@/state/hintsStore';
 import { useLocationStore } from '@/state/locationStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
+import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
 const LOGO_SIZE = spacing.xl * 3;
 const ICON_SIZE = spacing.md + spacing.xs;
-// Zoom assumed for the heading cones until the camera first reports one
-const DEFAULT_VEHICLE_ZOOM = 12;
 // The route list shows each route's first, middle and last stop
 const LIST_STOPS = 3;
 const HALF = 2;
-// Which directions of the picked route show; the swap button steps through them
-type DirectionView = 'both' | RouteDirection;
-const SHOWS: Record<DirectionView, Record<RouteDirection, boolean>> = {
-  both: { outbound: true, return: true },
-  outbound: { outbound: true, return: false },
-  return: { outbound: false, return: true },
-};
+// Both directions always show; the vehicle icon tells which way each one goes
+const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
 
 // Map tab (restyle of Live): a full-screen map with the top bar, an Explore card until a route is
 // picked, the route list as a panel, the picked route's card on top, and a card for a tapped
@@ -84,14 +79,12 @@ export default function MapScreen() {
   const [topHeight, setTopHeight] = useState(0);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
-  const [directionView, setDirectionView] = useState<DirectionView>('both');
   const seatFilter = useSettingsStore((store) => store.seatFilter);
   const arrivalAlert = useSettingsStore((store) => store.arrivalAlert);
   const defaultRoute = useSettingsStore((store) => store.defaultRoute);
   const [filter, setFilter] = useState<VehicleFilter>(seatFilter ? 'seats' : 'all');
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedStop, setSelectedStop] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(DEFAULT_VEHICLE_ZOOM);
   // L2: the tracked multicab and the in-app arrival alert
   const [trackedId, setTrackedId] = useState<string | null>(null);
   const [alertOn, setAlertOn] = useState(false);
@@ -108,8 +101,7 @@ export default function MapScreen() {
   );
 
   const layers = useRouteLayers(lines, stops, 'live', selectedRoute);
-  const routeLines = useMemo(() => lines.filter((line) => line.routeCode === selectedRoute), [lines, selectedRoute]);
-  const directions = SHOWS[directionView];
+  const directions = ALL_DIRECTIONS;
 
   // Tabs stay mounted; vehicles refresh only while Map is the tab in front
   const focused = useIsFocused();
@@ -137,9 +129,19 @@ export default function MapScreen() {
     setAlertOn(false);
   }
   const tracked = trackedId ? (live.vehicles.find((candidate) => candidate.id === trackedId) ?? null) : null;
+  const trackedProgress = tracked ? trackProgress(tracked, lines, layers.stops, myStop) : { passed: null, next: null, mine: myStop };
   // The rider may walk to the route, so the boarding point may be up to a walk away from the line
-  const trackedEta = tracked && commuter ? etaTo(tracked, lines, commuter, MAX_WALK_PER_LEG_M) : null;
-  const trackedEtaS = trackedEta?.kind === 'approaching' ? trackedEta.etaS : null;
+  const etaToMe = tracked && commuter ? etaTo(tracked, lines, commuter, MAX_WALK_PER_LEG_M) : null;
+  // No usable boarding point (no position, outside the map, or not on this route): the ETA to the
+  // vehicle's next stop instead, so tracking always shows a time while the vehicle is on its line
+  const etaToNext =
+    tracked && (!etaToMe || etaToMe.kind === 'unknown') && trackedProgress.next
+      ? etaTo(tracked, lines, trackedProgress.next, ROUTE_STOP_MAX_DISTANCE_M)
+      : null;
+  const trackedEta = etaToNext?.kind === 'approaching' ? etaToNext : etaToMe;
+  const etaTarget: 'mine' | 'next' = etaToNext?.kind === 'approaching' ? 'next' : 'mine';
+  // The arrival alert is for the commuter's own boarding point only
+  const trackedEtaS = trackedEta?.kind === 'approaching' && etaTarget === 'mine' ? trackedEta.etaS : null;
 
   // A short vibration once, when the ETA first reaches the alert threshold
   useEffect(() => {
@@ -184,7 +186,6 @@ export default function MapScreen() {
   const showRoute = (code: string, nextFilter: VehicleFilter) => {
     setSelectedRoute(code);
     setFilter(nextFilter);
-    setDirectionView('both');
     setSelectedVehicle(null);
     setSelectedStop(null);
     setTrackedId(null);
@@ -269,7 +270,6 @@ export default function MapScreen() {
     if (params.route && ofRoute.length > 0) {
       setSelectedRoute(params.route);
       setFilter('all');
-      setDirectionView('both');
       setSelectedVehicle(null);
       setSelectedStop(null);
       setTrackedId(null);
@@ -278,13 +278,6 @@ export default function MapScreen() {
       setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds }));
     }
   }
-
-  // Both, then each stored direction in turn
-  const directionSteps: DirectionView[] = [
-    'both',
-    ...(['outbound', 'return'] as const).filter((direction) => routeLines.some((line) => line.direction === direction)),
-  ];
-  const swap = () => setDirectionView((current) => directionSteps[(directionSteps.indexOf(current) + 1) % directionSteps.length]);
 
   const selectStop = useCallback(
     (code: string | null) => {
@@ -296,7 +289,6 @@ export default function MapScreen() {
     [stops],
   );
 
-  const handleViewChange = useCallback((next: { zoom: number }) => setZoom(next.zoom), []);
   // Once the map is ready and the bottom card measured, frame all routes above it
   const handleStatusChange = useCallback(() => {
     if (fittedOnce.current) return;
@@ -331,7 +323,6 @@ export default function MapScreen() {
       : coverage.coverage === 'stale'
         ? { label: strings.live.status.stale(strings.live.age(coverage.youngestAgeS ?? 0)), tone: 'warning' }
         : { label: strings.live.status.noData, tone: 'neutral' };
-  const directionLabel = directionView === 'both' ? strings.live.active.both : strings.direction[directionView];
   const vehicle = vehicles.find((candidate) => candidate.id === selectedVehicle) ?? null;
   const stop = stops.find((candidate) => candidate.code === selectedStop) ?? null;
   const selectedOption = routeOptions.find((option) => option.code === selectedRoute) ?? null;
@@ -347,7 +338,6 @@ export default function MapScreen() {
         bottomInset={bottomHeight}
         attributionTop={insets.top + spacing.sm + topHeight + spacing.sm}
         onStatusChange={handleStatusChange}
-        onViewChange={handleViewChange}
         onLongPress={location.setManualOrigin}
         onUserMove={location.stopFollowing}
       >
@@ -358,7 +348,6 @@ export default function MapScreen() {
             vehicles={vehicles}
             nowMs={live.nowMs}
             color={colorOfRoute(selectedRoute)}
-            zoom={zoom}
             labels={state.tiles.glyphsUrl !== null}
             selectedId={trackedId ?? selectedVehicle}
             othersOpacity={trackedId ? TRACK_OTHERS_OPACITY : 1}
@@ -394,8 +383,6 @@ export default function MapScreen() {
             name={selectedOption.name}
             color={selectedOption.color}
             status={status}
-            direction={directionLabel}
-            onSwap={directionSteps.length > 1 ? swap : undefined}
             onClose={hideRoute}
           />
         ) : null}
@@ -403,12 +390,8 @@ export default function MapScreen() {
 
       <View style={styles.bottom} onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)} pointerEvents="box-none">
         <View style={styles.buttons} pointerEvents="box-none">
-          <Pressable style={styles.report} onPress={() => setReportOpen(true)} accessibilityRole="button" accessibilityLabel={strings.report.title}>
-            <Megaphone color={colors.onPrimary} size={ICON_SIZE} />
-            <Text style={[typography.labelLg, styles.reportText]}>{strings.report.button}</Text>
-          </Pressable>
+          <RoundButton icon={RadioTower} label={strings.report.title} onPress={() => setReportOpen(true)} />
           <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
-          {selectedRoute ? <RoundButton icon={Maximize} label={strings.map.showWholeRoute} onPress={() => frame(selectedRoute)} /> : null}
           <RoundButton
             icon={LocateFixed}
             label={location.following ? strings.location.following : strings.location.locateMe}
@@ -427,12 +410,18 @@ export default function MapScreen() {
             </Pressable>
           </View>
         ) : null}
-        {trackedId ? (
+        {/* The bottom card slides up whenever it changes (tracking, a vehicle, a stop, explore) */}
+        <Animated.View
+          key={trackedId ? 'track' : vehicle ? `vehicle-${vehicle.id}` : stop ? `stop-${stop.code}` : selectedRoute ? 'none' : 'explore'}
+          entering={FadeInDown.duration(motion.cardMs)}
+        >
+          {trackedId ? (
           <TrackingPanel
             vehicle={tracked}
             nowMs={live.nowMs}
             eta={trackedEta}
-            progress={tracked ? trackProgress(tracked, lines, layers.stops, myStop) : { passed: null, next: null, mine: myStop }}
+            progress={trackedProgress}
+            etaTarget={etaTarget}
             alertOn={alertOn}
             alertMessage={
               alertOn && trackedEtaS !== null && trackedEtaS <= TRACK_ALERT_ETA_S
@@ -475,6 +464,7 @@ export default function MapScreen() {
         ) : !selectedRoute ? (
           <ExploreCard onAllRoutes={() => setSelectorOpen(true)} />
         ) : null}
+        </Animated.View>
       </View>
 
       {selectorOpen ? (
@@ -541,19 +531,6 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
     alignSelf: 'flex-end',
     alignItems: 'flex-end',
     gap: spacing.sm,
-  },
-  report: {
-    minHeight: MIN_TOUCH_TARGET,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    backgroundColor: colors.primary,
-    ...elevation.level3,
-  },
-  reportText: {
-    color: colors.onPrimary,
   },
   grow: {
     flex: 1,

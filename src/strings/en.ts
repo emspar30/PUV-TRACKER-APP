@@ -43,6 +43,18 @@ export const en = {
     body: 'Reports from commuters in the last hour',
     // The user's own posts on live data come from the database (N1 reads the same table)
     signIn: 'Sign in to see live reports',
+    // N1: flagging someone else's post
+    flag: 'Flag report',
+    flagLabel: (username: string) => `Flag the report by ${username}`,
+    flagTitle: 'Flag this report?',
+    flagBody: (count: number) => `Flag reports that are wrong or abusive. After ${count} flags a report is hidden and reviewed.`,
+    flagConfirm: 'Flag',
+    flagCancel: 'Cancel',
+    flaggedTitle: 'Thanks for flagging',
+    flaggedBody: 'The report is hidden for you.',
+    flagFailedTitle: 'Flag not sent',
+    flagFailedBody: 'Try again in a moment.',
+    you: 'You',
     all: 'All routes',
     empty: 'No reports yet',
     emptyBody: 'Reports from commuters show here for one hour.',
@@ -54,17 +66,15 @@ export const en = {
       loading: 'Loading passengers',
     },
     seats: { green: 'Seats available', amber: 'Filling up', red: 'Full' },
-    gps: 'With GPS',
-    noGps: 'No GPS',
     ago: (minutes: number) => (minutes < 1 ? 'Just now' : `${minutes} min ago`),
-    byline: (username: string, ago: string) => `@${username} · ${ago}`,
   },
 
   // RP1: the Report button on the Live tab and its panel
   report: {
-    button: 'Report',
-    title: 'Report a multicab',
-    close: 'Close report',
+    // "Relay", not "Report": reporting a user is a different action
+    button: 'Relay',
+    title: 'Relay a multicab update',
+    close: 'Close relay',
     route: 'Route',
     whatsHappening: "What's happening?",
     seats: 'Seats (optional)',
@@ -72,12 +82,14 @@ export const en = {
     withGps: 'Share with GPS',
     gpsEarns: (gps: number, noGps: number) => `Earns +${gps.toFixed(1)} Energy with GPS, +${noGps.toFixed(1)} without (once a day each)`,
     gpsUnavailable: (noGps: number) => `No precise location right now. Sent without GPS: +${noGps.toFixed(1)} Energy (once a day).`,
-    unverified: 'Reports show as unverified for now.',
-    send: 'Send report',
+    unverified: 'Relays show as unverified for now.',
+    send: 'Relay update',
     sending: 'Sending…',
-    sentTitle: 'Report sent',
+    sentTitle: 'Update relayed',
     sentBody: (minutes: number) => `It shows in Crowdsource for ${minutes} minutes.`,
-    failedTitle: 'Report not sent',
+    // With GPS the update belongs to the live map (broadcast), not the Crowdsource feed
+    sentBodyGps: 'Sent with your location for the live map. Crowdsource lists updates without GPS.',
+    failedTitle: 'Update not sent',
     failedBody: 'Try again in a moment.',
     noUsername: 'Pick a handle in Profile first.',
     openProfile: 'Open Profile',
@@ -163,9 +175,7 @@ export const en = {
     },
     active: {
       count: (count: number) => `${count} active`,
-      swap: 'Change direction',
       close: 'Hide route',
-      both: 'Both directions',
     },
     vehicle: {
       route: (code: string) => `Route ${code}`,
@@ -184,6 +194,8 @@ export const en = {
       minutes: (seconds: number) => (seconds < SECONDS_PER_MINUTE ? '<1 min' : `${Math.round(seconds / SECONDS_PER_MINUTE)} min`),
       away: (distanceKm: number) => `${km(distanceKm)} away`,
       approaching: (stop: string) => `Approaching ${stop}`,
+      // No boarding point known: the time shown is to the vehicle's next stop
+      toNextStop: (stop: string) => `To next stop ${stop}`,
       passed: 'Passed your stop',
       unknown: 'ETA unavailable',
       lastUpdated: 'Last updated',
@@ -202,8 +214,8 @@ export const en = {
       lost: 'No recent position',
       // SB2: paying for a session
       noEnergyTitle: 'Not enough Energy',
-      noEnergyBody: (cost: number, minutes: number) => `Tracking costs ${cost} Energy for ${minutes} minutes. Earn Energy with check-ins and reports.`,
-      earnByReporting: 'Send a report',
+      noEnergyBody: (cost: number, minutes: number) => `Tracking costs ${cost} Energy for ${minutes} minutes. Earn Energy with check-ins and relays.`,
+      earnByReporting: 'Relay an update',
       failedTitle: 'Tracking could not start',
     },
   },
@@ -307,6 +319,7 @@ export const en = {
     checkIn: 'Check in',
     checkInAt: (code: string) => `Check in at ${code}`,
     boarded: 'I boarded',
+    cancel: 'Cancel',
     countdown: (time: string) => `${time} left`,
     countdownLabel: (code: string, time: string) => `Checked in at ${code}, ${time} left`,
     notVerified: 'Not location-verified',
@@ -321,34 +334,25 @@ export const en = {
     failedTitle: 'Check-in failed',
     signIn: 'Sign in',
     failedBody: 'Try again in a moment.',
-    route: 'Route',
-    stations: 'Stations',
     // C1 UI pass: the sheet, after Google Maps' place sheet
     title: 'Stations & check-in',
+    pickHint: 'Pick a route, then tap a station dot',
+    tapHint: 'Tap a station dot on the map',
+    stopsCount: (count: number) => (count === 1 ? '1 stop' : `${count} stops`),
+    walkMin: (minutes: number) => `${Math.max(1, minutes)} min walk`,
+    // A shared stop: which routes' drivers hear about this check-in
+    pingRoutes: 'Ping routes',
+    pingAll: 'All',
+    pingHint: 'Only the routes you pick are notified',
+    pingLabel: (code: string, on: boolean) => `${code}, ${on ? 'pinged' : 'not pinged'}`,
     nearest: 'Nearest to you',
     picked: 'Selected station',
     distance: (metres: number) => (metres < METERS_PER_KM ? `${metres} m` : km(metres / METERS_PER_KM)),
     // "RCA · 120 m · 2 waiting"; parts that are unknown are left out
     meta: (parts: readonly string[]) => parts.join(' · '),
-    routeOf: (code: string) => `Route ${code}`,
-    active: (time: string) => `Active · ${time}`,
-    waitingHere: 'Waiting here',
-    inclYou: 'incl. you',
-    visibility: 'Visibility',
-    sharedShort: 'Shared',
-    demoOnly: 'This phone',
-    locationCheck: 'Location check',
-    unverified: 'Unverified',
     expires: 'Check-in expires',
     window: (minutes: number) => `${minutes} min window`,
-    boardingNote: 'Bluetooth boarding confirmation comes in a later version.',
     cancelCheckIn: 'Cancel check-in',
-    // The pill above the sheet: what the geofence will use
-    gpsPill: (accuracyM: number) => `GPS · ±${accuracyM} m`,
-    simulatedPill: (code: string) => `Simulated at ${code}`,
-    noLocationPill: 'Location off',
-    radiusPill: (radiusM: number) => `Check in within ${radiusM} m`,
-    pickStationFirst: 'Pick a station first',
   },
 
   settings: {
@@ -467,11 +471,6 @@ export const en = {
     handleSaveFailed: 'Could not save the handle. It will be sent again when you sign in.',
   },
 
-  direction: {
-    outbound: 'Outbound',
-    return: 'Return',
-  },
-
   loading: {
     routeData: 'Loading route data',
     routeDataFailed: 'The route data could not be loaded.',
@@ -480,7 +479,6 @@ export const en = {
   },
 
   map: {
-    showWholeRoute: 'Show whole route',
     stop: (code: string) => `Stop ${code}`,
   },
 
@@ -646,9 +644,6 @@ export const en = {
     camera: (zoom: number, lon: number, lat: number) =>
       `zoom ${zoom.toFixed(2)}  centre ${lon.toFixed(4)}, ${lat.toFixed(4)}`,
     cameraIdle: 'camera not moved yet',
-    benchmark: (runs: number) => `DEV  Run routing benchmark (${runs} trips)`,
-    benchmarkResult: (p50: number, p95: number, max: number, budget: number, found: number, runs: number) =>
-      `p50 ${p50.toFixed(3)} ms, p95 ${p95.toFixed(3)} ms, max ${max.toFixed(3)} ms. Budget ${budget} ms at p95. ${found} of ${runs} trips found.`,
   },
 };
 

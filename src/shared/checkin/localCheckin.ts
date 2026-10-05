@@ -9,7 +9,10 @@ const S_PER_MIN = 60;
 const PAD = 2;
 
 export type LocalCheckIn = {
+  // The first of routeCodes, the route the sheet and My Rides show
   routeCode: string;
+  // Every route pinged at a shared stop (one or more)
+  routeCodes: readonly string[];
   stationCode: string;
   // Milliseconds since 1970
   createdAtMs: number;
@@ -17,8 +20,14 @@ export type LocalCheckIn = {
 };
 
 // `expiresAtMs` is the server's expiry when the check-in is in the cloud (C1)
-export function startCheckIn(routeCode: string, stationCode: string, nowMs: number, expiresAtMs = nowMs + CHECKIN_LIFETIME_S * MS_PER_S): LocalCheckIn {
-  return { routeCode, stationCode, createdAtMs: nowMs, expiresAtMs };
+export function startCheckIn(
+  routes: string | readonly string[],
+  stationCode: string,
+  nowMs: number,
+  expiresAtMs = nowMs + CHECKIN_LIFETIME_S * MS_PER_S,
+): LocalCheckIn {
+  const routeCodes = typeof routes === 'string' ? [routes] : [...routes];
+  return { routeCode: routeCodes[0] ?? '', routeCodes, stationCode, createdAtMs: nowMs, expiresAtMs };
 }
 
 export function remainingMs(checkIn: LocalCheckIn, nowMs: number): number {
@@ -46,5 +55,8 @@ export function parseStoredCheckIn(value: unknown): LocalCheckIn | null {
   if (typeof routeCode !== 'string' || typeof stationCode !== 'string') return null;
   if (typeof createdAtMs !== 'number' || typeof expiresAtMs !== 'number') return null;
   if (!Number.isFinite(createdAtMs) || !Number.isFinite(expiresAtMs) || expiresAtMs < createdAtMs) return null;
-  return { routeCode, stationCode, createdAtMs, expiresAtMs };
+  // Stored before shared stops: one route
+  const stored = Array.isArray(record.routeCodes) ? record.routeCodes.filter((code): code is string => typeof code === 'string') : [];
+  const routeCodes = stored.length > 0 ? stored : [routeCode];
+  return { routeCode, routeCodes, stationCode, createdAtMs, expiresAtMs };
 }

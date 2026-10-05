@@ -12,7 +12,7 @@ import type { DemoEnergy } from './demoEnergy';
 const MS_PER_S = 1000;
 const MS_PER_MIN = 60000;
 
-type Mine = { routeCode: string; stationCode: string; expiresAtMs: number };
+type Mine = { routeCodes: readonly string[]; stationCode: string; expiresAtMs: number };
 
 export function createDemoCrowd(
   energy: DemoEnergy,
@@ -33,15 +33,15 @@ export function createDemoCrowd(
         const counts = new Map<string, number>();
         for (const code of stationCodes) {
           const others = seededRandom(childSeed(seed, `checkins-${routeCode}-${code}-${slot}`)).int(0, DEMO_CHECKIN_OTHERS_MAX);
-          const me = mine && mine.routeCode === routeCode && mine.stationCode === code && mine.expiresAtMs > atMs ? 1 : 0;
+          const me = mine && mine.routeCodes.includes(routeCode) && mine.stationCode === code && mine.expiresAtMs > atMs ? 1 : 0;
           if (others + me > 0) counts.set(code, others + me);
         }
         return counts;
       },
 
-      async checkIn(routeCode, stationCode, requestKey) {
+      async checkIn(routeCodes, stationCode, requestKey) {
         const expiresAtMs = now() + CHECKIN_LIFETIME_S * MS_PER_S;
-        mine = { routeCode, stationCode, expiresAtMs };
+        mine = { routeCodes, stationCode, expiresAtMs };
         energy.earn('checkin', requestKey);
         return { ok: true, expiresAtMs };
       },
@@ -71,6 +71,11 @@ export function createDemoCrowd(
         const atMs = now();
         posts = posts.filter((post) => atMs - post.postedMs < FEED_LIFETIME_MIN * MS_PER_MIN);
         return posts;
+      },
+
+      // N1: nothing to send in demo; the screen hides the flagged post for this user
+      async flag() {
+        return { ok: true, hidden: false };
       },
     },
   };

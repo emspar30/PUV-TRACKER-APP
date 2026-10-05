@@ -10,7 +10,7 @@ type ButtonProps = {
   icon?: LucideIcon;
   // Shown before the label, such as a mail icon
   leadingIcon?: LucideIcon;
-  variant?: 'primary' | 'secondary' | 'danger' | 'text';
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'text';
   disabled?: boolean;
   accessibilityLabel?: string;
 };
@@ -24,7 +24,7 @@ const BUTTON_HEIGHT = MIN_TOUCH_TARGET + spacing.xs;
 export function Button({ label, onPress, icon: Icon, leadingIcon: Leading, variant = 'primary', disabled, accessibilityLabel }: ButtonProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
-  const textColor = variant === 'primary' || variant === 'danger' ? colors.onPrimary : variant === 'secondary' ? colors.textPrimary : colors.primary;
+  const textColor = variant === 'primary' || variant === 'success' || variant === 'danger' ? colors.onPrimary : variant === 'secondary' ? colors.textPrimary : colors.primary;
   return (
     <Pressable
       style={({ pressed }) => [styles.base, styles[variant], disabled && styles.disabled, pressed && styles.pressed]}
@@ -61,6 +61,10 @@ const useStyles = makeStyles(({ colors }) => ({
     borderWidth: 1,
     borderColor: colors.outline,
     backgroundColor: colors.card,
+  },
+  // Something switched on, such as the arrival alert
+  success: {
+    backgroundColor: colors.success,
   },
   // A choice that cannot be undone, such as Reset
   danger: {

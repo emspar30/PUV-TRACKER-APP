@@ -23,6 +23,7 @@ export const noLiveReports: ReportsRepository = {
   source: 'none',
   post: async () => ({ ok: false, reason: 'error' }),
   recent: async () => null,
+  flag: async () => ({ ok: false, reason: 'error' }),
 };
 
 // No backend: no wallet to show, and tracking (of no vehicles) has nothing to pay or end

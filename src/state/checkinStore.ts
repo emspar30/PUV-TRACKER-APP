@@ -14,7 +14,7 @@ type StoredCheckIn = {
 };
 
 type CheckInState = StoredCheckIn & {
-  checkInAt: (routeCode: string, stationCode: string, nowMs: number, expiresAtMs?: number) => void;
+  checkInAt: (routes: string | readonly string[], stationCode: string, nowMs: number, expiresAtMs?: number) => void;
   // "I boarded" ends it and keeps the ride in My Rides' recent rides; "Cancel" only ends it
   boarded: (nowMs: number) => void;
   clear: () => void;
@@ -37,7 +37,7 @@ export const useCheckInStore = create<CheckInState>()(
         if (current) useRidesStore.getState().add({ routeCode: current.routeCode, stationCode: current.stationCode, atMs: nowMs, source: 'checkin' });
         set({ checkIn: null });
       },
-      checkInAt: (routeCode, stationCode, nowMs, expiresAtMs) => set({ checkIn: startCheckIn(routeCode, stationCode, nowMs, expiresAtMs) }),
+      checkInAt: (routes, stationCode, nowMs, expiresAtMs) => set({ checkIn: startCheckIn(routes, stationCode, nowMs, expiresAtMs) }),
       clear: () => set({ checkIn: null }),
     }),
     {

@@ -63,6 +63,11 @@ export function stopsForRoute(
   );
 }
 
+// The routes that stop at a station, in route order: one for most stops, several at a shared stop
+export function routesAtStop(lines: readonly Pick<DirectedLine, 'routeCode' | 'coordinates'>[], stop: RouteStop): string[] {
+  return routeCodesOf(lines).filter((code) => stopsForRoute(lines, [stop], code).length > 0);
+}
+
 // Return lines drawn in the return style (the pale band with dashes): only a return that runs
 // alongside a stored outbound of the same route. A route with a single stored leg (R4 and R5 in
 // RR1) draws that leg as a solid line with arrows, like an outbound.

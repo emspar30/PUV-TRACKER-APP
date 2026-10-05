@@ -1,5 +1,6 @@
 import {
   BASE_MAPS,
+  FEED_BADGES,
   LIGHT_ROUTE_COLORS,
   MAP_PAINTS,
   PALETTES,
@@ -100,6 +101,14 @@ describe('route colours', () => {
 
   it('records why the stored Route 4 colour cannot be used on the light map', () => {
     expect(contrastRatio(R4_STORED, BASE_MAPS.light.land)).toBeLessThan(WCAG_AA_GRAPHICS);
+  });
+});
+
+describe('feed badges (N1)', () => {
+  it.each(['light', 'dark'] as const)('%s: every initial reaches AA on its fill', (scheme) => {
+    for (const { fill, ink } of FEED_BADGES[scheme]) {
+      expect([fill, ink, contrastRatio(ink, fill) >= WCAG_AA_TEXT]).toEqual([fill, ink, true]);
+    }
   });
 });
 

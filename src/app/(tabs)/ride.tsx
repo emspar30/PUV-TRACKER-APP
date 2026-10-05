@@ -15,7 +15,6 @@ import { useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
-import { DevBenchmark } from '@/features/plan/DevBenchmark';
 import { TripLayers, type TripPin } from '@/features/plan/TripLayers';
 import type { PickTarget, PickedPoint } from '@/features/ride/PointPills';
 import { FareSummaryCard, SuggestedRouteCard } from '@/features/ride/RideCards';
@@ -75,7 +74,6 @@ export default function MyRidesScreen() {
   const recentRides = useRidesStore((state) => state.rides);
   const { height: windowHeight } = useWindowDimensions();
   const [mapExpanded, setMapExpanded] = useState(false);
-  const [mapTouched, setMapTouched] = useState(false);
   // "5 min ago" on recent rides counts from when this screen opened
   const [openedAt] = useState(() => Date.now());
   const repos = useRepositories();
@@ -228,14 +226,9 @@ export default function MyRidesScreen() {
       <View style={styles.top}>
         <TopBar />
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" scrollEnabled={!mapTouched}>
-        <View
-          style={[styles.map, { height: windowHeight * (mapExpanded ? MAP_SHARE_EXPANDED : MAP_SHARE) }]}
-          // While a finger is on the map the page does not scroll, so the map pans in every direction
-          onTouchStart={() => setMapTouched(true)}
-          onTouchEnd={() => setMapTouched(false)}
-          onTouchCancel={() => setMapTouched(false)}
-        >
+      {/* The map sits outside the scrolling page, so a drag on it always pans the map */}
+      <View style={styles.mapWrap}>
+        <View style={[styles.map, { height: windowHeight * (mapExpanded ? MAP_SHARE_EXPANDED : MAP_SHARE) }]}>
           {tiles.status === 'ready' ? (
             <OfflineMap
               tilesUrl={tiles.tiles.url}
@@ -270,7 +263,8 @@ export default function MyRidesScreen() {
             />
           </View>
         </View>
-
+      </View>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <TripCard
           origin={origin}
           destination={destination}
@@ -373,7 +367,6 @@ export default function MyRidesScreen() {
           </>
         ) : null}
 
-        <DevBenchmark lines={lines} />
       </ScrollView>
     </View>
   );
@@ -391,7 +384,9 @@ const useStyles = makeStyles(({ colors }) => ({
   content: {
     gap: spacing.md,
     padding: spacing.md,
-    paddingTop: 0,
+  },
+  mapWrap: {
+    paddingHorizontal: spacing.md,
   },
   map: {
     overflow: 'hidden',

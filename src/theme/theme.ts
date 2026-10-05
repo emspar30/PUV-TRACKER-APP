@@ -5,9 +5,11 @@ import {
   MAP_LABELS,
   MAP_PAINTS,
   PALETTES,
+  FEED_BADGES,
   ROUTE_BADGE_TEXT,
   routeColor,
   type BaseMapPalette,
+  type FeedBadgeColor,
   type MapLabelPaint,
   type MapPaint,
   type Palette,
@@ -47,6 +49,10 @@ export const motion = {
   sheetSpring: { damping: 24, stiffness: 240, mass: 0.9 },
   // A drag must move this far before the sheet follows it, so taps inside the sheet still work
   dragSlopDp: 8,
+  // The app dialog and floating cards: a short fade, the card settling with a soft spring
+  dialogMs: 180,
+  dialogDamping: 18,
+  cardMs: 220,
 } as const;
 
 // Type scale of docs/DESIGN.md, in dp, set in the Android system font (Roboto)
@@ -100,6 +106,8 @@ export const MAP_GEOMETRY = {
   ],
   // The return direction is a lighter band with dashes, so it reads as different from the outbound line
   returnBandOpacity: 0.45,
+  // Check-in: the route is context only, faint, so the station dots stand out
+  checkinLineOpacity: 0.3,
   returnDashWidthRatio: 0.4,
   returnDashPattern: [2, 2],
   // Direction arrows are small V shapes drawn as lines. Each band is used inside its zoom range,
@@ -135,6 +143,11 @@ export const MAP_GEOMETRY = {
   minFocusSpanDeg: 0.004,
   // Vehicle markers (AF3): sizes on screen, in dp
   vehicle: {
+    // The multicab icon (assets/map/puv.png, 32 dp) and the seat-tier halo behind it
+    iconSize: 1,
+    tierHaloRadius: 15,
+    tierHaloOpacity: 0.3,
+    tierHaloStroke: 2,
     radius: 7,
     ringWidth: 3,
     stoppedRadius: 2.5,
@@ -143,7 +156,7 @@ export const MAP_GEOMETRY = {
     coneOpacity: 0.35,
     staleOpacity: 0.5,
     badgeTextSize: 11,
-    badgeOffsetEm: 1.2,
+    badgeOffsetEm: 1.6,
     // The tapped vehicle (restyle)
     selectedHaloRadius: 16,
     selectedHaloOpacity: 0.25,
@@ -190,6 +203,7 @@ export type Theme = {
   mapLabels: MapLabelPaint;
   elevation: ReturnType<typeof buildElevation>;
   routeBadgeText: string;
+  feedBadges: readonly FeedBadgeColor[];
   // A route's colour in this theme: the stored colour in dark, a readable one in light
   routeColor: (routeCode: string, storedColor: string) => string;
 };
@@ -206,6 +220,7 @@ function buildTheme(scheme: ThemeScheme): Theme {
     mapLabels: MAP_LABELS[scheme],
     elevation: buildElevation(colors),
     routeBadgeText: ROUTE_BADGE_TEXT[scheme],
+    feedBadges: FEED_BADGES[scheme],
     routeColor: (routeCode, storedColor) => routeColor(scheme, routeCode, storedColor),
   };
 }
