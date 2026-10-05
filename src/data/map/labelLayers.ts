@@ -1,11 +1,13 @@
 // Map label layers (LB1b): city, barangay, road and street names from the offline tiles, drawn with
 // the bundled Noto Sans glyphs. Pure data: no React Native or Expo imports.
 // Tiers (docs/LABELS_PLAN.md §3): cities from zoom 11; barangays and major roads from 13; streets
-// from 15. Names use the local `name`, with `name:en` as a fallback. Collisions drop the lower tiers
+// from 15. City names hide from zoom 14 and barangay names from 16, so streets read when zoomed in. Names use the local `name`, with `name:en` as a fallback. Collisions drop the lower tiers
 // first (symbol-sort-key), and labels are added under the route lines, so a route is never covered.
 
 import {
+  LABEL_BARANGAY_MAX_ZOOM,
   LABEL_BARANGAY_MIN_ZOOM,
+  LABEL_CITY_MAX_ZOOM,
   LABEL_CITY_MIN_ZOOM,
   LABEL_DIMMED_OPACITY,
   LABEL_MAJOR_ROAD_MIN_ZOOM,
@@ -21,6 +23,8 @@ export type LabelLayer = {
   source: string;
   'source-layer': string;
   minzoom: number;
+  // Place names hide when zoomed in far (restyle)
+  maxzoom?: number;
   filter: unknown[];
   layout: Record<string, unknown>;
   paint: Record<string, unknown>;
@@ -60,6 +64,7 @@ export function labelLayers(paint: MapLabelPaint, dimmed: boolean): LabelLayer[]
       id: LABEL_LAYER_IDS[0],
       'source-layer': 'places',
       minzoom: LABEL_CITY_MIN_ZOOM,
+      maxzoom: LABEL_CITY_MAX_ZOOM,
       filter: ['==', ['get', 'kind'], 'locality'],
       layout: point(GLYPH_FONT_MEDIUM, SIZE.city, SORT.city),
       paint: text(paint.text),
@@ -69,6 +74,7 @@ export function labelLayers(paint: MapLabelPaint, dimmed: boolean): LabelLayer[]
       id: LABEL_LAYER_IDS[1],
       'source-layer': 'places',
       minzoom: LABEL_BARANGAY_MIN_ZOOM,
+      maxzoom: LABEL_BARANGAY_MAX_ZOOM,
       filter: ['in', ['get', 'kind'], ['literal', ['macrohood', 'neighbourhood']]],
       layout: point(GLYPH_FONT_REGULAR, SIZE.barangay, SORT.barangay),
       paint: text(paint.text),

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ArrowRight, Info, Search } from 'lucide-react-native';
+import { ArrowRight, ChevronDown, ChevronUp, Info, Search } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -19,6 +19,35 @@ export function ExploreCard({ onAllRoutes }: { onAllRoutes: () => void }) {
   const { colors, typography, elevation } = useTheme();
   // Chosen once per app open, so the line does not change while the screen is open
   const [greeting] = useState(() => pickGreeting(strings.persona.greetings, new Date()));
+  // Minimized, only the search field stays, so more of the map shows
+  const [minimized, setMinimized] = useState(false);
+  const Chevron = minimized ? ChevronUp : ChevronDown;
+  const toggle = (
+    <Pressable
+      style={styles.toggle}
+      onPress={() => setMinimized((value) => !value)}
+      accessibilityRole="button"
+      accessibilityLabel={minimized ? strings.live.explore.expand : strings.live.explore.minimize}
+    >
+      <Chevron color={colors.textSecondary} size={ICON_SIZE} />
+    </Pressable>
+  );
+  const search = (
+    <Pressable style={[styles.search, minimized && styles.grow]} onPress={() => router.navigate('/ride')} accessibilityRole="search">
+      <Search color={colors.textSecondary} size={ICON_SIZE} />
+      <Text style={[typography.bodyLg, styles.placeholder]} numberOfLines={1}>
+        {strings.live.explore.search}
+      </Text>
+    </Pressable>
+  );
+  if (minimized) {
+    return (
+      <View style={[styles.card, styles.mini, elevation.level3]}>
+        {search}
+        {toggle}
+      </View>
+    );
+  }
   return (
     <View style={[styles.card, elevation.level3]}>
       <View style={styles.head}>
@@ -29,11 +58,9 @@ export function ExploreCard({ onAllRoutes }: { onAllRoutes: () => void }) {
             {greeting}
           </Text>
         </View>
+        {toggle}
       </View>
-      <Pressable style={styles.search} onPress={() => router.navigate('/ride')} accessibilityRole="search">
-        <Search color={colors.textSecondary} size={ICON_SIZE} />
-        <Text style={[typography.bodyLg, styles.placeholder]}>{strings.live.explore.search}</Text>
-      </Pressable>
+      {search}
       <View style={styles.foot}>
         <Info color={colors.warning} size={SMALL_ICON} />
         <Text style={[typography.bodySm, styles.grow]} numberOfLines={2}>
@@ -62,6 +89,18 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   grow: {
     flex: 1,
+  },
+  mini: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    padding: spacing.sm,
+  },
+  toggle: {
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   search: {
     minHeight: MIN_TOUCH_TARGET,

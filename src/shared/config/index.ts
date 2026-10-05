@@ -146,6 +146,9 @@ export const LABEL_CITY_MIN_ZOOM = 11;
 export const LABEL_BARANGAY_MIN_ZOOM = 13;
 export const LABEL_MAJOR_ROAD_MIN_ZOOM = 13;
 export const LABEL_STREET_MIN_ZOOM = 15;
+// Place names give way to streets when zoomed in: city names hide from 14, barangay names from 16
+export const LABEL_CITY_MAX_ZOOM = 14;
+export const LABEL_BARANGAY_MAX_ZOOM = 16;
 export const LABEL_DIMMED_OPACITY = 0.5;
 export const MAP_LABELS_DEFAULT = true;
 

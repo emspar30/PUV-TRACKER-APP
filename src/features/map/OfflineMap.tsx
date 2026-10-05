@@ -54,6 +54,8 @@ type OfflineMapProps = {
   labelsDimmed?: boolean;
   // Map content drawn on top of the base map: route line, stops, vehicle markers and, later, the blue dot
   children?: ReactNode;
+  // The (i) credit sits this far from the top on the left; by default, above the bottom inset
+  attributionTop?: number;
 };
 
 export function OfflineMap({
@@ -68,6 +70,7 @@ export function OfflineMap({
   onUserMove,
   bottomInset = 0,
   labelsDimmed = false,
+  attributionTop,
   children,
 }: OfflineMapProps) {
   const styles = useStyles();
@@ -150,7 +153,7 @@ export function OfflineMap({
         />
         {children}
       </Map>
-      <Attribution bottom={bottomInset + spacing.sm} />
+      <Attribution position={attributionTop !== undefined ? { top: attributionTop } : { bottom: bottomInset + spacing.sm }} />
     </View>
   );
 }
@@ -162,7 +165,7 @@ const ATTRIBUTION_FOLDED_OPACITY = 0.6;
 // The OpenStreetMap credit (ODbL): a faint (i) button in the corner, as OSM's attribution guidelines
 // allow on small screens. Tapping it shows the credit for MAP_ATTRIBUTION_SHOW_S; the licence
 // itself is in About, Licences.
-function Attribution({ bottom }: { bottom: number }) {
+function Attribution({ position }: { position: { top: number } | { bottom: number } }) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const [open, setOpen] = useState(false);
@@ -173,7 +176,7 @@ function Attribution({ bottom }: { bottom: number }) {
   }, [open]);
   return (
     <Pressable
-      style={[styles.attribution, { bottom }, !open && styles.attributionFolded]}
+      style={[styles.attribution, position, !open && styles.attributionFolded]}
       onPress={() => setOpen((value) => !value)}
       accessibilityRole="button"
       accessibilityLabel={strings.common.attribution}

@@ -1,23 +1,40 @@
+import { router } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { makeStyles, spacing, useTheme } from '@/theme';
+import { strings } from '@/strings';
+import { MIN_TOUCH_TARGET, makeStyles, spacing, useTheme } from '@/theme';
 
 type ScreenProps = {
   title: string;
   children?: ReactNode;
+  // Shown on the right of the title row, such as a menu button
+  action?: ReactNode;
 };
 
-export function Screen({ title, children }: ScreenProps) {
+const ICON_SIZE = spacing.lg;
+
+// A full page with a back arrow and its title (restyle: every page can be left without the system
+// Back button). On the first screen of the app there is nothing to go back to, so no arrow.
+export function Screen({ title, children, action }: ScreenProps) {
   const styles = useStyles();
-  const { typography } = useTheme();
+  const { colors, typography } = useTheme();
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={typography.title} accessibilityRole="header">
+      <View style={styles.bar}>
+        {router.canGoBack() ? (
+          <Pressable style={styles.back} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={strings.common.back}>
+            <ArrowLeft color={colors.textPrimary} size={ICON_SIZE} />
+          </Pressable>
+        ) : null}
+        <Text style={[typography.headlineSm, styles.title]} accessibilityRole="header" numberOfLines={1}>
           {title}
         </Text>
+        {action}
+      </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {children}
       </ScrollView>
     </SafeAreaView>
@@ -28,6 +45,22 @@ const useStyles = makeStyles(({ colors }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.canvas,
+  },
+  bar: {
+    minHeight: MIN_TOUCH_TARGET + spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  back: {
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    paddingHorizontal: spacing.sm + spacing.xs,
   },
   content: {
     padding: spacing.md,

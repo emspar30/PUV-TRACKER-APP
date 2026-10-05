@@ -119,6 +119,8 @@ export const en = {
       search: 'Where are you heading today?',
       hint: 'Tap a multicab on the map to see its seats',
       allRoutes: 'All routes',
+      minimize: 'Minimize',
+      expand: 'Show more',
     },
     selector: {
       title: 'Select route',

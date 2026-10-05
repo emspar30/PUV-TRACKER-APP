@@ -66,6 +66,7 @@ export default function MapScreen() {
 
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [bottomHeight, setBottomHeight] = useState(0);
+  const [topHeight, setTopHeight] = useState(0);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [directionView, setDirectionView] = useState<DirectionView>('both');
@@ -271,6 +272,7 @@ export default function MapScreen() {
         initialBounds={initialBounds}
         focus={focus}
         bottomInset={bottomHeight}
+        attributionTop={insets.top + spacing.sm + topHeight + spacing.sm}
         onStatusChange={handleStatusChange}
         onViewChange={handleViewChange}
         onLongPress={location.setManualOrigin}
@@ -306,7 +308,11 @@ export default function MapScreen() {
         <BlueDot />
       </OfflineMap>
 
-      <View style={[styles.top, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
+      <View
+        style={[styles.top, { top: insets.top + spacing.sm }]}
+        pointerEvents="box-none"
+        onLayout={(event) => setTopHeight(event.nativeEvent.layout.height)}
+      >
         <TopBar />
         {selectedOption ? (
           <ActiveRouteCard

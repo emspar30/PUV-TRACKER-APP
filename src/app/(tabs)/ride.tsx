@@ -76,6 +76,7 @@ export default function MyRidesScreen() {
   const recentRides = useRidesStore((state) => state.rides);
   const { height: windowHeight } = useWindowDimensions();
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [mapTouched, setMapTouched] = useState(false);
   // "5 min ago" on recent rides counts from when this screen opened
   const [openedAt] = useState(() => Date.now());
   const repos = useRepositories();
@@ -222,8 +223,14 @@ export default function MyRidesScreen() {
       <View style={styles.top}>
         <TopBar />
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={[styles.map, { height: windowHeight * (mapExpanded ? MAP_SHARE_EXPANDED : MAP_SHARE) }]}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" scrollEnabled={!mapTouched}>
+        <View
+          style={[styles.map, { height: windowHeight * (mapExpanded ? MAP_SHARE_EXPANDED : MAP_SHARE) }]}
+          // While a finger is on the map the page does not scroll, so the map pans in every direction
+          onTouchStart={() => setMapTouched(true)}
+          onTouchEnd={() => setMapTouched(false)}
+          onTouchCancel={() => setMapTouched(false)}
+        >
           {tiles.status === 'ready' ? (
             <OfflineMap
               tilesUrl={tiles.tiles.url}
