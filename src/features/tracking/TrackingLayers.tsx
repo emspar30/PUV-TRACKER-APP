@@ -26,6 +26,7 @@ export function TrackingLayers({
   vehicle,
   line,
   labels,
+  showPin = true,
 }: {
   commuter: LatLon;
   // The tracked vehicle and its line, or null when nothing is tracked
@@ -33,6 +34,8 @@ export function TrackingLayers({
   line: DirectedLine | null;
   // True when the style has local glyphs; the "You" label needs them
   labels: boolean;
+  // False for a GPS fix, which the blue dot already shows
+  showPin?: boolean;
 }) {
   const { mapPaint, colors, baseMap } = useTheme();
   const pin = useMemo(() => point([commuter.lon, commuter.lat]), [commuter]);
@@ -56,6 +59,7 @@ export function TrackingLayers({
           />
         </GeoJSONSource>
       ) : null}
+      {showPin ? (
       <GeoJSONSource id="commuter-pin" data={pin}>
         <Layer id="commuter-pin-ring" type="circle" paint={{ 'circle-radius': RING_RADIUS, 'circle-color': mapPaint.locationDot, 'circle-opacity': RING_OPACITY }} />
         <Layer
@@ -84,6 +88,7 @@ export function TrackingLayers({
           />
         ) : null}
       </GeoJSONSource>
+      ) : null}
     </>
   );
 }

@@ -17,11 +17,12 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Card, Logo, OptionRow, StepHeader } from '@/components';
 import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
+import { useLocationPermission } from '@/features/map/useCommuterPosition';
 import { Avatar } from '@/features/profile/Avatar';
 import { isValidUsername } from '@/shared/backend/rules';
 import {
@@ -332,6 +333,7 @@ function PlacesStep() {
 function PermissionsStep() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
+  const location = useLocationPermission();
   const rows: { key: keyof typeof strings.onboarding.permissions; icon: LucideIcon; tone: 'primary' | 'success' | 'warning' }[] = [
     { key: 'location', icon: Navigation, tone: 'primary' },
     { key: 'nearby', icon: Radar, tone: 'success' },
@@ -351,9 +353,26 @@ function PermissionsStep() {
               title={text.title}
               subtitle={text.body}
               trailing={
-                <View style={styles.status}>
-                  <Text style={[typography.labelSm, styles.statusText]}>{text.status}</Text>
-                </View>
+                key === 'location' ? (
+                  location.blocked ? (
+                    <Pressable style={styles.status} onPress={location.request} accessibilityRole="button">
+                      <Text style={[typography.labelSm, styles.statusText]}>{strings.onboarding.permissions.location.blocked}</Text>
+                    </Pressable>
+                  ) : (
+                    <Switch
+                      value={location.granted}
+                      onValueChange={() => (location.granted ? undefined : location.request())}
+                      disabled={location.granted}
+                      trackColor={{ false: colors.surfaceHigh, true: colors.primary }}
+                      thumbColor={colors.card}
+                      accessibilityLabel={text.title}
+                    />
+                  )
+                ) : (
+                  <View style={styles.status}>
+                    <Text style={[typography.labelSm, styles.statusText]}>{text.status}</Text>
+                  </View>
+                )
               }
             />
           );

@@ -25,11 +25,12 @@ const S_PER_H = 3600;
 
 type Tracked = Pick<VehicleSnapshot, 'lat' | 'lon' | 'lineId' | 'lastPacketMs' | 'recentSpeeds'>;
 
-export function etaTo(vehicle: Tracked, lines: readonly DirectedLine[], boarding: LatLon): Eta {
+// maxOffsetM: how far the boarding point may be from the line (a stop is close; a rider may walk to it)
+export function etaTo(vehicle: Tracked, lines: readonly DirectedLine[], boarding: LatLon, maxOffsetM = ROUTE_STOP_MAX_DISTANCE_M): Eta {
   const line = lines.find((candidate) => candidate.id === vehicle.lineId);
   if (!line) return { kind: 'unknown', reason: 'off_line' };
   const board = projectOntoLine(line.coordinates, boarding);
-  if (board.offsetM > ROUTE_STOP_MAX_DISTANCE_M) return { kind: 'unknown', reason: 'off_line' };
+  if (board.offsetM > maxOffsetM) return { kind: 'unknown', reason: 'off_line' };
   const distanceKm = board.chainageKm - projectOntoLine(line.coordinates, vehicle).chainageKm;
   if (distanceKm <= 0) return { kind: 'passed' };
   if (distanceKm > ETA_MAX_KM) return { kind: 'unknown', reason: 'too_far' };

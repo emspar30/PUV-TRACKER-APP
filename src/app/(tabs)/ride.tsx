@@ -11,6 +11,7 @@ import { useRouteData } from '@/data/RouteDataProvider';
 import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
+import { useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
@@ -20,7 +21,7 @@ import type { PickTarget, PickedPoint } from '@/features/ride/PointPills';
 import { FareSummaryCard, SuggestedRouteCard } from '@/features/ride/RideCards';
 import { RideFailure } from '@/features/ride/RideResult';
 import { TripCard } from '@/features/ride/TripCard';
-import { DEMO_COMMUTER_STOP_CODE, FARE_REGULAR_MULTIPLIER } from '@/shared/config';
+import { FARE_REGULAR_MULTIPLIER } from '@/shared/config';
 import { discountMultiplier } from '@/shared/fare/fare';
 import { boundsOfLines, clipBounds, withMinimumSpan } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
@@ -33,7 +34,6 @@ import { useDestinationsStore } from '@/state/destinationsStore';
 import { useFareType } from '@/state/fareType';
 import { useHintsStore } from '@/state/hintsStore';
 import { useRidesStore } from '@/state/ridesStore';
-import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -69,7 +69,6 @@ export default function MyRidesScreen() {
   const { lines, stops, isPlaceholder } = useRouteData();
   const { state: tiles } = useOfflineTiles();
   const [fareType] = useFareType();
-  const demo = useSettingsStore((state) => state.demoData);
   const hintSeen = useHintsStore((state) => state.seen.ride);
   const dismissHint = useHintsStore((state) => state.dismiss);
   const destinations = useDestinationsStore((state) => state.destinations);
@@ -82,12 +81,18 @@ export default function MyRidesScreen() {
   const repos = useRepositories();
   const focused = useIsFocused();
 
-  // Until "Use my location" (G0), the demo commuter waits at a fixed stop (the same one as on Map)
-  const myStop = demo ? (stops.find((stop) => stop.code === DEMO_COMMUTER_STOP_CODE) ?? null) : null;
-  const myPosition = useMemo<PickedPoint | null>(
-    () => (myStop ? { lat: myStop.lat, lon: myStop.lon, label: strings.ride.you(myStop.code) } : null),
-    [myStop],
-  );
+  // G0: the commuter's GPS fix, a simulated stop (Demo settings) or a long-press pin on the Map
+  const commuter = useCommuterPosition();
+  const myPosition = useMemo<PickedPoint | null>(() => {
+    if (!commuter) return null;
+    const label =
+      commuter.source === 'simulated' && commuter.stopCode
+        ? strings.ride.you(commuter.stopCode)
+        : commuter.source === 'gps'
+          ? strings.ride.currentLocation
+          : strings.ride.pinned;
+    return { lat: commuter.lat, lon: commuter.lon, label };
+  }, [commuter]);
 
   const [origin, setOrigin] = useState<PickedPoint | null>(myPosition);
   const [destination, setDestination] = useState<PickedPoint | null>(null);

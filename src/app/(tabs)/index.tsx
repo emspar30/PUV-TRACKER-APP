@@ -18,6 +18,7 @@ import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { OriginPin } from '@/features/map/OriginPin';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
+import { useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { TrackingLayers } from '@/features/tracking/TrackingLayers';
@@ -25,7 +26,8 @@ import { TrackingPanel } from '@/features/tracking/TrackingPanel';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { useVehicles } from '@/features/vehicles/useVehicles';
 import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
-import { DEMO_COMMUTER_STOP_CODE, MAP_FOLLOW_ZOOM, TRACK_ALERT_ETA_S, TRACK_OTHERS_OPACITY } from '@/shared/config';
+import { MAP_FOLLOW_ZOOM, MAX_WALK_PER_LEG_M, TRACK_ALERT_ETA_S, TRACK_OTHERS_OPACITY } from '@/shared/config';
+import { nearestStop } from '@/shared/routing/describe';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { projectOntoLine } from '@/shared/geo/line';
 import type { RouteDirection } from '@/shared/routing/types';
@@ -36,6 +38,7 @@ import { isStopped } from '@/shared/telemetry/stopped';
 import { crossesAlert, etaTo, trackProgress } from '@/shared/tracking/eta';
 import { routeCodesOf } from '@/shared/ui/routeVisibility';
 import { useHintsStore } from '@/state/hintsStore';
+import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -70,7 +73,10 @@ export default function MapScreen() {
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [directionView, setDirectionView] = useState<DirectionView>('both');
-  const [filter, setFilter] = useState<VehicleFilter>('all');
+  const seatFilter = useSettingsStore((store) => store.seatFilter);
+  const arrivalAlert = useSettingsStore((store) => store.arrivalAlert);
+  const defaultRoute = useSettingsStore((store) => store.defaultRoute);
+  const [filter, setFilter] = useState<VehicleFilter>(seatFilter ? 'seats' : 'all');
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedStop, setSelectedStop] = useState<string | null>(null);
   const [zoom, setZoom] = useState(DEFAULT_VEHICLE_ZOOM);
@@ -102,11 +108,13 @@ export default function MapScreen() {
   }, [live.vehicles, lines, directions, filter]);
   const coverage = routeCoverage(vehicles.map((vehicle) => ageSeconds(vehicle.lastPacketMs, live.nowMs)));
 
-  // Until "Use my location" (G0), the commuter waits at a fixed stop of the picked route
-  const commuterStop = stops.find((stop) => stop.code === DEMO_COMMUTER_STOP_CODE) ?? null;
-  const commuter = commuterStop && selectedRoute && commuterStop.routeCodes?.includes(selectedRoute) ? commuterStop : null;
+  // G0: the commuter's GPS fix, a simulated stop (Demo settings) or a long-press pin
+  const commuter = useCommuterPosition();
+  // The stop of the picked route nearest to the commuter, shown as "Your stop"
+  const myStop = commuter && selectedRoute ? (nearestStop(layers.stops, commuter)?.stop ?? null) : null;
   const tracked = trackedId ? (live.vehicles.find((candidate) => candidate.id === trackedId) ?? null) : null;
-  const trackedEta = tracked && commuter ? etaTo(tracked, lines, commuter) : null;
+  // The rider may walk to the route, so the boarding point may be up to a walk away from the line
+  const trackedEta = tracked && commuter ? etaTo(tracked, lines, commuter, MAX_WALK_PER_LEG_M) : null;
   const trackedEtaS = trackedEta?.kind === 'approaching' ? trackedEta.etaS : null;
 
   // A short vibration once, when the ETA first reaches the alert threshold
@@ -165,7 +173,7 @@ export default function MapScreen() {
     const target = live.vehicles.find((candidate) => candidate.id === id);
     setTrackedId(id);
     setSelectedVehicle(id);
-    setAlertOn(false);
+    setAlertOn(arrivalAlert);
     previousEtaS.current = null;
     if (target && commuter) {
       const bounds = boundsOfLines([[[target.lon, target.lat], [commuter.lon, commuter.lat]]]);
@@ -177,6 +185,23 @@ export default function MapScreen() {
     setTrackedId(null);
     setAlertOn(false);
   };
+
+  // The simulated position (Demo settings) is centred directly; otherwise the GPS flow of G0:
+  // the explainer and permission prompt the first time, then follow the fix
+  const locate = () => {
+    if (commuter?.source === 'simulated') {
+      setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: commuter, zoom: MAP_FOLLOW_ZOOM }));
+      return;
+    }
+    location.locateMe();
+  };
+
+  // Settings, Default route: picked once when the Map first opens
+  const [defaultApplied, setDefaultApplied] = useState(false);
+  if (!defaultApplied && defaultRoute && lines.some((line) => line.routeCode === defaultRoute)) {
+    setDefaultApplied(true);
+    setSelectedRoute(defaultRoute);
+  }
 
   const hideRoute = () => {
     setTrackedId(null);
@@ -296,9 +321,10 @@ export default function MapScreen() {
             }}
           />
         ) : null}
-        {commuter ? (
+        {commuter && selectedRoute ? (
           <TrackingLayers
             commuter={commuter}
+            showPin={commuter.source !== 'gps'}
             vehicle={tracked}
             line={tracked ? (lines.find((line) => line.id === tracked.lineId) ?? null) : null}
             labels={state.tiles.glyphsUrl !== null}
@@ -334,8 +360,8 @@ export default function MapScreen() {
           <RoundButton
             icon={LocateFixed}
             label={location.following ? strings.location.following : strings.location.locateMe}
-            onPress={location.locateMe}
-            active={location.following && location.locationAllowed}
+            onPress={locate}
+            active={commuter?.source === 'simulated' || (location.following && location.locationAllowed)}
           />
         </View>
         {location.showExplainer ? <LocationExplainer onContinue={location.continueExplainer} onNotNow={location.dismissExplainer} /> : null}
@@ -354,7 +380,7 @@ export default function MapScreen() {
             vehicle={tracked}
             nowMs={live.nowMs}
             eta={trackedEta}
-            progress={tracked ? trackProgress(tracked, lines, layers.stops, commuter) : { passed: null, next: null, mine: commuter }}
+            progress={tracked ? trackProgress(tracked, lines, layers.stops, myStop) : { passed: null, next: null, mine: myStop }}
             alertOn={alertOn}
             alertMessage={
               alertOn && trackedEtaS !== null && trackedEtaS <= TRACK_ALERT_ETA_S
@@ -371,7 +397,7 @@ export default function MapScreen() {
             nextStop={nextStopOf(vehicle, lines, layers.stops)?.code ?? null}
             stopped={vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs)}
             eta={(() => {
-              const eta = commuter ? etaTo(vehicle, lines, commuter) : null;
+              const eta = commuter ? etaTo(vehicle, lines, commuter, MAX_WALK_PER_LEG_M) : null;
               return eta?.kind === 'approaching' ? strings.live.tracking.minutes(eta.etaS) : null;
             })()}
             onTrack={() => startTracking(vehicle.id)}
