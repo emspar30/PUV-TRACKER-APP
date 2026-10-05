@@ -12,7 +12,8 @@ import { GENERATED_LINES } from './routes.generated';
 // 1: the straight placeholder (S1). 2: Emjay's traced R3, R4 and R5 (RR1).
 // 3: stops assigned to routes (RR1), so R3 and R5 no longer pick up R4's stops.
 // 4: R4 outbound derived back along the updated trace to De Oro (closes_back), so R4 goes round.
-export const ROUTE_DATA_VERSION = 4;
+// 5: R5 outbound derived the same way, back to Santo Niño.
+export const ROUTE_DATA_VERSION = 5;
 
 // True while any route fact is a placeholder. The lines are traced, but the stops and the fares
 // are still placeholders, so the "Sample data" notice stays.

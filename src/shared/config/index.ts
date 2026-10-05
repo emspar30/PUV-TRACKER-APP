@@ -55,6 +55,11 @@ export const ETA_MAX_KM = 60;
 export const TRACK_ALERT_ETA_S = 120;
 // B2: in-app alerts (a toast and a short vibration) as the tracked multicab comes within each of these
 export const TRACK_DISTANCE_ALERTS_M = [1000, 500, 250, 100] as const;
+// B2: tracking ends by itself when the multicab is this close to the commuter's boarding point, or
+// when it passed between two readings (the last reading within TRACK_ARRIVED_PASS_M, then a jump
+// of more than that: it has gone by and is counting to its next time round)
+export const TRACK_ARRIVED_M = 50;
+export const TRACK_ARRIVED_PASS_M = 200;
 // How long an in-app toast stays on screen
 export const TOAST_VISIBLE_MS = 4000;
 // Other vehicles fade to this while one is tracked

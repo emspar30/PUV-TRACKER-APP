@@ -1,5 +1,5 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { BellRing, Bus, Crosshair, LocateFixed, RadioTower, X, Zap } from 'lucide-react-native';
+import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, RadioTower, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, Vibration, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -35,6 +35,8 @@ import {
   MAX_WALK_PER_LEG_M,
   ROUTE_STOP_MAX_DISTANCE_M,
   TRACK_ALERT_ETA_S,
+  TRACK_ARRIVED_M,
+  TRACK_ARRIVED_PASS_M,
   TRACK_DISTANCE_ALERTS_M,
   TRACK_OTHERS_OPACITY,
   TRACKING_SESSION_MIN,
@@ -49,7 +51,7 @@ import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import { isStopped } from '@/shared/telemetry/stopped';
-import { crossedDistance, crossesAlert, etaTo, trackProgress } from '@/shared/tracking/eta';
+import { crossedDistance, crossesAlert, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
 import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
 import { showDialog } from '@/state/dialogStore';
@@ -169,12 +171,25 @@ export default function MapScreen() {
   }, [alertOn, trackedEtaS]);
 
   // B2: a toast and a short vibration as the multicab comes within 1 km, 500 m, 250 m and 100 m of
-  // the commuter, while the alert is on. In-app only, on any tab.
+  // the commuter, while the alert is on. In-app only, on any tab. When it reaches the commuter's
+  // boarding point (or went by between readings), tracking ends by itself, alert on or off.
   const trackedKm = trackedEta?.kind === 'approaching' && etaTarget === 'mine' ? trackedEta.distanceKm : null;
   const trackedLabel = tracked?.label ?? null;
   useEffect(() => {
-    const crossedM = alertOn ? crossedDistance(previousKm.current, trackedKm, TRACK_DISTANCE_ALERTS_M) : null;
+    const previous = previousKm.current;
     previousKm.current = trackedKm;
+    if (hasArrived(previous, trackedKm, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M)) {
+      previousKm.current = null;
+      stopTracking();
+      Vibration.vibrate();
+      showToast({
+        icon: CircleCheck,
+        title: strings.live.tracking.arrivedTitle,
+        body: trackedLabel ? strings.live.tracking.arrivedBody(trackedLabel) : undefined,
+      });
+      return;
+    }
+    const crossedM = alertOn ? crossedDistance(previous, trackedKm, TRACK_DISTANCE_ALERTS_M) : null;
     if (crossedM === null) return;
     Vibration.vibrate();
     showToast({
@@ -182,7 +197,7 @@ export default function MapScreen() {
       title: strings.live.tracking.nearTitle(strings.checkin.distance(crossedM)),
       body: trackedLabel ? strings.live.tracking.nearBody(trackedLabel) : undefined,
     });
-  }, [alertOn, trackedKm, trackedLabel]);
+  }, [alertOn, trackedKm, trackedLabel, stopTracking]);
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);

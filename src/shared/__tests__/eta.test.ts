@@ -1,8 +1,8 @@
 // L2: the simple ETA (D9) and the stops around a tracked vehicle. Fixtures only.
 
-import { ETA_MIN_SPEED_KMH, TRACK_ALERT_ETA_S, TRACK_DISTANCE_ALERTS_M } from '../config';
+import { ETA_MIN_SPEED_KMH, TRACK_ALERT_ETA_S, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M, TRACK_DISTANCE_ALERTS_M } from '../config';
 import { lineLengthKm } from '../geo/line';
-import { crossedDistance, crossesAlert, etaTo, trackProgress } from '../tracking/eta';
+import { crossedDistance, crossesAlert, etaTo, hasArrived, trackProgress } from '../tracking/eta';
 import { FIXTURE_OUTBOUND, FIXTURE_RETURN, FIXTURE_STOPS, pointAt } from './fixtures/routeFixture';
 
 const LINES = [FIXTURE_OUTBOUND, FIXTURE_RETURN];
@@ -95,6 +95,20 @@ describe('tracking progress and alert', () => {
     expect(crossedDistance(0.11, 0.1, TRACK_DISTANCE_ALERTS_M)).toBe(100);
     // Going round again starts far away: no alert
     expect(crossedDistance(0.05, 12, TRACK_DISTANCE_ALERTS_M)).toBeNull();
+  });
+
+  it('arrives within 50 m, or when it went by between readings, never on the first reading (B2)', () => {
+    const arrived = (previous: number | null, km: number | null) => hasArrived(previous, km, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M);
+    expect(arrived(null, 0.01)).toBe(false);
+    expect(arrived(0.12, 0.04)).toBe(true);
+    expect(arrived(0.12, 0.08)).toBe(false);
+    // 120 m away, then 18 km: it passed between readings and is counting to its next time round
+    expect(arrived(0.12, 18)).toBe(true);
+    // Far away and then farther (a slower reading): not an arrival
+    expect(arrived(2, 2.1)).toBe(false);
+    // GPS wobble while parked near the stop: not an arrival
+    expect(arrived(0.12, 0.125)).toBe(false);
+    expect(arrived(0.12, null)).toBe(false);
   });
 
   it('alerts once, when the ETA first reaches the threshold', () => {

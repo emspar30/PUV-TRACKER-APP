@@ -110,6 +110,15 @@ export function crossesAlert(previousEtaS: number | null, etaS: number | null, t
   return etaS !== null && etaS <= thresholdS && (previousEtaS === null || previousEtaS > thresholdS);
 }
 
+// B2: the tracked multicab has reached the commuter: within arrivedM now, or it was within passM at
+// the last reading and the distance has since jumped by more than passM (it went by between
+// readings and now counts to its next time round; GPS wobble at a stop is far smaller). Never on
+// the first reading.
+export function hasArrived(previousKm: number | null, km: number | null, arrivedM: number, passM: number): boolean {
+  if (previousKm === null || km === null) return false;
+  return km * METERS_PER_KM <= arrivedM || (previousKm * METERS_PER_KM <= passM && (km - previousKm) * METERS_PER_KM > passM);
+}
+
 // The distance alerts (B2): the nearest threshold the vehicle has just come within, once each time
 // it is crossed; null on the first reading, so tracking a vehicle already close does not alert
 export function crossedDistance(previousKm: number | null, km: number | null, thresholdsM: readonly number[]): number | null {

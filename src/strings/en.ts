@@ -203,6 +203,9 @@ export const en = {
       jumpTo: 'Show the multicab you are tracking',
       nearTitle: (distance: string) => `Your multicab is ${distance} away`,
       nearBody: (label: string) => `${label} is on its way to your stop`,
+      // B2: tracking ends by itself at the stop
+      arrivedTitle: 'Your multicab has arrived',
+      arrivedBody: (label: string) => `${label} is at your stop. Tracking has ended.`,
       passed: 'Passed your stop',
       unknown: 'ETA unavailable',
       lastUpdated: 'Last updated',

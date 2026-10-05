@@ -48,9 +48,6 @@ type RouteSource = {
   splitAt?: Position;
 };
 
-// The Jeepney Terminal: Butuan City Integrated Transport Terminal, an assumption Emjay will confirm
-// (docs/route-trace.md)
-const JEEPNEY_TERMINAL: [number, number] = [125.53601, 8.95933];
 
 const SOURCES: RouteSource[] = [
   { code: 'R3', number: 3, name: 'Ampayon-Libertad', rule: 'vice_versa', reverseMissing: true },
@@ -58,7 +55,9 @@ const SOURCES: RouteSource[] = [
   // Ave, where it passed before; the outbound is that road back to De Oro (closes_back). No trim:
   // the tail is the start of the outbound.
   { code: 'R4', number: 4, name: 'De Oro', rule: 'closes_back', reverseMissing: false },
-  { code: 'R5', number: 5, name: 'Santo Niño', rule: 'partial_return', reverseMissing: false, trimAt: { return: JEEPNEY_TERMINAL } },
+  // R5: the same shape as R4, Santo Niño to downtown and on to J C Aquino Ave, where it passed
+  // before (closes_back); no trim, the tail is the start of the outbound
+  { code: 'R5', number: 5, name: 'Santo Niño', rule: 'closes_back', reverseMissing: false },
 ];
 
 const ROOT = path.join(__dirname, '..');
