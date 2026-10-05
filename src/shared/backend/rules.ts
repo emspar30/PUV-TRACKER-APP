@@ -18,8 +18,10 @@ import {
   MANILA_UTC_OFFSET_MIN,
   NIGHT_MODE_END,
   NIGHT_MODE_START,
+  USERNAME_BLOCKED_WORDS,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
+  USERNAME_RESERVED,
 } from '../config';
 
 const MS_PER_MIN = 60000;
@@ -90,6 +92,19 @@ export function passiveRefillDue(ledger: readonly LedgerRow[], atMs: number): bo
   return atMs - last >= ENERGY_PASSIVE_INTERVAL_H * MS_PER_HOUR;
 }
 
+// When the next passive refill is due: ENERGY_PASSIVE_INTERVAL_H after the last one, or now when
+// there has been none. Null while the wallet is full, since a refill books nothing then.
+export function nextPassiveRefillMs(lastPassiveMs: number | null, balance: number, nowMs: number, intervalH = ENERGY_PASSIVE_INTERVAL_H): number | null {
+  if (balance >= ENERGY_WALLET_CAP) return null;
+  return lastPassiveMs === null ? nowMs : lastPassiveMs + intervalH * MS_PER_HOUR;
+}
+
+// The time until the refill as the countdown shows it: "11h 59m", "59m", or "1m" in the last minute
+export function formatRefillIn(ms: number): { hours: number; minutes: number } {
+  const totalMin = Math.max(1, Math.ceil(ms / MS_PER_MIN));
+  return { hours: Math.floor(totalMin / MIN_PER_HOUR), minutes: totalMin % MIN_PER_HOUR };
+}
+
 export type TrackingStart = { ok: true; cost: number } | { ok: false; reason: 'not_enough_energy' };
 
 // A 30-minute tracking session costs ENERGY_TRACKING_COST, and nothing while Energy is off
@@ -117,7 +132,24 @@ export function isPostVisible(post: { createdMs: number; flaggedBy: readonly str
   return nowMs < feedExpiresAt(post.createdMs) && new Set(post.flaggedBy).size < FEED_FLAG_HIDE_COUNT;
 }
 
-// A username is 3 to 20 letters, digits or underscores (D7), as set_username checks on the server
+// What is wrong with a username (D7): 'format' unless it is 3 to 20 letters, digits or underscores
+// (as set_username checks on the server); 'blocked' when it is reserved or contains a blocked word
+// (checked on the phone only)
+export function usernameIssue(name: string): 'format' | 'blocked' | null {
+  if (!new RegExp(`^[A-Za-z0-9_]{${USERNAME_MIN_LENGTH},${USERNAME_MAX_LENGTH}}$`).test(name)) return 'format';
+  const lower = name.toLowerCase();
+  if (USERNAME_RESERVED.includes(lower) || USERNAME_BLOCKED_WORDS.some((word) => lower.includes(word))) return 'blocked';
+  return null;
+}
+
 export function isValidUsername(name: string): boolean {
-  return new RegExp(`^[A-Za-z0-9_]{${USERNAME_MIN_LENGTH},${USERNAME_MAX_LENGTH}}$`).test(name);
+  return usernameIssue(name) === null;
+}
+
+// A request key for an idempotent server call (8 to 64 characters, as energy_ledger checks)
+const BASE36 = 36;
+const RANDOM_CHARS = 8;
+export function newRequestKey(prefix: string, nowMs: number, random: number): string {
+  const tail = Math.floor(random * BASE36 ** RANDOM_CHARS).toString(BASE36).padStart(RANDOM_CHARS, '0');
+  return `${prefix}-${nowMs.toString(BASE36)}-${tail}`;
 }

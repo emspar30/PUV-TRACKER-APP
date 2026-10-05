@@ -5,8 +5,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { Button, Card, Screen } from '@/components';
 import { signInWithPassword, signUpWithPassword } from '@/services/auth';
-import { saveUsername } from '@/services/profile';
-import { useUsernameStore } from '@/state/usernameStore';
+import { syncUsername } from '@/state/usernameStore';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
@@ -28,12 +27,6 @@ export default function SignInScreen() {
 
   const canSubmit = email.trim().length > 0 && password.length >= (mode === 'signUp' ? PASSWORD_MIN_LENGTH : 1) && !busy;
 
-  // The handle picked in the introduction is sent once there is an account to hold it
-  const syncHandle = async () => {
-    const { username, synced, markSynced } = useUsernameStore.getState();
-    if (username && !synced && (await saveUsername(username)).ok) markSynced();
-  };
-
   const submit = async () => {
     if (!canSubmit) return;
     setBusy(true);
@@ -47,13 +40,13 @@ export default function SignInScreen() {
         setMode('signIn');
         return setNotice(strings.signIn.checkEmail);
       }
-      await syncHandle();
+      await syncUsername();
       return router.back();
     }
     const result = await signInWithPassword(email, password);
     setBusy(false);
     if (!result.ok) return setError(result.message);
-    await syncHandle();
+    await syncUsername();
     router.back();
   };
 

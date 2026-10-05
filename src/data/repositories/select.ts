@@ -3,8 +3,8 @@
 
 import type { DirectedLine, RouteStop } from '../../shared/routing/types';
 import { createDemoVehicles, type DemoClock } from '../demo/demoVehicles';
-import { noLiveCheckins, noLiveVehicles } from './noLiveData';
-import type { Repositories, VehiclesRepository } from './types';
+import { noLiveCheckins, noLiveEnergy, noLiveVehicles } from './noLiveData';
+import type { EnergyRepository, Repositories, VehiclesRepository } from './types';
 
 export type RepositoryInput = {
   demo: boolean;
@@ -24,4 +24,11 @@ export function selectRepositories({ demo, seed, lines, stops, stress, clock, li
     // Demo waiting counts arrive in AF7; until then Check-in shows "No data" and no Demo chip
     checkins: noLiveCheckins,
   };
+}
+
+// SB2: the Energy wallet follows the same switch. It is chosen once per switch position (not per
+// screen), so the top bar, Profile and the Map share one demo ledger.
+export function selectEnergy(demo: boolean, demoEnergy: EnergyRepository, live: EnergyRepository | null): EnergyRepository {
+  if (demo) return demoEnergy;
+  return live ?? noLiveEnergy;
 }

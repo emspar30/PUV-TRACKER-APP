@@ -1,8 +1,10 @@
 import { router } from 'expo-router';
-import { Bell, Menu } from 'lucide-react-native';
+import { Bell, Menu, Zap } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
+import { useRefillCountdown } from '@/features/energy/useRefillCountdown';
 import { Avatar } from '@/features/profile/Avatar';
+import { useEnergyStore } from '@/state/energyStore';
 import { useFareType } from '@/state/fareType';
 import { useProfileStore } from '@/state/profileStore';
 import { useUsernameStore } from '@/state/usernameStore';
@@ -16,7 +18,7 @@ const ICON_BOX = spacing.xl + spacing.sm;
 const ICON_HIT_SLOP = (MIN_TOUCH_TARGET - ICON_BOX) / 2;
 
 // The bar at the top of every tab (restyle): the user's avatar, handle and fare type (opens
-// Profile), room in the middle for Tracking Energy (SB2), and the bell and the menu close together
+// Profile), the Tracking Energy balance and the refill countdown under it (SB2, opens Profile), and the bell and the menu close together
 // on the right. It floats over the map on the map tabs and sits at the top of the list tabs.
 export function TopBar() {
   const styles = useStyles();
@@ -24,6 +26,8 @@ export function TopBar() {
   const avatarId = useProfileStore((state) => state.avatarId);
   const username = useUsernameStore((state) => state.username);
   const [fareType] = useFareType();
+  const energy = useEnergyStore((state) => state.snapshot);
+  const refillIn = useRefillCountdown();
   return (
     <View style={styles.bar}>
       <Pressable style={styles.who} onPress={() => router.push('/profile')} accessibilityRole="button" accessibilityLabel={strings.profilePage.title}>
@@ -37,8 +41,21 @@ export function TopBar() {
           </Text>
         </View>
       </Pressable>
-      {/* Room for Tracking Energy (SB2) */}
       <View style={styles.grow} />
+      {energy ? (
+        <Pressable
+          style={styles.energy}
+          onPress={() => router.push('/profile')}
+          accessibilityRole="button"
+          accessibilityLabel={strings.topBar.energy(energy.balance.toFixed(1), refillIn)}
+        >
+          <Zap color={colors.warning} size={ICON_SIZE - spacing.xs} />
+          <View>
+            <Text style={typography.labelLg}>{energy.balance.toFixed(1)}</Text>
+            {refillIn ? <Text style={[typography.bodySm, styles.refill]}>{refillIn}</Text> : null}
+          </View>
+        </Pressable>
+      ) : null}
       <View style={styles.icons}>
         <Pressable
           style={styles.icon}
@@ -85,6 +102,17 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
   },
   grow: {
     flex: 1,
+  },
+  energy: {
+    minHeight: MIN_TOUCH_TARGET,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+  },
+  refill: {
+    color: colors.textSecondary,
   },
   icons: {
     flexDirection: 'row',

@@ -15,3 +15,13 @@ export async function saveUsername(username: string): Promise<UsernameResult> {
     return { ok: false, reason: 'error', message: error instanceof Error ? error.message : String(error) };
   }
 }
+
+// The signed-in user's username on the server, or null when none is set (or on any error)
+export async function loadUsername(): Promise<string | null> {
+  try {
+    const { data, error } = await getSupabase().from('profiles').select('username').maybeSingle();
+    return error ? null : ((data?.username as string | null | undefined) ?? null);
+  } catch {
+    return null;
+  }
+}

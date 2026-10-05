@@ -32,6 +32,16 @@ export const LIVE_UI_REFRESH_INTERVAL_S = 5;
 // --- Username (PRD 19 D7; the same rule as set_username in the migration)
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 20;
+// D7 blocklist, checked on the phone (any case): names no one may take, and words no name may
+// contain. A small English list for now; Emjay supplies the full English and Cebuano lists before
+// any public release.
+export const USERNAME_RESERVED: readonly string[] = [
+  'admin', 'administrator', 'anonymous', 'commuter', 'deleted', 'demo', 'mod', 'moderator', 'null',
+  'official', 'root', 'staff', 'support', 'system', 'team', 'tunton', 'undefined',
+];
+export const USERNAME_BLOCKED_WORDS: readonly string[] = [
+  'bitch', 'cunt', 'faggot', 'fuck', 'nazi', 'nigga', 'nigger', 'pussy', 'shit', 'slut', 'whore',
+];
 
 // --- Tracking one vehicle and its ETA (L2; PRD 19.2 D9, plan decision 17). ETA = distance along the
 // line to the boarding point / recent speed. Shown only with at least ETA_MIN_SAMPLES speeds from the
@@ -228,6 +238,8 @@ export const NIGHT_MODE_TZ = 'Asia/Manila';
 // --- Energy, feed and tracking (PRD 19, D1, D2, D14; SB1). The same values are the defaults of the
 // server's app_config table, which is what the server enforces; these are for the app and the tests.
 export const ENERGY_ENABLED_DEFAULT = false;
+// The demo wallet (Demo data on) charges for tracking, so the pilot panel sees Energy spent
+export const ENERGY_ENABLED_DEMO = true;
 export const ENERGY_WALLET_CAP = 5;
 export const ENERGY_GPS_REPORT = 1.0;
 export const ENERGY_NO_GPS_REPORT = 0.5;
@@ -237,6 +249,10 @@ export const ENERGY_PASSIVE_INTERVAL_H = 12;
 export const ENERGY_PASSIVE_DAILY_MAX = 2;
 export const ENERGY_TRACKING_COST = 1;
 export const TRACKING_SESSION_MIN = 30;
+// SB2: the newest Energy history lines shown in Profile
+export const ENERGY_HISTORY_LIMIT = 20;
+// How often the refill countdown in the top bar and Profile updates
+export const ENERGY_COUNTDOWN_TICK_S = 30;
 export const FEED_LIFETIME_MIN = 60;
 export const FEED_FLAG_HIDE_COUNT = 3;
 export const FEED_PHRASES = ['full', 'few_seats', 'not_moving', 'heavy_traffic', 'loading'] as const;

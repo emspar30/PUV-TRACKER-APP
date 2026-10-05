@@ -298,6 +298,33 @@ live('SB1 commuter backend, live project', () => {
   );
 
   it(
+    'SB2: the passive refill is safe to repeat, and each account reads only its own Energy history',
+    async () => {
+      const first = await writer.rpc('energy_passive_refill');
+      expect(first.error).toBeNull();
+      // A second call within the interval books nothing
+      const again = await writer.rpc('energy_passive_refill');
+      expect(again.error).toBeNull();
+      expect(Number(again.data)).toBe(0);
+      // The queries the app's Energy port makes
+      const [balance, config, ledger] = await Promise.all([
+        writer.rpc('energy_balance'),
+        writer.from('app_config').select('energy_enabled').single(),
+        writer.from('energy_ledger').select('kind, amount, created_at').order('created_at', { ascending: false }).limit(20),
+      ]);
+      expect(balance.error ?? config.error ?? ledger.error).toBeNull();
+      expect(typeof config.data?.energy_enabled).toBe('boolean');
+      expect(ledger.data?.length).toBeGreaterThan(0);
+      // Row Level Security: the outsider's history never holds the writer's rows
+      const writerId = (await writer.auth.getUser()).data.user?.id;
+      const theirs = await outsider.from('energy_ledger').select('user_id');
+      expect(theirs.error).toBeNull();
+      expect((theirs.data ?? []).every((row) => row.user_id !== writerId)).toBe(true);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
     'a report appears in the feed with a username and no user id or coordinates',
     async () => {
       const post = await writer.rpc('post_report', {

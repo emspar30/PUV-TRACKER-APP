@@ -2,6 +2,8 @@ import { create } from 'zustand';
 
 import { getSupabase, isSupabaseConfigured } from '@/services/supabase';
 
+import { syncUsername } from './usernameStore';
+
 // The backend sign-in state. It holds only what the screens show: whether someone is signed in
 // and their email. Nothing from the profile store (which stays on the device) is kept here.
 
@@ -29,8 +31,11 @@ export function startSessionTracking(): void {
 
   try {
     const { auth } = getSupabase();
-    const apply = (email: string | null | undefined, signedIn: boolean) =>
+    const apply = (email: string | null | undefined, signedIn: boolean) => {
       useSessionStore.setState({ status: signedIn ? 'signed-in' : 'signed-out', email: email ?? null, error: null });
+      // SB2: the handle follows the account
+      if (signedIn) void syncUsername();
+    };
 
     auth
       .getSession()

@@ -24,7 +24,7 @@ import { Button, Card, Logo, OptionRow, StepHeader } from '@/components';
 import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
 import { useLocationPermission } from '@/features/map/useCommuterPosition';
 import { Avatar } from '@/features/profile/Avatar';
-import { isValidUsername } from '@/shared/backend/rules';
+import { isValidUsername, usernameIssue } from '@/shared/backend/rules';
 import {
   CLASSIFICATIONS,
   FARE_DISCOUNT_MULTIPLIER,
@@ -252,7 +252,9 @@ function ProfileStep({ handle, onHandle, valid }: { handle: string; onHandle: (t
       <Text style={[typography.bodySm, !valid && styles.error]}>
         {valid
           ? strings.onboarding.handleHint(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH)
-          : strings.onboarding.handleInvalid(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH)}
+          : usernameIssue(handle) === 'blocked'
+            ? strings.onboarding.handleBlocked
+            : strings.onboarding.handleInvalid(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH)}
       </Text>
     </>
   );

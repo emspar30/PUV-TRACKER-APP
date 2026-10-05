@@ -6,15 +6,17 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LoadingScreen } from '@/components';
 import { RouteDataProvider } from '@/data/RouteDataProvider';
 import { LOADING_MIN_MS } from '@/shared/config';
+import { startEnergySync } from '@/state/energyStore';
 import { startSessionTracking } from '@/state/sessionStore';
 import { ThemeProvider, useTheme } from '@/theme';
 
 const FILL = { flex: 1 } as const;
 
 export default function RootLayout() {
-  // Follows backend sign-in. Does nothing when the backend keys are absent.
+  // Follows backend sign-in (does nothing when the backend keys are absent) and the Energy wallet
   useEffect(() => {
     startSessionTracking();
+    startEnergySync();
   }, []);
 
   return (

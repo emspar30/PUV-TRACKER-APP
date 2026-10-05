@@ -1,7 +1,7 @@
-import { useIsFocused, useLocalSearchParams } from 'expo-router';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { Bus, LocateFixed, Maximize, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, Vibration, View } from 'react-native';
+import { Alert, Pressable, Text, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Logo, RoundButton, TopBar, type StatusTone } from '@/components';
@@ -26,7 +26,14 @@ import { TrackingPanel } from '@/features/tracking/TrackingPanel';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { useVehicles } from '@/features/vehicles/useVehicles';
 import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
-import { MAP_FOLLOW_ZOOM, MAX_WALK_PER_LEG_M, TRACK_ALERT_ETA_S, TRACK_OTHERS_OPACITY } from '@/shared/config';
+import {
+  ENERGY_TRACKING_COST,
+  MAP_FOLLOW_ZOOM,
+  MAX_WALK_PER_LEG_M,
+  TRACK_ALERT_ETA_S,
+  TRACK_OTHERS_OPACITY,
+  TRACKING_SESSION_MIN,
+} from '@/shared/config';
 import { nearestStop } from '@/shared/routing/describe';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { projectOntoLine } from '@/shared/geo/line';
@@ -37,6 +44,7 @@ import { seatTier } from '@/shared/telemetry/occupancy';
 import { isStopped } from '@/shared/telemetry/stopped';
 import { crossesAlert, etaTo, trackProgress } from '@/shared/tracking/eta';
 import { routeCodesOf } from '@/shared/ui/routeVisibility';
+import { startTrackingSession } from '@/state/energyStore';
 import { useHintsStore } from '@/state/hintsStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
@@ -84,6 +92,9 @@ export default function MapScreen() {
   const [trackedId, setTrackedId] = useState<string | null>(null);
   const [alertOn, setAlertOn] = useState(false);
   const previousEtaS = useRef<number | null>(null);
+  // SB2: when the paid session ends, and a guard so one tap never pays twice
+  const [trackEndsAtMs, setTrackEndsAtMs] = useState(Number.POSITIVE_INFINITY);
+  const startingTrack = useRef(false);
   const dismissHint = useHintsStore((store) => store.dismiss);
   const fittedOnce = useRef(false);
 
@@ -112,6 +123,11 @@ export default function MapScreen() {
   const commuter = useCommuterPosition();
   // The stop of the picked route nearest to the commuter, shown as "Your stop"
   const myStop = commuter && selectedRoute ? (nearestStop(layers.stops, commuter)?.stop ?? null) : null;
+  // A session lasts TRACKING_SESSION_MIN; tapping Track again starts (and pays for) a new one
+  if (trackedId && live.nowMs >= trackEndsAtMs) {
+    setTrackedId(null);
+    setAlertOn(false);
+  }
   const tracked = trackedId ? (live.vehicles.find((candidate) => candidate.id === trackedId) ?? null) : null;
   // The rider may walk to the route, so the boarding point may be up to a walk away from the line
   const trackedEta = tracked && commuter ? etaTo(tracked, lines, commuter, MAX_WALK_PER_LEG_M) : null;
@@ -169,8 +185,22 @@ export default function MapScreen() {
     frame(code);
   };
 
-  const startTracking = (id: string) => {
+  // SB2: tracking one PUV is paid with Energy (free while Energy is off); signing in comes first
+  // on live data (D6)
+  const startTracking = async (id: string) => {
+    if (startingTrack.current) return;
+    startingTrack.current = true;
+    const session = await startTrackingSession();
+    startingTrack.current = false;
+    if (!session.ok) {
+      if (session.reason === 'sign_in') router.push('/sign-in');
+      else if (session.reason === 'not_enough_energy')
+        Alert.alert(strings.live.tracking.noEnergyTitle, strings.live.tracking.noEnergyBody(ENERGY_TRACKING_COST, TRACKING_SESSION_MIN));
+      else Alert.alert(strings.live.tracking.failedTitle, session.message);
+      return;
+    }
     const target = live.vehicles.find((candidate) => candidate.id === id);
+    setTrackEndsAtMs(session.endsAtMs);
     setTrackedId(id);
     setSelectedVehicle(id);
     setAlertOn(arrivalAlert);
@@ -400,7 +430,7 @@ export default function MapScreen() {
               const eta = commuter ? etaTo(vehicle, lines, commuter, MAX_WALK_PER_LEG_M) : null;
               return eta?.kind === 'approaching' ? strings.live.tracking.minutes(eta.etaS) : null;
             })()}
-            onTrack={() => startTracking(vehicle.id)}
+            onTrack={() => void startTracking(vehicle.id)}
             onClose={() => setSelectedVehicle(null)}
           />
         ) : stop ? (

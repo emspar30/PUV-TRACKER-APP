@@ -62,6 +62,7 @@ export const en = {
     // Shown until the user picks a handle
     guest: 'Commuter',
     notifications: 'Notifications',
+    energy: (balance: string, refill: string | null) => `${balance} Tracking Energy${refill ? `, refill in ${refill}` : ''}`,
   },
 
   // The bell in the top bar; notifications come in a later step
@@ -172,6 +173,10 @@ export const en = {
       you: 'You',
       demoStop: (stop: string) => `Demo: you wait at ${stop}`,
       lost: 'No recent position',
+      // SB2: paying for a session
+      noEnergyTitle: 'Not enough Energy',
+      noEnergyBody: (cost: number, minutes: number) => `Tracking costs ${cost} Energy for ${minutes} minutes. Earn Energy with check-ins and reports.`,
+      failedTitle: 'Tracking could not start',
     },
   },
 
@@ -380,6 +385,26 @@ export const en = {
     none: 'None kept',
     energy: 'Tracking Energy',
     energyFree: 'Free during the pilot',
+    // SB2
+    energyBalance: (balance: string, cap: number) => `${balance} (max ${cap})`,
+    // The passive refill countdown: "11h 59m" or "59m"
+    refillIn: (hours: number, minutes: number) => (hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`),
+    energyRefill: (time: string) => `Refill in ${time}`,
+    energyFull: 'Full',
+    energySignIn: 'Sign in to earn Energy',
+    energyHistory: 'Energy history',
+    energyEmpty: (hours: number) => `No Energy yet. A refill comes every ${hours} hours.`,
+    energyKinds: {
+      gps_report: 'Report with GPS',
+      no_gps_report: 'Report without GPS',
+      checkin: 'Check-in',
+      passive: 'Refill',
+      tracking: 'Tracked a multicab',
+    } as Record<'gps_report' | 'no_gps_report' | 'checkin' | 'passive' | 'tracking', string>,
+    energyAmount: (amount: number) => `${amount > 0 ? '+' : '−'}${Math.abs(amount).toFixed(1)}`,
+    handleNotSaved: 'Not saved to your account yet',
+    handleTaken: 'Someone already has this handle. Pick another.',
+    handleSaveFailed: 'Could not save the handle. It will be sent again when you sign in.',
   },
 
   direction: {
@@ -502,6 +527,7 @@ export const en = {
     handlePlaceholder: 'e.g. JuanCommuter',
     handleHint: (min: number, max: number) => `${min} to ${max} letters, digits or _. Shown on your reports instead of your name.`,
     handleInvalid: (min: number, max: number) => `Use ${min} to ${max} letters, digits or _`,
+    handleBlocked: 'This handle is not allowed. Pick another.',
     typeStep: 'Fare',
     typeTitle: 'Select commuter type',
     typeBody: 'Applies the fare discount to your estimates.',

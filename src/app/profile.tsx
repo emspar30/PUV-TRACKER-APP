@@ -1,17 +1,28 @@
+import { router } from 'expo-router';
 import { Database, History, Zap } from 'lucide-react-native';
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
 import { Card, Screen, SettingsGroup, SettingsRow } from '@/components';
+import { useRefillCountdown } from '@/features/energy/useRefillCountdown';
 import { Avatar } from '@/features/profile/Avatar';
 import { AvatarPicker, ShuffleAvatarChip } from '@/features/profile/AvatarPicker';
 import { FareTypeChips } from '@/features/ride/FareTypeChips';
-import { isValidUsername } from '@/shared/backend/rules';
-import { FARE_DISCOUNT_MULTIPLIER, FARE_DISCOUNTED_CLASSES, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from '@/shared/config';
+import { usernameIssue } from '@/shared/backend/rules';
+import {
+  ENERGY_PASSIVE_INTERVAL_H,
+  ENERGY_WALLET_CAP,
+  FARE_DISCOUNT_MULTIPLIER,
+  FARE_DISCOUNTED_CLASSES,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+} from '@/shared/config';
+import { useEnergyStore } from '@/state/energyStore';
 import { useFareType } from '@/state/fareType';
 import { useProfileStore } from '@/state/profileStore';
 import { useRidesStore } from '@/state/ridesStore';
-import { useUsernameStore } from '@/state/usernameStore';
+import { useSessionStore } from '@/state/sessionStore';
+import { syncUsername, useUsernameStore } from '@/state/usernameStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -20,22 +31,55 @@ const PERCENT = 100;
 const DISCOUNT_PERCENT = Math.round((1 - FARE_DISCOUNT_MULTIPLIER) * PERCENT);
 
 // Profile (restyle), opened from the menu or the avatar: avatar, handle, fare type and ride counts.
-// Everything but the handle stays on this phone; the handle is sent when the user signs in.
+// Everything but the handle stays on this phone; the handle is sent when the user signs in, and
+// saved to the account at once while signed in (SB2). Tracking Energy and its history (SB2).
 export default function ProfileScreen() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const avatarId = useProfileStore((state) => state.avatarId);
   const username = useUsernameStore((state) => state.username);
   const setUsername = useUsernameStore((state) => state.setUsername);
+  const synced = useUsernameStore((state) => state.synced);
+  const syncError = useUsernameStore((state) => state.syncError);
+  const signedIn = useSessionStore((state) => state.status === 'signed-in');
+  const energy = useEnergyStore((state) => state.snapshot);
+  const energySource = useEnergyStore((state) => state.source);
+  const refillIn = useRefillCountdown();
   const rides = useRidesStore((state) => state.rides);
   const [fareType] = useFareType();
   const [handle, setHandle] = useState(username ?? '');
-  const valid = handle.length === 0 || isValidUsername(handle);
+  const issue = handle.length === 0 ? null : usernameIssue(handle);
+  const valid = issue === null;
   const discounted = FARE_DISCOUNTED_CLASSES.includes(fareType);
 
   const save = () => {
-    if (handle.length > 0 && isValidUsername(handle) && handle !== username) setUsername(handle);
+    if (handle.length === 0 || !valid || handle === username) return;
+    setUsername(handle);
+    if (signedIn) void syncUsername();
   };
+
+  const handleMessage = (() => {
+    if (issue === 'format') return strings.onboarding.handleInvalid(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH);
+    if (issue === 'blocked') return strings.onboarding.handleBlocked;
+    if (handle === username && syncError === 'taken') return strings.profilePage.handleTaken;
+    if (handle === username && syncError) return strings.profilePage.handleSaveFailed;
+    if (signedIn && username && !synced) return strings.profilePage.handleNotSaved;
+    return strings.onboarding.handleHint(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH);
+  })();
+  const handleError = !valid || (handle === username && syncError !== null);
+
+  // Signed out on live data: there is no wallet until there is an account
+  const energyNeedsSignIn = !energy && energySource === 'live';
+  const energySubtitle = energy
+    ? [
+        strings.profilePage.energyBalance(energy.balance.toFixed(1), ENERGY_WALLET_CAP),
+        ...(refillIn ? [strings.profilePage.energyRefill(refillIn)] : []),
+        ...(energy.nextRefillMs === null ? [strings.profilePage.energyFull] : []),
+        ...(energy.enabled ? [] : [strings.profilePage.energyFree]),
+      ].join(' · ')
+    : energyNeedsSignIn
+      ? strings.profilePage.energySignIn
+      : strings.profilePage.energyFree;
 
   return (
     <Screen title={strings.profilePage.title}>
@@ -58,7 +102,7 @@ export default function ProfileScreen() {
       <AvatarPicker />
 
       <Text style={typography.overline}>{strings.profilePage.handle}</Text>
-      <View style={[styles.input, !valid && styles.inputError]}>
+      <View style={[styles.input, handleError && styles.inputError]}>
         <Text style={[typography.bodyLg, styles.muted]}>@</Text>
         <TextInput
           style={[typography.bodyLg, styles.grow]}
@@ -74,11 +118,7 @@ export default function ProfileScreen() {
           accessibilityLabel={strings.profilePage.handle}
         />
       </View>
-      <Text style={[typography.bodySm, !valid && styles.error]}>
-        {valid
-          ? strings.onboarding.handleHint(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH)
-          : strings.onboarding.handleInvalid(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH)}
-      </Text>
+      <Text style={[typography.bodySm, handleError && styles.error]}>{handleMessage}</Text>
 
       <Text style={typography.overline}>{strings.profilePage.fareType}</Text>
       <FareTypeChips />
@@ -93,13 +133,44 @@ export default function ProfileScreen() {
       </Card>
 
       <SettingsGroup>
-        <SettingsRow first icon={Zap} tone="warning" title={strings.profilePage.energy} badge={strings.profilePage.energyFree} />
+        <SettingsRow
+          first
+          icon={Zap}
+          tone="warning"
+          title={strings.profilePage.energy}
+          subtitle={energySubtitle}
+          badge={energySource === 'demo' ? strings.common.demo : undefined}
+          onPress={energyNeedsSignIn ? () => router.push('/sign-in') : undefined}
+        />
         <SettingsRow icon={Database} title={strings.profilePage.storage} detail={strings.settings.localOnly} />
         <SettingsRow icon={History} title={strings.profilePage.locationHistory} detail={strings.profilePage.none} />
       </SettingsGroup>
+
+      {energy ? (
+        <Card>
+          <Text style={typography.labelLg}>{strings.profilePage.energyHistory}</Text>
+          {energy.history.length === 0 ? (
+            <Text style={typography.bodySm}>{strings.profilePage.energyEmpty(ENERGY_PASSIVE_INTERVAL_H)}</Text>
+          ) : (
+            energy.history.map((entry, index) => (
+              <View key={`${entry.atMs}-${index}`} style={styles.historyRow}>
+                <View style={styles.grow}>
+                  <Text style={typography.bodyMd}>{strings.profilePage.energyKinds[entry.kind]}</Text>
+                  <Text style={typography.bodySm}>{HISTORY_TIME.format(new Date(entry.atMs))}</Text>
+                </View>
+                <Text style={[typography.labelLg, entry.amount > 0 ? styles.earned : styles.muted]}>
+                  {strings.profilePage.energyAmount(entry.amount)}
+                </Text>
+              </View>
+            ))
+          )}
+        </Card>
+      ) : null}
     </Screen>
   );
 }
+
+const HISTORY_TIME = new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 function Stat({ value, label }: { value: number; label: string }) {
   const styles = useStyles();
@@ -162,5 +233,14 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   primary: {
     color: colors.primary,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  earned: {
+    color: colors.success,
   },
 }));
