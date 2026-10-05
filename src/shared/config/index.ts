@@ -113,6 +113,10 @@ export const FARE_DISCOUNTED_CLASSES: readonly Classification[] = ['student', 's
 export const MAX_WALK_PER_LEG_M = 500;
 // Check-in card: "2 min walk" from the distance, at an unhurried 80 m a minute (about 4.8 km/h)
 export const WALK_SPEED_M_PER_MIN = 80;
+// B3: an in-app reminder this long into a check-in, when the Check-in tab is not in front
+export const CHECKIN_REMINDER_MIN = 5;
+// B3: the "Safe travel" card after "I boarded" stays this long, then the card goes back to stations
+export const CHECKIN_FAREWELL_S = 6;
 export const ROUTING_P95_BUDGET_MS = 250;
 
 // --- Route data checks (seeding now, the import script later)

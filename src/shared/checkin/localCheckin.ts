@@ -8,6 +8,8 @@ const MS_PER_S = 1000;
 const S_PER_MIN = 60;
 const PAD = 2;
 
+const MS_PER_MIN = 60000;
+
 export type LocalCheckIn = {
   // The first of routeCodes, the route the sheet and My Rides show
   routeCode: string;
@@ -59,4 +61,11 @@ export function parseStoredCheckIn(value: unknown): LocalCheckIn | null {
   const stored = Array.isArray(record.routeCodes) ? record.routeCodes.filter((code): code is string => typeof code === 'string') : [];
   const routeCodes = stored.length > 0 ? stored : [routeCode];
   return { routeCode, routeCodes, stationCode, createdAtMs, expiresAtMs };
+}
+
+// B3: when to remind the commuter of a running check-in, `minutes` after it started; null when the
+// check-in ends first
+export function reminderAtMs(checkIn: LocalCheckIn, minutes: number): number | null {
+  const atMs = checkIn.createdAtMs + minutes * MS_PER_MIN;
+  return atMs < checkIn.expiresAtMs ? atMs : null;
 }

@@ -33,6 +33,8 @@ export const en = {
   tabs: {
     live: 'Map',
     checkin: 'Check-in',
+    // B3: the tab while a check-in runs (the red dot)
+    checkinActive: 'Check-in, you are checked in',
     ride: 'My Rides',
     crowdsource: 'Crowdsource',
   },
@@ -327,6 +329,20 @@ export const en = {
     noStations: 'No stations on this route yet',
     checkIn: 'Check in',
     checkInAt: (code: string) => `Check in at ${code}`,
+    // B3: every stop by default, a route filter, the minimised card, the farewell and the reminder
+    allRoutes: 'All',
+    allHint: 'Tap a station, or pick a route to see only its stops',
+    filterLabel: (code: string, on: boolean) => `Show only ${code} stops${on ? ', on' : ''}`,
+    allLabel: (on: boolean) => `Show every route's stops${on ? ', on' : ''}`,
+    routesHere: 'Routes here',
+    minimize: 'Make the card smaller',
+    expand: 'Show the whole card',
+    compactActive: (code: string) => `Checked in at ${code}`,
+    farewellTitle: 'Safe travel!',
+    farewellBody: (routes: string) => `Enjoy your ride on ${routes}. Your check-in has ended.`,
+    farewellDone: 'Done',
+    reminderTitle: (code: string) => `Still waiting at ${code}?`,
+    reminderBody: (left: string) => `You are still checked in, ${left} left. Open Check-in to see it.`,
     boarded: 'I boarded',
     cancel: 'Cancel',
     countdown: (time: string) => `${time} left`,
@@ -343,7 +359,6 @@ export const en = {
     failedBody: 'Try again in a moment.',
     // C1 UI pass: the sheet, after Google Maps' place sheet
     title: 'Stations & check-in',
-    pickHint: 'Pick a route, then tap a station dot',
     tapHint: 'Tap a station dot on the map',
     stopsCount: (count: number) => (count === 1 ? '1 stop' : `${count} stops`),
     walkMin: (minutes: number) => `${Math.max(1, minutes)} min walk`,
@@ -555,7 +570,7 @@ export const en = {
   // AF1: one short first-run line per tab, at most 6 words, never shown again once dismissed
   hints: {
     live: 'Pick a route to see it',
-    checkin: 'Pick your route, then station',
+    checkin: 'Tap a station to check in',
     ride: 'Where are you going?',
     dismiss: 'Dismiss tip',
   },

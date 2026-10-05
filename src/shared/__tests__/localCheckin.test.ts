@@ -1,5 +1,6 @@
-import { CHECKIN_LIFETIME_S } from '../config';
-import { formatCountdown, isActive, parseStoredCheckIn, remainingMs, startCheckIn } from '../checkin/localCheckin';
+import { CHECKIN_LIFETIME_S, CHECKIN_REMINDER_MIN } from '../config';
+import { formatCountdown, isActive, parseStoredCheckIn, reminderAtMs, remainingMs, startCheckIn } from '../checkin/localCheckin';
+import { mergeWaiting } from '../checkin/waiting';
 import { verifyCheckIn } from '../verification/verifyCheckIn';
 
 // A fixed clock, not the real one
@@ -67,5 +68,22 @@ describe('verifyCheckIn', () => {
       status: 'unverified',
       reasons: ['verification_disabled'],
     });
+  });
+});
+
+describe('B3: reminder and merged waiting counts', () => {
+  it('reminds 5 minutes in, and not when the check-in ends first', () => {
+    const t0 = Date.UTC(2026, 9, 6, 2);
+    const running = startCheckIn('R4', 'RCA', t0);
+    expect(CHECKIN_REMINDER_MIN).toBe(5);
+    expect(reminderAtMs(running, CHECKIN_REMINDER_MIN)).toBe(t0 + 5 * 60000);
+    const short = startCheckIn('R4', 'RCA', t0, t0 + 4 * 60000);
+    expect(reminderAtMs(short, CHECKIN_REMINDER_MIN)).toBeNull();
+  });
+
+  it('keeps the larger count per station, never the sum, and null when nothing is known', () => {
+    const merged = mergeWaiting([new Map([['RCA', 2], ['JCA', 1]]), null, new Map([['RCA', 3]])]);
+    expect(merged && [...merged.entries()].sort()).toEqual([['JCA', 1], ['RCA', 3]]);
+    expect(mergeWaiting([null, null])).toBeNull();
   });
 });
