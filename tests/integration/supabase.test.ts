@@ -31,7 +31,8 @@ if (!configured) {
 const live = configured ? describe : describe.skip;
 
 const VEHICLE = 'R4-TEST-01';
-const TIMEOUT_MS = 30000;
+// Generous: the whole suite runs in parallel, and the live calls slow down under that load
+const TIMEOUT_MS = 60000;
 
 function client(): SupabaseClient {
   return createClient(env.EXPO_PUBLIC_SUPABASE_URL!, env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
