@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { Bus, Clock, Footprints, LocateOff, MapPin, MapPinOff, Navigation, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Hint, IconTile, LineBadge, Logo, RouteChip, TopBar } from '@/components';
@@ -326,14 +326,15 @@ export default function CheckInScreen() {
         <TopBar />
       </View>
 
-      <Animated.View
+      {/* Anchored to the bottom and sized by its content. No layout transition here: on an absolute,
+          bottom-anchored view it keeps the old top and grows the height downward, under the tab bar. */}
+      <View
         style={[styles.card, elevation.level3]}
-        layout={LinearTransition.duration(motion.cardMs)}
         onLayout={(event) => setCardHeight(Math.round(event.nativeEvent.layout.height) + spacing.md)}
       >
         {activeCard}
         {pickCard}
-      </Animated.View>
+      </View>
     </View>
   );
 }
