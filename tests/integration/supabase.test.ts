@@ -356,6 +356,11 @@ live('SB1 commuter backend, live project', () => {
       expect(visible.data).toMatchObject({ phrase: 'few_seats' });
       const bad = await writer.rpc('post_report', { route: 'R4', phrase: 'free text here', seat_tier: null, vehicle: null, with_gps: false, request_key: key('bad') });
       expect(bad.error).not.toBeNull();
+      // B4: "What's happening" is optional; the seat tier alone is a relay
+      const seatsOnly = await writer.rpc('post_report', { route: 'R4', phrase: null, seat_tier: 'green', vehicle: null, with_gps: false, request_key: key('seats') });
+      expect(seatsOnly.error).toBeNull();
+      const shown = await outsider.from('feed_posts').select('phrase, seat_tier').eq('id', seatsOnly.data).single();
+      expect(shown.data).toMatchObject({ phrase: null, seat_tier: 'green' });
     },
     TIMEOUT_MS,
   );
