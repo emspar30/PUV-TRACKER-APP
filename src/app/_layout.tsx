@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { DialogHost, LoadingScreen } from '@/components';
+import { DialogHost, LoadingScreen, ToastHost } from '@/components';
 import { RouteDataProvider } from '@/data/RouteDataProvider';
 import { LOADING_MIN_MS } from '@/shared/config';
 import { startEnergySync } from '@/state/energyStore';
@@ -46,6 +46,7 @@ function ThemedStack() {
       <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
       {/* Every page, the menu included, slides in from the right over the whole screen, with no dimming */}
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: colors.canvas } }} />
+      <ToastHost />
       <DialogHost />
     </>
   );

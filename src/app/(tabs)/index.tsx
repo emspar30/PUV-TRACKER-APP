@@ -1,5 +1,5 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { Bus, LocateFixed, RadioTower, X, Zap } from 'lucide-react-native';
+import { BellRing, Bus, Crosshair, LocateFixed, RadioTower, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, Vibration, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -24,6 +24,7 @@ import { useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { TrackingLayers } from '@/features/tracking/TrackingLayers';
+import { TrackingBar } from '@/features/tracking/TrackingBar';
 import { TrackingPanel } from '@/features/tracking/TrackingPanel';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { useVehicles } from '@/features/vehicles/useVehicles';
@@ -34,6 +35,7 @@ import {
   MAX_WALK_PER_LEG_M,
   ROUTE_STOP_MAX_DISTANCE_M,
   TRACK_ALERT_ETA_S,
+  TRACK_DISTANCE_ALERTS_M,
   TRACK_OTHERS_OPACITY,
   TRACKING_SESSION_MIN,
 } from '@/shared/config';
@@ -41,18 +43,21 @@ import { canReportWithGps } from '@/shared/checkin/geofence';
 import { nearestStop } from '@/shared/routing/describe';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { projectOntoLine } from '@/shared/geo/line';
+import { withReturnLegs } from '@/shared/routing/loop';
 import type { RouteDirection } from '@/shared/routing/types';
 import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import { isStopped } from '@/shared/telemetry/stopped';
-import { crossesAlert, etaTo, trackProgress } from '@/shared/tracking/eta';
-import { routeCodesOf } from '@/shared/ui/routeVisibility';
+import { crossedDistance, crossesAlert, etaTo, trackProgress } from '@/shared/tracking/eta';
+import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
 import { showDialog } from '@/state/dialogStore';
 import { useHintsStore } from '@/state/hintsStore';
 import { useLocationStore } from '@/state/locationStore';
 import { useSettingsStore } from '@/state/settingsStore';
+import { showToast } from '@/state/toastStore';
+import { useTrackingStore } from '@/state/trackingStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
@@ -85,12 +90,18 @@ export default function MapScreen() {
   const [filter, setFilter] = useState<VehicleFilter>(seatFilter ? 'seats' : 'all');
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedStop, setSelectedStop] = useState<string | null>(null);
-  // L2: the tracked multicab and the in-app arrival alert
-  const [trackedId, setTrackedId] = useState<string | null>(null);
-  const [alertOn, setAlertOn] = useState(false);
+  // L2, B2: the tracked multicab and its alerts live in a store, so picking another route never
+  // ends tracking; only Stop or the end of the paid session (SB2) does
+  const trackedId = useTrackingStore((store) => store.vehicleId);
+  const trackedRoute = useTrackingStore((store) => store.routeCode);
+  const trackEndsAtMs = useTrackingStore((store) => store.endsAtMs);
+  const alertOn = useTrackingStore((store) => store.alertOn);
+  const setAlertOn = useTrackingStore((store) => store.setAlertOn);
+  const startTrack = useTrackingStore((store) => store.start);
+  const stopTracking = useTrackingStore((store) => store.stop);
   const previousEtaS = useRef<number | null>(null);
-  // SB2: when the paid session ends, and a guard so one tap never pays twice
-  const [trackEndsAtMs, setTrackEndsAtMs] = useState(Number.POSITIVE_INFINITY);
+  const previousKm = useRef<number | null>(null);
+  // A guard so one tap never pays twice
   const startingTrack = useRef(false);
   const dismissHint = useHintsStore((store) => store.dismiss);
   const fittedOnce = useRef(false);
@@ -106,6 +117,14 @@ export default function MapScreen() {
   // Tabs stay mounted; vehicles refresh only while Map is the tab in front
   const focused = useIsFocused();
   const live = useVehicles(repos.vehicles, focused ? selectedRoute : null);
+  // B2: each route with one stored leg also has its stand-in other leg, so ETAs follow a vehicle round
+  const loopLines = useMemo(() => withReturnLegs(lines), [lines]);
+  // The tracked multicab's own feed, kept running on another route and on other tabs, so its alerts
+  // still come; on its own route with Map in front, the route's feed already has it
+  const onTrackedRoute = trackedRoute !== null && trackedRoute === selectedRoute;
+  const trackedFeed = useVehicles(repos.vehicles, trackedRoute && !(focused && onTrackedRoute) ? trackedRoute : null);
+  const trackSource = focused && onTrackedRoute ? live : trackedFeed;
+  const trackedStops = useMemo(() => stopsForRoute(lines, stops, trackedRoute), [lines, stops, trackedRoute]);
   const vehicles = useMemo(() => {
     const directionOf = new Map(lines.map((line) => [line.id, line.direction]));
     return live.vehicles.filter(
@@ -121,22 +140,22 @@ export default function MapScreen() {
   const [reportOpen, setReportOpen] = useState(false);
   const fixAccuracyM = useLocationStore((store) => store.fix?.accuracyM ?? null);
   const gpsAvailable = canReportWithGps(commuter ? { ...commuter, accuracyM: commuter.source === 'gps' ? fixAccuracyM : null } : null);
-  // The stop of the picked route nearest to the commuter, shown as "Your stop"
-  const myStop = commuter && selectedRoute ? (nearestStop(layers.stops, commuter)?.stop ?? null) : null;
+  // The stop of the tracked route nearest to the commuter, shown as "Your stop"
+  const myStop = commuter && trackedRoute ? (nearestStop(trackedStops, commuter)?.stop ?? null) : null;
   // A session lasts TRACKING_SESSION_MIN; tapping Track again starts (and pays for) a new one
-  if (trackedId && live.nowMs >= trackEndsAtMs) {
-    setTrackedId(null);
-    setAlertOn(false);
-  }
-  const tracked = trackedId ? (live.vehicles.find((candidate) => candidate.id === trackedId) ?? null) : null;
-  const trackedProgress = tracked ? trackProgress(tracked, lines, layers.stops, myStop) : { passed: null, next: null, mine: myStop };
+  const sessionOver = trackedId !== null && trackSource.nowMs >= trackEndsAtMs;
+  useEffect(() => {
+    if (sessionOver) stopTracking();
+  }, [sessionOver, stopTracking]);
+  const tracked = trackedId && !sessionOver ? (trackSource.vehicles.find((candidate) => candidate.id === trackedId) ?? null) : null;
+  const trackedProgress = tracked ? trackProgress(tracked, loopLines, trackedStops, myStop) : { passed: null, next: null, mine: myStop };
   // The rider may walk to the route, so the boarding point may be up to a walk away from the line
-  const etaToMe = tracked && commuter ? etaTo(tracked, lines, commuter, MAX_WALK_PER_LEG_M) : null;
+  const etaToMe = tracked && commuter ? etaTo(tracked, loopLines, commuter, MAX_WALK_PER_LEG_M) : null;
   // No usable boarding point (no position, outside the map, or not on this route): the ETA to the
   // vehicle's next stop instead, so tracking always shows a time while the vehicle is on its line
   const etaToNext =
     tracked && (!etaToMe || etaToMe.kind === 'unknown') && trackedProgress.next
-      ? etaTo(tracked, lines, trackedProgress.next, ROUTE_STOP_MAX_DISTANCE_M)
+      ? etaTo(tracked, loopLines, trackedProgress.next, ROUTE_STOP_MAX_DISTANCE_M)
       : null;
   const trackedEta = etaToNext?.kind === 'approaching' ? etaToNext : etaToMe;
   const etaTarget: 'mine' | 'next' = etaToNext?.kind === 'approaching' ? 'next' : 'mine';
@@ -148,6 +167,22 @@ export default function MapScreen() {
     if (alertOn && crossesAlert(previousEtaS.current, trackedEtaS, TRACK_ALERT_ETA_S)) Vibration.vibrate();
     previousEtaS.current = trackedEtaS;
   }, [alertOn, trackedEtaS]);
+
+  // B2: a toast and a short vibration as the multicab comes within 1 km, 500 m, 250 m and 100 m of
+  // the commuter, while the alert is on. In-app only, on any tab.
+  const trackedKm = trackedEta?.kind === 'approaching' && etaTarget === 'mine' ? trackedEta.distanceKm : null;
+  const trackedLabel = tracked?.label ?? null;
+  useEffect(() => {
+    const crossedM = alertOn ? crossedDistance(previousKm.current, trackedKm, TRACK_DISTANCE_ALERTS_M) : null;
+    previousKm.current = trackedKm;
+    if (crossedM === null) return;
+    Vibration.vibrate();
+    showToast({
+      icon: BellRing,
+      title: strings.live.tracking.nearTitle(strings.checkin.distance(crossedM)),
+      body: trackedLabel ? strings.live.tracking.nearBody(trackedLabel) : undefined,
+    });
+  }, [alertOn, trackedKm, trackedLabel]);
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
@@ -188,7 +223,6 @@ export default function MapScreen() {
     setFilter(nextFilter);
     setSelectedVehicle(null);
     setSelectedStop(null);
-    setTrackedId(null);
     setSelectorOpen(false);
     dismissHint('live');
     frame(code);
@@ -197,7 +231,8 @@ export default function MapScreen() {
   // SB2: tracking one PUV is paid with Energy (free while Energy is off); signing in comes first
   // on live data (D6)
   const startTracking = async (id: string) => {
-    if (startingTrack.current) return;
+    const routeCode = live.vehicles.find((candidate) => candidate.id === id)?.routeCode ?? selectedRoute;
+    if (startingTrack.current || !routeCode) return;
     startingTrack.current = true;
     const session = await startTrackingSession();
     startingTrack.current = false;
@@ -219,20 +254,26 @@ export default function MapScreen() {
       return;
     }
     const target = live.vehicles.find((candidate) => candidate.id === id);
-    setTrackEndsAtMs(session.endsAtMs);
-    setTrackedId(id);
+    startTrack({ vehicleId: id, routeCode, endsAtMs: session.endsAtMs, alertOn: arrivalAlert });
     setSelectedVehicle(id);
-    setAlertOn(arrivalAlert);
     previousEtaS.current = null;
+    previousKm.current = null;
     if (target && commuter) {
       const bounds = boundsOfLines([[[target.lon, target.lat], [commuter.lon, commuter.lat]]]);
       setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds }));
     }
   };
 
-  const stopTracking = () => {
-    setTrackedId(null);
-    setAlertOn(false);
+  // B2: back to the tracked multicab from anywhere on the map: its route, centred on the vehicle
+  const jumpToTracked = () => {
+    if (!trackedRoute) return;
+    if (trackedRoute !== selectedRoute) {
+      setSelectedRoute(trackedRoute);
+      setSelectedStop(null);
+    }
+    setSelectedVehicle(trackedId);
+    if (tracked) setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: tracked, zoom: MAP_FOLLOW_ZOOM }));
+    else frame(trackedRoute);
   };
 
   // The simulated position (Demo settings) is centred directly; otherwise the GPS flow of G0:
@@ -253,7 +294,6 @@ export default function MapScreen() {
   }
 
   const hideRoute = () => {
-    setTrackedId(null);
     setSelectedRoute(null);
     setSelectedVehicle(null);
     setSelectedStop(null);
@@ -272,8 +312,7 @@ export default function MapScreen() {
       setFilter('all');
       setSelectedVehicle(null);
       setSelectedStop(null);
-      setTrackedId(null);
-      setSelectorOpen(false);
+        setSelectorOpen(false);
       const bounds = clipBounds(boundsOfLines(ofRoute.map((line) => line.coordinates)), TILESET.bounds);
       setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds }));
     }
@@ -349,10 +388,10 @@ export default function MapScreen() {
             nowMs={live.nowMs}
             color={colorOfRoute(selectedRoute)}
             labels={state.tiles.glyphsUrl !== null}
-            selectedId={trackedId ?? selectedVehicle}
-            othersOpacity={trackedId ? TRACK_OTHERS_OPACITY : 1}
+            selectedId={onTrackedRoute ? trackedId : selectedVehicle}
+            othersOpacity={onTrackedRoute ? TRACK_OTHERS_OPACITY : 1}
             onPressVehicle={(id) => {
-              if (trackedId) return;
+              if (onTrackedRoute) return;
               setSelectedVehicle(id);
               setSelectedStop(null);
             }}
@@ -362,8 +401,8 @@ export default function MapScreen() {
           <TrackingLayers
             commuter={commuter}
             showPin={commuter.source !== 'gps'}
-            vehicle={tracked}
-            line={tracked ? (lines.find((line) => line.id === tracked.lineId) ?? null) : null}
+            vehicle={onTrackedRoute ? tracked : null}
+            line={onTrackedRoute && tracked ? (loopLines.find((line) => line.id === tracked.lineId) ?? null) : null}
             labels={state.tiles.glyphsUrl !== null}
           />
         ) : null}
@@ -390,6 +429,7 @@ export default function MapScreen() {
 
       <View style={styles.bottom} onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)} pointerEvents="box-none">
         <View style={styles.buttons} pointerEvents="box-none">
+          {trackedId ? <RoundButton icon={Crosshair} label={strings.live.tracking.jumpTo} onPress={jumpToTracked} active /> : null}
           <RoundButton icon={RadioTower} label={strings.report.title} onPress={() => setReportOpen(true)} />
           <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
           <RoundButton
@@ -410,12 +450,20 @@ export default function MapScreen() {
             </Pressable>
           </View>
         ) : null}
+        {trackedId && trackedRoute && !onTrackedRoute ? (
+          <TrackingBar
+            label={tracked?.label ?? null}
+            routeCode={trackedRoute}
+            eta={trackedEta?.kind === 'approaching' ? strings.live.tracking.minutes(trackedEta.etaS) : null}
+            onPress={jumpToTracked}
+          />
+        ) : null}
         {/* The bottom card slides up whenever it changes (tracking, a vehicle, a stop, explore) */}
         <Animated.View
-          key={trackedId ? 'track' : vehicle ? `vehicle-${vehicle.id}` : stop ? `stop-${stop.code}` : selectedRoute ? 'none' : 'explore'}
+          key={onTrackedRoute && trackedId ? 'track' : vehicle ? `vehicle-${vehicle.id}` : stop ? `stop-${stop.code}` : selectedRoute ? 'none' : 'explore'}
           entering={FadeInDown.duration(motion.cardMs)}
         >
-          {trackedId ? (
+          {onTrackedRoute && trackedId ? (
           <TrackingPanel
             vehicle={tracked}
             nowMs={live.nowMs}
@@ -428,17 +476,17 @@ export default function MapScreen() {
                 ? strings.live.tracking.alertNow(strings.live.tracking.minutes(trackedEtaS))
                 : null
             }
-            onToggleAlert={() => setAlertOn((value) => !value)}
+            onToggleAlert={() => setAlertOn(!alertOn)}
             onStop={stopTracking}
           />
         ) : vehicle ? (
           <VehicleCard
             vehicle={vehicle}
             nowMs={live.nowMs}
-            nextStop={nextStopOf(vehicle, lines, layers.stops)?.code ?? null}
+            nextStop={nextStopOf(vehicle, loopLines, layers.stops)?.code ?? null}
             stopped={vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs)}
             eta={(() => {
-              const eta = commuter ? etaTo(vehicle, lines, commuter, MAX_WALK_PER_LEG_M) : null;
+              const eta = commuter ? etaTo(vehicle, loopLines, commuter, MAX_WALK_PER_LEG_M) : null;
               return eta?.kind === 'approaching' ? strings.live.tracking.minutes(eta.etaS) : null;
             })()}
             onTrack={() => void startTracking(vehicle.id)}

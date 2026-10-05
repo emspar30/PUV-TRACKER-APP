@@ -49,9 +49,14 @@ export const USERNAME_BLOCKED_WORDS: readonly string[] = [
 export const ETA_MIN_SPEED_KMH = 5;
 export const ETA_SAMPLE_WINDOW_S = 90;
 export const ETA_MIN_SAMPLES = 2;
-export const ETA_MAX_KM = 30;
+// B2: high enough to follow a vehicle a whole round (both legs) back to the commuter
+export const ETA_MAX_KM = 60;
 // "Alert near arrival" fires once when the ETA drops to this (in-app banner and a short vibration)
 export const TRACK_ALERT_ETA_S = 120;
+// B2: in-app alerts (a toast and a short vibration) as the tracked multicab comes within each of these
+export const TRACK_DISTANCE_ALERTS_M = [1000, 500, 250, 100] as const;
+// How long an in-app toast stays on screen
+export const TOAST_VISIBLE_MS = 4000;
 // Other vehicles fade to this while one is tracked
 export const TRACK_OTHERS_OPACITY = 0.35;
 // Demo mode: the commuter waits at this stop, until "Use my location" (G0) gives a real position
@@ -180,8 +185,13 @@ export const DEMO_VEHICLES_MIN_PER_ROUTE = 2;
 export const DEMO_VEHICLES_MAX_PER_ROUTE = 3;
 export const DEMO_SPEED_MIN_KMH = 15;
 export const DEMO_SPEED_MAX_KMH = 35;
-export const DEMO_STOP_MIN_S = 20;
-export const DEMO_STOP_MAX_S = 60;
+// B2: short stops, so demo vehicles keep moving like a multicab picking up and dropping off
+export const DEMO_STOP_MIN_S = 8;
+export const DEMO_STOP_MAX_S = 20;
+// At a terminal, where a leg drives on into the next, the wait is longer, as real multicabs do
+// (long enough to show Stopped, PRD 7.3)
+export const DEMO_TERMINAL_MIN_S = 50;
+export const DEMO_TERMINAL_MAX_S = 90;
 // A route with no stops (R3, R5) stops this often along its line
 export const DEMO_STOP_SPACING_KM = 1.2;
 // Seats taken change by at most this many at each stop

@@ -5,6 +5,7 @@ export { BottomSheet, type SheetRequest } from './BottomSheet';
 export { Button } from './Button';
 export { Card } from './Card';
 export { DialogHost } from './Dialog';
+export { ToastHost } from './Toast';
 export { Hint } from './Hint';
 export { IconTile, type IconTone } from './IconTile';
 export { LoadingScreen } from './LoadingScreen';

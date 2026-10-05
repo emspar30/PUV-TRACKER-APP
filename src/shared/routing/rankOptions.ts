@@ -30,7 +30,7 @@ export function rankRouteOptions(
         vehicle.lineId === ride.lineId &&
         !vehicle.hidden &&
         coverageOf(ageSeconds(vehicle.lastPacketMs, nowMs)) !== 'none' &&
-        etaTo(vehicle, lines, ride.from).kind !== 'passed',
+        etaTo(vehicle, lines, ride.from, undefined, { round: false }).kind !== 'passed',
     );
     return {
       itinerary,

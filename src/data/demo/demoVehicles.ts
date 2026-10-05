@@ -4,6 +4,7 @@
 
 import { DEMO_STRESS_MARKERS, DEMO_TICK_MS } from '../../shared/config';
 import { demoFleetConfig, demoSnapshot, planDemoFleet, type DemoVehiclePlan } from '../../shared/demo/simulate';
+import { withReturnLegs } from '../../shared/routing/loop';
 import type { DirectedLine, RouteStop } from '../../shared/routing/types';
 import type { VehiclesRepository } from '../repositories/types';
 
@@ -32,12 +33,15 @@ export function createDemoVehicles(
   { seed, stress = false, clock = systemClock }: DemoVehiclesOptions,
 ): VehiclesRepository {
   const config = demoFleetConfig(seed);
+  // B2: a route with one stored leg drives it back the other way too, so vehicles go round without
+  // laying over and jumping back to the start
+  const looped = withReturnLegs(lines);
   // Each route's vehicles are planned once, when first asked for
   const plans = new Map<string, DemoVehiclePlan[]>();
   const plansFor = (routeCode: string) => {
     let planned = plans.get(routeCode);
     if (!planned) {
-      planned = planDemoFleet(lines, stops, config, { routeCodes: [routeCode], perRoute: stress ? DEMO_STRESS_MARKERS : undefined });
+      planned = planDemoFleet(looped, stops, config, { routeCodes: [routeCode], perRoute: stress ? DEMO_STRESS_MARKERS : undefined });
       plans.set(routeCode, planned);
     }
     return planned;

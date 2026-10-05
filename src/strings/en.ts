@@ -196,6 +196,12 @@ export const en = {
       approaching: (stop: string) => `Approaching ${stop}`,
       // No boarding point known: the time shown is to the vehicle's next stop
       toNextStop: (stop: string) => `To next stop ${stop}`,
+      // B2: the bar shown on another route, the button that goes back, and the distance alerts
+      barTitle: (label: string | null) => (label ? `Tracking ${label}` : 'Tracking a multicab'),
+      barDetail: (route: string, eta: string | null) => (eta ? `Route ${route} · ~${eta} · Tap to show` : `Route ${route} · Tap to show`),
+      jumpTo: 'Show the multicab you are tracking',
+      nearTitle: (distance: string) => `Your multicab is ${distance} away`,
+      nearBody: (label: string) => `${label} is on its way to your stop`,
       passed: 'Passed your stop',
       unknown: 'ETA unavailable',
       lastUpdated: 'Last updated',

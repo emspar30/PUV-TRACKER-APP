@@ -16,6 +16,8 @@ import {
   DEMO_STOP_MAX_S,
   DEMO_STOP_MIN_S,
   DEMO_STOP_SPACING_KM,
+  DEMO_TERMINAL_MAX_S,
+  DEMO_TERMINAL_MIN_S,
   DEMO_VEHICLES_MAX_PER_ROUTE,
   DEMO_VEHICLES_MIN_PER_ROUTE,
   OCCUPANCY_AMBER_MAX_TAKEN,
@@ -40,6 +42,8 @@ export type DemoFleetConfig = {
   maxSpeedKmh: number;
   minStopS: number;
   maxStopS: number;
+  minTerminalS: number;
+  maxTerminalS: number;
   stopSpacingKm: number;
   seatChangeMax: number;
   silentSendS: number;
@@ -55,6 +59,8 @@ export function demoFleetConfig(seed: number): DemoFleetConfig {
     maxSpeedKmh: DEMO_SPEED_MAX_KMH,
     minStopS: DEMO_STOP_MIN_S,
     maxStopS: DEMO_STOP_MAX_S,
+    minTerminalS: DEMO_TERMINAL_MIN_S,
+    maxTerminalS: DEMO_TERMINAL_MAX_S,
     stopSpacingKm: DEMO_STOP_SPACING_KM,
     seatChangeMax: DEMO_SEAT_CHANGE_MAX,
     silentSendS: DEMO_SILENT_SEND_S,
@@ -189,7 +195,11 @@ export function planDemoFleet(
           // close by, with a planned stop; otherwise lay over, then start again (AF3 fix)
           const next = lines[(lineIndex + 1) % lines.length];
           const joins = !atLineEnd || endsMeet(line, next);
-          const dwellS = joins ? random.between(config.minStopS, config.maxStopS) : DEMO_LAYOVER_S;
+          const dwellS = !joins
+            ? DEMO_LAYOVER_S
+            : atLineEnd
+              ? random.between(config.minTerminalS, config.maxTerminalS)
+              : random.between(config.minStopS, config.maxStopS);
           legs.push({ line: lineIndex, startS: clockS, durationS: dwellS, fromKm: km, toKm: km, seats, layover: !joins });
           afterLayover = !joins;
           clockS += dwellS;

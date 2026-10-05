@@ -2,9 +2,19 @@
 // seats, and one per route goes silent; coverage, seat tiers and the stopped bubble follow PRD 7.3.
 // Fixed seeds and the synthetic fixture only, never the live seed file.
 
-import { DEMO_SILENT_GAP_S, DEMO_SILENT_SEND_S, DEMO_SPEED_MAX_KMH, DEMO_SPEED_MIN_KMH, DEMO_STOP_MAX_S, DEMO_STOP_MIN_S } from '../config';
+import {
+  DEMO_SILENT_GAP_S,
+  DEMO_SILENT_SEND_S,
+  DEMO_SPEED_MAX_KMH,
+  DEMO_SPEED_MIN_KMH,
+  DEMO_STOP_MAX_S,
+  DEMO_STOP_MIN_S,
+  DEMO_TERMINAL_MAX_S,
+  DEMO_TERMINAL_MIN_S,
+} from '../config';
 import { demoFleetConfig, demoSnapshot, lastPacketS, planDemoFleet, positionAt } from '../demo/simulate';
 import { projectOntoLine } from '../geo/line';
+import { withReturnLegs } from '../routing/loop';
 import type { DirectedLine } from '../routing/types';
 import { ageSeconds, coverageOf, routeCoverage } from '../telemetry/coverage';
 import { seatTier } from '../telemetry/occupancy';
@@ -53,12 +63,14 @@ describe('demo fleet plan', () => {
     expect(other.map((plan) => positionAt(plan, T0))).not.toEqual(fleet.map((plan) => positionAt(plan, T0)));
   });
 
-  it('drives at 15 to 35 km/h and stands for 20 to 60 s', () => {
+  it('drives at 15 to 35 km/h, stands 8 to 20 s at a stop and 50 to 90 s at a terminal', () => {
     for (const plan of fleet) {
       for (const leg of plan.legs) {
+        if (leg.layover) continue;
         if (leg.toKm === leg.fromKm) {
-          expect(leg.durationS).toBeGreaterThanOrEqual(DEMO_STOP_MIN_S);
-          expect(leg.durationS).toBeLessThanOrEqual(DEMO_STOP_MAX_S);
+          const atEnd = Math.abs(leg.toKm - plan.lines[leg.line].lengthKm) < 1e-9;
+          expect(leg.durationS).toBeGreaterThanOrEqual(atEnd ? DEMO_TERMINAL_MIN_S : DEMO_STOP_MIN_S);
+          expect(leg.durationS).toBeLessThanOrEqual(atEnd ? DEMO_TERMINAL_MAX_S : DEMO_STOP_MAX_S);
         } else {
           const speed = ((leg.toKm - leg.fromKm) / leg.durationS) * 3600;
           expect(speed).toBeGreaterThanOrEqual(DEMO_SPEED_MIN_KMH - 1e-9);
@@ -144,8 +156,8 @@ describe('end of a leg (AF3 turnaround fix)', () => {
         } else {
           expect(['stop', 'layover']).toContain(at.standing);
           standingSince ??= s;
-          // Never standing longer than the longest planned stop (60 s) plus one check
-          expect(s - standingSince).toBeLessThanOrEqual(DEMO_STOP_MAX_S + STEP_S);
+          // Never standing longer than the longest planned wait (a terminal, 90 s) plus one check
+          expect(s - standingSince).toBeLessThanOrEqual(Math.max(DEMO_STOP_MAX_S, DEMO_TERMINAL_MAX_S) + STEP_S);
         }
       }
     }
@@ -160,6 +172,23 @@ describe('end of a leg (AF3 turnaround fix)', () => {
       const next = plan.legs[endOfOutbound + 1];
       expect(next.line).toBe(1);
       expect(next.fromKm).toBe(0);
+    }
+  });
+
+  it('with its stand-in return leg (B2), a one-leg route drives round with no layover and no jump back', () => {
+    const plans = planDemoFleet(withReturnLegs([SINGLE]), [], CONFIG, { perRoute: 2 });
+    for (const plan of plans) {
+      expect(plan.lines).toHaveLength(2);
+      expect(plan.legs.some((leg) => leg.layover || leg.restart)).toBe(false);
+      // Every 5 s over a whole round: never hidden, and never more than a short drive from where it was
+      let previous = positionAt(plan, atRound(plan, 0));
+      for (let u = 5; u <= plan.cycleS; u += 5) {
+        const at = positionAt(plan, atRound(plan, u));
+        expect(at.visible).toBe(true);
+        const movedKm = Math.hypot((at.lat - previous.lat) * 111.195, (at.lon - previous.lon) * 111.195);
+        expect(movedKm).toBeLessThan((DEMO_SPEED_MAX_KMH / 3600) * 5 + 0.01);
+        previous = at;
+      }
     }
   });
 
