@@ -6,6 +6,8 @@ import { lineString, simplify } from '@turf/turf';
 import type { Position } from 'geojson';
 
 import {
+  ROUTE_CLOSE_BACK_M,
+  ROUTE_CLOSE_BACK_MIN_GAP_M,
   ROUTE_EXPECTED_LAT,
   ROUTE_EXPECTED_LON,
   ROUTE_EXPECTED_SPREAD_DEG,
@@ -172,7 +174,23 @@ export function trimLine(line: Position[], at: Position): TrimResult {
 // - vice_versa: the traced line is the outbound leg; the return is its reverse (marked derived)
 // - partial_return: the traced line is the first part of the return leg; the outbound leg is
 //   not provided and the line does not reach the terminal (marked partial)
-export type ReturnRule = 'vice_versa' | 'partial_return';
+// - closes_back (R4): the traced line is the return, run on into the start of the next outbound
+//   (the downtown loop), and it ends where it passed earlier. The rest of the outbound is the same
+//   road back to the turnaround, so the outbound is derived: from the end, back along the line to
+//   its start (marked derived and partial). Vehicles then go round with no U-turn mid-route.
+export type ReturnRule = 'vice_versa' | 'partial_return' | 'closes_back';
+
+// closes_back: the distance along the line of the earliest pass by its own end point, at least
+// ROUTE_CLOSE_BACK_MIN_GAP_M before the end; null when the line never comes back there
+export function closesBackAtKm(line: Position[]): number | null {
+  if (line.length <= 1) return null;
+  const totalKm = lineLengthKm(line);
+  const end = ll(line[line.length - 1]);
+  const earlier = linePasses(line, end, ROUTE_CLOSE_BACK_M).passes.filter(
+    (pass) => (totalKm - pass.chainageKm) * METERS_PER_KM >= ROUTE_CLOSE_BACK_MIN_GAP_M,
+  );
+  return earlier[0]?.chainageKm ?? null;
+}
 
 export type ImportedDirection = {
   direction: 'outbound' | 'return';
@@ -197,7 +215,11 @@ export type ImportOptions = {
 export type ImportedRoute = {
   directionMode: 'one_way' | 'two_way' | 'loop';
   directions: ImportedDirection[];
-  note: 'traced loop' | 'outbound traced; return derived (reverse)' | 'return leg traced, partial; outbound not provided';
+  note:
+    | 'traced loop'
+    | 'outbound traced; return derived (reverse)'
+    | 'return leg traced, partial; outbound not provided'
+    | 'return traced; outbound derived (back along it to the turnaround)';
   pointsBefore: number;
   pointsAfter: number;
   maxDeviationM: number;
@@ -232,6 +254,22 @@ export function importRoute(geojson: unknown, rule: ReturnRule, bounds: Bounds, 
       directions: [traced, { direction: 'return', coordinates: reversed, lengthKm, derived: true, partial: false, perDirection: false }],
       note: 'outbound traced; return derived (reverse)',
     };
+  }
+  if (rule === 'closes_back') {
+    const atKm = closesBackAtKm(line);
+    if (atKm !== null) {
+      const back = [line[line.length - 1], ...sliceCoordinates(line, 0, atKm).reverse()];
+      return {
+        ...base,
+        directionMode: 'two_way',
+        directions: [
+          { ...traced, direction: 'return', partial: true },
+          { direction: 'outbound', coordinates: back, lengthKm: lineLengthKm(back), derived: true, partial: true, perDirection: false },
+        ],
+        note: 'return traced; outbound derived (back along it to the turnaround)',
+      };
+    }
+    issues.push({ level: 'warn', message: 'the line never comes back to an earlier pass; outbound not derived' });
   }
   return {
     ...base,

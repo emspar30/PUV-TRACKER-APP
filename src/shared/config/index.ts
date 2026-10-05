@@ -124,6 +124,10 @@ export const ROUTE_IMPORT_WARN_OUTSIDE_M = 1000;
 export const ROUTE_IMPORT_FAIL_OUTSIDE_M = 2000;
 // A line whose start and end are this close is a loop
 export const ROUTE_LOOP_CLOSE_M = 100;
+// R4 (closes_back): the traced line ends where it passed earlier when its end is this close to an
+// earlier pass, at least ROUTE_CLOSE_BACK_MIN_GAP_M before the end
+export const ROUTE_CLOSE_BACK_M = 30;
+export const ROUTE_CLOSE_BACK_MIN_GAP_M = 1000;
 // RR2 trim: a leg is cut at its trim point (the terminal) only if the point lies this close to the
 // line and the part beyond it is longer than the second value (Emjay, 2026-10-05)
 export const ROUTE_TRIM_MAX_OFFSET_M = 150;

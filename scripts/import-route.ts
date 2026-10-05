@@ -54,7 +54,10 @@ const JEEPNEY_TERMINAL: [number, number] = [125.53601, 8.95933];
 
 const SOURCES: RouteSource[] = [
   { code: 'R3', number: 3, name: 'Ampayon-Libertad', rule: 'vice_versa', reverseMissing: true },
-  { code: 'R4', number: 4, name: 'De Oro', rule: 'partial_return', reverseMissing: false, trimAt: { return: JEEPNEY_TERMINAL } },
+  // R4: the updated trace runs De Oro to downtown and on round the downtown loop back to J C Aquino
+  // Ave, where it passed before; the outbound is that road back to De Oro (closes_back). No trim:
+  // the tail is the start of the outbound.
+  { code: 'R4', number: 4, name: 'De Oro', rule: 'closes_back', reverseMissing: false },
   { code: 'R5', number: 5, name: 'Santo Niño', rule: 'partial_return', reverseMissing: false, trimAt: { return: JEEPNEY_TERMINAL } },
 ];
 

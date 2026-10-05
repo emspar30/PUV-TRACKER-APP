@@ -108,3 +108,30 @@ describe('route import: directions', () => {
     expect(r.note).toBe('return leg traced, partial; outbound not provided');
   });
 });
+
+// R4's shape: a highway in from the turnaround, then a loop downtown that ends back on the highway
+// where it passed before. Here: east 2 km along the street, a 600 m loop north, back to 1 km.
+describe('route import: closes_back (R4)', () => {
+  const north = (m: number, eastM: number) => [125.5 + eastM * DEG_PER_M, 8.95 + m * DEG_PER_M];
+  const inAndRound: Position[] = [...street.map((p) => [p[0], p[1]]), north(300, 2000), north(300, 1000), north(0, 1000)];
+
+  it('derives the outbound from the end back along the line to its start, with no U-turn', () => {
+    const r = importRoute({ type: 'LineString', coordinates: inAndRound }, 'closes_back', BOUNDS);
+    expect(r.directionMode).toBe('two_way');
+    const ret = r.directions.find((d) => d.direction === 'return')!;
+    const out = r.directions.find((d) => d.direction === 'outbound')!;
+    expect(out.derived).toBe(true);
+    // The outbound starts where the return ends and ends where the return starts: one round
+    expect(out.coordinates[0]).toEqual(ret.coordinates[ret.coordinates.length - 1]);
+    expect(out.coordinates[out.coordinates.length - 1][0]).toBeCloseTo(ret.coordinates[0][0], 6);
+    // Back along the first 1 km only, westbound
+    expect(out.lengthKm).toBeCloseTo(1, 1);
+    expect(out.coordinates[out.coordinates.length - 1][0]).toBeLessThan(out.coordinates[0][0]);
+  });
+
+  it('a line that never comes back stays one partial return', () => {
+    const r = importRoute({ type: 'LineString', coordinates: street }, 'closes_back', BOUNDS);
+    expect(r.directions.map((d) => d.direction)).toEqual(['return']);
+    expect(r.issues.some((i) => i.level === 'warn')).toBe(true);
+  });
+});

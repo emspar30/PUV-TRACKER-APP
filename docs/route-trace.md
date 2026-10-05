@@ -13,7 +13,7 @@
 | Route | Stored | Length | Note |
 | --- | --- | --- | --- |
 | R3 Ampayon-Libertad | outbound (traced, Ampayon → Libertad) and return (**derived**: the reverse) | 11.42 km each | "Vice versa" on the PUJ map |
-| R4 De Oro | **return only**, De Oro Barangay Hall → 524 R. Calo; **partial: does not reach the Jeepney Terminal** | 18.64 km | Outbound not provided |
+| R4 De Oro | return traced (`route_4_primary_updated`), De Oro Barangay Hall → downtown loop → M. Calo / J C Aquino Ave, 19.54 km; outbound **derived** (rule `closes_back`, route data version 4): from the end of the return, which is 13 m from its own pass at 12.72 km on J C Aquino Ave, back along the return's first 12.72 km to De Oro, 12.74 km. Both partial: neither reaches the Jeepney Terminal | 19.54 / 12.74 km | The outbound matches the PUJ map's "M. Calo St, Ampayon, De Oro" by road; replace it with a traced outbound when Emjay supplies one |
 | R5 Santo Niño | **return only**, Santo Niño → 1203 J C Aquino Ave; **partial: does not reach the Jeepney Terminal** | 22.71 km | Outbound not provided. 14 points lie up to 1.46 km north of the current tiles and draw over blank map until the larger tile set (north 9.07) arrives. |
 
 ### Inspection of the files (RR2/RR3, 2026-10-05, read-only)
