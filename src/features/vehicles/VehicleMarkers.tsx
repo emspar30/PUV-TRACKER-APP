@@ -21,6 +21,8 @@ type VehicleMarkersProps = {
   // The tapped vehicle, drawn larger with a halo (restyle)
   selectedId?: string | null;
   onPressVehicle?: (id: string) => void;
+  // While one vehicle is tracked (L2) the others fade to this opacity
+  othersOpacity?: number;
 };
 
 // Touch area around a marker, in dp
@@ -30,7 +32,7 @@ const HITBOX = { top: spacing.lg, right: spacing.lg, bottom: spacing.lg, left: s
 // heading cone, a white centre while stopped, greyed while Stale, and the plate beside it ("DEMO 01"
 // on simulated vehicles). Tapping one selects it; the selected one has a halo.
 // The two sources keep their ids, so each refresh only replaces their data; the layers are never remounted.
-export function VehicleMarkers({ vehicles, nowMs, color, zoom, labels, selectedId = null, onPressVehicle }: VehicleMarkersProps) {
+export function VehicleMarkers({ vehicles, nowMs, color, zoom, labels, selectedId = null, onPressVehicle, othersOpacity = 1 }: VehicleMarkersProps) {
   const { mapPaint, colors, baseMap } = useTheme();
   const g = MAP_GEOMETRY.vehicle;
   const data = useMemo(
@@ -42,7 +44,12 @@ export function VehicleMarkers({ vehicles, nowMs, color, zoom, labels, selectedI
   const paints = useMemo(() => {
     const fill = ['case', ['get', 'stale'], mapPaint.stale, color];
     const tier = ['match', ['get', 'tier'], 'green', mapPaint.occupancyGreen, 'amber', mapPaint.occupancyAmber, mapPaint.occupancyRed];
-    const fade = ['case', ['get', 'stale'], g.staleOpacity, 1];
+    // Stale vehicles are greyed; while one is tracked, the others fade too
+    const fade = [
+      '*',
+      ['case', ['get', 'stale'], g.staleOpacity, 1],
+      ['case', ['==', ['get', 'id'], selectedId ?? ''], 1, othersOpacity],
+    ];
     return {
       cone: { 'fill-color': fill, 'fill-opacity': ['*', fade, g.coneOpacity] },
       dot: {
@@ -67,7 +74,7 @@ export function VehicleMarkers({ vehicles, nowMs, color, zoom, labels, selectedI
         paint: { 'text-color': colors.textPrimary, 'text-halo-color': baseMap.land, 'text-halo-width': g.badgeHalo, 'text-opacity': fade },
       },
     };
-  }, [mapPaint, colors.textPrimary, baseMap.land, color, g]);
+  }, [mapPaint, colors.textPrimary, baseMap.land, color, g, selectedId, othersOpacity]);
 
   return (
     <>

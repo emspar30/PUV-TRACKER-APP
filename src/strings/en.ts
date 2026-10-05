@@ -58,6 +58,14 @@ export const en = {
   topBar: {
     // Shown until the user picks a handle
     guest: 'Commuter',
+    notifications: 'Notifications',
+  },
+
+  // The bell in the top bar; notifications come in a later step
+  notifications: {
+    title: 'Notifications',
+    empty: 'No notifications yet',
+    emptyBody: 'Arrival alerts and route news will show here.',
   },
 
   common: {
@@ -135,6 +143,30 @@ export const en = {
       demo: (age: string) => `Demo · ${age}`,
       stopped: 'Stopped',
       close: 'Close multicab details',
+      track: 'Track',
+      eta: (text: string) => `~${text}`,
+    },
+    // L2: tracking one multicab to the commuter's stop
+    tracking: {
+      minutes: (seconds: number) => (seconds < SECONDS_PER_MINUTE ? '<1 min' : `${Math.round(seconds / SECONDS_PER_MINUTE)} min`),
+      away: (distanceKm: number) => `${km(distanceKm)} away`,
+      approaching: (stop: string) => `Approaching ${stop}`,
+      passed: 'Passed your stop',
+      unknown: 'ETA unavailable',
+      lastUpdated: 'Last updated',
+      departed: 'Departed',
+      next: 'Next',
+      yourStop: 'Your stop',
+      synced: (age: string) => `Synced ${age}`,
+      seatsOpen: (free: number) => `${free} seats open`,
+      onboard: (taken: number, capacity: number) => `${taken}/${capacity} onboard`,
+      alert: 'Alert near arrival',
+      alertOn: 'Alert on',
+      alertNow: (minutes: string) => `Your multicab is about ${minutes} away`,
+      stop: 'Stop tracking',
+      you: 'You',
+      demoStop: (stop: string) => `Demo: you wait at ${stop}`,
+      lost: 'No recent position',
     },
   },
 

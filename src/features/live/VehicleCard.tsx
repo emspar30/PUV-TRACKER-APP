@@ -1,7 +1,7 @@
-import { Bus, Radio, Users, X } from 'lucide-react-native';
+import { Bus, Crosshair, Radio, Users, X } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
-import { IconTile, StatusPill } from '@/components';
+import { Button, IconTile, StatusPill } from '@/components';
 import { VEHICLE_CAPACITY_SEATS } from '@/shared/config';
 import { ageSeconds } from '@/shared/telemetry/coverage';
 import { seatTier } from '@/shared/telemetry/occupancy';
@@ -15,6 +15,9 @@ type VehicleCardProps = {
   // Stop code ahead of the vehicle, or null at the end of its line
   nextStop: string | null;
   stopped: boolean;
+  // "3 min" to the commuter's stop, or null when there is no ETA (D9)
+  eta: string | null;
+  onTrack: () => void;
   onClose: () => void;
 };
 
@@ -22,8 +25,8 @@ const ICON_SIZE = spacing.md + spacing.xs;
 const SMALL_ICON = spacing.md;
 
 // The tapped multicab (restyle): route and plate, next stop, free seats and how fresh the position is.
-// Track and the ETA arrive with L2; until then they are not shown.
-export function VehicleCard({ vehicle, nowMs, nextStop, stopped, onClose }: VehicleCardProps) {
+// With an ETA to the commuter's stop it shows that too, and Track opens the tracking panel (L2).
+export function VehicleCard({ vehicle, nowMs, nextStop, stopped, eta, onTrack, onClose }: VehicleCardProps) {
   const styles = useStyles();
   const { colors, typography, mapPaint, elevation } = useTheme();
   const free = Math.max(0, VEHICLE_CAPACITY_SEATS - vehicle.seatsTaken);
@@ -43,7 +46,8 @@ export function VehicleCard({ vehicle, nowMs, nextStop, stopped, onClose }: Vehi
           </View>
           {nextStop ? <Text style={typography.bodySm}>{strings.live.vehicle.next(nextStop)}</Text> : null}
         </View>
-        {stopped ? <StatusPill label={strings.live.vehicle.stopped} tone="warning" /> : null}
+        {eta ? <StatusPill label={strings.live.vehicle.eta(eta)} tone="success" /> : null}
+        {stopped && !eta ? <StatusPill label={strings.live.vehicle.stopped} tone="warning" /> : null}
         <Pressable style={styles.icon} onPress={onClose} accessibilityRole="button" accessibilityLabel={strings.live.vehicle.close}>
           <X color={colors.textSecondary} size={ICON_SIZE} />
         </Pressable>
@@ -58,6 +62,9 @@ export function VehicleCard({ vehicle, nowMs, nextStop, stopped, onClose }: Vehi
           <Radio color={vehicle.demo ? colors.textSecondary : colors.success} size={SMALL_ICON} />
           <Text style={typography.bodySm}>{vehicle.demo ? strings.live.vehicle.demo(age) : strings.live.vehicle.liveGps(age)}</Text>
         </View>
+      </View>
+      <View style={styles.track}>
+        <Button label={strings.live.vehicle.track} leadingIcon={Crosshair} onPress={onTrack} />
       </View>
     </View>
   );
@@ -110,6 +117,9 @@ const useStyles = makeStyles(({ colors }) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  track: {
+    marginRight: spacing.sm + spacing.xs,
   },
   dot: {
     width: spacing.sm,

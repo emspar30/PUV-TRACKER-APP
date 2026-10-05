@@ -1,7 +1,7 @@
 import { useIsFocused } from 'expo-router';
 import { Bus, LocateFixed, Maximize, X } from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, Text, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Logo, RoundButton, TopBar, type StatusTone } from '@/components';
@@ -20,10 +20,12 @@ import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
+import { TrackingLayers } from '@/features/tracking/TrackingLayers';
+import { TrackingPanel } from '@/features/tracking/TrackingPanel';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { useVehicles } from '@/features/vehicles/useVehicles';
 import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
-import { MAP_FOLLOW_ZOOM } from '@/shared/config';
+import { DEMO_COMMUTER_STOP_CODE, MAP_FOLLOW_ZOOM, TRACK_ALERT_ETA_S, TRACK_OTHERS_OPACITY } from '@/shared/config';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { projectOntoLine } from '@/shared/geo/line';
 import type { RouteDirection } from '@/shared/routing/types';
@@ -31,6 +33,7 @@ import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import { isStopped } from '@/shared/telemetry/stopped';
+import { crossesAlert, etaTo, trackProgress } from '@/shared/tracking/eta';
 import { routeCodesOf } from '@/shared/ui/routeVisibility';
 import { useHintsStore } from '@/state/hintsStore';
 import { strings } from '@/strings';
@@ -70,6 +73,10 @@ export default function MapScreen() {
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedStop, setSelectedStop] = useState<string | null>(null);
   const [zoom, setZoom] = useState(DEFAULT_VEHICLE_ZOOM);
+  // L2: the tracked multicab and the in-app arrival alert
+  const [trackedId, setTrackedId] = useState<string | null>(null);
+  const [alertOn, setAlertOn] = useState(false);
+  const previousEtaS = useRef<number | null>(null);
   const dismissHint = useHintsStore((store) => store.dismiss);
   const fittedOnce = useRef(false);
 
@@ -93,6 +100,19 @@ export default function MapScreen() {
     );
   }, [live.vehicles, lines, directions, filter]);
   const coverage = routeCoverage(vehicles.map((vehicle) => ageSeconds(vehicle.lastPacketMs, live.nowMs)));
+
+  // Until "Use my location" (G0), the commuter waits at a fixed stop of the picked route
+  const commuterStop = stops.find((stop) => stop.code === DEMO_COMMUTER_STOP_CODE) ?? null;
+  const commuter = commuterStop && selectedRoute && commuterStop.routeCodes?.includes(selectedRoute) ? commuterStop : null;
+  const tracked = trackedId ? (live.vehicles.find((candidate) => candidate.id === trackedId) ?? null) : null;
+  const trackedEta = tracked && commuter ? etaTo(tracked, lines, commuter) : null;
+  const trackedEtaS = trackedEta?.kind === 'approaching' ? trackedEta.etaS : null;
+
+  // A short vibration once, when the ETA first reaches the alert threshold
+  useEffect(() => {
+    if (alertOn && crossesAlert(previousEtaS.current, trackedEtaS, TRACK_ALERT_ETA_S)) Vibration.vibrate();
+    previousEtaS.current = trackedEtaS;
+  }, [alertOn, trackedEtaS]);
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
@@ -134,12 +154,31 @@ export default function MapScreen() {
     setDirectionView('both');
     setSelectedVehicle(null);
     setSelectedStop(null);
+    setTrackedId(null);
     setSelectorOpen(false);
     dismissHint('live');
     frame(code);
   };
 
+  const startTracking = (id: string) => {
+    const target = live.vehicles.find((candidate) => candidate.id === id);
+    setTrackedId(id);
+    setSelectedVehicle(id);
+    setAlertOn(false);
+    previousEtaS.current = null;
+    if (target && commuter) {
+      const bounds = boundsOfLines([[[target.lon, target.lat], [commuter.lon, commuter.lat]]]);
+      setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds }));
+    }
+  };
+
+  const stopTracking = () => {
+    setTrackedId(null);
+    setAlertOn(false);
+  };
+
   const hideRoute = () => {
+    setTrackedId(null);
     setSelectedRoute(null);
     setSelectedVehicle(null);
     setSelectedStop(null);
@@ -226,11 +265,21 @@ export default function MapScreen() {
             color={colorOfRoute(selectedRoute)}
             zoom={zoom}
             labels={state.tiles.glyphsUrl !== null}
-            selectedId={selectedVehicle}
+            selectedId={trackedId ?? selectedVehicle}
+            othersOpacity={trackedId ? TRACK_OTHERS_OPACITY : 1}
             onPressVehicle={(id) => {
+              if (trackedId) return;
               setSelectedVehicle(id);
               setSelectedStop(null);
             }}
+          />
+        ) : null}
+        {commuter ? (
+          <TrackingLayers
+            commuter={commuter}
+            vehicle={tracked}
+            line={tracked ? (lines.find((line) => line.id === tracked.lineId) ?? null) : null}
+            labels={state.tiles.glyphsUrl !== null}
           />
         ) : null}
         {!location.locationAllowed ? <OriginPin /> : null}
@@ -274,12 +323,32 @@ export default function MapScreen() {
             </Pressable>
           </View>
         ) : null}
-        {vehicle ? (
+        {trackedId ? (
+          <TrackingPanel
+            vehicle={tracked}
+            nowMs={live.nowMs}
+            eta={trackedEta}
+            progress={tracked ? trackProgress(tracked, lines, layers.stops, commuter) : { passed: null, next: null, mine: commuter }}
+            alertOn={alertOn}
+            alertMessage={
+              alertOn && trackedEtaS !== null && trackedEtaS <= TRACK_ALERT_ETA_S
+                ? strings.live.tracking.alertNow(strings.live.tracking.minutes(trackedEtaS))
+                : null
+            }
+            onToggleAlert={() => setAlertOn((value) => !value)}
+            onStop={stopTracking}
+          />
+        ) : vehicle ? (
           <VehicleCard
             vehicle={vehicle}
             nowMs={live.nowMs}
             nextStop={nextStopOf(vehicle, lines, layers.stops)?.code ?? null}
             stopped={vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs)}
+            eta={(() => {
+              const eta = commuter ? etaTo(vehicle, lines, commuter) : null;
+              return eta?.kind === 'approaching' ? strings.live.tracking.minutes(eta.etaS) : null;
+            })()}
+            onTrack={() => startTracking(vehicle.id)}
             onClose={() => setSelectedVehicle(null)}
           />
         ) : stop ? (

@@ -33,6 +33,20 @@ export const LIVE_UI_REFRESH_INTERVAL_S = 5;
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 20;
 
+// --- Tracking one vehicle and its ETA (L2; PRD 19.2 D9, plan decision 17). ETA = distance along the
+// line to the boarding point / recent speed. Shown only with at least ETA_MIN_SAMPLES speeds from the
+// last ETA_SAMPLE_WINDOW_S and within ETA_MAX_KM; a slower average counts as ETA_MIN_SPEED_KMH.
+export const ETA_MIN_SPEED_KMH = 5;
+export const ETA_SAMPLE_WINDOW_S = 90;
+export const ETA_MIN_SAMPLES = 2;
+export const ETA_MAX_KM = 10;
+// "Alert near arrival" fires once when the ETA drops to this (in-app banner and a short vibration)
+export const TRACK_ALERT_ETA_S = 120;
+// Other vehicles fade to this while one is tracked
+export const TRACK_OTHERS_OPACITY = 0.35;
+// Demo mode: the commuter waits at this stop, until "Use my location" (G0) gives a real position
+export const DEMO_COMMUTER_STOP_CODE = 'JCA';
+
 // --- Live vehicles from the database (L1)
 // Speeds kept per vehicle for the stopped check (longer than STATIONARY_DURATION_S)
 export const LIVE_SPEED_HISTORY_S = 120;
