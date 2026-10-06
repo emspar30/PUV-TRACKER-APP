@@ -3,13 +3,21 @@ import { Bus, Check, ChevronDown, ChevronUp, Pencil, ShieldCheck, X, Zap } from 
 import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { Button, Card, IconTile, Screen } from '@/components';
+import { Button, Card, IconTile, Screen, SkeletonCard, SkeletonHero } from '@/components';
 import { useRefillCountdown } from '@/features/energy/useRefillCountdown';
+import { useSkeleton } from '@/features/loading/useSkeleton';
 import { AvatarPicker } from '@/features/profile/AvatarPicker';
 import { FareTypeDropdown } from '@/features/profile/FareTypeDropdown';
 import { TrustedAvatar } from '@/features/profile/TrustedAvatar';
 import { usernameIssue } from '@/shared/backend/rules';
-import { ENERGY_PASSIVE_INTERVAL_H, ENERGY_WALLET_CAP, TRUST_BADGE_POINTS, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from '@/shared/config';
+import {
+  ENERGY_PASSIVE_INTERVAL_H,
+  ENERGY_WALLET_CAP,
+  SKELETON_LONG_MS,
+  TRUST_BADGE_POINTS,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+} from '@/shared/config';
 import { generalHistory } from '@/shared/profile/history';
 import { isTrusted } from '@/shared/profile/trust';
 import { showDialog } from '@/state/dialogStore';
@@ -52,6 +60,8 @@ export default function ProfileScreen() {
   const demo = useSettingsStore((state) => state.demoData);
   const trustPoints = useTrustPoints();
   const [picking, setPicking] = useState(false);
+  // B8: a skeleton while the page first opens (the wallet and trust points come over the network)
+  const loading = useSkeleton(SKELETON_LONG_MS);
   const [historyOpen, setHistoryOpen] = useState(false);
   const clearedAtMs = useHistoryStore((state) => state.clearedAtMs);
   const clearHistory = useHistoryStore((state) => state.clear);
@@ -114,6 +124,16 @@ export default function ProfileScreen() {
         { label: strings.common.close, variant: 'secondary' },
       ],
     });
+
+  if (loading) {
+    return (
+      <Screen title={strings.profilePage.title}>
+        <SkeletonHero />
+        <SkeletonCard />
+        <SkeletonCard />
+      </Screen>
+    );
+  }
 
   return (
     <Screen title={strings.profilePage.title}>

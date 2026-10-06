@@ -1,7 +1,9 @@
 import { BellOff } from 'lucide-react-native';
 import { Text } from 'react-native';
 
-import { Card, Screen } from '@/components';
+import { Card, Screen, SkeletonCard } from '@/components';
+import { useSkeleton } from '@/features/loading/useSkeleton';
+import { SKELETON_LONG_MS } from '@/shared/config';
 import { strings } from '@/strings';
 import { makeStyles, spacing, useTheme } from '@/theme';
 
@@ -11,6 +13,16 @@ const ICON_SIZE = spacing.xl;
 export default function NotificationsScreen() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
+  // B8: a short placeholder first, like the other screens whose data comes over the network
+  const loading = useSkeleton(SKELETON_LONG_MS);
+  if (loading) {
+    return (
+      <Screen title={strings.notifications.title}>
+        <SkeletonCard />
+        <SkeletonCard />
+      </Screen>
+    );
+  }
   return (
     <Screen title={strings.notifications.title}>
       <Card style={styles.empty}>

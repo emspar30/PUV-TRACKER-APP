@@ -14,7 +14,7 @@ import { glyphsUrl } from '../map/glyphInstall';
 import { BASE_MAPS } from '../../theme/tokens';
 import { R4_LINES, R4_STATIONS } from './fixtures/r4Placeholder';
 import { MAP_OVERZOOM_LEVELS } from '../config';
-import { boundsContain, boundsOfLines, clipBounds } from '../geo/bounds';
+import { boundsContain, boundsOfLines, clipBounds, padBounds } from '../geo/bounds';
 
 // Distinct marker colours, so the test can tell where each one ends up
 const PALETTE: MapPalette = {
@@ -193,5 +193,14 @@ describe('initial map view', () => {
       ]),
     ).toEqual([125.4, 8.8, 125.6, 9.0]);
     expect(() => boundsOfLines([])).toThrow(RangeError);
+  });
+});
+
+describe('pan bounds (B8)', () => {
+  it('grow the tile bounds on every side, so the tiles stay inside', () => {
+    const padded = padBounds(TILESET.bounds, 0.08);
+    expect(boundsContain(padded, TILESET.bounds)).toBe(true);
+    expect(padded[3] - TILESET.bounds[3]).toBeCloseTo(0.08);
+    expect(TILESET.bounds[0] - padded[0]).toBeCloseTo(0.08);
   });
 });

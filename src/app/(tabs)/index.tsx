@@ -5,7 +5,7 @@ import { Pressable, Text, Vibration, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Logo, RoundButton, TopBar, type StatusTone } from '@/components';
+import { Logo, RoundButton, SkeletonCard, TopBar, type StatusTone } from '@/components';
 import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
@@ -23,6 +23,7 @@ import { useRelayBroadcast } from '@/features/report/useRelayBroadcast';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useCommuterPosition } from '@/features/map/useCommuterPosition';
+import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { TrackingLayers } from '@/features/tracking/TrackingLayers';
@@ -42,6 +43,7 @@ import {
   TRACK_DISTANCE_ALERTS_M,
   TRACK_OTHERS_OPACITY,
   TRACKING_SESSION_MIN,
+  SKELETON_MIN_MS,
 } from '@/shared/config';
 import { canReportWithGps } from '@/shared/checkin/geofence';
 import { nearestStop } from '@/shared/routing/describe';
@@ -84,10 +86,14 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { state, retry } = useOfflineTiles();
   const { lines, stops } = useRouteData();
+  // B8: the bottom card shows a skeleton on the first visit
+  const loadingCard = useSkeleton(SKELETON_MIN_MS);
 
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [bottomHeight, setBottomHeight] = useState(0);
   const [topHeight, setTopHeight] = useState(0);
+  // B8: the round buttons sit at the right, above the card: they do not take map height
+  const [buttonsHeight, setButtonsHeight] = useState(0);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const seatFilter = useSettingsStore((store) => store.seatFilter);
@@ -404,7 +410,8 @@ export default function MapScreen() {
         labelsDimmed={selectedRoute !== null}
         initialBounds={initialBounds}
         focus={focus}
-        bottomInset={bottomHeight}
+        bottomInset={Math.max(bottomHeight - buttonsHeight - spacing.sm, 0) + spacing.md}
+        topInset={insets.top + spacing.sm + topHeight}
         attributionTop={insets.top + spacing.sm + topHeight + spacing.sm}
         onStatusChange={handleStatusChange}
         onLongPress={location.setManualOrigin}
@@ -458,7 +465,7 @@ export default function MapScreen() {
       </View>
 
       <View style={styles.bottom} onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)} pointerEvents="box-none">
-        <View style={styles.buttons} pointerEvents="box-none">
+        <View style={styles.buttons} pointerEvents="box-none" onLayout={(event) => setButtonsHeight(event.nativeEvent.layout.height)}>
           {trackedId ? <RoundButton icon={Crosshair} label={strings.live.tracking.jumpTo} onPress={jumpToTracked} active /> : null}
           <RoundButton icon={RadioTower} label={strings.report.title} onPress={() => setReportOpen(true)} />
           <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
@@ -491,10 +498,12 @@ export default function MapScreen() {
         ) : null}
         {/* The bottom card slides up whenever it changes (tracking, a vehicle, a stop, explore) */}
         <Animated.View
-          key={onTrackedRoute && trackedId ? 'track' : vehicle ? `vehicle-${vehicle.id}` : stop ? `stop-${stop.code}` : selectedRoute ? 'none' : 'explore'}
+          key={loadingCard ? 'skeleton' : onTrackedRoute && trackedId ? 'track' : vehicle ? `vehicle-${vehicle.id}` : stop ? `stop-${stop.code}` : selectedRoute ? 'none' : 'explore'}
           entering={FadeInDown.duration(motion.cardMs)}
         >
-          {onTrackedRoute && trackedId ? (
+          {loadingCard ? (
+          <SkeletonCard />
+        ) : onTrackedRoute && trackedId ? (
           <TrackingPanel
             vehicle={tracked}
             nowMs={live.nowMs}

@@ -247,6 +247,15 @@ export const BLUE_DOT_UPDATE_INTERVAL_S = 2;
 export const BLUE_DOT_UPDATE_DISTANCE_M = 5;
 // Zoom used when the camera follows the blue dot
 export const MAP_FOLLOW_ZOOM = 16;
+// B8: skeletons show at least this long on a tab's first visit; longer on Crowdsource, Profile and
+// Notifications, whose data comes over the network
+export const SKELETON_MIN_MS = 400;
+export const SKELETON_LONG_MS = 900;
+// B8: a route framed this recently is framed again when the cards over the map change size (the
+// bottom card swaps as the route is picked), so it sits in the space they leave
+export const MAP_REFIT_WINDOW_MS = 1500;
+// B8: how far past the offline tiles the camera may go (degrees, about 9 km)
+export const MAP_BOUNDS_MARGIN_DEG = 0.08;
 
 // --- Verification window and check-in (PRD 10.2, 8.4, 7.5). Defined now, used later.
 export const ROUTE_SNAP_DISTANCE_M = 30;

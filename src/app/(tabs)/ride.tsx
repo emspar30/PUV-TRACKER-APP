@@ -4,10 +4,11 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Chip, Hint, LineBadge, Logo, RoundButton, TopBar } from '@/components';
+import { Chip, Hint, LineBadge, Logo, RoundButton, SkeletonCard, TopBar } from '@/components';
 import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
+import { useSkeleton } from '@/features/loading/useSkeleton';
 import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
@@ -20,7 +21,7 @@ import type { PickTarget, PickedPoint } from '@/features/ride/PointPills';
 import { FareSummaryCard, SuggestedRouteCard } from '@/features/ride/RideCards';
 import { RideFailure } from '@/features/ride/RideResult';
 import { TripCard } from '@/features/ride/TripCard';
-import { FARE_REGULAR_MULTIPLIER } from '@/shared/config';
+import { FARE_REGULAR_MULTIPLIER, SKELETON_MIN_MS } from '@/shared/config';
 import { discountMultiplier } from '@/shared/fare/fare';
 import { boundsOfLines, clipBounds, withMinimumSpan } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
@@ -74,6 +75,8 @@ export default function MyRidesScreen() {
   const { height: windowHeight } = useWindowDimensions();
   // B5: bigger map: it takes the free space and the results hide; From, To and the stop chips stay
   const [mapExpanded, setMapExpanded] = useState(false);
+  // B8: the results show a skeleton on the first visit
+  const loadingResults = useSkeleton(SKELETON_MIN_MS);
   // "5 min ago" on recent rides counts from when this screen opened
   const [openedAt] = useState(() => Date.now());
   const repos = useRepositories();
@@ -289,13 +292,19 @@ export default function MyRidesScreen() {
       </View>
       {mapExpanded ? null : (
         <ScrollView style={styles.grow} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {!hintSeen && needsPick ? <Hint text={strings.hints.ride} onDismiss={() => dismissHint('ride')} /> : null}
+          {loadingResults ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : null}
+          {!loadingResults && !hintSeen && needsPick ? <Hint text={strings.hints.ride} onDismiss={() => dismissHint('ride')} /> : null}
 
-          {plan && !plan.ok && ranked.length === 0 ? (
+          {!loadingResults && plan && !plan.ok && ranked.length === 0 ? (
             <RideFailure failure={plan} explanation={explanation} action={failureAction} badgeColor={colorOf} />
           ) : null}
 
-          {itinerary && fare && ride ? (
+          {!loadingResults && itinerary && fare && ride ? (
             <>
               <FareSummaryCard itinerary={itinerary} fare={fare} regularFare={regularFare} classification={fareType} />
               <Text style={typography.headlineSm}>{strings.ride.suggested}</Text>
@@ -313,7 +322,7 @@ export default function MyRidesScreen() {
             </>
           ) : null}
 
-          {ranked.length > 1 ? (
+          {!loadingResults && ranked.length > 1 ? (
             <>
               <Text style={typography.overline}>{strings.ride.otherRoutes}</Text>
               {ranked
@@ -338,7 +347,7 @@ export default function MyRidesScreen() {
             </>
           ) : null}
 
-          {recentRides.length > 0 ? (
+          {!loadingResults && recentRides.length > 0 ? (
             <>
               <Text style={typography.overline}>{strings.ride.recentRides}</Text>
               <View style={styles.places}>

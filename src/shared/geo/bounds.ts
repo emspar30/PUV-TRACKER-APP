@@ -58,3 +58,8 @@ export function boundsContainPoint(bounds: Bounds, point: { lat: number; lon: nu
   const [west, south, east, north] = bounds;
   return point.lon >= west && point.lon <= east && point.lat >= south && point.lat <= north;
 }
+
+// B8: the bounds grown by marginDeg on every side
+export function padBounds([west, south, east, north]: Bounds, marginDeg: number): Bounds {
+  return [west - marginDeg, south - marginDeg, east + marginDeg, north + marginDeg];
+}

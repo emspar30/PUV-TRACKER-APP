@@ -5,7 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Chip, Hint, LineBadge, Logo, RoundButton, RouteChip, TopBar } from '@/components';
+import { Button, Chip, Hint, LineBadge, Logo, RoundButton, RouteChip, SkeletonCard, TopBar } from '@/components';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { CompactBar, FarewellCard, RoutePing, StationCard } from '@/features/checkin/CheckInParts';
@@ -14,6 +14,7 @@ import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useCommuterPosition } from '@/features/map/useCommuterPosition';
+import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { checkInGeofence, type Place } from '@/shared/checkin/geofence';
@@ -26,6 +27,7 @@ import {
   GPS_ACCURACY_GATE_CHECKIN_M,
   MAP_FOLLOW_ZOOM,
   WALK_SPEED_M_PER_MIN,
+  SKELETON_MIN_MS,
 } from '@/shared/config';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { haversineMeters } from '@/shared/geo/haversine';
@@ -79,6 +81,10 @@ export default function CheckInScreen() {
   const [ping, setPing] = useState<{ station: string; routes: string[] } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [cardHeight, setCardHeight] = useState(0);
+  // B8: the card shows a skeleton on the first visit
+  const loadingCard = useSkeleton(SKELETON_MIN_MS);
+  // B8: the top bar's height, so framed stations keep clear of it
+  const [topHeight, setTopHeight] = useState(0);
   const [minimized, setMinimized] = useState(false);
   // B3: the routes just boarded, while the "Safe travel" card shows
   const [farewell, setFarewell] = useState<string | null>(null);
@@ -375,6 +381,7 @@ export default function CheckInScreen() {
           initialBounds={initialBounds}
           focus={focus}
           bottomInset={cardHeight}
+          topInset={insets.top + spacing.sm + topHeight}
           onUserMove={location.stopFollowing}
         >
           <RouteLines lines={shownLines} visible={ALL_DIRECTIONS} opacity={lineOpacity} />
@@ -390,7 +397,7 @@ export default function CheckInScreen() {
           <Logo size={LOGO_SIZE} />
         </View>
       )}
-      <View style={[styles.topBar, { top: insets.top + spacing.sm }]}>
+      <View style={[styles.topBar, { top: insets.top + spacing.sm }]} onLayout={(event) => setTopHeight(event.nativeEvent.layout.height)}>
         <TopBar />
       </View>
 
@@ -407,7 +414,9 @@ export default function CheckInScreen() {
         {/* Sized by its content. No layout transition here: on a bottom-anchored view it keeps the
             old top and grows the height downward, under the tab bar. */}
         <View style={[styles.card, elevation.level3]} onLayout={(event) => setCardHeight(Math.round(event.nativeEvent.layout.height) + spacing.md)}>
-          {farewell ? (
+          {loadingCard ? (
+            <SkeletonCard bare />
+          ) : farewell ? (
             <FarewellCard routes={farewell} onDone={() => setFarewell(null)} />
           ) : minimized ? (
             compact

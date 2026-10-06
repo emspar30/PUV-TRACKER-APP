@@ -12,8 +12,8 @@ import { Pressable, Text, View, type NativeSyntheticEvent } from 'react-native';
 import { GLYPH_FONT_REGULAR, LABEL_PROOF } from '@/data/map/glyphset';
 import { buildOfflineStyle } from '@/data/map/offlineStyle';
 import { TILESET } from '@/data/map/tileset';
-import { MAP_ATTRIBUTION_SHOW_S, MAP_LABEL_PROOF_DEV, MAP_OVERZOOM_LEVELS } from '@/shared/config';
-import type { Bounds } from '@/shared/geo/bounds';
+import { MAP_ATTRIBUTION_SHOW_S, MAP_BOUNDS_MARGIN_DEG, MAP_LABEL_PROOF_DEV, MAP_OVERZOOM_LEVELS, MAP_REFIT_WINDOW_MS } from '@/shared/config';
+import { padBounds, type Bounds } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
@@ -22,6 +22,9 @@ import { MapLabels } from './MapLabels';
 import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
 const PADDING = { top: spacing.xl, right: spacing.xl, bottom: spacing.xl, left: spacing.xl };
+// B8: the camera may go a little past the offline tiles, so a route near their edge (De Oro, at the
+// north) can still be framed in the space the cards leave; the margin mostly sits under the top bar
+const PAN_BOUNDS = padBounds(TILESET.bounds, MAP_BOUNDS_MARGIN_DEG);
 
 export type MapStatus = 'loading' | 'loaded' | 'failed';
 
@@ -50,6 +53,8 @@ type OfflineMapProps = {
   onUserMove?: () => void;
   // Height of anything covering the bottom of the map, such as a bottom sheet. Fitted areas keep clear of it.
   bottomInset?: number;
+  // B8: the same for the top (the top bar and a route card over the map)
+  topInset?: number;
   // LB1b: labels at LABEL_DIMMED_OPACITY while a route is selected
   labelsDimmed?: boolean;
   // Map content drawn on top of the base map: route line, stops, vehicle markers and, later, the blue dot
@@ -69,6 +74,7 @@ export function OfflineMap({
   onLongPress,
   onUserMove,
   bottomInset = 0,
+  topInset = 0,
   labelsDimmed = false,
   attributionTop,
   children,
@@ -91,21 +97,37 @@ export function OfflineMap({
     return buildOfflineStyle(tilesUrl, baseMap, glyphsUrl, proof) as unknown as StyleSpecification;
   }, [tilesUrl, baseMap, glyphsUrl, colors.textPrimary]);
 
+  const padding = { ...PADDING, top: PADDING.top + topInset, bottom: PADDING.bottom + bottomInset };
+  // B8: the last area framed and when, to frame it again if the cards over the map change size
+  const lastFit = useRef<{ bounds: MapFocusTarget & { kind: 'bounds' }; atMs: number } | null>(null);
+
   useEffect(() => {
     if (!focus) return;
     const animation = { duration: mapRoute.cameraAnimationMs };
     if (focus.kind === 'bounds') {
-      camera.current?.fitBounds(focus.bounds, { padding: { ...PADDING, bottom: PADDING.bottom + bottomInset }, ...animation });
+      camera.current?.fitBounds(focus.bounds, { padding, ...animation });
+      lastFit.current = { bounds: focus, atMs: Date.now() };
     } else {
+      lastFit.current = null;
       camera.current?.easeTo({
         center: [focus.center.lon, focus.center.lat],
         ...(focus.zoom !== undefined ? { zoom: focus.zoom } : {}),
         ...animation,
       });
     }
-    // Only a new focus moves the camera; a change of inset alone does not
+    // Only a new focus moves the camera here; a change of inset is handled below
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, mapRoute.cameraAnimationMs]);
+
+  // B8: a card over the map grew or shrank just after a fit (the bottom card swaps when a route is
+  // picked): frame the same area again, so no empty band is left above or below it. Later inset
+  // changes leave the camera where the user put it.
+  useEffect(() => {
+    const fit = lastFit.current;
+    if (!fit || Date.now() - fit.atMs > MAP_REFIT_WINDOW_MS) return;
+    camera.current?.fitBounds(fit.bounds.bounds, { padding, duration: mapRoute.cameraAnimationMs });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bottomInset, topInset]);
 
   const handleRegionDidChange = (event: NativeSyntheticEvent<ViewStateChangeEvent>) => onViewChange?.(event.nativeEvent);
 
@@ -146,10 +168,10 @@ export function OfflineMap({
         {showLabels ? <MapLabels dimmed={labelsDimmed} /> : null}
         <Camera
           ref={camera}
-          initialViewState={{ bounds: initialBounds, padding: { ...PADDING, bottom: PADDING.bottom + bottomInset } }}
+          initialViewState={{ bounds: initialBounds, padding }}
           minZoom={TILESET.minZoom}
           maxZoom={TILESET.maxZoom + MAP_OVERZOOM_LEVELS}
-          maxBounds={TILESET.bounds}
+          maxBounds={PAN_BOUNDS}
         />
         {children}
       </Map>

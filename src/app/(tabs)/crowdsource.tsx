@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card, Chip, LineBadge, SkeletonCard, StatusPill, TopBar } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
-import { DEMO_SEED, FEED_FLAG_HIDE_COUNT } from '@/shared/config';
+import { useSkeleton } from '@/features/loading/useSkeleton';
+import { DEMO_SEED, FEED_FLAG_HIDE_COUNT, SKELETON_LONG_MS } from '@/shared/config';
 import { demoFeed, type FeedPost } from '@/shared/demo/feed';
 import { flagPost, useCrowd, useFlaggedStore } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
@@ -82,6 +83,8 @@ export default function CrowdsourceScreen() {
     const name = stops.find((stop) => stop.code === code)?.name;
     return name ? (name.split(',')[0] ?? name) : code;
   };
+  // B8: live data loads over the network; the demo shows the same short placeholder
+  const loadingFeed = useSkeleton(SKELETON_LONG_MS, !(!demo && crowd.reports.source === 'live' && loaded === null));
   const needsSignIn = !demo && crowd.reports.source === 'live' && loaded !== null && mine === null;
   // Only updates sent without GPS: those with GPS belong to the live map (broadcast and merged)
   const visible = posts.filter((post) => !post.withGps && !flagged.has(post.id));
@@ -111,8 +114,8 @@ export default function CrowdsourceScreen() {
             <Chip key={code} label={code} selected={filter === code} onPress={() => setFilter(code)} />
           ))}
         </ScrollView>
-        {/* Live data loads over the network: placeholders until the first answer */}
-        {!demo && crowd.reports.source === 'live' && loaded === null ? (
+        {/* Placeholders until the first answer, and at least SKELETON_LONG_MS on the first visit (B8) */}
+        {loadingFeed ? (
           <>
             <SkeletonCard />
             <SkeletonCard />
