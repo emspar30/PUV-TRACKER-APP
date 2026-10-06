@@ -20,6 +20,9 @@ import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '
 const ICON_SIZE = spacing.md;
 const EMPTY_ICON = spacing.xl;
 const DOT = spacing.sm + spacing.xs / 2;
+// A 32 dp Flag button with a 48 dp touch target, so the top row stays low
+const FLAG_SIZE = spacing.xl;
+const FLAG_HIT_SLOP = (MIN_TOUCH_TARGET - FLAG_SIZE) / 2;
 const REFRESH_MS = 30000;
 const MS_PER_MIN = 60000;
 const STAGGER_MS = 40;
@@ -182,32 +185,37 @@ function PostCard({ post, nowMs, color, stopName, mine }: { post: FeedPost; nowM
   return (
     // B6: compact: route, multicab, time, then seats and status, then the stop it was sent near
     <Card style={styles.post}>
-      <View style={styles.row}>
-        <LineBadge code={post.routeCode} color={color} />
-        <Text style={[typography.labelLg, styles.shrink]} numberOfLines={1}>
-          {post.vehicleId ?? strings.crowdsource.noVehicle}
-        </Text>
-        {post.trusted ? (
-          <View style={styles.trusted} accessible accessibilityLabel={strings.crowdsource.trustedLabel}>
-            <ShieldCheck color={colors.success} size={ICON_SIZE} />
-            <Text style={[typography.labelMd, styles.trustedText]}>{strings.crowdsource.trusted}</Text>
-          </View>
-        ) : null}
-        <View style={styles.grow} />
-        <Clock color={colors.textSecondary} size={ICON_SIZE} />
-        <Text style={typography.bodySm}>{ago}</Text>
-        {mine ? (
-          <StatusPill label={strings.crowdsource.you} tone="neutral" />
-        ) : (
-          <Pressable
-            style={({ pressed }) => [styles.flag, pressed && styles.flagPressed]}
-            onPress={() => confirmFlag(post)}
-            accessibilityRole="button"
-            accessibilityLabel={strings.crowdsource.flagLabel(post.username)}
-          >
-            <Flag color={colors.textSecondary} size={ICON_SIZE} />
-          </Pressable>
-        )}
+      {/* What the multicab is on the left (wraps on a narrow screen), when and Flag on the right */}
+      <View style={styles.head}>
+        <View style={styles.identity}>
+          <LineBadge code={post.routeCode} color={color} />
+          <Text style={[typography.labelLg, styles.shrink]} numberOfLines={1}>
+            {post.vehicleId ?? strings.crowdsource.noVehicle}
+          </Text>
+          {post.trusted ? (
+            <View style={styles.trusted} accessible accessibilityLabel={strings.crowdsource.trustedLabel}>
+              <ShieldCheck color={colors.success} size={ICON_SIZE} />
+              <Text style={[typography.labelMd, styles.trustedText]}>{strings.crowdsource.trusted}</Text>
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.when}>
+          <Clock color={colors.textSecondary} size={ICON_SIZE} />
+          <Text style={typography.bodySm}>{ago}</Text>
+          {mine ? (
+            <StatusPill label={strings.crowdsource.you} tone="neutral" />
+          ) : (
+            <Pressable
+              style={({ pressed }) => [styles.flag, pressed && styles.flagPressed]}
+              hitSlop={FLAG_HIT_SLOP}
+              onPress={() => confirmFlag(post)}
+              accessibilityRole="button"
+              accessibilityLabel={strings.crowdsource.flagLabel(post.username)}
+            >
+              <Flag color={colors.textSecondary} size={ICON_SIZE} />
+            </Pressable>
+          )}
+        </View>
       </View>
       <View style={styles.row}>
         {tierColor ? <View style={[styles.dot, { backgroundColor: tierColor }]} /> : null}
@@ -257,9 +265,27 @@ const useStyles = makeStyles(({ colors }) => ({
   center: {
     textAlign: 'center',
   },
+  // B6: the card's own padding (spacing.md), a little more room between its rows
   post: {
+    gap: spacing.sm + spacing.xs,
+  },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  identity: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  when: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.xs,
   },
   row: {
     flexDirection: 'row',
@@ -282,8 +308,8 @@ const useStyles = makeStyles(({ colors }) => ({
     color: colors.success,
   },
   flag: {
-    width: MIN_TOUCH_TARGET,
-    height: MIN_TOUCH_TARGET,
+    width: FLAG_SIZE,
+    height: FLAG_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radii.pill,

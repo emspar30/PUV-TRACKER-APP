@@ -294,6 +294,8 @@ export const FEED_STOP_NEAR_M = 500;
 // B6: trust points for the Trusted badge: one per check-in and per relay nobody flagged (server:
 // app_config.trust_badge_points)
 export const TRUST_BADGE_POINTS = 5;
+// B6: at most this many trust points a Manila day (server: app_config.trust_daily_max)
+export const TRUST_DAILY_MAX = 3;
 // B4: a relay with GPS shares the rider's location until they come this close to the destination
 // they picked, or for this long at most
 export const RELAY_DESTINATION_ARRIVED_M = 100;

@@ -67,6 +67,7 @@ describe('migration: tables', () => {
       /feed_flag_hide_count\s+smallint not null default 3/,
       /checkin_lifetime_min\s+smallint not null default 15/,
       /trust_badge_points smallint not null default 5/,
+      /trust_daily_max smallint not null default 3/,
     ]) {
       expect(sql).toMatch(rule);
     }
@@ -103,8 +104,8 @@ describe('migration: tables', () => {
 
   it('B6: trust points live on the profile and only server triggers change them', () => {
     expect(sql).toMatch(/add column trust_points integer not null default 0 check \(trust_points >= 0\)/);
-    for (const fn of ['trust_on_checkin', 'trust_on_post', 'trust_on_flag']) {
-      expect(statements).toContain(`revoke execute on function public.${fn}() from public, anon, authenticated`);
+    for (const fn of ['trust_award(uuid)', 'trust_on_checkin()', 'trust_on_post()', 'trust_on_flag()']) {
+      expect(statements).toContain(`revoke execute on function public.${fn} from public, anon, authenticated`);
       expect(statements.some((s) => s.startsWith(`grant execute on function public.${fn}`))).toBe(false);
     }
     expect(statements.filter((s) => s.startsWith('create trigger')).map((s) => s.split(' ')[2])).toEqual(['checkins_trust', 'feed_posts_trust', 'feed_flags_trust']);

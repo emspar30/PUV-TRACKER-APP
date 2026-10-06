@@ -364,6 +364,47 @@ live('SB1 commuter backend, live project', () => {
     },
     TIMEOUT_MS,
   );
+
+  it(
+    'B6: a relay names its stop and the Trusted flag; trust points are capped a day and only the server sets them',
+    async () => {
+      const before = await writer.from('profiles').select('trust_points, trust_today').single();
+      expect(before.error).toBeNull();
+      const post = await writer.rpc('post_report', {
+        route: 'R4',
+        phrase: null,
+        seat_tier: 'amber',
+        vehicle: null,
+        with_gps: false,
+        stop: 'MCA',
+        request_key: key('stop'),
+      });
+      expect(post.error).toBeNull();
+      const shown = await outsider.from('feed_posts').select('stop_code, author_trusted').eq('id', post.data).single();
+      expect(shown.error).toBeNull();
+      expect(shown.data?.stop_code).toBe('MCA');
+      expect(typeof shown.data?.author_trusted).toBe('boolean');
+      // The server-only column stays hidden
+      expect((await outsider.from('feed_posts').select('trust_earned').eq('id', post.data)).error).not.toBeNull();
+
+      // One more point unless today's cap (3) was already reached by earlier runs
+      const after = await writer.from('profiles').select('trust_points, trust_today').single();
+      const gained = (after.data?.trust_points ?? 0) - (before.data?.trust_points ?? 0);
+      expect([0, 1]).toContain(gained);
+      if (gained === 0) expect(after.data?.trust_today).toBe(3);
+      expect(after.data?.trust_today).toBeLessThanOrEqual(3);
+
+      // Clients cannot write trust points or call the award function
+      const update = await writer.from('profiles').update({ trust_points: 99 }).not('user_id', 'is', null).select();
+      expect(update.data ?? []).toEqual([]);
+      expect((await writer.rpc('trust_award', { uid: null })).error).not.toBeNull();
+
+      // Builds from before B6 still post, with no stop
+      const old = await writer.rpc('post_report', { route: 'R4', phrase: 'full', seat_tier: null, vehicle: null, with_gps: false, request_key: key('old') });
+      expect(old.error).toBeNull();
+    },
+    TIMEOUT_MS,
+  );
 });
 
 // Keeps the suite from being reported as empty while the live tests are skipped
