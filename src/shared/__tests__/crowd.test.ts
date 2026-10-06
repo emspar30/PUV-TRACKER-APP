@@ -61,7 +61,7 @@ describe('reporting with GPS', () => {
   });
 });
 
-const REPORT: ReportInput = { routeCode: 'R4', phrase: 'few_seats', seatTier: 'amber', vehicleId: null, withGps: true };
+const REPORT: ReportInput = { routeCode: 'R4', phrase: 'few_seats', seatTier: 'amber', vehicleId: 'R4-01', stopCode: 'MCA', withGps: true };
 
 describe('the demo loop: earn by checking in and reporting, spend by tracking', () => {
   const setup = (username: string | null = 'demo_me') => {
@@ -125,7 +125,7 @@ describe('the demo loop: earn by checking in and reporting, spend by tracking', 
     await crowd.reports.post(REPORT, 'report-aaaaaaaa');
     const posts = await crowd.reports.recent();
     expect(posts).toHaveLength(1);
-    expect(posts?.[0]).toMatchObject({ routeCode: 'R4', phrase: 'few_seats', seatTier: 'amber', username: 'demo_me', withGps: true, demo: true });
+    expect(posts?.[0]).toMatchObject({ routeCode: 'R4', phrase: 'few_seats', seatTier: 'amber', vehicleId: 'R4-01', stopCode: 'MCA', username: 'demo_me', withGps: true, demo: true });
     advance(3600000);
     expect(await crowd.reports.recent()).toEqual([]);
     expect(await setup(null).crowd.reports.post(REPORT, 'report-bbbbbbbb')).toEqual({ ok: false, reason: 'no_username' });
@@ -139,7 +139,18 @@ const port = (over: Partial<CrowdPort> = {}): CrowdPort => ({
   endCheckIn: async () => null,
   postReport: async () => null,
   feed: async () => [
-    { id: 5, author_username: 'juan', route_id: 'R4', phrase: 'full', seat_tier: 'red', with_gps: false, created_at: new Date(T0).toISOString() },
+    {
+      id: 5,
+      author_username: 'juan',
+      route_id: 'R4',
+      vehicle_id: 'R4-02',
+      phrase: 'full',
+      seat_tier: 'red',
+      stop_code: 'IMA',
+      author_trusted: true,
+      with_gps: false,
+      created_at: new Date(T0).toISOString(),
+    },
   ],
   flagPost: async () => ({ hidden: false }),
   ...over,
@@ -159,7 +170,19 @@ describe('the live check-ins and reports', () => {
     expect(await crowd.checkins.checkIn(['R4'], 'AAA', 'checkin-aaaaaaaa')).toEqual({ ok: true, expiresAtMs: T0 + CHECKIN_LIFETIME_S * 1000 });
     expect(await crowd.checkins.waitingCounts('R4', [])).toEqual(new Map([['AAA', 2]]));
     expect(await crowd.reports.recent()).toEqual([
-      { id: '5', routeCode: 'R4', phrase: 'full', seatTier: 'red', username: 'juan', withGps: false, postedMs: T0, demo: false },
+      {
+        id: '5',
+        routeCode: 'R4',
+        phrase: 'full',
+        seatTier: 'red',
+        vehicleId: 'R4-02',
+        stopCode: 'IMA',
+        trusted: true,
+        username: 'juan',
+        withGps: false,
+        postedMs: T0,
+        demo: false,
+      },
     ]);
   });
 
@@ -200,7 +223,18 @@ describe('the live check-ins and reports', () => {
   });
 
   it('drops a feed row with an unknown phrase and an unknown seat tier', () => {
-    const row = { id: 1, author_username: 'a', route_id: 'R4', phrase: 'full', seat_tier: 'purple', with_gps: true, created_at: new Date(T0).toISOString() };
+    const row = {
+      id: 1,
+      author_username: 'a',
+      route_id: 'R4',
+      vehicle_id: null,
+      phrase: 'full',
+      seat_tier: 'purple',
+      stop_code: null,
+      author_trusted: false,
+      with_gps: true,
+      created_at: new Date(T0).toISOString(),
+    };
     expect(feedPostOf(row)?.seatTier).toBeNull();
     expect(feedPostOf({ ...row, phrase: 'free text' })).toBeNull();
   });

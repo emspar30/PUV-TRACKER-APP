@@ -1,7 +1,7 @@
 // B4: a relay sent with GPS shares the rider's location on the live map until the rider reaches
 // the destination they picked (or RELAY_BROADCAST_MAX_MIN passes). The destination is what ends it.
 
-import { RELAY_BROADCAST_MAX_MIN, RELAY_DESTINATION_ARRIVED_M } from '../config';
+import { FEED_STOP_NEAR_M, RELAY_BROADCAST_MAX_MIN, RELAY_DESTINATION_ARRIVED_M } from '../config';
 import { haversineMeters, type LatLon } from '../geo/haversine';
 import { lineEndKm, projectOntoLine, type LineCoordinates } from '../geo/line';
 import type { RouteStop } from '../routing/types';
@@ -40,4 +40,16 @@ export function inRouteOrder(lines: readonly LineCoordinates[], stops: readonly 
   if (!longest) return [...stops];
   const along = new Map(stops.map((stop) => [stop.code, projectOntoLine(longest, stop).chainageKm]));
   return [...stops].sort((a, b) => (along.get(a.code) ?? 0) - (along.get(b.code) ?? 0));
+}
+
+// B6: the stop a relay names in Crowdsource ("Near ..."): the nearest stop of any route within
+// FEED_STOP_NEAR_M of the phone, whether or not the relay shares GPS. Only the code is sent.
+export function relayStopCode(stops: readonly RouteStop[], position: LatLon | null): string | null {
+  if (!position) return null;
+  let best: { code: string; distanceM: number } | null = null;
+  for (const stop of stops) {
+    const distanceM = haversineMeters(position, stop);
+    if (distanceM <= FEED_STOP_NEAR_M && (!best || distanceM < best.distanceM)) best = { code: stop.code, distanceM };
+  }
+  return best?.code ?? null;
 }

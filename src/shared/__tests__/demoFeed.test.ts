@@ -33,4 +33,16 @@ describe('demo feed', () => {
   it('is empty with no routes', () => {
     expect(demoFeed([], NOW, SEED)).toEqual([]);
   });
+
+  it('B6: names a stop and a multicab of the route of the post, and marks some authors Trusted', () => {
+    const stops: Record<string, readonly string[]> = { T1: ['AA', 'AB'], T2: [] };
+    const many = Array.from({ length: 24 }, (_, hour) => demoFeed(['T1', 'T2'], NOW + hour * 60 * MS_PER_MIN, SEED, (code) => stops[code])).flat();
+    for (const post of many) {
+      if (post.routeCode === 'T1') expect(stops.T1).toContain(post.stopCode);
+      else expect(post.stopCode).toBeNull();
+      if (post.vehicleId) expect(post.vehicleId.startsWith(`${post.routeCode}-`)).toBe(true);
+    }
+    expect(many.some((post) => post.trusted)).toBe(true);
+    expect(many.some((post) => !post.trusted)).toBe(true);
+  });
 });

@@ -57,6 +57,11 @@ export const en = {
     flagFailedTitle: 'Flag not sent',
     flagFailedBody: 'Try again in a moment.',
     you: 'You',
+    // B6: the compact card
+    noVehicle: 'Multicab',
+    trusted: 'Trusted',
+    trustedLabel: 'Trusted commuter: 5 check-ins or relays nobody flagged',
+    near: (stop: string) => `Near ${stop}`,
     all: 'All routes',
     empty: 'No reports yet',
     emptyBody: 'Reports from commuters show here for one hour.',

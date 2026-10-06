@@ -45,6 +45,8 @@ export type ReportInput = {
   seatTier: SeatTier | null;
   // The manual vehicle picker (D5, development builds); null when not picked
   vehicleId: string | null;
+  // B6: the stop nearest to the phone when it was sent (sent even without GPS; no coordinates)
+  stopCode: string | null;
   withGps: boolean;
 };
 

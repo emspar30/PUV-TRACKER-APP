@@ -41,6 +41,7 @@ export const supabaseCrowdPort: CrowdPort = {
       seat_tier: input.seatTier,
       vehicle: input.vehicleId,
       with_gps: input.withGps,
+      stop: input.stopCode,
       request_key: requestKey,
     });
     return error ? failureOf(error) : null;
@@ -55,7 +56,7 @@ export const supabaseCrowdPort: CrowdPort = {
   async feed() {
     const { data, error } = await getSupabase()
       .from('feed_posts')
-      .select('id, author_username, route_id, phrase, seat_tier, with_gps, created_at')
+      .select('id, author_username, route_id, vehicle_id, phrase, seat_tier, stop_code, author_trusted, with_gps, created_at')
       // Crowdsource lists updates sent without GPS; those with GPS feed the live map
       .eq('with_gps', false)
       .order('created_at', { ascending: false })

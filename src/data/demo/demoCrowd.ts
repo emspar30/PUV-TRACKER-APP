@@ -59,7 +59,19 @@ export function createDemoCrowd(
         if (!name) return { ok: false, reason: 'no_username' };
         const postedMs = now();
         posts = [
-          { id: requestKey, routeCode: input.routeCode, phrase: input.phrase, seatTier: input.seatTier, username: name, withGps: input.withGps, postedMs, demo: true },
+          {
+            id: requestKey,
+            routeCode: input.routeCode,
+            phrase: input.phrase,
+            seatTier: input.seatTier,
+            vehicleId: input.vehicleId,
+            stopCode: input.stopCode,
+            trusted: false,
+            username: name,
+            withGps: input.withGps,
+            postedMs,
+            demo: true,
+          },
           ...posts,
         ];
         energy.earn(input.withGps ? 'gps_report' : 'no_gps_report', requestKey);

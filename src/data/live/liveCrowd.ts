@@ -15,6 +15,9 @@ export type FeedRow = {
   route_id: string;
   phrase: string | null;
   seat_tier: string | null;
+  vehicle_id: string | null;
+  stop_code: string | null;
+  author_trusted: boolean;
   with_gps: boolean;
   created_at: string;
 };
@@ -50,6 +53,9 @@ export function feedPostOf(row: FeedRow): FeedPost | null {
     routeCode: row.route_id,
     phrase: row.phrase as FeedPhrase | null,
     seatTier: row.seat_tier !== null && SEAT_TIERS.includes(row.seat_tier) ? (row.seat_tier as SeatTier) : null,
+    vehicleId: row.vehicle_id,
+    stopCode: row.stop_code,
+    trusted: row.author_trusted,
     username: row.author_username,
     withGps: row.with_gps,
     postedMs: Date.parse(row.created_at),

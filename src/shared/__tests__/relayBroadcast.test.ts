@@ -1,5 +1,5 @@
-import { RELAY_BROADCAST_MAX_MIN, RELAY_DESTINATION_ARRIVED_M } from '../config';
-import { broadcastEnd, destinationOptions, inRouteOrder, type RelayBroadcast } from '../relay/broadcast';
+import { FEED_STOP_NEAR_M, RELAY_BROADCAST_MAX_MIN, RELAY_DESTINATION_ARRIVED_M } from '../config';
+import { broadcastEnd, destinationOptions, inRouteOrder, relayStopCode, type RelayBroadcast } from '../relay/broadcast';
 
 const T0 = Date.UTC(2026, 9, 6, 2, 0, 0);
 const MIN = 60_000;
@@ -42,5 +42,14 @@ describe('relay broadcast (B4)', () => {
     const stops = [2000, 100, 1000].map((m) => ({ ...DEST, code: String(m), ...north(m) }));
     expect(inRouteOrder([short, line], stops).map((stop) => stop.code)).toEqual(['100', '1000', '2000']);
     expect(inRouteOrder([], stops)).toEqual(stops);
+  });
+
+  it('B6: names the nearest stop within reach, or none', () => {
+    const near = { ...DEST, code: 'A', ...north(FEED_STOP_NEAR_M / 2) };
+    const nearer = { ...DEST, code: 'B', ...north(FEED_STOP_NEAR_M / 4) };
+    const far = { ...DEST, code: 'C', ...north(FEED_STOP_NEAR_M * 2) };
+    expect(relayStopCode([near, nearer, far], DEST)).toBe('B');
+    expect(relayStopCode([far], DEST)).toBeNull();
+    expect(relayStopCode([near], null)).toBeNull();
   });
 });

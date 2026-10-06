@@ -289,6 +289,11 @@ export const FEED_FLAG_HIDE_COUNT = 3;
 // N1: the neutral author badges cycle through this many theme colours (PRD 19 D2)
 export const FEED_BADGE_COLOR_COUNT = 6;
 export const FEED_PHRASES = ['full', 'few_seats', 'not_moving', 'heavy_traffic', 'loading'] as const;
+// B6: a relay names the nearest stop within this distance of the phone ("Near ..."), or none
+export const FEED_STOP_NEAR_M = 500;
+// B6: trust points for the Trusted badge: one per check-in and per relay nobody flagged (server:
+// app_config.trust_badge_points)
+export const TRUST_BADGE_POINTS = 5;
 // B4: a relay with GPS shares the rider's location until they come this close to the destination
 // they picked, or for this long at most
 export const RELAY_DESTINATION_ARRIVED_M = 100;

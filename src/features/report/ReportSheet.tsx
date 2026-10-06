@@ -5,10 +5,11 @@ import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 
 import { Button, Chip, IconTile, LineBadge, RouteChip } from '@/components';
+import { useRouteData } from '@/data/RouteDataProvider';
 import type { FeedPhrase } from '@/shared/backend/rules';
 import { ENERGY_GPS_REPORT, ENERGY_NO_GPS_REPORT, FEED_LIFETIME_MIN, FEED_PHRASES } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
-import { destinationOptions } from '@/shared/relay/broadcast';
+import { destinationOptions, relayStopCode } from '@/shared/relay/broadcast';
 import type { RouteStop } from '@/shared/routing/types';
 import type { SeatTier } from '@/shared/telemetry/occupancy';
 import { sendReport } from '@/state/crowdStore';
@@ -46,6 +47,7 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const ble = useBleVehicle();
+  const { stops } = useRouteData();
   const [pickedRoute, setRoute] = useState<string | null>(initialRoute ?? routes[0]?.code ?? null);
   const [seatTier, setSeatTier] = useState<SeatTier | null>(null);
   const [phrase, setPhrase] = useState<FeedPhrase | null>(null);
@@ -71,7 +73,9 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
     sendingRef.current = true;
     setSending(true);
     try {
-      const result = await sendReport({ routeCode: route, phrase, seatTier, vehicleId, withGps: gps });
+      // B6: the nearest stop goes with every relay, GPS or not, as a code only
+      const stopCode = relayStopCode(stops, position);
+      const result = await sendReport({ routeCode: route, phrase, seatTier, vehicleId, stopCode, withGps: gps });
       if (result.ok) {
         onClose();
         if (gps && destination) {

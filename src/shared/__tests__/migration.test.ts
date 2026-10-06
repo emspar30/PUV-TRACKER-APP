@@ -66,6 +66,7 @@ describe('migration: tables', () => {
       /feed_lifetime_min\s+smallint not null default 60/,
       /feed_flag_hide_count\s+smallint not null default 3/,
       /checkin_lifetime_min\s+smallint not null default 15/,
+      /trust_badge_points smallint not null default 5/,
     ]) {
       expect(sql).toMatch(rule);
     }
@@ -83,10 +84,30 @@ describe('migration: tables', () => {
     const columns = body.slice(0, body.indexOf(');'));
     expect(columns).not.toMatch(/\blat\b|\blon\b|\btext\s+text\b|message|comment/);
     expect(columns).toMatch(/phrase\s+text not null check \(phrase in \('full', 'few_seats', 'not_moving', 'heavy_traffic', 'loading'\)\)/);
-    const grant = clientGrantsOn('public.feed_posts');
-    expect(grant).toHaveLength(1);
-    expect(grant[0]).toMatch(/^grant select \(/);
-    expect(grant[0]).not.toContain('user_id');
+    // B6 added stop_code and author_trusted in grants of their own
+    const grants = clientGrantsOn('public.feed_posts');
+    expect(grants).toHaveLength(3);
+    for (const grant of grants) {
+      expect(grant).toMatch(/^grant select \(/);
+      expect(grant).not.toContain('user_id');
+    }
+  });
+
+  it('B6: posts name a stop code (never coordinates) and say whether the author was Trusted', () => {
+    expect(sql).toMatch(/alter table public.feed_posts\s+add column stop_code text check \(stop_code ~ '\^\[a-z0-9\]\{2,8\}\$'\)/);
+    expect(statements).toContain('grant select (stop_code) on public.feed_posts to authenticated');
+    expect(statements).toContain('grant select (author_trusted) on public.feed_posts to authenticated');
+    expect(statements).toContain('grant execute on function public.post_report(text, text, text, text, boolean, text) to authenticated');
+    expect(statements).toContain('grant execute on function public.post_report(text, text, text, text, boolean, text, text) to authenticated');
+  });
+
+  it('B6: trust points live on the profile and only server triggers change them', () => {
+    expect(sql).toMatch(/add column trust_points integer not null default 0 check \(trust_points >= 0\)/);
+    for (const fn of ['trust_on_checkin', 'trust_on_post', 'trust_on_flag']) {
+      expect(statements).toContain(`revoke execute on function public.${fn}() from public, anon, authenticated`);
+      expect(statements.some((s) => s.startsWith(`grant execute on function public.${fn}`))).toBe(false);
+    }
+    expect(statements.filter((s) => s.startsWith('create trigger')).map((s) => s.split(' ')[2])).toEqual(['checkins_trust', 'feed_posts_trust', 'feed_flags_trust']);
   });
 
   it('B4: the phrase is optional later, and still only a preset when given', () => {

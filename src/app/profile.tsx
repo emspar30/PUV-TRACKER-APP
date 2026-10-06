@@ -139,7 +139,6 @@ export default function ProfileScreen() {
           tone="warning"
           title={strings.profilePage.energy}
           subtitle={energySubtitle}
-          badge={energySource === 'demo' ? strings.common.demo : undefined}
           onPress={energyNeedsSignIn ? () => router.push('/sign-in') : undefined}
         />
         <SettingsRow icon={Database} title={strings.profilePage.storage} detail={strings.settings.localOnly} />

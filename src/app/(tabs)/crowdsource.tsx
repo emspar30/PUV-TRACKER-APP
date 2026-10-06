@@ -1,5 +1,5 @@
 import { router, useIsFocused } from 'expo-router';
-import { Clock, Flag, MessagesSquare, Users } from 'lucide-react-native';
+import { Clock, Flag, MapPin, MessagesSquare, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -9,7 +9,6 @@ import { Card, Chip, LineBadge, SkeletonCard, StatusPill, TopBar } from '@/compo
 import { useRouteData } from '@/data/RouteDataProvider';
 import { DEMO_SEED, FEED_FLAG_HIDE_COUNT } from '@/shared/config';
 import { demoFeed, type FeedPost } from '@/shared/demo/feed';
-import { feedBadge } from '@/shared/feed/badge';
 import { flagPost, useCrowd, useFlaggedStore } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
 import { useEnergyStore } from '@/state/energyStore';
@@ -21,16 +20,16 @@ import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '
 const ICON_SIZE = spacing.md;
 const EMPTY_ICON = spacing.xl;
 const DOT = spacing.sm + spacing.xs / 2;
-const BADGE_SIZE = spacing.xl + spacing.xs;
 const REFRESH_MS = 30000;
 const MS_PER_MIN = 60000;
 const STAGGER_MS = 40;
 const STAGGER_MAX = 6;
 
-// Crowdsource (restyle, N1): commuter reports from the last hour. With Demo data on, the user's own
-// demo reports (RP1) and the made-up feed; with it off, the database feed. Each post shows the
-// author's neutral badge (D2) and, on other people's posts, a Flag button: a flagged post is hidden
-// for the user at once, and for everyone at FEED_FLAG_HIDE_COUNT flags.
+// Crowdsource (restyle, N1, B6): commuter reports from the last hour. With Demo data on, the user's
+// own demo reports (RP1) and the made-up feed; with it off, the database feed. Each post is a compact
+// card (route, multicab, time, seats, status, the stop it was sent near, the Trusted badge) and, on
+// other people's posts, a Flag button: a flagged post is hidden for the user at once, and for
+// everyone at FEED_FLAG_HIDE_COUNT flags.
 // Reloads when a report is sent (the wallet changes), every REFRESH_MS, and on focus.
 export default function CrowdsourceScreen() {
   const styles = useStyles();
@@ -38,7 +37,7 @@ export default function CrowdsourceScreen() {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const demo = useSettingsStore((state) => state.demoData);
-  const { lines } = useRouteData();
+  const { lines, stops } = useRouteData();
   const routeCodes = [...new Set(lines.map((line) => line.routeCode))].sort();
   const [filter, setFilter] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -72,7 +71,14 @@ export default function CrowdsourceScreen() {
   }, [focused, crowd, wallet]);
 
   const mine = loaded && loaded.reports === crowd.reports ? loaded.posts : null;
-  const posts = demo ? [...(mine ?? []), ...demoFeed(routeCodes, nowMs, DEMO_SEED)] : (mine ?? []);
+  const stopsOf = (code: string) => stops.filter((stop) => stop.routeCodes?.includes(code)).map((stop) => stop.code);
+  const posts = demo ? [...(mine ?? []), ...demoFeed(routeCodes, nowMs, DEMO_SEED, stopsOf)] : (mine ?? []);
+  // "Near 8-318 M. Calo St": the stop's name up to its first comma, or its code
+  const stopNameOf = (code: string | null) => {
+    if (!code) return null;
+    const name = stops.find((stop) => stop.code === code)?.name;
+    return name ? (name.split(',')[0] ?? name) : code;
+  };
   const needsSignIn = !demo && crowd.reports.source === 'live' && loaded !== null && mine === null;
   // Only updates sent without GPS: those with GPS belong to the live map (broadcast and merged)
   const visible = posts.filter((post) => !post.withGps && !flagged.has(post.id));
@@ -124,7 +130,13 @@ export default function CrowdsourceScreen() {
               exiting={FadeOut.duration(motion.cardMs)}
               layout={LinearTransition.duration(motion.cardMs)}
             >
-              <PostCard post={post} nowMs={nowMs} color={colorOf(post.routeCode)} mine={ownName !== null && post.username === ownName} />
+              <PostCard
+                post={post}
+                nowMs={nowMs}
+                color={colorOf(post.routeCode)}
+                stopName={stopNameOf(post.stopCode)}
+                mine={ownName !== null && post.username === ownName}
+              />
             </Animated.View>
           ))
         )}
@@ -157,31 +169,33 @@ function confirmFlag(post: FeedPost) {
   });
 }
 
-function PostCard({ post, nowMs, color, mine }: { post: FeedPost; nowMs: number; color: string; mine: boolean }) {
+function PostCard({ post, nowMs, color, stopName, mine }: { post: FeedPost; nowMs: number; color: string; stopName: string | null; mine: boolean }) {
   const styles = useStyles();
-  const { colors, typography, mapPaint, feedBadges } = useTheme();
+  const { colors, typography, mapPaint } = useTheme();
   const ago = strings.crowdsource.ago(Math.floor((nowMs - post.postedMs) / MS_PER_MIN));
-  const badge = feedBadge(post.username, feedBadges.length);
-  const badgeColor = feedBadges[badge.colorIndex] ?? { fill: colors.surface, ink: colors.textPrimary };
   const tierColor = post.seatTier
     ? { green: mapPaint.occupancyGreen, amber: mapPaint.occupancyAmber, red: mapPaint.occupancyRed }[post.seatTier]
     : null;
+  const status = [post.seatTier ? strings.crowdsource.seats[post.seatTier] : null, post.phrase ? strings.crowdsource.phrases[post.phrase] : null]
+    .filter((part): part is string => part !== null)
+    .join(' · ');
   return (
-    <Card>
-      <View style={styles.author}>
-        {/* D2: a neutral badge from the handle, never the avatar */}
-        <View style={[styles.badge, { backgroundColor: badgeColor.fill }]} importantForAccessibility="no-hide-descendants">
-          <Text style={[typography.labelLg, { color: badgeColor.ink }]}>{badge.initial}</Text>
-        </View>
-        <View style={styles.grow}>
-          <Text style={typography.labelLg} numberOfLines={1}>
-            {`@${post.username}`}
-          </Text>
-          <View style={styles.meta}>
-            <Clock color={colors.textSecondary} size={ICON_SIZE} />
-            <Text style={typography.bodySm}>{ago}</Text>
+    // B6: compact: route, multicab, time, then seats and status, then the stop it was sent near
+    <Card style={styles.post}>
+      <View style={styles.row}>
+        <LineBadge code={post.routeCode} color={color} />
+        <Text style={[typography.labelLg, styles.shrink]} numberOfLines={1}>
+          {post.vehicleId ?? strings.crowdsource.noVehicle}
+        </Text>
+        {post.trusted ? (
+          <View style={styles.trusted} accessible accessibilityLabel={strings.crowdsource.trustedLabel}>
+            <ShieldCheck color={colors.success} size={ICON_SIZE} />
+            <Text style={[typography.labelMd, styles.trustedText]}>{strings.crowdsource.trusted}</Text>
           </View>
-        </View>
+        ) : null}
+        <View style={styles.grow} />
+        <Clock color={colors.textSecondary} size={ICON_SIZE} />
+        <Text style={typography.bodySm}>{ago}</Text>
         {mine ? (
           <StatusPill label={strings.crowdsource.you} tone="neutral" />
         ) : (
@@ -195,15 +209,18 @@ function PostCard({ post, nowMs, color, mine }: { post: FeedPost; nowMs: number;
           </Pressable>
         )}
       </View>
-      <View style={styles.postHead}>
-        <LineBadge code={post.routeCode} color={color} />
-        <Text style={[typography.headlineSm, styles.grow]}>{post.phrase ? strings.crowdsource.phrases[post.phrase] : post.seatTier ? strings.crowdsource.seats[post.seatTier] : ''}</Text>
+      <View style={styles.row}>
+        {tierColor ? <View style={[styles.dot, { backgroundColor: tierColor }]} /> : null}
+        <Text style={[typography.bodyMd, styles.grow]} numberOfLines={1}>
+          {status}
+        </Text>
       </View>
-      {post.seatTier && tierColor ? (
-        <View style={styles.meta}>
-          <View style={[styles.dot, { backgroundColor: tierColor }]} />
-          <Users color={colors.textSecondary} size={ICON_SIZE} />
-          <Text style={typography.bodySm}>{strings.crowdsource.seats[post.seatTier]}</Text>
+      {stopName ? (
+        <View style={styles.row}>
+          <MapPin color={colors.textSecondary} size={ICON_SIZE} />
+          <Text style={[typography.bodySm, styles.grow]} numberOfLines={1}>
+            {strings.crowdsource.near(stopName)}
+          </Text>
         </View>
       ) : null}
     </Card>
@@ -240,17 +257,29 @@ const useStyles = makeStyles(({ colors }) => ({
   center: {
     textAlign: 'center',
   },
-  author: {
+  post: {
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm + spacing.xs,
+    gap: spacing.sm,
   },
-  badge: {
-    width: BADGE_SIZE,
-    height: BADGE_SIZE,
+  shrink: {
+    flexShrink: 1,
+  },
+  trusted: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
     borderRadius: radii.pill,
+    backgroundColor: colors.successContainer,
+  },
+  trustedText: {
+    color: colors.success,
   },
   flag: {
     width: MIN_TOUCH_TARGET,
@@ -261,16 +290,6 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   flagPressed: {
     backgroundColor: colors.surface,
-  },
-  postHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  meta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
   },
   dot: {
     width: DOT,

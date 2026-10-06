@@ -15,6 +15,12 @@ export type FeedPost = {
   // B4: null when the rider gave only the seats ("What's happening" is optional)
   phrase: FeedPhrase | null;
   seatTier: SeatTier | null;
+  // B6: the multicab's ID when the rider picked it (or Bluetooth found it); null when not known
+  vehicleId: string | null;
+  // B6: the stop nearest to where the relay was sent; null when none was near
+  stopCode: string | null;
+  // B6: the author was Trusted when they sent it (TRUST_BADGE_POINTS)
+  trusted: boolean;
   username: string;
   withGps: boolean;
   postedMs: number;
@@ -25,11 +31,19 @@ export type FeedPost = {
 const DEMO_HANDLES = ['demo_rider', 'demo_juan', 'demo_maria', 'demo_student', 'demo_commuter', 'demo_lola'];
 const SEAT_TIERS: readonly (SeatTier | null)[] = ['green', 'amber', 'red', null];
 const MS_PER_MIN = 60000;
-// Share of demo posts sent with GPS
+// Share of demo posts sent with GPS, from Trusted authors, and naming a multicab
 const GPS_SHARE = 0.5;
+const TRUSTED_SHARE = 0.4;
+const VEHICLE_SHARE = 0.7;
+const DEMO_VEHICLES_PER_ROUTE = 4;
 
-// Posts younger than FEED_LIFETIME_MIN, newest first
-export function demoFeed(routeCodes: readonly string[], nowMs: number, seed: number): FeedPost[] {
+// Posts younger than FEED_LIFETIME_MIN, newest first. stopsOf gives a route's stop codes, for "Near ..."
+export function demoFeed(
+  routeCodes: readonly string[],
+  nowMs: number,
+  seed: number,
+  stopsOf: (routeCode: string) => readonly string[] = () => [],
+): FeedPost[] {
   if (routeCodes.length === 0) return [];
   const slotMs = DEMO_FEED_SLOT_MIN * MS_PER_MIN;
   const lifetimeMs = FEED_LIFETIME_MIN * MS_PER_MIN;
@@ -41,16 +55,16 @@ export function demoFeed(routeCodes: readonly string[], nowMs: number, seed: num
     const count = random.int(0, DEMO_FEED_SLOT_MAX);
     for (let n = 0; n < count; n += 1) {
       const postedMs = slot * slotMs + Math.floor(random.next() * slotMs);
-      const post: FeedPost = {
-        id: `demo-${slot}-${n}`,
-        routeCode: routeCodes[random.int(0, routeCodes.length - 1)],
-        phrase: FEED_PHRASES[random.int(0, FEED_PHRASES.length - 1)],
-        seatTier: SEAT_TIERS[random.int(0, SEAT_TIERS.length - 1)],
-        username: DEMO_HANDLES[random.int(0, DEMO_HANDLES.length - 1)],
-        withGps: random.next() < GPS_SHARE,
-        postedMs,
-        demo: true,
-      };
+      const routeCode = routeCodes[random.int(0, routeCodes.length - 1)];
+      const phrase = FEED_PHRASES[random.int(0, FEED_PHRASES.length - 1)];
+      const seatTier = SEAT_TIERS[random.int(0, SEAT_TIERS.length - 1)];
+      const username = DEMO_HANDLES[random.int(0, DEMO_HANDLES.length - 1)];
+      const withGps = random.next() < GPS_SHARE;
+      const stops = stopsOf(routeCode);
+      const stopCode = stops.length > 0 ? stops[random.int(0, stops.length - 1)] : null;
+      const vehicleId = random.next() < VEHICLE_SHARE ? `${routeCode}-0${random.int(1, DEMO_VEHICLES_PER_ROUTE)}` : null;
+      const trusted = random.next() < TRUSTED_SHARE;
+      const post: FeedPost = { id: `demo-${slot}-${n}`, routeCode, phrase, seatTier, vehicleId, stopCode, trusted, username, withGps, postedMs, demo: true };
       if (postedMs <= nowMs && nowMs - postedMs < lifetimeMs) posts.push(post);
     }
   }
