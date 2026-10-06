@@ -13,6 +13,7 @@ import { DEMO_SEED } from '@/shared/config';
 import { useCheckInStore } from './checkinStore';
 import { demoEnergy, refreshEnergy } from './energyStore';
 import { useSettingsStore } from './settingsStore';
+import { refreshTrust, useTrustStore } from './trustStore';
 import { useUsernameStore } from './usernameStore';
 
 // Check-ins (C1) and reports (RP1) from the source the "Demo data" switch picks. One instance of
@@ -36,8 +37,16 @@ export async function checkIn(routeCodes: readonly string[], stationCode: string
   if (result.ok) {
     useCheckInStore.getState().checkInAt(routeCodes, stationCode, nowMs, result.expiresAtMs);
     void refreshEnergy();
+    earnedTrust(nowMs);
   }
   return result;
+}
+
+// B7: a check-in or relay earns a trust point (capped a day): counted on the phone in the demo,
+// read again from the server on live data
+function earnedTrust(atMs: number): void {
+  if (useSettingsStore.getState().demoData) useTrustStore.getState().addDemoEvent(atMs);
+  else void refreshTrust();
 }
 
 // "I boarded" keeps the ride in My Rides; both end the check-in on the server too
@@ -63,7 +72,11 @@ export async function flagPost(postId: string, demo: boolean): Promise<FlagResul
 }
 
 export async function sendReport(input: ReportInput): Promise<ReportResult> {
-  const result = await currentCrowd().reports.post(input, newRequestKey('report', Date.now(), Math.random()));
-  if (result.ok) void refreshEnergy();
+  const nowMs = Date.now();
+  const result = await currentCrowd().reports.post(input, newRequestKey('report', nowMs, Math.random()));
+  if (result.ok) {
+    void refreshEnergy();
+    earnedTrust(nowMs);
+  }
   return result;
 }

@@ -3,7 +3,7 @@ import { Bell, Menu, Zap } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
 import { useRefillCountdown } from '@/features/energy/useRefillCountdown';
-import { Avatar } from '@/features/profile/Avatar';
+import { TrustedAvatar } from '@/features/profile/TrustedAvatar';
 import { useEnergyStore } from '@/state/energyStore';
 import { useFareType } from '@/state/fareType';
 import { useProfileStore } from '@/state/profileStore';
@@ -31,7 +31,7 @@ export function TopBar() {
   return (
     <View style={styles.bar}>
       <Pressable style={styles.who} onPress={() => router.push('/profile')} accessibilityRole="button" accessibilityLabel={strings.profilePage.title}>
-        <Avatar id={avatarId} size={AVATAR_SIZE} />
+        <TrustedAvatar id={avatarId} size={AVATAR_SIZE} />
         <View style={styles.text}>
           <Text style={typography.labelLg} numberOfLines={1}>
             {username ?? strings.topBar.guest}

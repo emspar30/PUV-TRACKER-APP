@@ -4,6 +4,7 @@ import { useHintsStore } from './hintsStore';
 import { useProfileStore } from './profileStore';
 import { useRidesStore } from './ridesStore';
 import { useSettingsStore } from './settingsStore';
+import { useTrustStore } from './trustStore';
 import { useUsernameStore } from './usernameStore';
 
 // Demo settings, "Reset app": every store on this phone back to its first-launch state, so the app
@@ -13,6 +14,7 @@ export function resetApp(): void {
   useDestinationsStore.setState(useDestinationsStore.getInitialState(), true);
   useHintsStore.setState(useHintsStore.getInitialState(), true);
   useRidesStore.setState(useRidesStore.getInitialState(), true);
+  useTrustStore.setState(useTrustStore.getInitialState(), true);
   useUsernameStore.setState(useUsernameStore.getInitialState(), true);
   useSettingsStore.getState().resetSettings();
   // Last, so the introduction opens with everything above already cleared

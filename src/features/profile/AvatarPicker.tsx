@@ -13,7 +13,8 @@ const RING = spacing.xs;
 
 // A grid of the avatars in the user's own set: the six for the gender answer, or all twelve for
 // "Prefer not to say" or no answer (decision after F1 review). The choice is saved on this phone only.
-export function AvatarPicker() {
+// B7: onPick lets Profile close the grid again after a choice.
+export function AvatarPicker({ onPick }: { onPick?: () => void } = {}) {
   const styles = useStyles();
   const avatarId = useProfileStore((state) => state.avatarId);
   const setAvatarId = useProfileStore((state) => state.setAvatarId);
@@ -27,7 +28,10 @@ export function AvatarPicker() {
           <Pressable
             key={id}
             style={[styles.option, selected && styles.optionSelected]}
-            onPress={() => setAvatarId(id)}
+            onPress={() => {
+              setAvatarId(id);
+              onPick?.();
+            }}
             accessibilityRole="radio"
             accessibilityState={{ selected }}
             accessibilityLabel={strings.avatar.option(id + 1)}
@@ -40,7 +44,7 @@ export function AvatarPicker() {
   );
 }
 
-// Picks another avatar from the set for the user's gender answer (PRD 19, D3)
+// Picks another avatar from the set for the user's gender answer (PRD 19, D3). B7: onboarding only
 export function ShuffleAvatarChip() {
   const shuffleAvatar = useProfileStore((state) => state.shuffleAvatar);
   return <Chip label={strings.settings.shuffle} accessibilityLabel={strings.settings.shuffleLabel} onPress={shuffleAvatar} />;
@@ -50,6 +54,7 @@ const useStyles = makeStyles(({ colors }) => ({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: spacing.sm,
   },
   option: {

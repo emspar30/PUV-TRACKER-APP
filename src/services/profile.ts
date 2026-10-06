@@ -25,3 +25,15 @@ export async function loadUsername(): Promise<string | null> {
     return null;
   }
 }
+
+// B7: the signed-in user's trust points (only the server changes them), or null when signed out
+// or on any error
+export async function loadTrustPoints(): Promise<number | null> {
+  try {
+    const { data, error } = await getSupabase().from('profiles').select('trust_points').maybeSingle();
+    const points = data?.trust_points as number | null | undefined;
+    return error || typeof points !== 'number' ? null : points;
+  } catch {
+    return null;
+  }
+}

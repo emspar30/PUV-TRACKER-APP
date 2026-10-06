@@ -32,17 +32,18 @@ describe('fare type: one stored value for the quick chip and Settings', () => {
     expect(getFareType()).toBe('senior');
   });
 
-  it('Profile and the My Ride quick chip both use the same chips, which use useFareType', () => {
-    // Restyle: the fare type moved from the Settings sheet to the Profile page
+  it("Profile's dropdown and the My Ride quick chip both use useFareType", () => {
+    // Restyle: the fare type moved from the Settings sheet to the Profile page; B7: as a dropdown
     const settings = read('src/app/profile.tsx');
+    const dropdown = read('src/features/profile/FareTypeDropdown.tsx');
     const result = read('src/features/ride/RideResult.tsx');
     const chips = read('src/features/ride/FareTypeChips.tsx');
 
-    expect(settings).toMatch(/import \{ FareTypeChips \} from '@\/features\/ride\/FareTypeChips'/);
+    expect(settings).toMatch(/import \{ FareTypeDropdown \} from '@\/features\/profile\/FareTypeDropdown'/);
     expect(result).toMatch(/import \{ QuickFareTypeChip \} from '\.\/FareTypeChips'/);
-    expect(chips).toMatch(/import \{ useFareType \} from '@\/state\/fareType'/);
-    // Neither screen keeps a classification of its own (Profile reads the profile store for the avatar only)
-    for (const source of [settings, result, chips]) expect(source).not.toMatch(/setClassification/);
-    for (const source of [result, chips]) expect(source).not.toMatch(/useProfileStore/);
+    for (const source of [dropdown, chips]) expect(source).toMatch(/import \{ useFareType \} from '@\/state\/fareType'/);
+    // No screen keeps a classification of its own (Profile reads the profile store for the avatar only)
+    for (const source of [settings, dropdown, result, chips]) expect(source).not.toMatch(/setClassification/);
+    for (const source of [dropdown, result, chips]) expect(source).not.toMatch(/useProfileStore/);
   });
 });

@@ -107,14 +107,15 @@ describe('no cloud payload contains classification', () => {
       .filter((file) => /from '[^']*features\/profile\/Avatar(Picker)?'|from '\.\/Avatar(Picker)?'/.test(fs.readFileSync(file, 'utf8')))
       .map((file) => path.relative(ROOT, file).split(path.sep).join('/'))
       .sort();
-    // The avatar button and the top bar (native views over each tab, outside the map), the Profile
-    // page and the introduction. None of them is drawn on the map or talks to a server.
+    // The avatar button and the top bar (native views over each tab, outside the map; the top bar
+    // through TrustedAvatar since B7), the Profile page and the introduction. None of them is drawn
+    // on the map or talks to a server.
     expect(offenders).toEqual([
       'src/app/onboarding.tsx',
       'src/app/profile.tsx',
       'src/components/AvatarButton.tsx',
-      'src/components/TopBar.tsx',
       'src/features/profile/AvatarPicker.tsx',
+      'src/features/profile/TrustedAvatar.tsx',
     ]);
   });
 });

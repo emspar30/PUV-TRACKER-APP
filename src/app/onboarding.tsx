@@ -24,6 +24,7 @@ import { Button, Card, Logo, OptionRow, StepHeader } from '@/components';
 import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
 import { useLocationPermission } from '@/features/map/useCommuterPosition';
 import { Avatar } from '@/features/profile/Avatar';
+import { ShuffleAvatarChip } from '@/features/profile/AvatarPicker';
 import { isValidUsername, usernameIssue } from '@/shared/backend/rules';
 import {
   CLASSIFICATIONS,
@@ -216,6 +217,8 @@ function ProfileStep({ handle, onHandle, valid }: { handle: string; onHandle: (t
       <View style={styles.groupLabel}>
         <Text style={typography.overline}>{strings.onboarding.persona}</Text>
         <Text style={typography.labelSm}>{strings.onboarding.personaCount(avatars.length)}</Text>
+        {/* B7: Shuffle lives here only */}
+        <ShuffleAvatarChip />
       </View>
       <View style={styles.grid} accessibilityRole="radiogroup">
         {avatars.map((id) => {
