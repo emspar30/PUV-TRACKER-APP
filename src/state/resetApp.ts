@@ -1,6 +1,7 @@
 import { useCheckInStore } from './checkinStore';
 import { useDestinationsStore } from './destinationsStore';
 import { useHintsStore } from './hintsStore';
+import { useHistoryStore } from './historyStore';
 import { useProfileStore } from './profileStore';
 import { useRidesStore } from './ridesStore';
 import { useSettingsStore } from './settingsStore';
@@ -13,6 +14,7 @@ export function resetApp(): void {
   useCheckInStore.setState(useCheckInStore.getInitialState(), true);
   useDestinationsStore.setState(useDestinationsStore.getInitialState(), true);
   useHintsStore.setState(useHintsStore.getInitialState(), true);
+  useHistoryStore.setState(useHistoryStore.getInitialState(), true);
   useRidesStore.setState(useRidesStore.getInitialState(), true);
   useTrustStore.setState(useTrustStore.getInitialState(), true);
   useUsernameStore.setState(useUsernameStore.getInitialState(), true);

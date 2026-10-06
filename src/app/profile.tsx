@@ -1,17 +1,20 @@
 import { router } from 'expo-router';
-import { Check, Database, History, Pencil, ShieldCheck, X, Zap } from 'lucide-react-native';
+import { Bus, Check, ChevronDown, ChevronUp, Pencil, ShieldCheck, X, Zap } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { Card, Screen, SettingsGroup, SettingsRow } from '@/components';
+import { Button, Card, IconTile, Screen } from '@/components';
 import { useRefillCountdown } from '@/features/energy/useRefillCountdown';
 import { AvatarPicker } from '@/features/profile/AvatarPicker';
 import { FareTypeDropdown } from '@/features/profile/FareTypeDropdown';
 import { TrustedAvatar } from '@/features/profile/TrustedAvatar';
 import { usernameIssue } from '@/shared/backend/rules';
 import { ENERGY_PASSIVE_INTERVAL_H, ENERGY_WALLET_CAP, TRUST_BADGE_POINTS, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from '@/shared/config';
+import { generalHistory } from '@/shared/profile/history';
 import { isTrusted } from '@/shared/profile/trust';
+import { showDialog } from '@/state/dialogStore';
 import { useEnergyStore } from '@/state/energyStore';
+import { useHistoryStore } from '@/state/historyStore';
 import { useProfileStore } from '@/state/profileStore';
 import { useRidesStore } from '@/state/ridesStore';
 import { useSessionStore } from '@/state/sessionStore';
@@ -26,6 +29,8 @@ const ICON_SIZE = spacing.md + spacing.xs;
 // Small icon buttons with a 48 dp touch target
 const ICON_BUTTON = spacing.xl;
 const ICON_HIT_SLOP = (MIN_TOUCH_TARGET - ICON_BUTTON) / 2;
+const BAR_HEIGHT = spacing.sm;
+const PERCENT = 100;
 
 // Profile (restyle, B7), opened from the menu or the avatar: the avatar (a tap opens the avatar
 // choices), the handle with a pencil to edit it, the trust progress, a compact fare type dropdown,
@@ -47,6 +52,9 @@ export default function ProfileScreen() {
   const demo = useSettingsStore((state) => state.demoData);
   const trustPoints = useTrustPoints();
   const [picking, setPicking] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const clearedAtMs = useHistoryStore((state) => state.clearedAtMs);
+  const clearHistory = useHistoryStore((state) => state.clear);
   const [editing, setEditing] = useState(false);
   const [handle, setHandle] = useState(username ?? '');
   const issue = handle.length === 0 ? null : usernameIssue(handle);
@@ -86,7 +94,6 @@ export default function ProfileScreen() {
   const energyNeedsSignIn = !energy && energySource === 'live';
   const energySubtitle = energy
     ? [
-        strings.profilePage.energyBalance(energy.balance.toFixed(1), ENERGY_WALLET_CAP),
         ...(refillIn ? [strings.profilePage.energyRefill(refillIn)] : []),
         ...(energy.nextRefillMs === null ? [strings.profilePage.energyFull] : []),
         ...(energy.enabled ? [] : [strings.profilePage.energyFree]),
@@ -94,6 +101,19 @@ export default function ProfileScreen() {
     : energyNeedsSignIn
       ? strings.profilePage.energySignIn
       : strings.profilePage.energyFree;
+
+  const history = generalHistory(energy?.history ?? [], rides, clearedAtMs);
+  const energyShare = energy ? Math.min(Math.max(energy.balance / ENERGY_WALLET_CAP, 0), 1) : 0;
+  const confirmClear = () =>
+    showDialog({
+      tone: 'warning',
+      title: strings.profilePage.clearTitle,
+      body: strings.profilePage.clearBody,
+      actions: [
+        { label: strings.profilePage.clearConfirm, variant: 'danger', onPress: () => clearHistory(Date.now()) },
+        { label: strings.common.close, variant: 'secondary' },
+      ],
+    });
 
   return (
     <Screen title={strings.profilePage.title}>
@@ -187,6 +207,26 @@ export default function ProfileScreen() {
         <FareTypeDropdown />
       </Card>
 
+      {/* B7: Tracking Energy on its own, as a bar under the info card */}
+      <Pressable
+        onPress={energyNeedsSignIn ? () => router.push('/sign-in') : undefined}
+        disabled={!energyNeedsSignIn}
+        accessibilityRole={energyNeedsSignIn ? 'button' : undefined}
+        accessibilityLabel={[strings.profilePage.energy, ...(energy ? [strings.profilePage.energyOf(energy.balance.toFixed(1), ENERGY_WALLET_CAP)] : []), energySubtitle].join('. ')}
+      >
+        <Card>
+          <View style={styles.energyHead}>
+            <IconTile icon={Zap} tone="warning" />
+            <Text style={[typography.labelLg, styles.grow]}>{strings.profilePage.energy}</Text>
+            {energy ? <Text style={[typography.labelLg, styles.energyValue]}>{strings.profilePage.energyOf(energy.balance.toFixed(1), ENERGY_WALLET_CAP)}</Text> : null}
+          </View>
+          <View style={styles.track}>
+            <View style={[styles.fill, { width: `${energyShare * PERCENT}%` }]} />
+          </View>
+          <Text style={typography.bodySm}>{energySubtitle}</Text>
+        </Card>
+      </Pressable>
+
       <Card>
         <Text style={typography.labelLg}>{strings.profilePage.stats}</Text>
         <View style={styles.stats}>
@@ -196,39 +236,43 @@ export default function ProfileScreen() {
         </View>
       </Card>
 
-      <SettingsGroup>
-        <SettingsRow
-          first
-          icon={Zap}
-          tone="warning"
-          title={strings.profilePage.energy}
-          subtitle={energySubtitle}
-          onPress={energyNeedsSignIn ? () => router.push('/sign-in') : undefined}
-        />
-        <SettingsRow icon={Database} title={strings.profilePage.storage} detail={strings.settings.localOnly} />
-        <SettingsRow icon={History} title={strings.profilePage.locationHistory} detail={strings.profilePage.none} />
-      </SettingsGroup>
-
-      {energy ? (
-        <Card>
-          <Text style={typography.labelLg}>{strings.profilePage.energyHistory}</Text>
-          {energy.history.length === 0 ? (
-            <Text style={typography.bodySm}>{strings.profilePage.energyEmpty(ENERGY_PASSIVE_INTERVAL_H)}</Text>
-          ) : (
-            energy.history.map((entry, index) => (
-              <View key={`${entry.atMs}-${index}`} style={styles.historyRow}>
-                <View style={styles.grow}>
-                  <Text style={typography.bodyMd}>{strings.profilePage.energyKinds[entry.kind]}</Text>
-                  <Text style={typography.bodySm}>{HISTORY_TIME.format(new Date(entry.atMs))}</Text>
+      {/* B7: every action, not only Energy; folded until opened, with Clear History */}
+      <Card>
+        <Pressable
+          style={styles.historyHead}
+          onPress={() => setHistoryOpen((value) => !value)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: historyOpen }}
+        >
+          <Text style={[typography.labelLg, styles.grow]}>{strings.profilePage.history(history.length)}</Text>
+          {historyOpen ? <ChevronUp color={colors.textSecondary} size={ICON_SIZE} /> : <ChevronDown color={colors.textSecondary} size={ICON_SIZE} />}
+        </Pressable>
+        {historyOpen ? (
+          <>
+            {history.length === 0 ? (
+              <Text style={typography.bodySm}>{strings.profilePage.historyEmpty(ENERGY_PASSIVE_INTERVAL_H)}</Text>
+            ) : (
+              history.map((item, index) => (
+                <View key={`${item.type}-${item.atMs}-${index}`} style={styles.historyRow}>
+                  {item.type === 'ride' ? <Bus color={colors.textSecondary} size={ICON_SIZE} /> : <Zap color={colors.textSecondary} size={ICON_SIZE} />}
+                  <View style={styles.grow}>
+                    <Text style={typography.bodyMd}>
+                      {item.type === 'ride'
+                        ? strings.profilePage.historyRide(item.routeCode, item.stationCode)
+                        : (strings.profilePage.energyKinds[item.kind as keyof typeof strings.profilePage.energyKinds] ?? item.kind)}
+                    </Text>
+                    <Text style={typography.bodySm}>{HISTORY_TIME.format(new Date(item.atMs))}</Text>
+                  </View>
+                  {item.type === 'energy' ? (
+                    <Text style={[typography.labelLg, item.amount > 0 ? styles.earned : styles.muted]}>{strings.profilePage.energyAmount(item.amount)}</Text>
+                  ) : null}
                 </View>
-                <Text style={[typography.labelLg, entry.amount > 0 ? styles.earned : styles.muted]}>
-                  {strings.profilePage.energyAmount(entry.amount)}
-                </Text>
-              </View>
-            ))
-          )}
-        </Card>
-      ) : null}
+              ))
+            )}
+            {history.length > 0 ? <Button label={strings.profilePage.clearHistory} variant="text" onPress={confirmClear} /> : null}
+          </>
+        ) : null}
+      </Card>
     </Screen>
   );
 }
@@ -317,6 +361,32 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   primary: {
     color: colors.primary,
+  },
+  energyHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + spacing.xs,
+  },
+  energyValue: {
+    color: colors.warning,
+    fontVariant: ['tabular-nums'],
+  },
+  track: {
+    height: BAR_HEIGHT,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+  },
+  fill: {
+    height: BAR_HEIGHT,
+    borderRadius: radii.pill,
+    backgroundColor: colors.warning,
+  },
+  historyHead: {
+    minHeight: MIN_TOUCH_TARGET,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   historyRow: {
     flexDirection: 'row',
