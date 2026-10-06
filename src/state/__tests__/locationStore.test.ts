@@ -2,11 +2,18 @@ import { createStore } from 'zustand/vanilla';
 
 import {
   locationStateCreator,
+  selectLocationAllowed,
   selectOrigin,
   selectShowExplainer,
   type LocationFix,
   type PermissionResult,
 } from '../locationStore';
+
+// The store keeps the consent on the phone; jest hoists this above the imports
+jest.mock('expo-sqlite/kv-store', () => ({
+  __esModule: true,
+  default: { getItemSync: () => null, setItemSync: () => undefined, removeItemSync: () => undefined },
+}));
 
 const GRANTED: PermissionResult = { permission: 'granted', canAskAgain: true };
 const DENIED: PermissionResult = { permission: 'denied', canAskAgain: true };
@@ -22,7 +29,63 @@ const FIX: LocationFix = {
   mocked: false,
 };
 
-const newStore = () => createStore(locationStateCreator);
+const T0 = Date.UTC(2026, 9, 6, 2, 0, 0);
+
+// Most tests start after the G0 consent; the consent tests start before it
+const unconsented = () => createStore(locationStateCreator);
+const newStore = () => {
+  const store = unconsented();
+  store.getState().agree(T0);
+  return store;
+};
+
+describe('location store: consent before any permission request (G0)', () => {
+  it('shows no system prompt without consent, even after the explainer', async () => {
+    const store = unconsented();
+    const ask = jest.fn().mockResolvedValue(GRANTED);
+    store.getState().setPermission(UNDETERMINED);
+    store.getState().acceptExplainer();
+    await store.getState().requestPermission(ask);
+    expect(ask).not.toHaveBeenCalled();
+
+    store.getState().agree(T0);
+    await store.getState().requestPermission(ask);
+    expect(ask).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores fixes without consent, though Android allows location', () => {
+    const store = unconsented();
+    store.getState().setPermission(GRANTED);
+    store.getState().setFix(FIX);
+    expect(store.getState().fix).toBeNull();
+    expect(selectLocationAllowed(store.getState())).toBe(false);
+  });
+
+  it('withdrawing drops the fix, refuses new ones and asks no more', async () => {
+    const store = newStore();
+    store.getState().setPermission(GRANTED);
+    store.getState().setFix(FIX);
+    expect(selectLocationAllowed(store.getState())).toBe(true);
+
+    store.getState().withdraw(T0 + 1);
+    expect(store.getState().fix).toBeNull();
+    expect(selectLocationAllowed(store.getState())).toBe(false);
+    store.getState().setFix(FIX);
+    expect(store.getState().fix).toBeNull();
+
+    const ask = jest.fn().mockResolvedValue(GRANTED);
+    store.getState().acceptExplainer();
+    await store.getState().requestPermission(ask);
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it('a manual pin still works after withdrawing (reduced mode)', () => {
+    const store = newStore();
+    store.getState().withdraw(T0 + 1);
+    store.getState().setManualOrigin({ lat: 8.946096, lon: 125.533083 });
+    expect(selectOrigin(store.getState())).toEqual({ lat: 8.946096, lon: 125.533083 });
+  });
+});
 
 describe('location store: explainer before prompt', () => {
   it('does not show the system prompt until the explainer is accepted', async () => {

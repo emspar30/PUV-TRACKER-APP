@@ -266,6 +266,31 @@ export const en = {
     outsideMap: 'Outside the offline map',
   },
 
+  // G0: the privacy notice before any location use (PRD 7.1, 15.1). Short English draft; it needs
+  // the DPO's review before a pilot, and Cebuano later.
+  consent: {
+    title: 'Your location',
+    intro: 'Tunton can use your location. Read this first; you can change your mind later.',
+    sections: [
+      { heading: 'What is used', body: "Your phone's position and how precise it is, only while the app is open. Never in the background." },
+      {
+        heading: 'Why',
+        body: 'To show you on the map, start a trip from where you are, confirm you are at a stop when you check in, and mark a report as "with GPS".',
+      },
+      {
+        heading: 'What leaves your phone',
+        body: 'Your position is not stored or sent. A check-in sends only the stop, and a report only the nearest stop.',
+      },
+      {
+        heading: 'Your choice',
+        body: 'Without it the app still works: long-press the map to set where you start. Withdraw any time in Settings, Privacy.',
+      },
+    ],
+    draft: 'Draft notice, pending review by the Data Protection Officer.',
+    agree: 'I agree',
+    notNow: 'Not now',
+  },
+
   // My Ride: route discovery and the fare. Short labels; distances live behind "Details".
   ride: {
     from: 'From',
@@ -373,6 +398,9 @@ export const en = {
     tooFar: (distanceM: number, radiusM: number, code: string) =>
       `You are ${distanceM} m from ${code}. Check in within ${radiusM} m of the station.`,
     inaccurate: (gateM: number) => `Your location is not precise enough yet (needs ${gateM} m or better). Wait a moment outdoors and try again.`,
+    // G0: a mock location app is on, or the last fix is too old
+    mocked: 'Your phone reports a mock location. Turn off any mock location app to check in.',
+    stale: 'Your last location is too old. Wait for a fresh fix and try again.',
     noPosition: 'Turn on location to check in. On the emulator, use a simulated stop in Demo & simulation.',
     failedTitle: 'Check-in failed',
     signIn: 'Sign in',
@@ -431,6 +459,16 @@ export const en = {
     profileOnPhone: 'Profile on this phone',
     profileOnPhoneBody: 'Fare type, avatar and places are never sent',
     localOnly: 'Local only',
+    // G0: location consent and withdrawal
+    location: 'Location',
+    locationOn: 'Agreed · Android allows it',
+    locationAgreedOnly: 'Agreed · Android has not allowed it',
+    locationNone: 'Not agreed · Tap to read the notice',
+    locationWithdrawn: 'Withdrawn · Tap to read the notice',
+    withdrawTitle: 'Withdraw location consent?',
+    withdrawBody: 'Tunton stops using your location at once. To remove the Android permission as well, open Android settings.',
+    withdraw: 'Withdraw',
+    androidSettings: 'Android settings',
     language: 'Language',
     english: 'English',
     offlineMap: 'Offline map',
@@ -463,7 +501,16 @@ export const en = {
     simulatedLocation: 'Simulated location',
     simulatedLocationBody: 'Stand at a stop instead of using GPS',
     standAt: 'Stand at',
-    standAtBody: 'Your position while simulated location is on',
+    standAtBody: 'Your position while simulated location or fake GPS is on',
+    // G0: the development fake location source
+    fakeGps: 'Fake GPS (development)',
+    fakeGpsBody: 'GPS fixes at the stop below, through consent and the accuracy gates',
+    fakeAccuracy: 'Accuracy',
+    fakeAccuracyM: (metres: number) => `${metres} m`,
+    fakeMocked: 'Mocked',
+    fakeMockedBody: 'Marked as a mock location',
+    fakeStale: 'Stale',
+    fakeStaleBody: (seconds: number) => `${seconds} seconds old`,
     reset: 'Reset',
     resetApp: 'Reset app',
     resetAppBody: 'Clears everything on this phone and starts again',

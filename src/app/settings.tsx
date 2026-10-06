@@ -1,9 +1,13 @@
 import { router } from 'expo-router';
-import { Armchair, BellRing, FileText, Languages, Map as MapIcon, Moon, Route, ShieldCheck, Type } from 'lucide-react-native';
+import { Armchair, BellRing, FileText, Languages, Map as MapIcon, Moon, Navigation, Route, ShieldCheck, Type } from 'lucide-react-native';
+import { Linking } from 'react-native';
 
 import { Screen, SettingsGroup, SettingsRow } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
+import { consentStatus } from '@/shared/location/consent';
 import { routeCodesOf } from '@/shared/ui/routeVisibility';
+import { showDialog } from '@/state/dialogStore';
+import { useLocationStore } from '@/state/locationStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 
@@ -13,6 +17,37 @@ export default function SettingsScreen() {
   const { lines } = useRouteData();
   const routes = routeCodesOf(lines);
   const s = useSettingsStore();
+  const consent = useLocationStore((state) => consentStatus(state.consent));
+  const permission = useLocationStore((state) => state.permission);
+  const withdraw = useLocationStore((state) => state.withdraw);
+
+  // G0: the consent state and the Android permission; withdrawing works at once, and the
+  // permission itself can only be removed in Android settings
+  const locationDetail =
+    consent === 'consented'
+      ? permission === 'granted'
+        ? strings.settings.locationOn
+        : strings.settings.locationAgreedOnly
+      : consent === 'withdrawn'
+        ? strings.settings.locationWithdrawn
+        : strings.settings.locationNone;
+  const onLocation = () => {
+    if (consent !== 'consented') {
+      router.push('/consent');
+      return;
+    }
+    showDialog({
+      tone: 'warning',
+      icon: Navigation,
+      title: strings.settings.withdrawTitle,
+      body: strings.settings.withdrawBody,
+      actions: [
+        { label: strings.settings.withdraw, variant: 'danger', onPress: () => withdraw(Date.now()) },
+        { label: strings.settings.androidSettings, variant: 'secondary', onPress: () => void Linking.openSettings() },
+        { label: strings.common.close, variant: 'secondary' },
+      ],
+    });
+  };
 
   // Tapping the default route steps through None and each route
   const nextRoute = () => {
@@ -62,6 +97,7 @@ export default function SettingsScreen() {
           subtitle={strings.settings.profileOnPhoneBody}
           badge={strings.settings.localOnly}
         />
+        <SettingsRow icon={Navigation} title={strings.settings.location} subtitle={locationDetail} onPress={onLocation} />
       </SettingsGroup>
 
       <SettingsGroup title={strings.settings.system}>

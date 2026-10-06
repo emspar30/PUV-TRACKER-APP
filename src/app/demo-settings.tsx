@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Bus, MapPin, RotateCcw } from 'lucide-react-native';
+import { Bus, Crosshair, MapPin, RotateCcw, Timer, VenetianMask } from 'lucide-react-native';
 import { ScrollView, Text, View } from 'react-native';
 
 import { Chip, Screen, SettingsGroup, SettingsRow } from '@/components';
@@ -9,6 +9,7 @@ import { showDialog } from '@/state/dialogStore';
 import { resetApp } from '@/state/resetApp';
 import { useSessionStore } from '@/state/sessionStore';
 import { useSettingsStore } from '@/state/settingsStore';
+import { FAKE_FIX_ACCURACY_OPTIONS_M, FAKE_FIX_STALE_AGE_S } from '@/shared/config';
 import { strings } from '@/strings';
 import { makeStyles, spacing, useTheme } from '@/theme';
 
@@ -61,9 +62,43 @@ export default function DemoSettingsScreen() {
           value={s.simulatedLocation}
           onValueChange={s.setSimulatedLocation}
         />
+        {__DEV__ ? (
+          <SettingsRow icon={Crosshair} tone="warning" title={strings.demo.fakeGps} subtitle={strings.demo.fakeGpsBody} value={s.fakeGps} onValueChange={s.setFakeGps} />
+        ) : null}
       </SettingsGroup>
 
-      {s.simulatedLocation ? (
+      {/* G0: the fake fix's accuracy, mock flag and age, to try the 25 m and 30 m gates */}
+      {__DEV__ && s.fakeGps ? (
+        <>
+          <View style={styles.stand}>
+            <Text style={typography.overline}>{strings.demo.fakeAccuracy}</Text>
+            <View style={styles.chips}>
+              {FAKE_FIX_ACCURACY_OPTIONS_M.map((metres) => (
+                <Chip key={metres} label={strings.demo.fakeAccuracyM(metres)} selected={metres === s.fakeAccuracyM} onPress={() => s.setFake({ fakeAccuracyM: metres })} />
+              ))}
+            </View>
+          </View>
+          <SettingsGroup>
+            <SettingsRow
+              first
+              icon={VenetianMask}
+              title={strings.demo.fakeMocked}
+              subtitle={strings.demo.fakeMockedBody}
+              value={s.fakeMocked}
+              onValueChange={(fakeMocked) => s.setFake({ fakeMocked })}
+            />
+            <SettingsRow
+              icon={Timer}
+              title={strings.demo.fakeStale}
+              subtitle={strings.demo.fakeStaleBody(FAKE_FIX_STALE_AGE_S)}
+              value={s.fakeStale}
+              onValueChange={(fakeStale) => s.setFake({ fakeStale })}
+            />
+          </SettingsGroup>
+        </>
+      ) : null}
+
+      {s.simulatedLocation || (__DEV__ && s.fakeGps) ? (
         <View style={styles.stand}>
           <Text style={typography.overline}>{strings.demo.standAt}</Text>
           <Text style={typography.bodySm}>{strings.demo.standAtBody}</Text>
@@ -93,6 +128,7 @@ const useStyles = makeStyles(() => ({
     gap: spacing.sm,
   },
   chips: {
+    flexDirection: 'row',
     gap: spacing.sm,
   },
 }));

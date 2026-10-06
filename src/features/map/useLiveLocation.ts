@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Linking } from 'react-native';
 
@@ -5,18 +6,22 @@ import { TILESET } from '@/data/map/tileset';
 import { askLocationPermission } from '@/services/location';
 import { boundsContainPoint } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
-import { selectShowExplainer, useLocationStore, type LocationFix } from '@/state/locationStore';
+import { mayRequestPermission } from '@/shared/location/consent';
+import { selectLocationAllowed, selectShowExplainer, useLocationStore, type LocationFix } from '@/state/locationStore';
 
 import { useLocationTracking } from './useLocationTracking';
 
 // Location on the Live tab, from the partner's GPS work (b21b0c1) in our structure: the blue dot,
 // following it, "Locate me" behind the explainer on its first tap (PRD 4.2), and the manual origin
-// pin by long-press when location is off. Foreground only; nothing is stored or sent.
+// pin by long-press when location is off. G0: the consent screen comes before all of it.
+// Foreground only; nothing is stored or sent.
 // `onFollow` moves the camera to a new fix while following.
 export function useLiveLocation(onFollow: (center: LatLon) => void) {
   useLocationTracking();
 
   const permission = useLocationStore((state) => state.permission);
+  const consented = useLocationStore((state) => mayRequestPermission(state.consent));
+  const locationAllowed = useLocationStore(selectLocationAllowed);
   const canAskAgain = useLocationStore((state) => state.canAskAgain);
   const fix = useLocationStore((state) => state.fix);
   const explainer = useLocationStore((state) => state.explainer);
@@ -31,10 +36,9 @@ export function useLiveLocation(onFollow: (center: LatLon) => void) {
   const [following, setFollowing] = useState(false);
   const [followedFix, setFollowedFix] = useState<LocationFix | null>(null);
 
-  const locationAllowed = permission === 'granted';
   const fixOnMap = fix !== null && boundsContainPoint(TILESET.bounds, fix);
-  // The "location is off" notice appears only once the user has asked for location
-  const reducedMode = (permission === 'undetermined' || permission === 'denied') && explainer !== 'idle' && !showExplainer;
+  // The "location is off" notice appears only once the user has asked for location (or withdrawn)
+  const reducedMode = !locationAllowed && explainer !== 'idle' && !showExplainer;
 
   // Follow each new fix, while rendering rather than in an effect
   if (following && fixOnMap && fix !== followedFix) {
@@ -47,6 +51,11 @@ export function useLiveLocation(onFollow: (center: LatLon) => void) {
       // A new follow starts from the current fix
       setFollowedFix(null);
       setFollowing(true);
+      return;
+    }
+    // G0: the privacy notice first; agreeing there opens the explainer
+    if (!consented) {
+      router.push('/consent');
       return;
     }
     // Android stops showing the prompt after repeated denials; Settings is then the only way

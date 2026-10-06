@@ -13,7 +13,7 @@ import { LocationExplainer } from '@/features/map/LocationExplainer';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
-import { useCommuterPosition } from '@/features/map/useCommuterPosition';
+import { placeOf, useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
@@ -115,8 +115,9 @@ export default function CheckInScreen() {
     return out;
   }, [lines, stops, shownRoutes]);
 
-  // What the geofence uses: a GPS fix with its accuracy, or the simulated stop; a pin is no position
-  const place: Place | null = commuter ? { ...commuter, accuracyM: commuter.source === 'gps' ? (fix?.accuracyM ?? null) : null } : null;
+  // Where the card measures from: a GPS fix, or the simulated stop; a pin is no position. The fix's
+  // mock flag and age are judged at the tap, below.
+  const place: Place | null = placeOf(commuter, fix, fix?.timestampMs ?? 0);
   const positioned = place && place.source !== 'pin' ? place : null;
 
   // C1: the waiting counts of the shown routes' stations, merged per station (B3), reloaded every
@@ -215,7 +216,8 @@ export default function CheckInScreen() {
   const doCheckIn = async () => {
     if (!candidate || active || sendingRef.current || pinged.length === 0) return;
     const code = candidate.stop.code;
-    const fence = checkInGeofence(place, candidate.stop);
+    // The fix's age is taken at the tap (G0: a stale fix is refused)
+    const fence = checkInGeofence(placeOf(commuter, fix, Date.now()), candidate.stop);
     if (!fence.ok) {
       showDialog({
         tone: 'warning',
@@ -226,7 +228,11 @@ export default function CheckInScreen() {
             ? strings.checkin.tooFar(fence.distanceM, CHECKIN_RADIUS_M, code)
             : fence.reason === 'inaccurate'
               ? strings.checkin.inaccurate(GPS_ACCURACY_GATE_CHECKIN_M)
-              : strings.checkin.noPosition,
+              : fence.reason === 'mocked'
+                ? strings.checkin.mocked
+                : fence.reason === 'stale'
+                  ? strings.checkin.stale
+                  : strings.checkin.noPosition,
       });
       return;
     }

@@ -1,12 +1,16 @@
+import { router } from 'expo-router';
 import { useEffect, useMemo } from 'react';
 import { Linking } from 'react-native';
 
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { askLocationPermission, checkLocationPermission } from '@/services/location';
+import type { Place } from '@/shared/checkin/geofence';
 import { boundsContainPoint } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
-import { useLocationStore } from '@/state/locationStore';
+import { fixAgeS } from '@/shared/location/accuracyGate';
+import { mayRequestPermission } from '@/shared/location/consent';
+import { selectLocationAllowed, useLocationStore, type LocationFix } from '@/state/locationStore';
 import { useSettingsStore } from '@/state/settingsStore';
 
 export type CommuterPosition = LatLon & {
@@ -37,10 +41,21 @@ export function useCommuterPosition(): CommuterPosition | null {
   }, [simulated, simulatedStop, stops, fix, pin]);
 }
 
+// What the check-in and report gates see (G0): a GPS position carries the fix's accuracy, mock flag
+// and age at `nowMs`; a simulated stop and a pin carry none
+export function placeOf(commuter: CommuterPosition | null, fix: LocationFix | null, nowMs: number): Place | null {
+  if (!commuter) return null;
+  if (commuter.source !== 'gps' || !fix) return { ...commuter, accuracyM: null };
+  return { ...commuter, accuracyM: fix.accuracyM, mocked: fix.mocked, ageS: fixAgeS(fix.timestampMs, nowMs) };
+}
+
 // The location permission as the introduction shows it (G0). The introduction's own text is the
-// explanation, so it asks the system directly; Android's "don't ask again" opens Settings instead.
+// explanation, so after the consent screen it asks the system directly; Android's "don't ask
+// again" opens Settings instead.
 export function useLocationPermission() {
   const permission = useLocationStore((state) => state.permission);
+  const consented = useLocationStore((state) => mayRequestPermission(state.consent));
+  const allowed = useLocationStore(selectLocationAllowed);
   const canAskAgain = useLocationStore((state) => state.canAskAgain);
   const acceptExplainer = useLocationStore((state) => state.acceptExplainer);
   const requestPermission = useLocationStore((state) => state.requestPermission);
@@ -50,9 +65,13 @@ export function useLocationPermission() {
     if (permission === 'unknown') void checkLocationPermission().then(setPermission);
   }, [permission, setPermission]);
   return {
-    granted: permission === 'granted',
+    granted: allowed,
     blocked: permission === 'denied' && !canAskAgain,
     request: () => {
+      if (!consented) {
+        router.push({ pathname: '/consent', params: { next: 'ask' } });
+        return;
+      }
       if (permission === 'denied' && !canAskAgain) {
         void Linking.openSettings();
         return;

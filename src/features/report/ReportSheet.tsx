@@ -35,6 +35,8 @@ type ReportSheetProps = {
   position: LatLon | null;
   // A good GPS fix or a simulated stop: the report may go "with GPS"
   gpsAvailable: boolean;
+  // G0: asked again at Send, so a fix that has gone stale (or turned mock) since does not count
+  checkGps: () => boolean;
   onClose: () => void;
 };
 
@@ -43,7 +45,7 @@ type ReportSheetProps = {
 // switch. Fixed fields only (D2). Sent with GPS, the rider's location is shared on the live map
 // until they reach the destination, which ends it. Earns Energy (with GPS 1.0, without 0.5; each
 // once a Manila day). Unverified until Bluetooth (D5).
-export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position, gpsAvailable, onClose }: ReportSheetProps) {
+export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position, gpsAvailable, checkGps, onClose }: ReportSheetProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const ble = useBleVehicle();
@@ -75,10 +77,11 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
     try {
       // B6: the nearest stop goes with every relay, GPS or not, as a code only
       const stopCode = relayStopCode(stops, position);
-      const result = await sendReport({ routeCode: route, phrase, seatTier, vehicleId, stopCode, withGps: gps });
+      const sendGps = gps && checkGps();
+      const result = await sendReport({ routeCode: route, phrase, seatTier, vehicleId, stopCode, withGps: sendGps });
       if (result.ok) {
         onClose();
-        if (gps && destination) {
+        if (sendGps && destination) {
           startBroadcast({
             routeCode: route,
             vehicleId,
@@ -89,7 +92,7 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
         showDialog({
           tone: 'success',
           title: strings.report.sentTitle,
-          body: gps && destination ? strings.report.sentBodyGps(destination.name) : strings.report.sentBody(FEED_LIFETIME_MIN),
+          body: sendGps && destination ? strings.report.sentBodyGps(destination.name) : strings.report.sentBody(FEED_LIFETIME_MIN),
         });
       } else if (result.reason === 'sign_in') {
         onClose();

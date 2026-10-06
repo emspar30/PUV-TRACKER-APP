@@ -2,7 +2,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { DEMO_COMMUTER_STOP_CODE, DEMO_MODE_DEFAULT, MAP_LABELS_DEFAULT } from '@/shared/config';
+import { DEMO_COMMUTER_STOP_CODE, DEMO_MODE_DEFAULT, FAKE_FIX_DEFAULT_ACCURACY_M, MAP_LABELS_DEFAULT } from '@/shared/config';
 import type { ThemeScheme } from '@/theme/tokens';
 
 // App settings kept on this device only. Nothing here is sent anywhere.
@@ -25,7 +25,17 @@ type StoredSettings = {
   simulatedStop: string;
 };
 
-type SettingsState = StoredSettings & {
+// G0: the development fake location source (development builds only, never stored). Its fixes go
+// through consent, the permission and the accuracy gates like real ones, at the "Stand at" stop.
+type FakeGps = {
+  fakeGps: boolean;
+  fakeAccuracyM: number;
+  fakeMocked: boolean;
+  fakeStale: boolean;
+};
+
+type SettingsState = StoredSettings &
+  FakeGps & {
   setTheme: (theme: ThemeScheme) => void;
   setDemoData: (on: boolean) => void;
   setMapLabels: (on: boolean) => void;
@@ -34,13 +44,15 @@ type SettingsState = StoredSettings & {
   setArrivalAlert: (on: boolean) => void;
   setSimulatedLocation: (on: boolean) => void;
   setSimulatedStop: (code: string) => void;
+  setFakeGps: (on: boolean) => void;
+  setFake: (fake: Partial<Omit<FakeGps, 'fakeGps'>>) => void;
   // Demo settings, "Reset app": every setting back to its default
   resetSettings: () => void;
 };
 
 // Light is the default (plan v2, Revision 2); Demo data is on by default for the prototype (Emjay, 2026-10-04).
 // GPS is the default position since G0; the simulated position is switched on in Demo settings.
-const DEFAULTS: StoredSettings = {
+const DEFAULTS: StoredSettings & FakeGps = {
   theme: 'light',
   demoData: DEMO_MODE_DEFAULT,
   mapLabels: MAP_LABELS_DEFAULT,
@@ -49,6 +61,10 @@ const DEFAULTS: StoredSettings = {
   arrivalAlert: false,
   simulatedLocation: false,
   simulatedStop: DEMO_COMMUTER_STOP_CODE,
+  fakeGps: false,
+  fakeAccuracyM: FAKE_FIX_DEFAULT_ACCURACY_M,
+  fakeMocked: false,
+  fakeStale: false,
 };
 
 const deviceStorage = createJSONStorage<StoredSettings>(() => ({
@@ -71,8 +87,11 @@ export const useSettingsStore = create<SettingsState>()(
       setDefaultRoute: (defaultRoute) => set({ defaultRoute }),
       setSeatFilter: (seatFilter) => set({ seatFilter }),
       setArrivalAlert: (arrivalAlert) => set({ arrivalAlert }),
-      setSimulatedLocation: (simulatedLocation) => set({ simulatedLocation }),
+      // The simulated stop and the fake GPS source are one or the other
+      setSimulatedLocation: (simulatedLocation) => set(simulatedLocation ? { simulatedLocation, fakeGps: false } : { simulatedLocation }),
       setSimulatedStop: (simulatedStop) => set({ simulatedStop }),
+      setFakeGps: (fakeGps) => set(fakeGps ? { fakeGps, simulatedLocation: false } : { fakeGps }),
+      setFake: (fake) => set(fake),
       resetSettings: () => set(DEFAULTS),
     }),
     {

@@ -262,6 +262,15 @@ export const ROUTE_SNAP_DISTANCE_M = 30;
 export const MIN_DISPLACEMENT_M = 50;
 export const GPS_ACCURACY_GATE_RELAY_M = 30;
 export const GPS_ACCURACY_GATE_CHECKIN_M = 25;
+// G0: a fix older than this is stale and refused wherever the gates apply (PRD 10.3)
+export const LOCATION_FIX_MAX_AGE_S = 30;
+// G0: the version of the location consent notice; a new notice asks again (PRD 7.1, 15.1)
+export const LOCATION_CONSENT_VERSION = 1;
+// G0: the development fake location source (emulator only): accuracies either side of both gates,
+// and how old a "stale" fix is
+export const FAKE_FIX_ACCURACY_OPTIONS_M = [10, 25, 28, 40] as const;
+export const FAKE_FIX_DEFAULT_ACCURACY_M = 10;
+export const FAKE_FIX_STALE_AGE_S = 120;
 export const CHECKIN_RADIUS_M = 60;
 // A check-in lasts this long (PRD 7.5). The 5-minute reminder arrives with notifications in G1.
 export const CHECKIN_LIFETIME_S = 900;

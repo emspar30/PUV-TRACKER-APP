@@ -22,7 +22,7 @@ import { ReportSheet } from '@/features/report/ReportSheet';
 import { useRelayBroadcast } from '@/features/report/useRelayBroadcast';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
-import { useCommuterPosition } from '@/features/map/useCommuterPosition';
+import { placeOf, useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
@@ -150,8 +150,9 @@ export default function MapScreen() {
   const commuter = useCommuterPosition();
   // RP1: the Report panel; "with GPS" needs a good fix or the simulated stop
   const [reportOpen, setReportOpen] = useState(false);
-  const fixAccuracyM = useLocationStore((store) => store.fix?.accuracyM ?? null);
-  const gpsAvailable = canReportWithGps(commuter ? { ...commuter, accuracyM: commuter.source === 'gps' ? fixAccuracyM : null } : null);
+  // G0: a mock or stale fix does not count (the screen redraws at least every live tick)
+  const fix = useLocationStore((store) => store.fix);
+  const gpsAvailable = canReportWithGps(placeOf(commuter, fix, live.nowMs));
   // B4: a relay sent with GPS shares the location until the rider reaches their destination
   const relay = useRelayBroadcast(commuter);
   const stopRelay = useRelayStore((store) => store.stop);
@@ -573,6 +574,7 @@ export default function MapScreen() {
           stopsOf={relayStopsOf}
           position={commuter}
           gpsAvailable={gpsAvailable}
+          checkGps={() => canReportWithGps(placeOf(commuter, useLocationStore.getState().fix, Date.now()))}
           onClose={() => setReportOpen(false)}
         />
       ) : null}

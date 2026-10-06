@@ -1,15 +1,27 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
-import { checkLocationPermission, watchLocation } from '@/services/location';
-import { useLocationStore } from '@/state/locationStore';
+import { useRouteData } from '@/data/RouteDataProvider';
+import { checkLocationPermission, watchFakeLocation, watchLocation } from '@/services/location';
+import { selectLocationAllowed, useLocationStore } from '@/state/locationStore';
+import { useSettingsStore } from '@/state/settingsStore';
 
-// Keeps the location store in step with the system permission and, while location
-// is allowed, with the device position. Foreground only.
+// Keeps the location store in step with the system permission and, while location is allowed
+// (consent and the permission, G0), with the device position. Foreground only. In development
+// builds the fake source can stand in for the GPS.
 export function useLocationTracking(): void {
-  const permission = useLocationStore((state) => state.permission);
+  const allowed = useLocationStore(selectLocationAllowed);
   const setPermission = useLocationStore((state) => state.setPermission);
   const setFix = useLocationStore((state) => state.setFix);
+  const { stops } = useRouteData();
+  const fakeGps = useSettingsStore((state) => __DEV__ && state.fakeGps);
+  const fakeStop = useSettingsStore((state) => state.simulatedStop);
+  const fakeAccuracyM = useSettingsStore((state) => state.fakeAccuracyM);
+  const fakeMocked = useSettingsStore((state) => state.fakeMocked);
+  const fakeStale = useSettingsStore((state) => state.fakeStale);
+  const fakePoint = stops.find((stop) => stop.code === fakeStop) ?? null;
+  const fakeLat = fakePoint?.lat;
+  const fakeLon = fakePoint?.lon;
 
   // Read the permission at start, and again whenever the app returns from the
   // background (the rider may have changed it in Settings)
@@ -36,7 +48,10 @@ export function useLocationTracking(): void {
   }, [setPermission]);
 
   useEffect(() => {
-    if (permission !== 'granted') return;
+    if (!allowed) return;
+    if (fakeGps && fakeLat !== undefined && fakeLon !== undefined) {
+      return watchFakeLocation({ lat: fakeLat, lon: fakeLon }, { accuracyM: fakeAccuracyM, mocked: fakeMocked, stale: fakeStale }, setFix);
+    }
 
     let stop: (() => void) | null = null;
     let cancelled = false;
@@ -53,5 +68,5 @@ export function useLocationTracking(): void {
       cancelled = true;
       stop?.();
     };
-  }, [permission, setFix]);
+  }, [allowed, setFix, fakeGps, fakeLat, fakeLon, fakeAccuracyM, fakeMocked, fakeStale]);
 }
