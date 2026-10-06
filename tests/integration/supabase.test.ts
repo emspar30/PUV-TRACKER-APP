@@ -86,7 +86,8 @@ live('S4 backend, live project', () => {
 
   afterAll(async () => {
     await writer?.removeAllChannels();
-    await Promise.all([writer?.auth.signOut(), outsider?.auth.signOut()]);
+    // Local only: the default (global) signs the account out everywhere, the simulator and the emulator included
+    await Promise.all([writer?.auth.signOut({ scope: 'local' }), outsider?.auth.signOut({ scope: 'local' })]);
   });
 
   it(

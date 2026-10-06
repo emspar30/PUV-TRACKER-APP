@@ -161,6 +161,10 @@ export const en = {
       live: 'Live',
       stale: (age: string) => `Stale · ${age}`,
       noData: 'No data',
+      // L1: Night Mode (PRD 10.4): the server hides moving multicabs
+      night: 'Night Mode',
+      // Beside Night Mode on an empty route; beside the count when stopped ones show
+      nightHidden: 'Moving ones hidden',
     },
     noData: 'No data from riders right now',
     // Age of the freshest position on a Stale route, in whole minutes

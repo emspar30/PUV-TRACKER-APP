@@ -51,6 +51,7 @@ import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { projectOntoLine } from '@/shared/geo/line';
 import { withReturnLegs } from '@/shared/routing/loop';
 import type { RouteDirection } from '@/shared/routing/types';
+import { isNight } from '@/shared/backend/rules';
 import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
@@ -393,12 +394,15 @@ export default function MapScreen() {
     );
   }
 
+  // L1: at night the server shows only stopped multicabs (PRD 10.4), so an empty live route says
+  // Night Mode rather than No data. The server decides; this only labels it.
+  const night = repos.vehicles.source === 'live' && isNight(live.nowMs);
   const status: { label: string; tone: StatusTone } =
     coverage.coverage === 'live'
       ? { label: strings.live.active.count(vehicles.length), tone: 'success' }
       : coverage.coverage === 'stale'
         ? { label: strings.live.status.stale(strings.live.age(coverage.youngestAgeS ?? 0)), tone: 'warning' }
-        : { label: strings.live.status.noData, tone: 'neutral' };
+        : { label: night ? strings.live.status.night : strings.live.status.noData, tone: 'neutral' };
   const vehicle = vehicles.find((candidate) => candidate.id === selectedVehicle) ?? null;
   const stop = stops.find((candidate) => candidate.code === selectedStop) ?? null;
   const selectedOption = routeOptions.find((option) => option.code === selectedRoute) ?? null;
@@ -460,6 +464,7 @@ export default function MapScreen() {
             name={selectedOption.name}
             color={selectedOption.color}
             status={status}
+            note={night ? (coverage.coverage === 'none' ? strings.live.status.nightHidden : strings.live.status.night) : null}
             onClose={hideRoute}
           />
         ) : null}

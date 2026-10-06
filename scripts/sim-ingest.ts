@@ -5,6 +5,9 @@
 // Run on the PC with the installed tsx:
 //   npx tsx scripts/sim-ingest.ts              R4-TEST-01 and R4-TEST-02 on R4, for 10 minutes
 //   npx tsx scripts/sim-ingest.ts --minutes 30
+//   npx tsx scripts/sim-ingest.ts --parked     each vehicle stays where it is at the start, speed 0
+// At night (21:00 to 04:59 Manila, PRD 10.4) the server shows only stopped vehicles, so moving
+// ones vanish from the Live tab by design; --parked keeps them visible for checking the markers.
 // Stop it with Ctrl+C. The Live tab shows these vehicles with Settings, Demo data turned off.
 
 import * as fs from 'node:fs';
@@ -37,6 +40,7 @@ if (missing.length > 0) {
 
 const minutesArg = process.argv.indexOf('--minutes');
 const minutes = minutesArg >= 0 ? Number(process.argv[minutesArg + 1]) : DEFAULT_MINUTES;
+const parked = process.argv.includes('--parked');
 
 const lines: DirectedLine[] = SEED_LINES.filter((line) => line.routeCode === ROUTE).map((line) => ({
   id: `${line.routeId}`,
@@ -62,18 +66,19 @@ async function main() {
   // The AF3 plans, one per test vehicle, without the silent spell (these vehicles always send)
   const plans = planDemoFleet(lines, [], demoFleetConfig(DEMO_SEED), { routeCodes: [ROUTE], perRoute: VEHICLES.length });
   const endMs = Date.now() + minutes * S_PER_MIN * MS_PER_S;
-  console.log(`Sending ${VEHICLES.join(', ')} on ${ROUTE} every ${SIM_INGEST_INTERVAL_S} s for ${minutes} min. Ctrl+C stops.`);
+  const startS = Math.floor(Date.now() / MS_PER_S);
+  console.log(`Sending ${VEHICLES.join(', ')} on ${ROUTE}${parked ? ' (parked)' : ''} every ${SIM_INGEST_INTERVAL_S} s for ${minutes} min. Ctrl+C stops.`);
 
   const send = async () => {
     const nowS = Math.floor(Date.now() / MS_PER_S);
     const results = await Promise.all(
       VEHICLES.map(async (vehicleId, index) => {
-        const at = positionAt(plans[index % plans.length], nowS);
+        const at = positionAt(plans[index % plans.length], parked ? startS : nowS);
         const packet = {
           vehicle_id: vehicleId,
           lat: at.lat,
           lon: at.lon,
-          speed: Math.round(at.speedKmh * 10) / 10,
+          speed: parked ? 0 : Math.round(at.speedKmh * 10) / 10,
           heading: Math.floor(at.headingDeg) % FULL_TURN_DEG,
           seats: at.seats,
           ts: nowS,
@@ -93,7 +98,8 @@ async function main() {
   const timer = setInterval(() => {
     if (Date.now() >= endMs) {
       clearInterval(timer);
-      void supabase.auth.signOut().then(() => console.log('Done.'));
+      // Local only, so the app signed in with the same test account stays signed in
+      void supabase.auth.signOut({ scope: 'local' }).then(() => console.log('Done.'));
       return;
     }
     void send();

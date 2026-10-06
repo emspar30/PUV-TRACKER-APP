@@ -11,6 +11,8 @@ type ActiveRouteCardProps = {
   color: string;
   // "3 active", "Stale · 4 min" or "No data"
   status: { label: string; tone: StatusTone };
+  // L1: a short line beside the status, such as Night Mode's
+  note?: string | null;
   onClose: () => void;
 };
 
@@ -19,7 +21,7 @@ const ICON_SIZE = spacing.md + spacing.xs;
 
 // The picked route, under the top bar (restyle): its badge, name and live status. No direction
 // label: commuters read the way a vehicle goes from its icon on the map.
-export function ActiveRouteCard({ code, name, color, status, onClose }: ActiveRouteCardProps) {
+export function ActiveRouteCard({ code, name, color, status, note, onClose }: ActiveRouteCardProps) {
   const styles = useStyles();
   const { colors, typography, routeBadgeText, elevation } = useTheme();
   return (
@@ -33,6 +35,11 @@ export function ActiveRouteCard({ code, name, color, status, onClose }: ActiveRo
         </Text>
         <View style={styles.meta}>
           <StatusPill label={status.label} tone={status.tone} />
+          {note ? (
+            <Text style={[typography.bodySm, styles.note]} numberOfLines={1}>
+              {note}
+            </Text>
+          ) : null}
         </View>
       </View>
       <Pressable style={styles.icon} onPress={onClose} accessibilityRole="button" accessibilityLabel={strings.live.active.close}>
@@ -67,6 +74,9 @@ const useStyles = makeStyles(({ colors }) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  note: {
+    flexShrink: 1,
   },
   icon: {
     width: MIN_TOUCH_TARGET,
