@@ -56,7 +56,7 @@ import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import { isStopped } from '@/shared/telemetry/stopped';
-import { crossedDistance, crossesAlert, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
+import { crossedDistance, crossesAlert, etaNow, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
 import { inRouteOrder } from '@/shared/relay/broadcast';
 import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
@@ -182,8 +182,10 @@ export default function MapScreen() {
     tracked && (!etaToMe || etaToMe.kind === 'unknown') && trackedProgress.next
       ? etaTo(tracked, loopLines, trackedProgress.next, ROUTE_STOP_MAX_DISTANCE_M)
       : null;
-  const trackedEta = etaToNext?.kind === 'approaching' ? etaToNext : etaToMe;
+  const measuredEta = etaToNext?.kind === 'approaching' ? etaToNext : etaToMe;
   const etaTarget: 'mine' | 'next' = etaToNext?.kind === 'approaching' ? 'next' : 'mine';
+  // L2: counted down by the age of the last packet, and hidden once the vehicle is no longer Live
+  const trackedEta = measuredEta && tracked ? etaNow(measuredEta, ageSeconds(tracked.lastPacketMs, trackSource.nowMs)) : measuredEta;
   // The arrival alert is for the commuter's own boarding point only
   const trackedEtaS = trackedEta?.kind === 'approaching' && etaTarget === 'mine' ? trackedEta.etaS : null;
 
@@ -196,7 +198,7 @@ export default function MapScreen() {
   // B2: a toast and a short vibration as the multicab comes within 1 km, 500 m, 250 m and 100 m of
   // the commuter, while the alert is on. In-app only, on any tab. When it reaches the commuter's
   // boarding point (or went by between readings), tracking ends by itself, alert on or off.
-  const trackedKm = trackedEta?.kind === 'approaching' && etaTarget === 'mine' ? trackedEta.distanceKm : null;
+  const trackedKm = measuredEta?.kind === 'approaching' && etaTarget === 'mine' ? measuredEta.distanceKm : null;
   const trackedLabel = tracked?.label ?? null;
   useEffect(() => {
     const previous = previousKm.current;
@@ -532,7 +534,7 @@ export default function MapScreen() {
             nextStop={nextStopOf(vehicle, loopLines, layers.stops)?.code ?? null}
             stopped={vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs)}
             eta={(() => {
-              const eta = commuter ? etaTo(vehicle, loopLines, commuter, MAX_WALK_PER_LEG_M) : null;
+              const eta = commuter ? etaNow(etaTo(vehicle, loopLines, commuter, MAX_WALK_PER_LEG_M), ageSeconds(vehicle.lastPacketMs, live.nowMs)) : null;
               return eta?.kind === 'approaching' ? strings.live.tracking.minutes(eta.etaS) : null;
             })()}
             onTrack={() => void startTracking(vehicle.id)}

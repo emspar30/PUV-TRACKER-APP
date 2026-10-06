@@ -1,8 +1,8 @@
 // L2: the simple ETA (D9) and the stops around a tracked vehicle. Fixtures only.
 
-import { ETA_MIN_SPEED_KMH, TRACK_ALERT_ETA_S, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M, TRACK_DISTANCE_ALERTS_M } from '../config';
+import { COVERAGE_LIVE_MAX_AGE_S, ETA_MIN_SPEED_KMH, TRACK_ALERT_ETA_S, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M, TRACK_DISTANCE_ALERTS_M } from '../config';
 import { lineLengthKm } from '../geo/line';
-import { crossedDistance, crossesAlert, etaTo, hasArrived, trackProgress } from '../tracking/eta';
+import { crossedDistance, crossesAlert, etaNow, etaTo, hasArrived, trackProgress } from '../tracking/eta';
 import { FIXTURE_OUTBOUND, FIXTURE_RETURN, FIXTURE_STOPS, pointAt } from './fixtures/routeFixture';
 
 const LINES = [FIXTURE_OUTBOUND, FIXTURE_RETURN];
@@ -115,5 +115,36 @@ describe('tracking progress and alert', () => {
     expect(crossesAlert(TRACK_ALERT_ETA_S + 10, TRACK_ALERT_ETA_S - 1, TRACK_ALERT_ETA_S)).toBe(true);
     expect(crossesAlert(TRACK_ALERT_ETA_S - 5, TRACK_ALERT_ETA_S - 9, TRACK_ALERT_ETA_S)).toBe(false);
     expect(crossesAlert(TRACK_ALERT_ETA_S + 10, null, TRACK_ALERT_ETA_S)).toBe(false);
+  });
+});
+
+describe('the live ETA now (L2)', () => {
+  const measured = etaTo(at(1, 20), LINES, pointAt(3));
+
+  it('counts down by the age of the last packet: time and distance driven since', () => {
+    if (measured.kind !== 'approaching') throw new Error('expected an ETA');
+    const now = etaNow(measured, 18);
+    if (now.kind !== 'approaching') throw new Error('expected an ETA');
+    expect(now.etaS).toBeCloseTo(measured.etaS - 18, 6);
+    // 20 km/h for 18 s is 100 m
+    expect(now.distanceKm).toBeCloseTo(measured.distanceKm - 0.1, 6);
+    expect(now.speedKmh).toBe(measured.speedKmh);
+  });
+
+  it('is unchanged for a fresh packet and never goes below zero', () => {
+    expect(etaNow(measured, 0)).toEqual(measured);
+    if (measured.kind !== 'approaching') throw new Error('expected an ETA');
+    const late = etaNow({ ...measured, etaS: 10, distanceKm: 0.05 }, 30);
+    expect(late).toMatchObject({ kind: 'approaching', etaS: 0, distanceKm: 0 });
+  });
+
+  it('is hidden once the vehicle is no longer Live', () => {
+    expect(etaNow(measured, COVERAGE_LIVE_MAX_AGE_S - 1).kind).toBe('approaching');
+    expect(etaNow(measured, COVERAGE_LIVE_MAX_AGE_S)).toEqual({ kind: 'unknown', reason: 'stale' });
+  });
+
+  it('leaves passed and unknown ETAs as they are', () => {
+    expect(etaNow({ kind: 'passed' }, 200)).toEqual({ kind: 'passed' });
+    expect(etaNow({ kind: 'unknown', reason: 'few_samples' }, 5)).toEqual({ kind: 'unknown', reason: 'few_samples' });
   });
 });

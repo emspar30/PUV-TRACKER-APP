@@ -4,6 +4,7 @@
 // with their stand-in legs (withReturnLegs). Pure: no React Native or Expo imports.
 
 import {
+  COVERAGE_LIVE_MAX_AGE_S,
   ETA_MAX_KM,
   ETA_MIN_SAMPLES,
   ETA_MIN_SPEED_KMH,
@@ -22,7 +23,7 @@ export type Eta =
   // Already past the boarding point, on a route with no way round to it again
   | { kind: 'passed' }
   // Shown as "ETA unavailable": the line does not pass the point, it is too far, or too few speeds
-  | { kind: 'unknown'; reason: 'off_line' | 'too_far' | 'few_samples' };
+  | { kind: 'unknown'; reason: 'off_line' | 'too_far' | 'few_samples' | 'stale' };
 
 const MS_PER_S = 1000;
 const S_PER_H = 3600;
@@ -51,6 +52,22 @@ export function etaTo(
   const mean = samples.reduce((sum, sample) => sum + sample.speedKmh, 0) / samples.length;
   const speedKmh = Math.max(ETA_MIN_SPEED_KMH, mean);
   return { kind: 'approaching', distanceKm, etaS: (distanceKm / speedKmh) * S_PER_H, speedKmh };
+}
+
+// L2: the ETA now, from one measured at the vehicle's last packet. A live position is up to a
+// packet interval old (30 s from phones, PRD 8.4), so the vehicle has driven on at its recent speed
+// for ageS; the time and distance count down between packets. Once the position is older than
+// Live (COVERAGE_LIVE_MAX_AGE_S) the ETA is hidden: the data is no longer good enough (D9).
+// Arrival and the distance alerts keep to the measured distance, so a guess never ends tracking.
+export function etaNow(eta: Eta, ageS: number, maxAgeS = COVERAGE_LIVE_MAX_AGE_S): Eta {
+  if (eta.kind !== 'approaching') return eta;
+  if (ageS >= maxAgeS) return { kind: 'unknown', reason: 'stale' };
+  const elapsedS = Math.max(0, ageS);
+  return {
+    ...eta,
+    distanceKm: Math.max(0, eta.distanceKm - (eta.speedKmh * elapsedS) / S_PER_H),
+    etaS: Math.max(0, eta.etaS - elapsedS),
+  };
 }
 
 // How far the vehicle drives forward to the point: its next pass ahead on its own leg, else the
