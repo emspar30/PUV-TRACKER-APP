@@ -336,6 +336,10 @@ export const AVATAR_IDS_MALE: readonly number[] = [0, 1, 2, 3, 4, 5];
 export const AVATAR_IDS_FEMALE: readonly number[] = [6, 7, 8, 9, 10, 11];
 // Frequent destinations kept on the phone (decision 5)
 export const FREQUENT_DESTINATIONS_MAX = 3;
+// F5: badges from simple counts (PRD 19, D8); no ranking. The "first" badges need one.
+export const BADGE_STOP_REGULAR_CHECKINS = 5;
+export const BADGE_HELPING_HAND_REPORTS = 5;
+export const BADGE_ROAD_REGULAR_REPORTS = 20;
 // F3: a place saved from a map tap is named by its position, rounded to about 1 m
 export const PLACE_ID_DECIMALS = 5;
 

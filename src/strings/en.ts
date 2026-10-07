@@ -659,6 +659,35 @@ export const en = {
     dismiss: 'Dismiss tip',
   },
 
+  // F5: badges from the user's own counts (D8); no ranking
+  badges: {
+    title: (earned: number, total: number) => `Badges (${earned}/${total})`,
+    names: {
+      first_trip: 'First trip planned',
+      first_checkin: 'First check-in',
+      stop_regular: 'Regular at the stop',
+      first_report: 'First relay',
+      helping_hand: 'Helping hand',
+      road_regular: 'Road regular',
+      first_live_report: 'First live relay',
+    },
+    hints: {
+      first_trip: 'Plan a trip in My Rides',
+      first_checkin: 'Check in at a station',
+      stop_regular: 'Check in 5 times',
+      first_report: 'Relay a multicab update',
+      helping_hand: 'Relay 5 updates',
+      road_regular: 'Relay 20 updates',
+      first_live_report: 'Relay with GPS shared',
+    },
+    progress: (have: number, need: number) => `${have}/${need}`,
+    done: 'Earned',
+    earned: (name: string) => `Badge earned: ${name}`,
+    earnedLabel: (name: string) => `${name}, earned`,
+    progressLabel: (name: string, have: number, need: number) => `${name}, ${have} of ${need}`,
+    note: 'Counted on this phone. No ranking, nothing compared with others.',
+  },
+
   // F3: frequent destinations and the routes that serve them
   places: {
     title: (count: number, max: number) => `Your places (${count}/${max})`,

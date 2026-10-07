@@ -1,4 +1,5 @@
 import { useCheckInStore } from './checkinStore';
+import { useCountsStore } from './countsStore';
 import { useDestinationsStore } from './destinationsStore';
 import { useHintsStore } from './hintsStore';
 import { useHistoryStore } from './historyStore';
@@ -13,6 +14,7 @@ import { useUsernameStore } from './usernameStore';
 // starts again with the introduction. Signing out is done by the screen, which talks to the backend.
 export function resetApp(): void {
   useCheckInStore.setState(useCheckInStore.getInitialState(), true);
+  useCountsStore.setState(useCountsStore.getInitialState(), true);
   useDestinationsStore.setState(useDestinationsStore.getInitialState(), true);
   useHintsStore.setState(useHintsStore.getInitialState(), true);
   useHistoryStore.setState(useHistoryStore.getInitialState(), true);

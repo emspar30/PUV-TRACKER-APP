@@ -1,6 +1,6 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { ChevronRight, Maximize2, Minimize2, Star } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -35,6 +35,7 @@ import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/t
 import { useDestinationsStore } from '@/state/destinationsStore';
 import { useFareType } from '@/state/fareType';
 import { useHintsStore } from '@/state/hintsStore';
+import { useCountsStore } from '@/state/countsStore';
 import { useRidesStore } from '@/state/ridesStore';
 import { showToast } from '@/state/toastStore';
 import { strings } from '@/strings';
@@ -183,6 +184,13 @@ export default function MyRidesScreen() {
     },
     [active, origin, destination, frameBoth, moveCamera, dismissHint],
   );
+
+  // F5: a planned trip counts for the "First trip planned" badge, once per From and To
+  const addTrip = useCountsStore((state) => state.addTrip);
+  const tripKey = origin && destination && itinerary ? `${placeIdOf(origin)}>${placeIdOf(destination)}` : null;
+  useEffect(() => {
+    if (tripKey) addTrip(tripKey);
+  }, [tripKey, addTrip]);
 
   // F3: To saved as a frequent destination: a stop or a tapped point, named as To reads
   const samePoint = (item: LatLon) => destination !== null && item.lat === destination.lat && item.lon === destination.lon;

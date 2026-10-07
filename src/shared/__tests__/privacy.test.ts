@@ -45,6 +45,13 @@ describe('no cloud payload contains classification', () => {
     expect(imports.filter((source) => /services|supabase|fetch|http/i.test(source))).toEqual([]);
   });
 
+  it('F5: the badge counts stay on the device: the store imports no service or network code', () => {
+    const store = fs.readFileSync(path.join(ROOT, 'src', 'state', 'countsStore.ts'), 'utf8');
+    const imports = [...store.matchAll(/from '([^']+)'/g)].map((match) => match[1]);
+    expect(imports).toEqual(expect.arrayContaining(['expo-sqlite/kv-store']));
+    expect(imports.filter((source) => /services|supabase|fetch|http/i.test(source))).toEqual([]);
+  });
+
   it('the destinations store keeps them on the device: it imports no service or network code', () => {
     const store = fs.readFileSync(path.join(ROOT, 'src', 'state', 'destinationsStore.ts'), 'utf8');
     const imports = [...store.matchAll(/from '([^']+)'/g)].map((match) => match[1]);

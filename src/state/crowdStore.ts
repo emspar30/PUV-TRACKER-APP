@@ -11,6 +11,7 @@ import { newRequestKey } from '@/shared/backend/rules';
 import { DEMO_SEED } from '@/shared/config';
 
 import { useCheckInStore } from './checkinStore';
+import { useCountsStore } from './countsStore';
 import { demoEnergy, refreshEnergy } from './energyStore';
 import { useSettingsStore } from './settingsStore';
 import { refreshTrust, useTrustStore } from './trustStore';
@@ -36,6 +37,8 @@ export async function checkIn(routeCodes: readonly string[], stationCode: string
   const result = await currentCrowd().checkins.checkIn(routeCodes, stationCode, newRequestKey('checkin', nowMs, Math.random()));
   if (result.ok) {
     useCheckInStore.getState().checkInAt(routeCodes, stationCode, nowMs, result.expiresAtMs);
+    // F5: counted on the phone for the badges
+    useCountsStore.getState().addCheckIn();
     void refreshEnergy();
     earnedTrust(nowMs);
   }
@@ -77,6 +80,7 @@ export async function sendReport(input: ReportInput): Promise<ReportResult> {
   if (result.ok) {
     void refreshEnergy();
     earnedTrust(nowMs);
+    useCountsStore.getState().addReport(input.withGps);
   }
   return result;
 }

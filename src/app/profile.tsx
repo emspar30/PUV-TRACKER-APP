@@ -7,6 +7,7 @@ import { Button, Card, IconTile, Screen, SkeletonCard, SkeletonHero } from '@/co
 import { useRefillCountdown } from '@/features/energy/useRefillCountdown';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { AvatarPicker } from '@/features/profile/AvatarPicker';
+import { BadgesCard } from '@/features/profile/BadgesCard';
 import { FareTypeDropdown } from '@/features/profile/FareTypeDropdown';
 import { PlacesCard } from '@/features/profile/PlacesCard';
 import { TrustedAvatar } from '@/features/profile/TrustedAvatar';
@@ -256,6 +257,8 @@ export default function ProfileScreen() {
           <Stat value={rides.filter((ride) => ride.source === 'report').length} label={strings.profilePage.reports} />
         </View>
       </Card>
+
+      <BadgesCard />
 
       <PlacesCard />
 
