@@ -21,6 +21,7 @@ import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Card, Logo, OptionRow, StepHeader } from '@/components';
+import { useRouteData } from '@/data/RouteDataProvider';
 import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
 import { useLocationPermission } from '@/features/map/useCommuterPosition';
 import { Avatar } from '@/features/profile/Avatar';
@@ -36,6 +37,7 @@ import {
   type Classification,
 } from '@/shared/config';
 import { avatarSetFor } from '@/shared/profile/avatarPick';
+import { routesNear } from '@/shared/routing/suggest';
 import { useDestinationsStore } from '@/state/destinationsStore';
 import { useFareType } from '@/state/fareType';
 import { useProfileStore } from '@/state/profileStore';
@@ -296,6 +298,7 @@ function PlacesStep() {
   const remove = useDestinationsStore((state) => state.remove);
   const needle = query.trim().toLowerCase();
   const matches = LANDMARKS.filter((landmark) => `${landmark.label} ${landmark.name}`.toLowerCase().includes(needle));
+  const { lines } = useRouteData();
   return (
     <>
       <StepIntro title={strings.onboarding.placesTitle} body={strings.onboarding.placesBody(FREQUENT_DESTINATIONS_MAX)} />
@@ -318,7 +321,10 @@ function PlacesStep() {
               key={landmark.id}
               icon={MapPin}
               title={landmark.label}
-              subtitle={landmark.name}
+              subtitle={strings.onboarding.placeRoutes(
+                landmark.name,
+                routesNear(lines, landmark).map((item) => item.routeCode),
+              )}
               multiple
               selected={selected}
               accessibilityLabel={strings.onboarding.placeLabel(`${landmark.label}, ${landmark.name}`)}

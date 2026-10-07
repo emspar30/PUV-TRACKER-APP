@@ -1,5 +1,5 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { ChevronRight, Maximize2, Minimize2 } from 'lucide-react-native';
+import { ChevronRight, Maximize2, Minimize2, Star } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { Chip, Hint, LineBadge, Logo, RoundButton, SkeletonCard, TopBar } from '
 import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
+import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
@@ -21,11 +22,12 @@ import type { PickTarget, PickedPoint } from '@/features/ride/PointPills';
 import { FareSummaryCard, SuggestedRouteCard } from '@/features/ride/RideCards';
 import { RideFailure } from '@/features/ride/RideResult';
 import { TripCard } from '@/features/ride/TripCard';
-import { FARE_REGULAR_MULTIPLIER, SKELETON_MIN_MS } from '@/shared/config';
+import { FARE_REGULAR_MULTIPLIER, FREQUENT_DESTINATIONS_MAX, SKELETON_MIN_MS } from '@/shared/config';
 import { discountMultiplier } from '@/shared/fare/fare';
 import { boundsOfLines, clipBounds, withMinimumSpan } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
 import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/describe';
+import { placeIdOf } from '@/shared/routing/suggest';
 import { explainFailure, type FailureExplanation } from '@/shared/routing/explainFailure';
 import { fareForItinerary, planOptions, planTrip } from '@/shared/routing/plan';
 import { rankRouteOptions } from '@/shared/routing/rankOptions';
@@ -34,6 +36,7 @@ import { useDestinationsStore } from '@/state/destinationsStore';
 import { useFareType } from '@/state/fareType';
 import { useHintsStore } from '@/state/hintsStore';
 import { useRidesStore } from '@/state/ridesStore';
+import { showToast } from '@/state/toastStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -71,6 +74,7 @@ export default function MyRidesScreen() {
   const hintSeen = useHintsStore((state) => state.seen.ride);
   const dismissHint = useHintsStore((state) => state.dismiss);
   const destinations = useDestinationsStore((state) => state.destinations);
+  const addDestination = useDestinationsStore((state) => state.add);
   const recentRides = useRidesStore((state) => state.rides);
   const { height: windowHeight } = useWindowDimensions();
   // B5: bigger map: it takes the free space and the results hide; From, To and the stop chips stay
@@ -180,6 +184,26 @@ export default function MyRidesScreen() {
     [active, origin, destination, frameBoth, moveCamera, dismissHint],
   );
 
+  // F3: To saved as a frequent destination: a stop or a tapped point, named as To reads
+  const samePoint = (item: LatLon) => destination !== null && item.lat === destination.lat && item.lon === destination.lon;
+  const destinationId = destination
+    ? (destinations.find(samePoint)?.id ?? LANDMARKS.find(samePoint)?.id ?? placeIdOf(destination))
+    : null;
+  const destinationSaved = destinationId !== null && destinations.some((item) => item.id === destinationId);
+  const saveDestination = () => {
+    if (!destination || !destinationId) return;
+    const result = addDestination({ id: destinationId, label: destination.label, lat: destination.lat, lon: destination.lon });
+    showToast({
+      icon: Star,
+      title:
+        result === 'added'
+          ? strings.places.saved(destination.label)
+          : result === 'duplicate'
+            ? strings.places.already
+            : strings.places.full(FREQUENT_DESTINATIONS_MAX),
+    });
+  };
+
   const swap = useCallback(() => {
     setOrigin(destination);
     setDestination(origin);
@@ -276,6 +300,8 @@ export default function MyRidesScreen() {
           onClear={clearField}
           onSwap={swap}
           onUseMyPosition={myPosition ? () => pick(myPosition) : undefined}
+          onSaveDestination={saveDestination}
+          destinationSaved={destinationSaved}
         />
         {needsPick ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityLabel={strings.ride.pickStop}>

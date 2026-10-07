@@ -8,6 +8,7 @@ import { useRefillCountdown } from '@/features/energy/useRefillCountdown';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { AvatarPicker } from '@/features/profile/AvatarPicker';
 import { FareTypeDropdown } from '@/features/profile/FareTypeDropdown';
+import { PlacesCard } from '@/features/profile/PlacesCard';
 import { TrustedAvatar } from '@/features/profile/TrustedAvatar';
 import { usernameIssue } from '@/shared/backend/rules';
 import {
@@ -255,6 +256,8 @@ export default function ProfileScreen() {
           <Stat value={rides.filter((ride) => ride.source === 'report').length} label={strings.profilePage.reports} />
         </View>
       </Card>
+
+      <PlacesCard />
 
       {/* B7: every action, not only Energy; folded until opened, with Clear History */}
       <Card>

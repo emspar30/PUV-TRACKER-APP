@@ -659,8 +659,22 @@ export const en = {
     dismiss: 'Dismiss tip',
   },
 
+  // F3: frequent destinations and the routes that serve them
+  places: {
+    title: (count: number, max: number) => `Your places (${count}/${max})`,
+    empty: 'Save a place with the star on To in My Rides.',
+    routes: (codes: string[]) => (codes.length > 0 ? `Routes: ${codes.join(', ')}` : 'No route within a walk'),
+    remove: (label: string) => `Remove ${label}`,
+    save: 'Save as one of your places',
+    saved: (label: string) => `${label} saved to your places`,
+    already: 'Already one of your places',
+    full: (max: number) => `You have ${max} places. Remove one in Profile.`,
+  },
+
   greeting: {
     planRide: 'Plan a ride',
+    // F3: a destination chip with the routes that serve it
+    via: (label: string, codes: string[]) => (codes.length > 0 ? `${label} · ${codes.join(', ')}` : label),
     goTo: (name: string) => `Plan a ride to ${name}`,
     hide: 'Hide greeting',
   },
@@ -706,6 +720,8 @@ export const en = {
     placesSearch: 'Search places',
     placesNone: 'No place matches',
     placeLabel: (name: string) => `Frequent destination ${name}`,
+    // F3: each landmark with the routes that serve it
+    placeRoutes: (name: string, codes: string[]) => (codes.length > 0 ? `${name} · ${codes.join(', ')}` : name),
     permissionsStep: 'Permissions',
     permissionsTitle: 'App permissions',
     permissionsBody: 'Turn on what you want now; you can change it later in Android Settings.',

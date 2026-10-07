@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Chip, Logo } from '@/components';
+import { useRouteData } from '@/data/RouteDataProvider';
+import { routesNear } from '@/shared/routing/suggest';
 import { pickGreeting } from '@/shared/profile/greeting';
 import { useDestinationsStore } from '@/state/destinationsStore';
 import { strings } from '@/strings';
@@ -30,6 +32,7 @@ export function GreetingCard({ onHide }: { onHide: () => void }) {
   // Chosen once per app open, so the line does not change while the screen is open
   const [line] = useState(() => pickGreeting(strings.persona.greetings, new Date()));
   const destinations = useDestinationsStore((state) => state.destinations);
+  const { lines } = useRouteData();
 
   return (
     <View style={styles.card}>
@@ -52,7 +55,11 @@ export function GreetingCard({ onHide }: { onHide: () => void }) {
           destinations.map((destination) => (
             <Chip
               key={destination.id}
-              label={destination.label}
+              // F3: with the routes that pass within a walk of it
+              label={strings.greeting.via(
+                destination.label,
+                routesNear(lines, destination).map((item) => item.routeCode),
+              )}
               accessibilityLabel={strings.greeting.goTo(destination.label)}
               onPress={() => planRideTo(destination.id)}
             />

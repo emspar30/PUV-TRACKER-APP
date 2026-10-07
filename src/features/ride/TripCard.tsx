@@ -1,4 +1,4 @@
-import { ArrowUpDown, LocateFixed, X } from 'lucide-react-native';
+import { ArrowUpDown, LocateFixed, Star, X } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
 import { strings } from '@/strings';
@@ -16,13 +16,16 @@ type TripCardProps = {
   onSwap: () => void;
   // Fills From with the commuter's position; omitted when there is none
   onUseMyPosition?: () => void;
+  // F3: saves To as one of the frequent destinations; filled star once saved
+  onSaveDestination?: () => void;
+  destinationSaved?: boolean;
 };
 
 const ICON_SIZE = spacing.md + spacing.xs;
 const MARKER = spacing.sm + spacing.xs;
 
 // Starting point and destination (restyle): two fields joined by a dotted line, with swap on the right
-export function TripCard({ origin, destination, active, onActivate, onClear, onSwap, onUseMyPosition }: TripCardProps) {
+export function TripCard({ origin, destination, active, onActivate, onClear, onSwap, onUseMyPosition, onSaveDestination, destinationSaved }: TripCardProps) {
   const styles = useStyles();
   const { colors, typography, mapPaint, elevation } = useTheme();
 
@@ -46,6 +49,17 @@ export function TripCard({ origin, destination, active, onActivate, onClear, onS
         {target === 'origin' && onUseMyPosition ? (
           <Pressable style={styles.icon} onPress={onUseMyPosition} accessibilityRole="button" accessibilityLabel={strings.ride.useMyPosition}>
             <LocateFixed color={colors.primary} size={ICON_SIZE} />
+          </Pressable>
+        ) : null}
+        {target === 'destination' && point && onSaveDestination ? (
+          <Pressable
+            style={styles.icon}
+            onPress={onSaveDestination}
+            accessibilityRole="button"
+            accessibilityState={{ selected: destinationSaved === true }}
+            accessibilityLabel={strings.places.save}
+          >
+            <Star color={colors.warning} fill={destinationSaved ? colors.warning : 'transparent'} size={ICON_SIZE} />
           </Pressable>
         ) : null}
         {point && (target === 'destination' || !onUseMyPosition) ? (
