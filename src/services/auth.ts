@@ -32,3 +32,18 @@ export async function signOut(): Promise<AuthResult> {
     return { ok: false, message: error instanceof Error ? error.message : String(error) };
   }
 }
+
+// PRD 15.1, D10: deletes the signed-in account and everything it holds on the server
+// (delete_my_account), then drops the session on this phone only: the account no longer exists, so
+// a global sign-out would fail. The caller then clears the phone (resetApp).
+export async function deleteMyAccount(): Promise<AuthResult> {
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase.rpc('delete_my_account');
+    if (error) return { ok: false, message: error.message };
+    await supabase.auth.signOut({ scope: 'local' });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}

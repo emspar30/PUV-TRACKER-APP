@@ -21,6 +21,8 @@ export type VehicleSnapshot = {
   recentSpeeds: readonly SpeedSample[];
   // True for simulated vehicles; they are always labelled "Demo"
   demo: boolean;
+  // Live only: whether the server verified the report (PRD 0.7). Unverified ones say so on the card.
+  verified?: boolean;
   // Demo only: waiting at the end of its line before starting again (shown as Stopped), and hidden
   // for a moment around that restart so the jump is never drawn as a slide
   layover?: boolean;

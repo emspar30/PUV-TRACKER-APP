@@ -7,7 +7,7 @@ import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 import { Button, Chip, IconTile, LineBadge, RouteChip } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
 import type { FeedPhrase } from '@/shared/backend/rules';
-import { ENERGY_GPS_REPORT, ENERGY_NO_GPS_REPORT, FEED_LIFETIME_MIN, FEED_PHRASES } from '@/shared/config';
+import { ENERGY_GPS_REPORT, ENERGY_NO_GPS_REPORT, ENERGY_UI_VISIBLE, FEED_LIFETIME_MIN, FEED_PHRASES } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
 import { destinationOptions, relayStopCode } from '@/shared/relay/broadcast';
 import type { RouteStop } from '@/shared/routing/types';
@@ -212,9 +212,13 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
               <Text style={typography.labelLg}>{strings.report.withGps}</Text>
               <Text style={typography.bodySm}>
                 {!gpsAvailable
-                  ? strings.report.gpsUnavailable(ENERGY_NO_GPS_REPORT)
+                  ? ENERGY_UI_VISIBLE
+                    ? strings.report.gpsUnavailable(ENERGY_NO_GPS_REPORT)
+                    : strings.report.gpsUnavailableFree
                   : destination
-                    ? strings.report.gpsEarns(ENERGY_GPS_REPORT, ENERGY_NO_GPS_REPORT)
+                    ? ENERGY_UI_VISIBLE
+                      ? strings.report.gpsEarns(ENERGY_GPS_REPORT, ENERGY_NO_GPS_REPORT)
+                      : strings.report.gpsShares
                     : strings.report.gpsNeedsDestination}
               </Text>
             </View>

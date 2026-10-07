@@ -61,6 +61,12 @@ describe('a row as a snapshot', () => {
     expect(later.recentSpeeds).toHaveLength(1);
   });
 
+  it('carries the server verified flag; a row without it counts as unverified (PRD 0.7)', () => {
+    expect(rowToSnapshot(row(), 'T1', LINES)!.verified).toBe(false);
+    expect(rowToSnapshot({ ...row(), verified: false }, 'T1', LINES)!.verified).toBe(false);
+    expect(rowToSnapshot({ ...row(), verified: true }, 'T1', LINES)!.verified).toBe(true);
+  });
+
   it('refuses a row with an unreadable time', () => {
     expect(rowToSnapshot({ ...row(), packet_ts: 'not a time' }, 'T1', LINES)).toBeNull();
   });

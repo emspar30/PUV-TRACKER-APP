@@ -14,6 +14,7 @@ import { TrustedAvatar } from '@/features/profile/TrustedAvatar';
 import { usernameIssue } from '@/shared/backend/rules';
 import {
   ENERGY_PASSIVE_INTERVAL_H,
+  ENERGY_UI_VISIBLE,
   ENERGY_WALLET_CAP,
   SKELETON_LONG_MS,
   TRUST_BADGE_POINTS,
@@ -44,8 +45,9 @@ const PERCENT = 100;
 
 // Profile (restyle, B7), opened from the menu or the avatar: the avatar (a tap opens the avatar
 // choices), the handle with a pencil to edit it, the trust progress, a compact fare type dropdown,
-// then ride counts and Tracking Energy. Everything but the handle stays on this phone; the handle
-// is sent when the user signs in, and saved to the account at once while signed in (SB2).
+// then Tracking Energy (hidden while tracking is free, D1) and ride counts. Everything but the handle
+// stays on this phone; the handle is sent when the user signs in, and saved to the account at once
+// while signed in (SB2).
 export default function ProfileScreen() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
@@ -114,13 +116,14 @@ export default function ProfileScreen() {
       ? strings.profilePage.energySignIn
       : strings.profilePage.energyFree;
 
-  const history = generalHistory(energy?.history ?? [], rides, clearedAtMs);
+  // D1: while Energy is hidden, the history shows rides only
+  const history = generalHistory(ENERGY_UI_VISIBLE ? (energy?.history ?? []) : [], rides, clearedAtMs);
   const energyShare = energy ? Math.min(Math.max(energy.balance / ENERGY_WALLET_CAP, 0), 1) : 0;
   const confirmClear = () =>
     showDialog({
       tone: 'warning',
       title: strings.profilePage.clearTitle,
-      body: strings.profilePage.clearBody,
+      body: ENERGY_UI_VISIBLE ? strings.profilePage.clearBody : strings.profilePage.clearBodyNoEnergy,
       actions: [
         { label: strings.profilePage.clearConfirm, variant: 'danger', onPress: () => clearHistory(Date.now()) },
         { label: strings.common.close, variant: 'secondary' },
@@ -229,25 +232,27 @@ export default function ProfileScreen() {
         <FareTypeDropdown />
       </Card>
 
-      {/* B7: Tracking Energy on its own, as a bar under the info card */}
-      <Pressable
-        onPress={energyNeedsSignIn ? () => router.push('/sign-in') : undefined}
-        disabled={!energyNeedsSignIn}
-        accessibilityRole={energyNeedsSignIn ? 'button' : undefined}
-        accessibilityLabel={[strings.profilePage.energy, ...(energy ? [strings.profilePage.energyOf(energy.balance.toFixed(1), ENERGY_WALLET_CAP)] : []), energySubtitle].join('. ')}
-      >
-        <Card>
-          <View style={styles.energyHead}>
-            <IconTile icon={Zap} tone="warning" />
-            <Text style={[typography.labelLg, styles.grow]}>{strings.profilePage.energy}</Text>
-            {energy ? <Text style={[typography.labelLg, styles.energyValue]}>{strings.profilePage.energyOf(energy.balance.toFixed(1), ENERGY_WALLET_CAP)}</Text> : null}
-          </View>
-          <View style={styles.track}>
-            <View style={[styles.fill, { width: `${energyShare * PERCENT}%` }]} />
-          </View>
-          <Text style={typography.bodySm}>{energySubtitle}</Text>
-        </Card>
-      </Pressable>
+      {/* B7: Tracking Energy on its own, as a bar under the info card; hidden while tracking is free (D1) */}
+      {ENERGY_UI_VISIBLE ? (
+        <Pressable
+          onPress={energyNeedsSignIn ? () => router.push('/sign-in') : undefined}
+          disabled={!energyNeedsSignIn}
+          accessibilityRole={energyNeedsSignIn ? 'button' : undefined}
+          accessibilityLabel={[strings.profilePage.energy, ...(energy ? [strings.profilePage.energyOf(energy.balance.toFixed(1), ENERGY_WALLET_CAP)] : []), energySubtitle].join('. ')}
+        >
+          <Card>
+            <View style={styles.energyHead}>
+              <IconTile icon={Zap} tone="warning" />
+              <Text style={[typography.labelLg, styles.grow]}>{strings.profilePage.energy}</Text>
+              {energy ? <Text style={[typography.labelLg, styles.energyValue]}>{strings.profilePage.energyOf(energy.balance.toFixed(1), ENERGY_WALLET_CAP)}</Text> : null}
+            </View>
+            <View style={styles.track}>
+              <View style={[styles.fill, { width: `${energyShare * PERCENT}%` }]} />
+            </View>
+            <Text style={typography.bodySm}>{energySubtitle}</Text>
+          </Card>
+        </Pressable>
+      ) : null}
 
       <Card>
         <Text style={typography.labelLg}>{strings.profilePage.stats}</Text>
@@ -276,7 +281,9 @@ export default function ProfileScreen() {
         {historyOpen ? (
           <>
             {history.length === 0 ? (
-              <Text style={typography.bodySm}>{strings.profilePage.historyEmpty(ENERGY_PASSIVE_INTERVAL_H)}</Text>
+              <Text style={typography.bodySm}>
+                {ENERGY_UI_VISIBLE ? strings.profilePage.historyEmpty(ENERGY_PASSIVE_INTERVAL_H) : strings.profilePage.historyEmptyNoEnergy}
+              </Text>
             ) : (
               history.map((item, index) => (
                 <View key={`${item.type}-${item.atMs}-${index}`} style={styles.historyRow}>

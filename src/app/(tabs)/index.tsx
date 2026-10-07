@@ -48,6 +48,7 @@ import {
 import { canReportWithGps } from '@/shared/checkin/geofence';
 import { nearestStop } from '@/shared/routing/describe';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
+import { haversineMeters } from '@/shared/geo/haversine';
 import { projectOntoLine } from '@/shared/geo/line';
 import { withReturnLegs } from '@/shared/routing/loop';
 import type { RouteDirection } from '@/shared/routing/types';
@@ -56,7 +57,7 @@ import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import { isStopped } from '@/shared/telemetry/stopped';
-import { crossedDistance, crossesAlert, etaNow, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
+import { crossedDistance, crossesAlert, etaDistanceKm, etaNow, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
 import { inRouteOrder } from '@/shared/relay/broadcast';
 import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
@@ -76,6 +77,7 @@ const ICON_SIZE = spacing.md + spacing.xs;
 // The route list shows each route's first, middle and last stop
 const LIST_STOPS = 3;
 const HALF = 2;
+const METERS_PER_KM = 1000;
 // Both directions always show; the vehicle icon tells which way each one goes
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
 
@@ -200,7 +202,8 @@ export default function MapScreen() {
   // B2: a toast and a short vibration as the multicab comes within 1 km, 500 m, 250 m and 100 m of
   // the commuter, while the alert is on. In-app only, on any tab. When it reaches the commuter's
   // boarding point (or went by between readings), tracking ends by itself, alert on or off.
-  const trackedKm = measuredEta?.kind === 'approaching' && etaTarget === 'mine' ? measuredEta.distanceKm : null;
+  // The measured distance to the commuter, also while the ETA is hidden (slow, too far; PRD 19.4)
+  const trackedKm = etaDistanceKm(etaToMe);
   const trackedLabel = tracked?.label ?? null;
   useEffect(() => {
     const previous = previousKm.current;
@@ -410,6 +413,10 @@ export default function MapScreen() {
         ? { label: strings.live.status.stale(strings.live.age(coverage.youngestAgeS ?? 0)), tone: 'warning' }
         : { label: night ? strings.live.status.night : strings.live.status.noData, tone: 'neutral' };
   const vehicle = vehicles.find((candidate) => candidate.id === selectedVehicle) ?? null;
+  // The tapped multicab's ETA to the commuter, and how far it is from them (PRD 7.4): along the
+  // route when the line reaches them, else in a straight line
+  const vehicleEta = vehicle && commuter ? etaNow(etaTo(vehicle, loopLines, commuter, MAX_WALK_PER_LEG_M), ageSeconds(vehicle.lastPacketMs, live.nowMs)) : null;
+  const vehicleKm = vehicle && commuter ? (etaDistanceKm(vehicleEta) ?? haversineMeters(vehicle, commuter) / METERS_PER_KM) : null;
   const stop = stops.find((candidate) => candidate.code === selectedStop) ?? null;
   const selectedOption = routeOptions.find((option) => option.code === selectedRoute) ?? null;
 
@@ -545,10 +552,8 @@ export default function MapScreen() {
             nowMs={live.nowMs}
             nextStop={nextStopOf(vehicle, loopLines, layers.stops)?.code ?? null}
             stopped={vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs)}
-            eta={(() => {
-              const eta = commuter ? etaNow(etaTo(vehicle, loopLines, commuter, MAX_WALK_PER_LEG_M), ageSeconds(vehicle.lastPacketMs, live.nowMs)) : null;
-              return eta?.kind === 'approaching' ? strings.live.tracking.minutes(eta.etaS) : null;
-            })()}
+            eta={vehicleEta?.kind === 'approaching' ? strings.live.tracking.minutes(vehicleEta.etaS) : null}
+            distanceKm={vehicleKm}
             onTrack={() => void startTracking(vehicle.id)}
             onClose={() => setSelectedVehicle(null)}
           />

@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { Button, IconTile, StatusPill } from '@/components';
 import { VEHICLE_CAPACITY_SEATS } from '@/shared/config';
-import type { Eta, TrackProgress } from '@/shared/tracking/eta';
+import { etaDistanceKm, type Eta, type TrackProgress } from '@/shared/tracking/eta';
 import { ageSeconds } from '@/shared/telemetry/coverage';
 import type { VehicleSnapshot } from '@/shared/telemetry/vehicle';
 import { strings } from '@/strings';
@@ -37,6 +37,8 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine
   const t = strings.live.tracking;
   const age = vehicle ? strings.live.vehicle.ageSeconds(ageSeconds(vehicle.lastPacketMs, nowMs)) : null;
   const free = vehicle ? Math.max(0, VEHICLE_CAPACITY_SEATS - vehicle.seatsTaken) : 0;
+  // The distance shows also while the ETA is hidden (slow or over 10 km, PRD 19.4)
+  const distanceKm = etaDistanceKm(eta);
 
   const headline =
     eta?.kind === 'approaching' ? t.minutes(eta.etaS) : eta?.kind === 'passed' ? t.passed : vehicle ? t.unknown : t.lost;
@@ -52,7 +54,7 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine
         <View style={styles.grow}>
           <View style={styles.etaRow}>
             <Text style={typography.headlineLg}>{headline}</Text>
-            {eta?.kind === 'approaching' ? <Text style={typography.bodySm}>{t.away(eta.distanceKm)}</Text> : null}
+            {distanceKm !== null ? <Text style={typography.bodySm}>{t.away(distanceKm)}</Text> : null}
           </View>
           {eta?.kind === 'approaching' && etaTarget === 'next' && progress.next ? (
             <View style={styles.row}>

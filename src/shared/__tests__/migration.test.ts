@@ -245,6 +245,11 @@ describe('migration: row level security and grants', () => {
     expect(sql).toMatch(/rename to "telemetry_latest: team accounts read active vehicles"/);
   });
 
+  it('D1: the last Energy switch leaves tracking free', () => {
+    const switches = statements.filter((s) => s.startsWith('update public.app_config set energy_enabled'));
+    expect(switches.pop()).toBe('update public.app_config set energy_enabled = false');
+  });
+
   it('publishes telemetry_latest, and only it, to Realtime', () => {
     const published = statements.filter((s) => s.startsWith('alter publication supabase_realtime'));
     expect(published).toEqual(['alter publication supabase_realtime add table public.telemetry_latest']);

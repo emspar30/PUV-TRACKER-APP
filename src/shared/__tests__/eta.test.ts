@@ -1,8 +1,8 @@
 // L2: the simple ETA (D9) and the stops around a tracked vehicle. Fixtures only.
 
-import { COVERAGE_LIVE_MAX_AGE_S, ETA_MIN_SPEED_KMH, TRACK_ALERT_ETA_S, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M, TRACK_DISTANCE_ALERTS_M } from '../config';
+import { COVERAGE_LIVE_MAX_AGE_S, ETA_MAX_KM, ETA_MIN_SPEED_KMH, TRACK_ALERT_ETA_S, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M, TRACK_DISTANCE_ALERTS_M } from '../config';
 import { lineLengthKm } from '../geo/line';
-import { crossedDistance, crossesAlert, etaNow, etaTo, hasArrived, trackProgress } from '../tracking/eta';
+import { crossedDistance, crossesAlert, etaDistanceKm, etaNow, etaTo, hasArrived, trackProgress } from '../tracking/eta';
 import { FIXTURE_OUTBOUND, FIXTURE_RETURN, FIXTURE_STOPS, pointAt } from './fixtures/routeFixture';
 
 const LINES = [FIXTURE_OUTBOUND, FIXTURE_RETURN];
@@ -20,16 +20,29 @@ describe('ETA (D9)', () => {
     expect(eta.etaS).toBeCloseTo(360, -1);
   });
 
-  it('counts a slow or stopped vehicle at the minimum speed', () => {
-    const eta = etaTo(at(1, 0), LINES, pointAt(2));
-    expect(eta.kind === 'approaching' && eta.speedKmh).toBe(ETA_MIN_SPEED_KMH);
+  it('is hidden below the minimum speed (PRD 19.4), and keeps the distance for arrival and alerts', () => {
+    const stopped = etaTo(at(1, 0), LINES, pointAt(2));
+    expect(stopped).toMatchObject({ kind: 'unknown', reason: 'slow' });
+    expect(etaDistanceKm(stopped)).toBeCloseTo(1, 1);
+    expect(etaTo(at(1, ETA_MIN_SPEED_KMH - 0.1), LINES, pointAt(2))).toMatchObject({ kind: 'unknown', reason: 'slow' });
+    expect(etaTo(at(1, ETA_MIN_SPEED_KMH), LINES, pointAt(2)).kind).toBe('approaching');
+  });
+
+  it(`is hidden beyond ${ETA_MAX_KM} km (PRD 19.4), with the distance kept`, () => {
+    const lengthKm = lineLengthKm(FIXTURE_OUTBOUND.coordinates);
+    // Just past the point on the outbound: the way round is nearly two line lengths
+    const roundKm = lengthKm - 3.1 + (lengthKm - 3);
+    expect(roundKm).toBeGreaterThan(ETA_MAX_KM);
+    const far = etaTo(at(3.1), LINES, pointAt(3));
+    expect(far).toMatchObject({ kind: 'unknown', reason: 'too_far' });
+    expect(etaDistanceKm(far)).toBeCloseTo(roundKm, 1);
   });
 
   it('says passed behind the vehicle on a lone leg, and unknown off the line, too far or with too few speeds', () => {
     expect(etaTo(at(4), [FIXTURE_OUTBOUND], pointAt(3)).kind).toBe('passed');
     expect(etaTo(at(4), LINES, pointAt(3), undefined, { round: false }).kind).toBe('passed');
     expect(etaTo(at(1), LINES, pointAt(3, 400))).toEqual({ kind: 'unknown', reason: 'off_line' });
-    expect(etaTo(at(1, 20, 'T1-OUT', 1), LINES, pointAt(3))).toEqual({ kind: 'unknown', reason: 'few_samples' });
+    expect(etaTo(at(1, 20, 'T1-OUT', 1), LINES, pointAt(3))).toMatchObject({ kind: 'unknown', reason: 'few_samples' });
   });
 
   it('uses the direction the vehicle travels', () => {
@@ -40,9 +53,9 @@ describe('ETA (D9)', () => {
   it('after passing the commuter, counts on round the route to them again (B2)', () => {
     const lengthKm = lineLengthKm(FIXTURE_OUTBOUND.coordinates);
     // Past 3 km on the outbound: to the east end, then back along the return to 3 km
+    // (about 10.6 km, over ETA_MAX_KM: the ETA is hidden but the distance is still measured)
     const outbound = etaTo(at(4), LINES, pointAt(3));
-    expect(outbound.kind).toBe('approaching');
-    if (outbound.kind === 'approaching') expect(outbound.distanceKm).toBeCloseTo(lengthKm - 4 + (lengthKm - 3), 1);
+    expect(etaDistanceKm(outbound)).toBeCloseTo(lengthKm - 4 + (lengthKm - 3), 1);
     // Past 3 km on the return: to the west end, then the outbound to 3 km
     const back = etaTo(at(1, 20, 'T1-RET'), LINES, pointAt(3));
     expect(back.kind === 'approaching' && back.distanceKm).toBeCloseTo(1 + 3, 1);
@@ -140,7 +153,7 @@ describe('the live ETA now (L2)', () => {
 
   it('is hidden once the vehicle is no longer Live', () => {
     expect(etaNow(measured, COVERAGE_LIVE_MAX_AGE_S - 1).kind).toBe('approaching');
-    expect(etaNow(measured, COVERAGE_LIVE_MAX_AGE_S)).toEqual({ kind: 'unknown', reason: 'stale' });
+    expect(etaNow(measured, COVERAGE_LIVE_MAX_AGE_S)).toMatchObject({ kind: 'unknown', reason: 'stale' });
   });
 
   it('leaves passed and unknown ETAs as they are', () => {

@@ -293,15 +293,23 @@ live('SB1 commuter backend, live project', () => {
   );
 
   it(
-    'the energy balance never exceeds the wallet cap, and tracking spends 1 Energy once per request key',
+    'the energy balance never exceeds the wallet cap, and tracking spends 1 Energy once per request key only while Energy is on',
     async () => {
-      // Energy is on since migration 20261006: a session costs 1, or is refused below 1
+      // Energy was on from migration 20261006 and is off again from 20261011 (D1: tracking is free)
+      const config = await writer.from('app_config').select('energy_enabled').single();
+      expect(config.error).toBeNull();
+      const enabled = config.data?.energy_enabled === true;
       const balance = await writer.rpc('energy_balance');
       expect(balance.error).toBeNull();
       const before = Number(balance.data);
       expect(before).toBeLessThanOrEqual(5);
       const request = key('track');
       const tracking = await writer.rpc('start_tracking', { request_key: request });
+      if (!enabled) {
+        expect(tracking.error).toBeNull();
+        expect(Number((await writer.rpc('energy_balance')).data)).toBeCloseTo(before);
+        return;
+      }
       if (before < 1) {
         expect(tracking.error?.message).toBe('not enough energy');
         return;

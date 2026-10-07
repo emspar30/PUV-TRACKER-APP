@@ -2,36 +2,34 @@
 
 ## Where we are in plain words
 
-| Works with real data | Works with demo data only | Not built |
+| Works with real data | Works with demo or test data only | Not built |
 | --- | --- | --- |
-| Offline map of Butuan; **real traced lines for R3, R4 and R5**, shown only when picked (RR1, UX3). R4 and R5 have only their return leg, partial. | **Moving PUVs on Live** (AF3): 2 or 3 simulated vehicles per route on the real lines, seat tiers, Live / Stale / No data, stopped state, all marked "Demo". Settings → "Demo data" turns it off. | Real live PUVs, tracking and ETA |
-| My Ride: trip and fare on the stored direction (the **stops and fares are still placeholders**) | | Cloud check-in and waiting counts |
-| Onboarding, greeting, avatars, Light and Dark | | Reports, newsfeed, Energy |
-| Local check-in countdown (never seen on a device) | | Profile with username and badges |
-| Blue dot and "Locate me" (location tests pending) | | Consent screen (G0). **Do not use outdoors or share yet.** |
+| Offline map of Butuan; **real traced lines for R3, R4 and R5** (R4 and R5 go round with a derived outbound) | **Live map**: demo vehicles, or the team test vehicles from `sim-ingest`; live vehicles are for team accounts only (a non-team account sees "Team accounts only for now") | Real PUVs broadcasting (T1), verification (V1), background relay (B1) |
+| My Rides: trip and fare on the real lines (**stops and fares still placeholders**), with "Does not replace the official fare" | Tracking with ETA (PRD 19.4 rules: hidden under 5 km/h and beyond 10 km) | Night Mode's static stop view (after S9) |
+| Consent screen before location (G0; DPO review pending) | Cloud check-in, Relay, Crowdsource feed with flags, trust points, badges | BLE, driver app, SMS |
+| Profile: handle, avatar, fare type, badges, places, history; Settings: privacy contact, data request, **Delete account** | Offline banner when the server cannot be reached (live data on) | Route data updates without an app release (accepted for this phase) |
+| | Energy is **off** on the live project and hidden in the app (D1: tracking is free) | Cebuano strings |
 
 **Next three steps:**
-1. Emjay: check AF1 to AF3 and LB1a (backlog 74 to 78, and 68); approve AF4.
-2. Agent: AF4 and AF5 on approval (then G0, as ordered); LB1b on approval.
-3. Emjay: the location test results; the missing R4 and R5 legs when ready.
+1. Emjay and the partner: ST1 smoke test and the PC1 scripts in `device-tests.md`.
+2. Agent: RR3 when the final polylines arrive.
+3. Partner: G0-P1; Emjay: the DPO review of the consent text.
 
 ## Details
 
-- **Date:** 2026-10-05.
-- **Code:** `main`, ahead of `origin/main`, 0 behind. Last code commits: AF1 (text and hints), LB1a (offline glyphs), AF2 (repositories and the Demo switch, backlog 68 fix), AF3 (demo vehicles on Live).
-- **Docs:** history files are in `docs/history/` (`f857cef`). Closed backlog items are in `docs/history/AUDIT_BACKLOG_CLOSED.md`. The index is `docs/README.md`.
-- **Tests:** 41 suites; 619 passed; 8 skipped. The skipped ones are the live Supabase tests, which have no `.env`.
+- **Date:** 2026-10-08.
+- **Code:** `main`, PC1 compliance batch committed and pushed 2026-10-08.
+- **Docs:** history files are in `docs/history/`. Closed backlog items are in `docs/history/AUDIT_BACKLOG_CLOSED.md`. The index is `docs/README.md`.
+- **Tests:** 66 suites; 888 passed, including the 17 live Supabase tests (the tracking test checks the charge only while `energy_enabled` is on).
 - **Quality gates, run today:**
 
 | Gate | Result |
 | --- | --- |
 | `npx tsc --noEmit` | pass |
 | `npx expo lint` | pass |
-| `npx jest` | pass |
-| `npx expo-doctor` | 21/21 |
-| `npx expo install --check` | up to date |
+| `npx jest` | pass (888) |
 
-- **Native build:** `android/` and the emulator's APK date from 2026-10-02 at 23:46 and 23:48, so **R1a is not built**.
+- **Native build:** R1a, built by Emjay 2026-10-07. PC1 adds no native module or dependency.
 - **Status codes:**
 
 | Code | Meaning |
@@ -41,21 +39,23 @@
 | PARTIAL | Some of it exists |
 | NOT-STARTED | Nothing exists |
 | BLOCKED | Waiting for something outside the code |
+| DONE | Built with passing tests; the row says which device checks were made |
+| PENDING MANUAL QA | Waiting for a hand-run check on a device |
 
 ## 1. In one paragraph
 
-The offline half of the app works and is tested: the map, Route 4 routing and fares, the three-tab design, the sheet, onboarding and avatars. The partner's location code is merged: the blue dot, "Locate me", and the location-off mode. Nothing live exists: no vehicles, no cloud check-in, no backend run. All route, stop, landmark and fare data is placeholder. The current native set (R1a) has never been built, and the merged app has never run on a phone. **Do not use the app outdoors or share it before G0:** it asks for location without a consent screen.
+The offline half works and is tested: the map, routing and fares on the real R3, R4 and R5 lines, onboarding, Profile and the consent screen. The commuter-side backend is live (SB1): sign-in, cloud check-in, relays, the Crowdsource feed with flags, trust points and the team-only live map, all checked by 17 live tests. Real vehicles do not broadcast yet (T1); live markers come from the demo or from `sim-ingest`. Stops, landmarks and fares are still placeholders. ST1 (the hand-run smoke test on the R1a build) is pending, and the app has not been tested outdoors.
 
 ## 2. What the app can do today
 
 | Screen | A user can | Placeholder or missing | Ever run on a device? |
 | --- | --- | --- | --- |
-| First launch | Four steps: Tunton welcome, optional gender (picks an avatar), fare type, up to 3 destinations; Skip; Replay from Settings | Destinations are the 6 placeholder stops | Emulator (agent run and Emjay's F1 review) |
-| Live | Offline Butuan map; Route 4 line both ways with arrows; tap a stop; greeting card with destination chips that open My Ride; "Show whole route"; "Locate me" opens the explainer, then permission, then the blue dot that the map follows | "No data" pill: vehicles never appear. If location is denied, a long-press pin is shown, but nothing uses it. | Emulator; blue dot by Emjay on the old build |
-| Check-in | Pick R4 and a station; 15-minute countdown; I boarded; Cancel; all on the phone | Nothing is sent; no geofence | **Never run** |
-| My Ride | From and To by map tap or stop chips; walk, ride, walk; fare as a big number; quick fare-type chip; Details; "All routes" | Fare values and the line are placeholders | Emulator |
-| Settings (avatar button) | Fare type, Light or Dark, avatar grid of the own set plus Shuffle, About, Replay intro, Team account card | Not yet "Profile"; no username or badges; the backend is not configured | Emulator. The own-set grid and About were **never run**. |
-| Sign-in | Screen exists | Never used against a backend | Never |
+| First launch | Tunton welcome, optional gender (avatar), fare type, up to 3 places with suggested routes; Skip; Replay | Places are the placeholder stops | Emulator |
+| Map (Live) | Pick a route; vehicles with seat tiers, Live / Stale / No data, stopped; vehicle card with ETA, "km from you", "Prototype data, unverified" (live); Track with ETA and distance alerts; Relay; offline banner | Real broadcasting (T1); Night Mode static view | Emulator (PC1 additions not yet) |
+| Check-in | Route chips, stations, geofenced check-in, waiting counts, Ping routes, reminder, I boarded | Placeholder stations | Emulator |
+| My Rides | From and To, walk, ride, walk, fare with "Estimate" and "Does not replace the official fare" | Placeholder fares | Emulator (disclaimer not yet) |
+| Crowdsource | Relays without GPS, Trusted badge, "Near" stop, flags | — | Emulator |
+| Profile and Settings | Handle, avatar, trust, fare type, badges, places, history; privacy contact, data request, Delete account, location consent | Energy hidden (D1) | Emulator (PC1 rows not yet) |
 
 ## 3. Progress table
 
@@ -86,15 +86,15 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | 0 | ST1 smoke test | PENDING MANUAL QA | Checklist in `device-tests.md` (seven checks) | Emjay and the partner run it by hand (Emjay, 2026-10-07) |
 | 0 | ST2 records and fixes | NOT-STARTED | — | After ST1 |
 | 1 | G0 consent and location | DONE (unit; emulator) | `shared/location/consent.ts` (none, consented, withdrawn; a new notice version asks again), `shared/location/accuracyGate.ts` (`acceptFix`: mock, then stale over `LOCATION_FIX_MAX_AGE_S` 30 s, then accuracy; check-in 25 m, relay 30 m; `fakeFix`), `app/consent.tsx` (short English draft, DPO review pending), consent kept on the phone (`locationStore` persists only `consent`), Settings, Privacy: Location row with Withdraw and Android settings, the introduction's location switch goes through the consent screen, the GPS switch on Relay is checked again at Send, Fake GPS in Demo & simulation (development builds only: 10/25/28/40 m, Mocked, Stale). Tests: `location.test.ts` (consent, 30.0/30.1 m, 25.0/25.1 m, mock, stale, fake source), `locationStore.test.ts` (no prompt without consent, withdraw), `privacy.test.ts`. Emulator 2026-10-06: Locate me opened the notice before any prompt; Not now gave the Location off notice and a long-press pin; I agree, explainer, Android prompt, blue dot from the fake source; Check-in refused 28 m (25 m gate), Mocked and Stale with their own messages; Relay with GPS offered at 28 m, refused at 40 m; Withdraw removed the dot and stopped the watch, pin kept | Phone check (G0-P1); DPO review of the notice; the introduction's switch path not run on the emulator |
-| 2 | F2 Profile | NOT-STARTED | No `profile.tsx`, `username.ts`; Shuffle exists (F1) | After G0 |
+| 2 | F2 Profile | DONE (in B7, SB2 and PC1) | `app/profile.tsx` (handle with inline edit, avatar choices, trust line, fare type, badges, places, history); username rules in `shared/backend/rules.ts`; Delete account in Settings (PC1) | — |
 | 2 | F3 suggestions | DONE (unit; emulator; placeholder landmarks) | `shared/routing/suggest.ts`: `routesNear` (routes within the 500 m walk of a place, nearest first), `suggestRoute` (the planner's first option), `placeIdOf` (a saved map point's id). Shown on the greeting chips ("MCA · R4"), the introduction's place rows, and Profile's new "Your places" card (routes per place, remove). The star on To in My Rides saves a stop or a tapped point (landmark id reused for a stop; toasts for saved, already saved, full at 3). Tests: `suggest.test.ts` (100 m suggests, 600 m none, nearest first, fare 6.3 km ₱21.00 / ₱16.75, no route, id rounding). Emulator 2026-10-07: star on To = DEO gave the "You have 3 places" toast; Profile listed RCA, TSO, IMA with their routes | Real landmarks from Emjay (`landmarks.placeholder.ts`); the "added" toast not seen (the test install had 3 places, left as they were) |
-| 2 | F4 route-first Check-in | NOT-STARTED | Route chips exist from UX2; no route-coloured dots, no fading | — |
+| 2 | F4 route-first Check-in | DONE (in B3) | Route chips and an All chip; stations as dots in the route colour, other routes faint (see the B3 row) | — |
 | 2 | F5 badges | DONE (unit; emulator) | `shared/profile/badges.ts` (seven D8 badges in a fixed order: first trip planned, first check-in, regular at the stop 5, first relay, helping hand 5, road regular 20, first live relay; `badgeStates`, `earnedBadges`, `newlyEarned`; thresholds in config). `state/countsStore.ts`: lifetime counts on the phone only (a trip counted once per From and To; check-ins and relays at success in `crowdStore`; relays with GPS apart), never below the ride history, a "Badge earned" toast once per badge, cleared by Reset app. Profile's Badges card: earned in colour, the rest with progress; no ranking. Tests: `badges.test.ts` (n − 1 and n for each, fixed order, progress, newly earned), `countsStore.test.ts`, `privacy.test.ts` (counts store imports no service). Emulator 2026-10-07: planning MCA to DEO showed "Badge earned: First trip planned"; Profile "Badges (3/7)" with the two check-in badges from the 5 check-ins in the history | Server-side counts later (the ledger) if badges should follow the account across phones |
 | 3 | SB1 commuter-side database (**applied 2026-10-05**) | VERIFIED (live) | `db push` applied `20261003000000_v0_core.sql`; seed, team account and `pg_cron` retention jobs pasted by Emjay; `ingest` deployed by Emjay; `npx jest tests/integration` 15 of 15 passed. Live map readable by team accounts only; night hides moving vehicles only. `delete_my_account` not run live (it would delete the test account). **Open sign-up** `20261005000000_open_signup.sql` applied 2026-10-05 with `npx supabase db push` (dry run first: only that file pending); any signed-in account now reads the map, checks in, reports and uses Energy. **Night feed delay and team-only live map** `20261010000000_night_feed_delay_team_live.sql` applied 2026-10-07 with `npx supabase db push` (Emjay approved): stop-naming relays posted at night hidden from others for 2 minutes (`app_config.night_feed_delay_min`); vehicles and `telemetry_latest` readable by team accounts only again (check-ins, relays, feed and Energy stay open); a non-team account sees "Team accounts only for now" on an empty route (`is_team_account()` in `sessionStore`). Live tests 17 of 17 | — |
 | 3 | SB2 accounts, username, Energy | PARTIAL (unit + live functions; not seen on the emulator) | Energy repository behind the Demo switch: `data/demo/demoEnergy.ts` (in-memory ledger on the shared rules), `data/live/liveEnergy.ts` + `services/energy.ts` (refill, balance, `energy_enabled`, newest 20 ledger rows, `start_tracking`), `state/energyStore.ts` (refresh on start, sign-in, Demo switch, return to the app). Top bar balance; Profile balance and history; Track pays through `start_tracking`: the demo wallet charges (`ENERGY_ENABLED_DEMO`), live charges only once `app_config.energy_enabled` is on; asks to sign in on live data, ends after 30 min. A new wallet starts at 1 (one refill; cap 5). Refill countdown in the top bar and Profile (`nextPassiveRefillMs`), refreshes when due. Username: sent on sign-in or edit while signed in, taken from the account when the phone has none, "taken" shown in Profile; phone-side blocklist (reserved names, small English list) in config. `energy.test.ts` 14 tests; live suite 16 of 16 | Check on the emulator; turn on `energy_enabled` on the live project (approval); Cebuano and full English blocklists (you, before launch) |
 | 4 | C1 cloud check-in | PARTIAL (unit + live suite 16/16; not seen on the emulator) | Geofence on the phone (`shared/checkin/geofence.ts`: 60 m radius, 25 m accuracy, simulated stop trusted, pin refused); `CheckinsRepository` demo (`data/demo/demoCrowd.ts`, made-up others + own, earns into the demo wallet) and live (`data/live/liveCrowd.ts` + `services/crowd.ts`: `check_in`, `checkin_counts`, `end_check_in`); counts in a station list, reloaded every 30 s. Sheet after Google Maps' place sheet (`features/checkin/CheckInParts.tsx`): peek row with the nearest or tapped station, distance, waiting and Check in; while active a countdown pill, three fact tiles, an expiry bar and the two endings. Refusals and failures use the app's dialog (`components/Dialog.tsx`, `state/dialogStore.ts`), which replaced every system alert. Migration `20261006000000_checkin_end.sql` APPLIED 2026-10-05: `energy_enabled = true` only (`end_check_in()` already existed in v0_core). Live tests: parked test vehicle (Night Mode hides moving ones), tracking test expects the 1 Energy spend. `crowd.test.ts` 14 tests | Emulator check; 5-min reminder |
 | 5 | L1 live map | DONE (unit; live; emulator) | `liveRow.ts`, `data/live/liveVehicles.ts` (load, Realtime, reload every 30 s, 5 s age tick), `services/liveVehicles.ts`, `scripts/sim-ingest.ts`; `liveVehicles.test.ts`. 2026-10-06 (approved run): `sim-ingest` sent R4-TEST-01 and R4-TEST-02 through ingest, all accepted. It was 23:20 Manila, so Night Mode (PRD 10.4) hid the moving vehicles on the server, as designed; a stopped one appeared alone. Fixes: the route card says Night Mode (with "Moving ones hidden" when empty) instead of No data, from `isNight` (live source only); `sim-ingest --parked` sends speed 0 so markers can be checked at night; the integration tests and the simulator sign out locally (the default global sign-out had revoked the simulator's and the app's sessions of the shared test account mid-run). Emulator, signed in as the team test account, Demo data off: R4 showed both markers on the line, "2 active · Night Mode", the vehicle card with 15/16 seats and "Live GPS · 0 s ago"; R3 showed Night Mode. Live tests 17/17 while the simulator ran | Moving markers by day (run `npx tsx scripts/sim-ingest.ts` between 05:00 and 21:00); Night Mode's static stop view (PRD 10.4) deferred to after S9 (PRD 0.6); the 2-minute night feed delay is applied |
-| 5 | L2 tracking with ETA | DONE (unit; live; emulator at night) | `shared/tracking/eta.ts` (D9 ETA from B2, the same for demo and live) plus `etaNow`: the ETA counted down by the age of the last packet (time and distance driven since at the recent speed), hidden once the vehicle is no longer Live (90 s); used for the vehicle card and tracking, while arrival and the distance alerts keep to the measured distance. Live speeds build up from packets on the phone (`rowToSnapshot`), so an ETA shows from the second packet. Tests: `eta.test.ts` (count-down, floor at zero, stale, passed and unknown unchanged). Emulator 2026-10-07 00:06 Manila, signed in, Demo data off, simulated stop MCA, `sim-ingest --parked`: R4-TEST-02's card showed "~212 min" (parked: the 5 km/h floor, round to MCA) and "Live GPS · 0 s ago" | Moving vehicles by day (Night Mode hides them 21:00 to 04:59); ETA accuracy with field data (PRD 3.3) |
+| 5 | L2 tracking with ETA | DONE (unit; live; emulator at night) | `shared/tracking/eta.ts` (D9 ETA from B2, the same for demo and live) plus `etaNow`: the ETA counted down by the age of the last packet (time and distance driven since at the recent speed), hidden once the vehicle is no longer Live (90 s); used for the vehicle card and tracking, while arrival and the distance alerts keep to the measured distance. Live speeds build up from packets on the phone (`rowToSnapshot`), so an ETA shows from the second packet. Tests: `eta.test.ts` (count-down, floor at zero, stale, passed and unknown unchanged). Emulator 2026-10-07 00:06 Manila, signed in, Demo data off, simulated stop MCA, `sim-ingest --parked`: R4-TEST-02's card showed "~212 min" (parked: the 5 km/h floor, round to MCA) and "Live GPS · 0 s ago" | Moving vehicles by day (Night Mode hides them 21:00 to 04:59); ETA accuracy with field data (PRD 3.3). PC1: the parked case now shows no ETA (PRD 19.4) |
 | 6a | RP1 report | PARTIAL (unit; not seen on the emulator) | Report button on the Live tab, `features/report/ReportSheet.tsx`: route, preset phrase, optional seat tier, dev-only vehicle picker (D5), with GPS when the fix is 30 m or better or the stop is simulated; `post_report` live, demo posts earn into the demo wallet. Crowdsource tab reads `feed_posts` live and shows own demo posts | Emulator check; flagging (N1); live-map broadcast (T1) |
 | 6b | N1 real feed | PARTIAL (unit; not seen on the emulator) | Crowdsource reads `feed_posts` (RP1); each post shows a neutral badge from the handle (`shared/feed/badge.ts`, FNV hash into `FEED_BADGES`, 6 colours per theme, AA-checked in `contrast.test.ts`), never the avatar (D2). Flag button on other people's posts: themed confirm, `flag_post` live (`ReportsRepository.flag`), the post hides for the flagger at once and for everyone at 3 flags; own posts show "You". `feedBadge.test.ts` 3 tests, live flag mapping in `crowd.test.ts` | Emulator check; "nearby stop" field needs a `post_report` change |
 | 6c | UI pass 2 (Check-in card, multi-route ping, Live map, My Rides, Crowdsource) | PARTIAL (unit and live 16/16; not seen on the emulator; migration 20261007 applied 2026-10-06) | Check-in: the draggable sheet is replaced by one floating card (route chips, nearest or tapped station with distance, walk time, waiting, Check in; while active the countdown, expiry bar and both endings side by side, never behind a swipe); route lines at 30% opacity; floating location pills removed. Shared stops (2+ routes, `routesAtStop`) show "Ping routes" (All or each): `check_in_routes(routes[], station, key)` in `20261007000000_checkin_routes.sql` writes one row per route, earns once; one route still uses `check_in`. Dialog: in-app overlay with fade and spring (no system Modal), Back closes it. Live: Report renamed Relay, icon-only round button; zoom-out button and direction labels/swap removed; vehicles drawn as a rotating top-down multicab icon (`assets/map/puv*.png`, `scripts/make-puv-icon.py`) with a seat-tier halo, no cone; tracking ETA falls back to the vehicle's next stop when there is no usable boarding point, `ETA_MAX_KM` 30; alert button green when on; the screen no longer re-renders on every camera move. My Rides: map moved out of the scroll view; routing benchmark removed. Crowdsource: only updates without GPS (`with_gps = false`); skeleton cards while loading; posts fade in, flagged ones fade out | Emulator check; GPS relays onto the live map is T1 |
@@ -109,51 +109,49 @@ The offline half of the app works and is tested: the map, Route 4 routing and fa
 | 6l | UI feedback B6 (Crowdsource) | PARTIAL (unit and migration text; emulator: compact demo cards with multicab, Trusted badge and "Near" stop; migrations 20261009 pushed 2026-10-06, live tests 17/17 incl. stop, Trusted flag, capped points, hidden server column, old post_report) | Compact post card: route badge, multicab ID (or "Multicab"), Trusted pill, time and Flag on one row; seats dot, seats and status on the next; "Near <stop>" when the relay named one. The author's handle badge is gone (handle kept for the flag's label). A relay sends the nearest stop of any route within `FEED_STOP_NEAR_M` (500 m) of the phone, GPS or not (`relayStopCode`, code only). Migration 20261009000000: `feed_posts.stop_code`, a seven-argument `post_report(..., stop, request_key)` beside the old one. Migration 20261009000001: `profiles.trust_points`, `app_config.trust_badge_points` (5), `feed_posts.author_trusted`; triggers add a point per check-in call and per relay, at most `trust_daily_max` (3) a Manila day (`trust_award`), and take a relay's point back at its first flag from someone else if it earned one (`feed_posts.trust_earned`, server-only). Card spacing fix: the card's 16 dp padding, route/multicab/Trusted on the left (wrapping) and time/Flag on the right, 12 dp between rows, a 32 dp Flag with a 48 dp touch target. The Demo badge on Profile's Energy row is removed | — |
 | 6m | UI feedback B7 (Profile) | PARTIAL (unit; emulator: avatar grid hidden until the avatar is tapped and closed after a pick, pencil edit with save and cancel, fare type dropdown, trust progress line; the Trusted badge seen with a temporary forced value; live trust points not seen in the app) | The header card: the avatar (tap: the 12 or 6 avatar choices, closed after a pick), `@handle` with a pencil for inline editing (check saves, X cancels; hint and errors under it), the trust line ("n of 5 toward Trusted" or "Trusted commuter") and `FareTypeDropdown` (one row; the four types drop below). Shuffle moved to the introduction's avatar step only. B7 completion: Tracking Energy as its own card under the info card (balance / 5 and a progress bar, refill line); Storage and Location history rows removed; "General history" (Energy entries and boarded rides, newest first, `shared/profile/history.ts`) folded until tapped, with Clear history (hides what came before on this phone, `historyStore`; Energy and ride counts unchanged). `TrustedAvatar` puts a green shield at the avatar's bottom right once Trusted, on Profile and in the top bar. Trust points: `shared/profile/trust.ts` (daily cap like the server); `trustStore` reads `profiles.trust_points` on live data (when Profile opens and after a check-in or relay) and counts the phone's own check-ins and relays in the demo; Reset app clears it | — |
 | 6n | UI feedback B8 (skeletons, map framing) | DONE (unit; emulator after a reboot: R4 framed in the middle of the free space between the route card and the tab bar, no band below; Notifications and Profile skeletons seen, then their content; the short Map/Check-in/My Rides skeletons not caught on screen) | Skeletons on every tab's first visit (`useSkeleton`): the Map's bottom card and Check-in's card (`SKELETON_MIN_MS` 400), My Rides' results, Crowdsource's feed, Profile (`SkeletonHero`) and Notifications (`SKELETON_LONG_MS` 900; Crowdsource also until live data answers). Map framing: the camera keeps clear of what covers the map, the top bar and route card (`topInset`) and the bottom card without the round buttons; a route framed within `MAP_REFIT_WINDOW_MS` is framed again when those heights change (the bottom card swaps as a route is picked); the camera may pan `MAP_BOUNDS_MARGIN_DEG` (0.08) past the offline tiles, so De Oro near their north edge can sit in the middle of the free space | — |
+| 6o | PC1 compliance batch (Emjay, 2026-10-08) | DONE (unit; live suite 17/17; not seen on the emulator) | From the PRD check of 2026-10-08. **Delete account** (PRD 15.1, D10): Settings, Privacy; signed in, `delete_my_account` runs first and only then is the phone cleared (`features/account/deleteAccount.ts`, `services/auth.ts` `deleteMyAccount`, local sign-out); a failure removes nothing; signed out it clears the phone. **Privacy questions** and **Request my data** rows open an email to `PRIVACY_CONTACT_EMAIL` (emspar30@gmail.com, Emjay 2026-10-08). **Offline banner** (PRD 14): `services/connection.ts` asks the server every `CONNECTION_PROBE_S` (30 s, timeout 5 s) and on return to the app while live data is on; "Offline · Live updates paused" under the top bar on every tab. **"Prototype data, unverified"** on the vehicle card for live vehicles (`telemetry_latest.verified` now read). **"1.4 km from you"** on the vehicle card (along the route, else straight line; PRD 7.4). **ETA** (PRD 19.4): hidden under `ETA_MIN_SPEED_KMH` (5) and beyond `ETA_MAX_KM` (10, was 60 from B2); the distance is still measured, so arrival and the distance alerts keep working and tracking shows "km by road" without a time. **Energy hidden** (D1): `ENERGY_UI_VISIBLE` false (top bar, Profile card, Energy history, Relay earn lines), demo wallet free (`ENERGY_ENABLED_DEMO` false); migration `20261011000000_energy_off.sql` **applied 2026-10-08** with `npx supabase db push` (Emjay approved): tracking is free on the live project. Relay limit stays 90 minutes and ends the session, no 3-hour cap with a continue prompt (Emjay, 2026-10-08). **Fare disclaimer** (PRD 15.3) under the fare. Tests: `account.test.ts` (delete order, failure keeps the session, server check online/offline/timeout), `eta.test.ts` (4.9 and 5 km/h, over 10 km, distance kept), `liveVehicles.test.ts` (verified flag), `energy.test.ts` (free by default), `migration.test.ts` (last Energy switch is off), `wordCount.test.ts` | PC1 scripts in `device-tests.md` |
 | 6 | T1 broadcast, V1 verification | BLOCKED | No `sendRule.ts`, `dev-broadcast.tsx` | L1, R1b; V1 needs the real polyline |
 | 7 | B1 background | BLOCKED | No `backgroundLocation.ts` | T1, R1b, phone |
 | 8 | BLE, driver app, SMS, moderation | NOT-STARTED | SMS protocol and RSSI functions only | Field data, phones, SIMs |
 
-**Counts (37 rows):**
+**Counts (52 rows, 2026-10-08):**
 
 | Status | Rows |
 | --- | --- |
-| VERIFIED | 10 |
+| DONE | 13 |
+| VERIFIED | 11 |
 | UNVERIFIED | 11 |
-| PARTIAL | 2 |
-| NOT-STARTED | 5 |
-| BLOCKED | 9 |
+| PARTIAL | 12 |
+| PENDING MANUAL QA | 1 |
+| NOT-STARTED | 2 |
+| BLOCKED | 2 |
 
-The phase 6 row covers four steps.
+Some rows cover more than one step (T1 and V1; BLE, driver app, SMS and moderation).
 
 ## 4. Documents and code that disagree
 
-1. **`AGENTS.md`** still names `IMPLEMENTATION_PLAN_v2.md` (now in `docs/history/`). The one-line fix waits for your review; it is not committed.
+1. *(Fixed)* **`AGENTS.md`** names `docs/IMPLEMENTATION_PLAN_MASTER.md`.
 2. **`device-tests.md`**: your merge test and the R1a build now have rows marked "not yet recorded, to be supplied by the user". The S0 phone row now says it passed for the partner's own code only. *(Fixed in wording; results still owed.)*
 3. *(Fixed)* The "F1 to F5 are being built" notes now say only F1 exists.
 4. *(Fixed)* `BACKEND_SETUP.md` marks `app_config` and the `telemetry_writers` rename as planned changes in SB1.
-5. **PRD 7.1 and 15.1** require consent before location; the code asks without it (accepted until G0).
-6. **On Live,** "Long-press the map to set your starting point" describes a pin that My Ride does not use yet.
+5. *(Fixed in G0)* **PRD 7.1 and 15.1** require consent before location; the consent screen now comes first.
+6. *(Fixed in G0)* The long-press pin on Live is now the starting point in My Ride.
 7. **GPS plan G0** (now `docs/history/IMPLEMENTATION_PLAN_GPS.md`) names `locationSource.ts` and a "Fare" tab. The code has `services/location.ts` and no Fare tab.
 8. **PRD 12.2** lists `avatar_id` in `profiles`. The code follows D3: the avatar is never in the cloud.
 
-## 5. Next 5 steps
+## 5. Next steps
 
 | # | Step | Who |
 | --- | --- | --- |
-| 1 | R1a build on the emulator (`npx expo prebuild --platform android --clean`, then `npx expo run:android`) and the merge tests | You |
-| 2 | Push `main` when you decide; partner runs `git pull --ff-only`, `npm ci`, his EAS development build, then sends the template results | You, then the partner |
-| 3 | Record both sets of results, the crash counts and the ST2 fixes | Agent |
-| 4 | G0, on "start G0" | Agent |
-| 5 | F2 to F5. Meanwhile prepare Supabase (`docs/BACKEND_SETUP.md` §3) | Agent; you |
+| 1 | ST1 smoke test and the PC1 scripts on the emulator and the partner's phone; then record the results and ST2 fixes | You and the partner; then agent |
+| 2 | RR3 import when the final polylines arrive | Agent |
+| 3 | G0-P1 phone check and the DPO review of the consent text | Partner; you |
 
 ## 6. Waiting on you
 
 | Kind | Item |
 | --- | --- |
-| Builds | R1a on the emulator; later R1b (before C1) |
-| Tests | The merge tests on the R1a build; backlog 49 (Check-in), 51 (About), 54 (own-set picker), 59 to 62 |
-| Decisions | Master plan §10, questions 6 to 11: shorten the Live text now or in G0; validate the candidate trace; a UI test library; one R1b batch; consent review; faded-route opacity |
-| Data | Real Route 4 polylines; stations and terminals; landmarks; official fare; vehicle list; Supabase values and two test accounts; Cebuano strings; username blocklists; DPO review of the consent text |
-| Push | `main` (only you push) |
-| Review | The one-line `AGENTS.md` change (plan path), not yet committed |
-| Results | Your merge test and the R1a build results, for `device-tests.md` |
+| Tests | ST1; PC1-M1 to M8; G0-P1; daytime ETA checks with moving vehicles |
+| Decisions | Master plan §10, questions 6 to 11, where still open |
+| Data | Final polylines (RR3); stations and terminals; landmarks; official fare; vehicle list; Cebuano strings; username blocklists; DPO review of the consent text |
+| Push | Future commits (pushed by you unless you ask me) |

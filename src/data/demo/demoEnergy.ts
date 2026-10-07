@@ -1,6 +1,6 @@
 // The demo Energy wallet (SB2, Demo data on): a ledger kept in memory on this phone, run by the same
 // rules as the server (src/shared/backend/rules). It sends nothing. The passive refill is booked when
-// due, so a fresh demo wallet starts with one Energy. Tracking costs Energy here (ENERGY_ENABLED_DEMO). Pure: no React Native or Expo imports.
+// due, so a fresh demo wallet starts with one Energy. Tracking costs Energy here only while ENERGY_ENABLED_DEMO is on (off by default, D1). Pure: no React Native or Expo imports.
 
 import {
   energyBalance,

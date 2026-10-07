@@ -7,6 +7,7 @@ import { noLiveEnergy } from '../../data/repositories/noLiveData';
 import { selectEnergy } from '../../data/repositories/select';
 import { formatRefillIn, newRequestKey, nextPassiveRefillMs, usernameIssue } from '../backend/rules';
 import {
+  ENERGY_ENABLED_DEMO,
   ENERGY_PASSIVE_AMOUNT,
   ENERGY_PASSIVE_INTERVAL_H,
   ENERGY_TRACKING_COST,
@@ -33,8 +34,17 @@ describe('the demo wallet', () => {
     expect(snapshot?.nextRefillMs).toBe(now + ENERGY_PASSIVE_INTERVAL_H * HOUR);
   });
 
-  it('charges for tracking by default (Energy is on in demo), so a new wallet of 1 pays once', async () => {
+  it('is free by default (D1: Energy off in the demo too, ENERGY_ENABLED_DEMO)', async () => {
+    expect(ENERGY_ENABLED_DEMO).toBe(false);
     const energy = createDemoEnergy(() => T0);
+    await energy.refresh();
+    expect((await energy.startTracking('track-aaaaaaaa')).ok).toBe(true);
+    expect((await energy.startTracking('track-bbbbbbbb')).ok).toBe(true);
+    expect((await energy.refresh())?.balance).toBe(1);
+  });
+
+  it('with Energy switched on for a demonstration, charges for tracking, so a new wallet of 1 pays once', async () => {
+    const energy = createDemoEnergy(() => T0, true);
     expect((await energy.refresh())?.balance).toBe(1);
     expect((await energy.startTracking('track-aaaaaaaa')).ok).toBe(true);
     const snapshot = await energy.refresh();

@@ -67,7 +67,8 @@ describe('the demo loop: earn by checking in and reporting, spend by tracking', 
   const setup = (username: string | null = 'demo_me') => {
     let now = T0;
     const clock = () => now;
-    const energy = createDemoEnergy(clock);
+    // Energy switched on, as for a demonstration (it is off by default, D1)
+    const energy = createDemoEnergy(clock, true);
     const crowd = createDemoCrowd(energy, () => username, 7, clock);
     return { energy, crowd, advance: (ms: number) => (now += ms), at: () => now };
   };

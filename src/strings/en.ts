@@ -104,6 +104,9 @@ export const en = {
     withGps: 'Share with GPS',
     gpsEarns: (gps: number, noGps: number) => `Earns +${gps.toFixed(1)} Energy with GPS, +${noGps.toFixed(1)} without (once a day each)`,
     gpsUnavailable: (noGps: number) => `No precise location right now. Sent without GPS: +${noGps.toFixed(1)} Energy (once a day).`,
+    // D1: while Energy is hidden (tracking is free), the same lines without the rewards
+    gpsShares: 'Shows your multicab on the live map until your stop',
+    gpsUnavailableFree: 'No precise location right now. Sent without GPS.',
     unverified: 'Relays show as unverified for now.',
     send: 'Relay update',
     sending: 'Sending…',
@@ -122,6 +125,8 @@ export const en = {
     guest: 'Commuter',
     notifications: 'Notifications',
     energy: (balance: string, refill: string | null) => `${balance} Tracking Energy${refill ? `, refill in ${refill}` : ''}`,
+    // PRD 14: the server cannot be reached; the offline map, routing and fares keep working
+    offline: 'Offline · Live updates paused',
   },
 
   // The bell in the top bar; notifications come in a later step
@@ -211,6 +216,10 @@ export const en = {
       seats: (free: number, taken: number, capacity: number) => `${free} seats available (${taken}/${capacity})`,
       ageSeconds: (seconds: number) => (seconds < SECONDS_PER_MINUTE ? `${Math.max(0, Math.round(seconds))} s ago` : `${Math.floor(seconds / SECONDS_PER_MINUTE)} min ago`),
       liveGps: (age: string) => `Live GPS · ${age}`,
+      // PRD 7.4: along the route when the line reaches the commuter, else in a straight line
+      fromYou: (distanceKm: number) => `${km(distanceKm)} from you`,
+      // PRD 0.7 plug-in point 4: live reports while verification is off
+      unverified: 'Prototype data, unverified',
       demo: (age: string) => `Demo · ${age}`,
       stopped: 'Stopped',
       close: 'Close multicab details',
@@ -312,6 +321,8 @@ export const en = {
     walk: (distanceM: number) => `Walk ${meters(distanceM)}`,
     rideKm: (distanceKm: number) => km(distanceKm),
     estimate: 'Estimate',
+    // PRD 15.3: the fare disclaimer under the fare
+    fareDisclaimer: 'Does not replace the official fare',
     fare: (amount: number) => `Fare ${peso(amount)}`,
     details: 'Details',
     hideDetails: 'Hide details',
@@ -475,6 +486,27 @@ export const en = {
     withdrawBody: 'Tunton stops using your location at once. To remove the Android permission as well, open Android settings.',
     withdraw: 'Withdraw',
     androidSettings: 'Android settings',
+    // PRD 15.1: a contact point for privacy questions and data requests, and account deletion (D10)
+    privacyContact: 'Privacy questions',
+    privacyContactBody: (email: string) => `Email ${email}`,
+    requestData: 'Request my data',
+    requestDataBody: 'Ask for a copy of what the server holds',
+    requestDataSubject: 'Tunton data request',
+    privacyContactSubject: 'Tunton privacy question',
+    mailFailedTitle: 'No email app',
+    mailFailedBody: (email: string) => `Write to ${email} from any email app.`,
+    deleteAccount: 'Delete account',
+    deleteAccountBody: 'Removes your account and clears this phone',
+    deleteAccountLocalBody: 'Clears everything on this phone',
+    deleteTitle: 'Delete your account?',
+    deleteBody:
+      'Your account, handle, check-ins, relays, flags and Energy are removed from the server, and this phone is cleared. This cannot be undone.',
+    deleteLocalBody: 'You are not signed in, so only this phone is cleared: profile, places, rides and settings. This cannot be undone.',
+    deleteConfirm: 'Delete',
+    deleting: 'Deleting…',
+    deleteFailedTitle: 'Account not deleted',
+    deleteFailedBody: 'Nothing was removed. Check your connection and try again.',
+    deletedTitle: 'Account deleted',
     language: 'Language',
     english: 'English',
     offlineMap: 'Offline map',
@@ -547,10 +579,13 @@ export const en = {
     energyOf: (balance: string, cap: number) => `${balance} / ${cap}`,
     history: (count: number) => (count > 0 ? `General history (${count})` : 'General history'),
     historyEmpty: (hours: number) => `Nothing yet. Check-ins, relays, rides and Energy show here; a refill comes every ${hours} hours.`,
+    // D1: while Energy is hidden
+    historyEmptyNoEnergy: 'Nothing yet. Check-ins, relays and rides show here.',
     historyRide: (code: string, station: string) => `Boarded ${code} at ${station}`,
     clearHistory: 'Clear history',
     clearTitle: 'Clear your history?',
     clearBody: 'It is cleared on this phone only. Your Energy and ride counts stay as they are.',
+    clearBodyNoEnergy: 'It is cleared on this phone only. Your ride counts stay as they are.',
     clearConfirm: 'Clear',
     stats: 'Your rides',
     rides: 'Rides',

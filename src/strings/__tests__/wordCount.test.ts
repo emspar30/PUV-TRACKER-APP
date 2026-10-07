@@ -37,6 +37,10 @@ const mainScreen: Record<string, string> = {
   demo: en.common.demo,
   backendMissing: en.profile.backendMissing,
   signedOut: en.profile.signedOut,
+  fareDisclaimer: en.ride.fareDisclaimer,
+  offline: en.topBar.offline,
+  unverified: en.live.vehicle.unverified,
+  fromYou: en.live.vehicle.fromYou(1.4),
 };
 
 describe('AF1 word limits', () => {

@@ -45,12 +45,13 @@ export const USERNAME_BLOCKED_WORDS: readonly string[] = [
 
 // --- Tracking one vehicle and its ETA (L2; PRD 19.2 D9, plan decision 17). ETA = distance along the
 // line to the boarding point / recent speed. Shown only with at least ETA_MIN_SAMPLES speeds from the
-// last ETA_SAMPLE_WINDOW_S and within ETA_MAX_KM; a slower average counts as ETA_MIN_SPEED_KMH.
+// last ETA_SAMPLE_WINDOW_S, within ETA_MAX_KM and at ETA_MIN_SPEED_KMH or faster; hidden otherwise
+// (PRD 19.4). The distance is still known, so arrival and the distance alerts keep working.
 export const ETA_MIN_SPEED_KMH = 5;
 export const ETA_SAMPLE_WINDOW_S = 90;
 export const ETA_MIN_SAMPLES = 2;
-// B2: high enough to follow a vehicle a whole round (both legs) back to the commuter
-export const ETA_MAX_KM = 60;
+// PRD 19.4 (Emjay, 2026-10-08: back from B2's 60 km to the PRD value)
+export const ETA_MAX_KM = 10;
 // "Alert near arrival" fires once when the ETA drops to this (in-app banner and a short vibration)
 export const TRACK_ALERT_ETA_S = 120;
 // B2: in-app alerts (a toast and a short vibration) as the tracked multicab comes within each of these
@@ -284,8 +285,11 @@ export const NIGHT_MODE_TZ = 'Asia/Manila';
 // --- Energy, feed and tracking (PRD 19, D1, D2, D14; SB1). The same values are the defaults of the
 // server's app_config table, which is what the server enforces; these are for the app and the tests.
 export const ENERGY_ENABLED_DEFAULT = false;
-// The demo wallet (Demo data on) charges for tracking, so the pilot panel sees Energy spent
-export const ENERGY_ENABLED_DEMO = true;
+// D1: tracking is free for the prototype and pilot, in the demo wallet too (Emjay, 2026-10-08)
+export const ENERGY_ENABLED_DEMO = false;
+// D1: the Energy balance, refill, history and earn lines are hidden while tracking is free. Earning
+// still runs on the server; true shows them again for a demonstration.
+export const ENERGY_UI_VISIBLE = false;
 export const ENERGY_WALLET_CAP = 5;
 export const ENERGY_GPS_REPORT = 1.0;
 export const ENERGY_NO_GPS_REPORT = 0.5;
@@ -342,6 +346,14 @@ export const BADGE_HELPING_HAND_REPORTS = 5;
 export const BADGE_ROAD_REGULAR_REPORTS = 20;
 // F3: a place saved from a map tap is named by its position, rounded to about 1 m
 export const PLACE_ID_DECIMALS = 5;
+
+// --- Connection (PRD 14: in a network outage live features pause with a visible banner). The app
+// asks the server every CONNECTION_PROBE_S while live data is on; no answer in the timeout is offline.
+export const CONNECTION_PROBE_S = 30;
+export const CONNECTION_PROBE_TIMEOUT_MS = 5000;
+
+// --- Privacy (PRD 15.1): the contact point for privacy questions and data requests (Emjay, 2026-10-08)
+export const PRIVACY_CONTACT_EMAIL = 'emspar30@gmail.com';
 
 // --- BLE (PRD 10.1, 12.4). Only the smoothing function exists in v0.
 export const RSSI_SMOOTHING_ALPHA = 0.3;

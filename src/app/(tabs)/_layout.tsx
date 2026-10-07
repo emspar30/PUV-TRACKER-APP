@@ -4,6 +4,7 @@ import { View } from 'react-native';
 
 import { CheckInReminder } from '@/features/checkin/CheckInReminder';
 import { useActiveCheckIn } from '@/features/checkin/useActiveCheckIn';
+import { useConnectionProbe } from '@/features/connection/useConnectionProbe';
 import { TAB_ROUTES, type TabRouteName } from '@/navigation/tabs';
 import { useProfileStore } from '@/state/profileStore';
 import { strings } from '@/strings';
@@ -27,6 +28,8 @@ export default function TabsLayout() {
   const styles = useStyles();
   // B3: a red dot on the Check-in icon while a check-in runs, seen from every tab
   const checkedIn = useActiveCheckIn() !== null;
+  // PRD 14: the offline banner in the top bar, on every tab
+  useConnectionProbe();
   // First launch: show the introduction before the tabs
   if (!onboarded) return <Redirect href="/onboarding" />;
 

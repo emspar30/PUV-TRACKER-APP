@@ -67,6 +67,7 @@ export function RideResult({
         <Chip label={strings.ride.rideKm(ride.distanceKm)} />
         <StatusPill label={strings.ride.estimate} tone="warning" />
       </View>
+      <Text style={typography.bodySm}>{strings.ride.fareDisclaimer}</Text>
       <QuickFareTypeChip />
 
       <View style={styles.row}>

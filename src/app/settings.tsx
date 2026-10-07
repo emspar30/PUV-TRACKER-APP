@@ -1,18 +1,22 @@
 import { router } from 'expo-router';
-import { Armchair, BellRing, FileText, Languages, Map as MapIcon, Moon, Navigation, Route, ShieldCheck, Type } from 'lucide-react-native';
+import { Armchair, BellRing, FileDown, FileText, Languages, Mail, Map as MapIcon, Moon, Navigation, Route, ShieldCheck, Trash2, Type } from 'lucide-react-native';
 import { Linking } from 'react-native';
 
 import { Screen, SettingsGroup, SettingsRow } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
+import { confirmDeleteAccount } from '@/features/account/deleteAccount';
+import { PRIVACY_CONTACT_EMAIL } from '@/shared/config';
 import { consentStatus } from '@/shared/location/consent';
 import { routeCodesOf } from '@/shared/ui/routeVisibility';
 import { showDialog } from '@/state/dialogStore';
 import { useLocationStore } from '@/state/locationStore';
+import { useSessionStore } from '@/state/sessionStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 
 // Settings & preferences (restyle), opened from the menu. Everything here is stored on this phone
-// only and never sent anywhere.
+// only and never sent anywhere. Privacy also holds the contact point, data requests and Delete
+// account (PRD 15.1, D10).
 export default function SettingsScreen() {
   const { lines } = useRouteData();
   const routes = routeCodesOf(lines);
@@ -20,6 +24,13 @@ export default function SettingsScreen() {
   const consent = useLocationStore((state) => consentStatus(state.consent));
   const permission = useLocationStore((state) => state.permission);
   const withdraw = useLocationStore((state) => state.withdraw);
+  const signedIn = useSessionStore((state) => state.status === 'signed-in');
+
+  // PRD 15.1: questions and data requests go to the contact point by email
+  const mail = (subject: string) =>
+    Linking.openURL(`mailto:${PRIVACY_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`).catch(() =>
+      showDialog({ tone: 'warning', icon: Mail, title: strings.settings.mailFailedTitle, body: strings.settings.mailFailedBody(PRIVACY_CONTACT_EMAIL) }),
+    );
 
   // G0: the consent state and the Android permission; withdrawing works at once, and the
   // permission itself can only be removed in Android settings
@@ -98,6 +109,25 @@ export default function SettingsScreen() {
           badge={strings.settings.localOnly}
         />
         <SettingsRow icon={Navigation} title={strings.settings.location} subtitle={locationDetail} onPress={onLocation} />
+        <SettingsRow
+          icon={Mail}
+          title={strings.settings.privacyContact}
+          subtitle={strings.settings.privacyContactBody(PRIVACY_CONTACT_EMAIL)}
+          onPress={() => void mail(strings.settings.privacyContactSubject)}
+        />
+        <SettingsRow
+          icon={FileDown}
+          title={strings.settings.requestData}
+          subtitle={strings.settings.requestDataBody}
+          onPress={() => void mail(strings.settings.requestDataSubject)}
+        />
+        <SettingsRow
+          icon={Trash2}
+          destructive
+          title={strings.settings.deleteAccount}
+          subtitle={signedIn ? strings.settings.deleteAccountBody : strings.settings.deleteAccountLocalBody}
+          onPress={() => confirmDeleteAccount(signedIn)}
+        />
       </SettingsGroup>
 
       <SettingsGroup title={strings.settings.system}>

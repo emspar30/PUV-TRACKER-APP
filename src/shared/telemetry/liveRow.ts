@@ -16,9 +16,11 @@ export type LiveRow = {
   seats_taken: number;
   // ISO time the position was measured
   packet_ts: string;
+  // False while verification is off (PRD 0.7 plug-in point 3); the card says "Prototype data, unverified"
+  verified?: boolean;
 };
 
-export const LIVE_ROW_COLUMNS = 'vehicle_id, lat, lon, speed_kmh, heading_deg, seats_taken, packet_ts';
+export const LIVE_ROW_COLUMNS = 'vehicle_id, lat, lon, speed_kmh, heading_deg, seats_taken, packet_ts, verified';
 
 const MS_PER_S = 1000;
 const M_PER_KM = 1000;
@@ -86,5 +88,6 @@ export function rowToSnapshot(
     lastPacketMs: packetMs,
     recentSpeeds: [...earlier, { atMs: packetMs, speedKmh: row.speed_kmh }],
     demo: false,
+    verified: row.verified === true,
   };
 }

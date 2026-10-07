@@ -22,12 +22,20 @@ export type Eta =
   | { kind: 'approaching'; distanceKm: number; etaS: number; speedKmh: number }
   // Already past the boarding point, on a route with no way round to it again
   | { kind: 'passed' }
-  // Shown as "ETA unavailable": the line does not pass the point, it is too far, or too few speeds
-  | { kind: 'unknown'; reason: 'off_line' | 'too_far' | 'few_samples' | 'stale' };
+  // Shown as "ETA unavailable": the line does not pass the point, it is too far, too few speeds, too
+  // slow (PRD 19.4) or no longer Live. distanceKm is kept whenever the line reaches the point, so
+  // arrival and the distance alerts do not depend on the ETA being shown.
+  | { kind: 'unknown'; reason: 'off_line' | 'too_far' | 'few_samples' | 'slow' | 'stale'; distanceKm?: number };
 
 const MS_PER_S = 1000;
 const S_PER_H = 3600;
 const METERS_PER_KM = 1000;
+
+// The measured distance along the route, whether or not the ETA is shown (null: off the line or passed)
+export function etaDistanceKm(eta: Eta | null): number | null {
+  if (!eta || eta.kind === 'passed') return null;
+  return eta.distanceKm ?? null;
+}
 
 // The heading, when known, places the vehicle on the right pass of a line that uses a street twice
 type Tracked = Pick<VehicleSnapshot, 'lat' | 'lon' | 'lineId' | 'lastPacketMs' | 'recentSpeeds'> & { headingDeg?: number };
@@ -45,12 +53,13 @@ export function etaTo(
   const distanceKm = distanceRound(round ? legs : legs.slice(0, 1), vehicle, boarding, maxOffsetM);
   if (distanceKm === null) return { kind: 'unknown', reason: 'off_line' };
   if (distanceKm === 'passed') return { kind: 'passed' };
-  if (distanceKm > ETA_MAX_KM) return { kind: 'unknown', reason: 'too_far' };
+  if (distanceKm > ETA_MAX_KM) return { kind: 'unknown', reason: 'too_far', distanceKm };
   const fromMs = vehicle.lastPacketMs - ETA_SAMPLE_WINDOW_S * MS_PER_S;
   const samples = vehicle.recentSpeeds.filter((sample) => sample.atMs >= fromMs && sample.atMs <= vehicle.lastPacketMs);
-  if (samples.length < ETA_MIN_SAMPLES) return { kind: 'unknown', reason: 'few_samples' };
-  const mean = samples.reduce((sum, sample) => sum + sample.speedKmh, 0) / samples.length;
-  const speedKmh = Math.max(ETA_MIN_SPEED_KMH, mean);
+  if (samples.length < ETA_MIN_SAMPLES) return { kind: 'unknown', reason: 'few_samples', distanceKm };
+  const speedKmh = samples.reduce((sum, sample) => sum + sample.speedKmh, 0) / samples.length;
+  // PRD 19.4: a stopped or crawling vehicle (a crossing, traffic, loading) gives no ETA at all
+  if (speedKmh < ETA_MIN_SPEED_KMH) return { kind: 'unknown', reason: 'slow', distanceKm };
   return { kind: 'approaching', distanceKm, etaS: (distanceKm / speedKmh) * S_PER_H, speedKmh };
 }
 
@@ -61,7 +70,7 @@ export function etaTo(
 // Arrival and the distance alerts keep to the measured distance, so a guess never ends tracking.
 export function etaNow(eta: Eta, ageS: number, maxAgeS = COVERAGE_LIVE_MAX_AGE_S): Eta {
   if (eta.kind !== 'approaching') return eta;
-  if (ageS >= maxAgeS) return { kind: 'unknown', reason: 'stale' };
+  if (ageS >= maxAgeS) return { kind: 'unknown', reason: 'stale', distanceKm: eta.distanceKm };
   const elapsedS = Math.max(0, ageS);
   return {
     ...eta,
