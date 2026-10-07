@@ -144,9 +144,9 @@ Demo stays: the **fallback** when there is no `.env` or no network, and the **pa
 | # | Question | Blocks |
 | --- | --- | --- |
 | 1 | Move G0 after RP1 and ship reports and check-in "without GPS" first (§2)? | Order |
-| 2 | Is deleting the auth account inside `delete_my_account` acceptable, or should an Edge Function do it? | SB1 live test |
-| 3 | Do non-team accounts see the live map in v0 (today: any signed-in user reads vehicles)? | L1 |
-| 4 | Night Mode: hide moving markers only (as built), or every marker? | L1 |
+| 2 | Is deleting the auth account inside `delete_my_account` acceptable, or should an Edge Function do it? **Decided (Emjay, 2026-10-07): the database function is acceptable for the prototype; an Edge Function later if needed.** | SB1 live test |
+| 3 | Do non-team accounts see the live map in v0 (today: any signed-in user reads vehicles)? **Decided (Emjay, 2026-10-07): team accounts only; applied in `20261010000000_night_feed_delay_team_live.sql`. Other accounts see "Team accounts only for now" on an empty route.** | L1 |
+| 4 | Night Mode: hide moving markers only (as built), or every marker? **Decided (Emjay, 2026-10-07): moving markers only, plus stop-naming feed posts held back 2 minutes at night (`app_config.night_feed_delay_min`). The full static stop view stays deferred (PRD 0.6).** | L1 |
 
 ## 9. Risks
 

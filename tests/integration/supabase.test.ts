@@ -8,6 +8,7 @@ import { parseEnv } from 'node:util';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { isNight } from '../../src/shared/backend/rules';
 import { encodePacket, type TelemetryPacket } from '../../src/shared/telemetry/packet';
 
 const ENV_FILE = path.join(__dirname, '..', '..', '.env');
@@ -147,11 +148,14 @@ live('S4 backend, live project', () => {
   );
 
   it(
-    'any signed-in account reads active vehicles only (open sign-up); a signed-out caller sees none',
+    'team accounts read active vehicles only (v0, Emjay 2026-10-07); other accounts and signed-out callers see none',
     async () => {
       const seen = await outsider.from('vehicles').select('vehicle_id');
       expect(seen.error).toBeNull();
-      expect((seen.data ?? []).map((v) => v.vehicle_id)).toContain(VEHICLE);
+      expect(seen.data ?? []).toEqual([]);
+      const positions = await outsider.from('telemetry_latest').select('vehicle_id');
+      expect(positions.error).toBeNull();
+      expect(positions.data ?? []).toEqual([]);
       const { data, error } = await writer.from('vehicles').select('vehicle_id, active');
       expect(error).toBeNull();
       const ids = (data ?? []).map((v) => v.vehicle_id);
@@ -381,10 +385,16 @@ live('SB1 commuter backend, live project', () => {
         request_key: key('stop'),
       });
       expect(post.error).toBeNull();
-      const shown = await outsider.from('feed_posts').select('stop_code, author_trusted').eq('id', post.data).single();
+      // The author always sees it at once
+      const own = await writer.from('feed_posts').select('stop_code, author_trusted').eq('id', post.data).single();
+      expect(own.error).toBeNull();
+      expect(own.data?.stop_code).toBe('MCA');
+      expect(typeof own.data?.author_trusted).toBe('boolean');
+      // Others: at once by day; at night a post naming a stop waits night_feed_delay_min (PRD 10.4)
+      const shown = await outsider.from('feed_posts').select('stop_code').eq('id', post.data);
       expect(shown.error).toBeNull();
-      expect(shown.data?.stop_code).toBe('MCA');
-      expect(typeof shown.data?.author_trusted).toBe('boolean');
+      if (isNight(Date.now())) expect(shown.data ?? []).toEqual([]);
+      else expect(shown.data?.[0]?.stop_code).toBe('MCA');
       // The server-only column stays hidden
       expect((await outsider.from('feed_posts').select('trust_earned').eq('id', post.data)).error).not.toBeNull();
 

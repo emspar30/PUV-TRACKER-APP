@@ -165,6 +165,8 @@ export const en = {
       night: 'Night Mode',
       // Beside Night Mode on an empty route; beside the count when stopped ones show
       nightHidden: 'Moving ones hidden',
+      // Beside No data for a signed-in account not on the team list (live vehicles are team-only in v0)
+      teamOnly: 'Team accounts only for now',
     },
     noData: 'No data from riders right now',
     // Age of the freshest position on a Stale route, in whole minutes

@@ -13,6 +13,7 @@ const words = (text: string) => text.split(/\s+/).filter((word) => /[\p{L}\p{N}]
 const mainScreen: Record<string, string> = {
   pickRoute: en.live.pickRoute,
   noData: en.live.status.noData,
+  teamOnly: en.live.status.teamOnly,
   stale: en.live.status.stale('2 min'),
   ends: en.live.ends('Jeepney Terminal', 'Robinsons'),
   partial: en.common.partial,

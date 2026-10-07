@@ -227,6 +227,24 @@ describe('migration: row level security and grants', () => {
     expect(ingest).toMatch(/from\('team_accounts'\)/);
   });
 
+  it('night feed delay (PRD 10.4): a post naming a stop, posted at night, waits for others but not its author', () => {
+    expect(sql).toMatch(/add column night_feed_delay_min int not null default 2/);
+    const feed = statements.filter((s) => s.startsWith('alter policy "feed_posts:'));
+    expect(feed).toHaveLength(1);
+    expect(feed[0]).toContain('stop_code is null');
+    expect(feed[0]).toContain('user_id = (select auth.uid())');
+    expect(feed[0]).toContain('not public.is_night(created_at)');
+    expect(feed[0]).toContain('night_feed_delay_min');
+  });
+
+  it('v0: the live map is for team accounts only again; the moving-vehicle night rule stays', () => {
+    const last = (table: string) => statements.filter((s) => s.startsWith(`alter policy "${table}:`) && s.includes(' using ')).pop() ?? '';
+    expect(last('vehicles')).toContain('public.is_team_account()');
+    expect(last('telemetry_latest')).toContain('public.is_team_account()');
+    expect(last('telemetry_latest')).toContain('not public.is_night(now())');
+    expect(sql).toMatch(/rename to "telemetry_latest: team accounts read active vehicles"/);
+  });
+
   it('publishes telemetry_latest, and only it, to Realtime', () => {
     const published = statements.filter((s) => s.startsWith('alter publication supabase_realtime'));
     expect(published).toEqual(['alter publication supabase_realtime add table public.telemetry_latest']);

@@ -13,13 +13,23 @@ type SessionState = {
   status: SessionStatus;
   email: string | null;
   error: string | null;
+  // Whether this account may see live vehicles (team accounts only in v0); null until known
+  teamAccount: boolean | null;
 };
 
 export const useSessionStore = create<SessionState>(() => ({
   status: isSupabaseConfigured() ? 'loading' : 'unconfigured',
   email: null,
   error: null,
+  teamAccount: null,
 }));
+
+// Asks the database whether the signed-in account is on the team list, so the Live tab can say why
+// a non-team account sees no vehicles. Row Level Security still decides what comes back.
+async function syncTeamAccount(): Promise<void> {
+  const { data, error } = await getSupabase().rpc('is_team_account');
+  useSessionStore.setState({ teamAccount: error ? null : data === true });
+}
 
 let started = false;
 
@@ -32,9 +42,12 @@ export function startSessionTracking(): void {
   try {
     const { auth } = getSupabase();
     const apply = (email: string | null | undefined, signedIn: boolean) => {
-      useSessionStore.setState({ status: signedIn ? 'signed-in' : 'signed-out', email: email ?? null, error: null });
+      useSessionStore.setState({ status: signedIn ? 'signed-in' : 'signed-out', email: email ?? null, error: null, teamAccount: null });
       // SB2: the handle follows the account
-      if (signedIn) void syncUsername();
+      if (signedIn) {
+        void syncUsername();
+        void syncTeamAccount().catch(() => undefined);
+      }
     };
 
     auth

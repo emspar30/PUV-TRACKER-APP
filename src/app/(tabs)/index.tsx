@@ -61,6 +61,7 @@ import { inRouteOrder } from '@/shared/relay/broadcast';
 import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
 import { showDialog } from '@/state/dialogStore';
+import { useSessionStore } from '@/state/sessionStore';
 import { useHintsStore } from '@/state/hintsStore';
 import { useLocationStore } from '@/state/locationStore';
 import { useSettingsStore } from '@/state/settingsStore';
@@ -120,6 +121,7 @@ export default function MapScreen() {
   const fittedOnce = useRef(false);
 
   const repos = useRepositories();
+  const teamAccount = useSessionStore((state) => state.teamAccount);
   const location = useLiveLocation((center) =>
     setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center, zoom: MAP_FOLLOW_ZOOM })),
   );
@@ -399,6 +401,8 @@ export default function MapScreen() {
   // L1: at night the server shows only stopped multicabs (PRD 10.4), so an empty live route says
   // Night Mode rather than No data. The server decides; this only labels it.
   const night = repos.vehicles.source === 'live' && isNight(live.nowMs);
+  // Live vehicles are for team accounts only in v0; a signed-in account off the list is told why
+  const teamOnly = repos.vehicles.source === 'live' && teamAccount === false && coverage.coverage === 'none';
   const status: { label: string; tone: StatusTone } =
     coverage.coverage === 'live'
       ? { label: strings.live.active.count(vehicles.length), tone: 'success' }
@@ -466,7 +470,15 @@ export default function MapScreen() {
             name={selectedOption.name}
             color={selectedOption.color}
             status={status}
-            note={night ? (coverage.coverage === 'none' ? strings.live.status.nightHidden : strings.live.status.night) : null}
+            note={
+              teamOnly
+                ? strings.live.status.teamOnly
+                : night
+                  ? coverage.coverage === 'none'
+                    ? strings.live.status.nightHidden
+                    : strings.live.status.night
+                  : null
+            }
             onClose={hideRoute}
           />
         ) : null}
