@@ -75,7 +75,7 @@ export function createDemoCrowd(
           ...posts,
         ];
         energy.earn(input.withGps ? 'gps_report' : 'no_gps_report', requestKey);
-        return { ok: true };
+        return { ok: true, postId: requestKey };
       },
 
       // The user's own demo posts younger than FEED_LIFETIME_MIN; the screen adds the made-up feed

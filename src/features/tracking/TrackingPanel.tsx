@@ -1,10 +1,11 @@
 import { Armchair, BellRing, Bus, Square } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
-import { Button, IconTile, StatusPill } from '@/components';
+import { Button, IconTile, StatusPill, type IconTone } from '@/components';
 import { VEHICLE_CAPACITY_SEATS } from '@/shared/config';
 import { etaDistanceKm, type Eta, type TrackProgress } from '@/shared/tracking/eta';
 import { ageSeconds } from '@/shared/telemetry/coverage';
+import { seatTier, type SeatTier } from '@/shared/telemetry/occupancy';
 import type { VehicleSnapshot } from '@/shared/telemetry/vehicle';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
@@ -27,6 +28,8 @@ type TrackingPanelProps = {
 const STOP_BUTTON = MIN_TOUCH_TARGET + spacing.xs;
 const SEGMENT_HEIGHT = spacing.xs;
 const ICON_SIZE = spacing.md + spacing.xs;
+// EQ-5: the seats tile in the vehicle's seat-tier colour, as on the vehicle card and the map halo
+const TIER_TONE: Record<SeatTier, IconTone> = { green: 'success', amber: 'warning', red: 'danger' };
 
 // Tracking one multicab (L2, PRD 19.2 D9): the ETA to the commuter's stop, where the vehicle is among
 // the stops, the vehicle and its seats, an in-app arrival alert (blue when on), and Stop (red).
@@ -98,9 +101,9 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine
             </View>
           </View>
           <View style={styles.card}>
-            <IconTile icon={Armchair} tone="success" />
+            <IconTile icon={Armchair} tone={TIER_TONE[seatTier(vehicle.seatsTaken)]} />
             <View style={styles.grow}>
-              <Text style={[typography.labelLg, styles.success]}>{t.seatsOpen(free)}</Text>
+              <Text style={[typography.labelLg, styles[TIER_TONE[seatTier(vehicle.seatsTaken)]]]}>{t.seatsOpen(free)}</Text>
               <Text style={typography.bodySm}>{t.onboard(vehicle.seatsTaken, VEHICLE_CAPACITY_SEATS)}</Text>
             </View>
           </View>
@@ -166,6 +169,12 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   success: {
     color: colors.success,
+  },
+  warning: {
+    color: colors.warning,
+  },
+  danger: {
+    color: colors.danger,
   },
   progress: {
     flexDirection: 'row',

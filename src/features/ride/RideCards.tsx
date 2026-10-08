@@ -2,7 +2,7 @@ import { Bus, ChevronDown, ChevronUp, Footprints, Map as MapIcon, Route, ShieldC
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { Button, Chip, IconTile } from '@/components';
+import { Button, Chip, IconTile, StatusPill } from '@/components';
 import { DRAFT_ROUTE_CODES } from '@/data/seed/routes';
 import { FARE_DISCOUNT_MULTIPLIER, type Classification } from '@/shared/config';
 import type { FareResult } from '@/shared/fare/fare';
@@ -19,7 +19,8 @@ const SMALL_ICON = spacing.md;
 const FARE_DECIMALS = 2;
 
 // Distance and fare of the planned trip (restyle). A discounted fare shows the regular one struck
-// through and a chip with the fare type.
+// through and a chip with the fare type. The amount is labelled an estimate that does not replace
+// the official fare (PRD 7.2, 15.3).
 export function FareSummaryCard({
   itinerary,
   fare,
@@ -61,12 +62,17 @@ export function FareSummaryCard({
             </Text>
           </View>
         ) : null}
+        {/* The pill aligns itself to the top; the wrapper lets the row centre it */}
+        <View>
+          <StatusPill label={strings.ride.estimate} tone="warning" />
+        </View>
         <View style={styles.grow} />
         <Pressable style={styles.details} onPress={() => setOpen((value) => !value)} accessibilityRole="button" accessibilityState={{ expanded: open }}>
           <Text style={[typography.labelLg, styles.link]}>{strings.ride.fareDetails}</Text>
           <Chevron color={styles.link.color} size={SMALL_ICON} />
         </Pressable>
       </View>
+      <Text style={typography.bodySm}>{strings.ride.fareDisclaimer}</Text>
       {open ? <FareBreakdown fare={fare} classification={classification} /> : null}
     </View>
   );

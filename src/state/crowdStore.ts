@@ -67,6 +67,13 @@ export const useFlaggedStore = create<{ ids: ReadonlySet<string>; add: (id: stri
   add: (id) => set((state) => ({ ids: new Set([...state.ids, id]) })),
 }));
 
+// EQ-7: posts sent from this phone while the app is open, so the feed marks them "You" even when
+// the handle on the phone and the one on the account differ
+export const useOwnPostsStore = create<{ ids: ReadonlySet<string>; add: (id: string) => void }>((set) => ({
+  ids: new Set(),
+  add: (id) => set((state) => ({ ids: new Set([...state.ids, id]) })),
+}));
+
 export async function flagPost(postId: string, demo: boolean): Promise<FlagResult> {
   // A made-up demo post is only hidden on this phone
   const result: FlagResult = demo ? { ok: true, hidden: false } : await currentCrowd().reports.flag(postId);
@@ -81,6 +88,7 @@ export async function sendReport(input: ReportInput): Promise<ReportResult> {
     void refreshEnergy();
     earnedTrust(nowMs);
     useCountsStore.getState().addReport(input.withGps);
+    if (result.postId) useOwnPostsStore.getState().add(result.postId);
   }
   return result;
 }

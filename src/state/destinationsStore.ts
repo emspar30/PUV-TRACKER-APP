@@ -2,13 +2,17 @@ import Storage from 'expo-sqlite/kv-store';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
 import {
   addDestination,
   cleanDestinations,
+  refreshSavedLandmarks,
   removeDestination,
   type AddResult,
   type Destination,
 } from '@/shared/profile/destinations';
+import { placeIdOf } from '@/shared/routing/suggest';
+import { strings } from '@/strings';
 
 // PRD 19 (D4): the commuter's frequent destinations, at most FREQUENT_DESTINATIONS_MAX, stored ONLY
 // on this device. Home or work places are sensitive: this store imports nothing from src/services,
@@ -23,6 +27,9 @@ type DestinationsState = StoredDestinations & {
   remove: (id: string) => void;
   clear: () => void;
 };
+
+// Landmark ids are the stop code with this prefix (landmarks.placeholder.ts)
+const LANDMARK_ID_PREFIX = 'stop-';
 
 const deviceStorage = createJSONStorage<StoredDestinations>(() => ({
   getItem: (key) => Storage.getItemSync(key),
@@ -48,9 +55,16 @@ export const useDestinationsStore = create<DestinationsState>()(
       name: 'destinations',
       storage: deviceStorage,
       partialize: ({ destinations }) => ({ destinations }),
+      // EQ-16: places saved as stops of older route data move to a current stop or a map point
       merge: (persisted, current) => ({
         ...current,
-        destinations: cleanDestinations((persisted as Partial<StoredDestinations> | undefined)?.destinations),
+        destinations: refreshSavedLandmarks(
+          cleanDestinations((persisted as Partial<StoredDestinations> | undefined)?.destinations),
+          LANDMARKS,
+          (id) => id.startsWith(LANDMARK_ID_PREFIX),
+          placeIdOf,
+          strings.ride.near,
+        ),
       }),
     },
   ),

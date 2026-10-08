@@ -46,8 +46,9 @@ function ThemedStack() {
       <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
       {/* Every page, the menu included, slides in from the right over the whole screen, with no dimming */}
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: colors.canvas } }} />
-      <ToastHost />
       <DialogHost />
+      {/* EQ-14: after the dialog, so a notice (such as Badge earned) is not under its dimmed backdrop */}
+      <ToastHost />
     </>
   );
 }

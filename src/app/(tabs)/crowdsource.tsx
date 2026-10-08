@@ -10,7 +10,8 @@ import { useRouteData } from '@/data/RouteDataProvider';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { DEMO_SEED, FEED_FLAG_HIDE_COUNT, SKELETON_LONG_MS } from '@/shared/config';
 import { demoFeed, type FeedPost } from '@/shared/demo/feed';
-import { flagPost, useCrowd, useFlaggedStore } from '@/state/crowdStore';
+import { routeCodesOf } from '@/shared/ui/routeVisibility';
+import { flagPost, useCrowd, useFlaggedStore, useOwnPostsStore } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
 import { useEnergyStore } from '@/state/energyStore';
 import { useSettingsStore } from '@/state/settingsStore';
@@ -42,12 +43,13 @@ export default function CrowdsourceScreen() {
   const focused = useIsFocused();
   const demo = useSettingsStore((state) => state.demoData);
   const { lines, stops } = useRouteData();
-  const routeCodes = [...new Set(lines.map((line) => line.routeCode))].sort();
+  const routeCodes = routeCodesOf(lines);
   const [filter, setFilter] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const crowd = useCrowd();
   const wallet = useEnergyStore((state) => state.snapshot);
   const ownName = useUsernameStore((state) => state.username);
+  const ownPosts = useOwnPostsStore((state) => state.ids);
   const flagged = useFlaggedStore((state) => state.ids);
   const [loaded, setLoaded] = useState<{ reports: typeof crowd.reports; posts: readonly FeedPost[] | null } | null>(null);
 
@@ -141,7 +143,7 @@ export default function CrowdsourceScreen() {
                 nowMs={nowMs}
                 color={colorOf(post.routeCode)}
                 stopName={stopNameOf(post.stopCode)}
-                mine={ownName !== null && post.username === ownName}
+                mine={ownPosts.has(post.id) || (ownName !== null && post.username === ownName)}
               />
             </Animated.View>
           ))

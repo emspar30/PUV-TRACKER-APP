@@ -249,7 +249,8 @@ export default function MapScreen() {
           .sort((a, b) => projectOntoLine(main.coordinates, a).chainageKm - projectOntoLine(main.coordinates, b).chainageKm);
         const picks =
           onRoute.length <= LIST_STOPS ? onRoute : [onRoute[0], onRoute[Math.floor(onRoute.length / HALF)], onRoute[onRoute.length - 1]];
-        return { code, name: main.name, color: colorOfRoute(code), stops: picks.map((stop) => stop.code) };
+        // EQ-13: the route's name without the leg ("Route 1 (Bancasi - Downtown)"), as in My Rides
+        return { code, name: main.name.split(',')[0] ?? main.name, color: colorOfRoute(code), stops: picks.map((stop) => stop.code) };
       }),
     [lines, stops, colorOfRoute],
   );

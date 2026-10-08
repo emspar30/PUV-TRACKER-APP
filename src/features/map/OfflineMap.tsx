@@ -7,7 +7,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { Info } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Pressable, Text, View, type NativeSyntheticEvent } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type NativeSyntheticEvent } from 'react-native';
 
 import { GLYPH_FONT_REGULAR, LABEL_PROOF } from '@/data/map/glyphset';
 import { buildOfflineStyle } from '@/data/map/offlineStyle';
@@ -19,9 +19,11 @@ import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 
 import { MapLabels } from './MapLabels';
-import { makeStyles, radii, spacing, useTheme } from '@/theme';
+import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
-const PADDING = { top: spacing.xl, right: spacing.xl, bottom: spacing.xl, left: spacing.xl };
+// EQ-12: the right side also keeps clear of the column of round buttons, so a framed point (the
+// commuter while tracking) is never under them
+const PADDING = { top: spacing.xl, right: spacing.xl + MIN_TOUCH_TARGET, bottom: spacing.xl, left: spacing.xl };
 // B8: the camera may go a little past the offline tiles, so a route near their edge (De Oro, at the
 // north) can still be framed in the space the cards leave; the margin mostly sits under the top bar
 const PAN_BOUNDS = padBounds(TILESET.bounds, MAP_BOUNDS_MARGIN_DEG);
@@ -129,6 +131,11 @@ export function OfflineMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bottomInset, topInset]);
 
+  // EQ-9: until the style has loaded, the map surface is the native default (light beige), even
+  // in Dark mode; the theme's canvas covers it until then (again after a theme or labels change)
+  const mapKey = `${scheme}-${showLabels ? 'labels' : 'plain'}`;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+
   const handleRegionDidChange = (event: NativeSyntheticEvent<ViewStateChangeEvent>) => onViewChange?.(event.nativeEvent);
 
   return (
@@ -136,13 +143,19 @@ export function OfflineMap({
       {/* A new theme loads a new base style, which drops the route layers drawn on top; mounting the
           map afresh for each theme draws everything again in the new colours. */}
       <Map
-        key={`${scheme}-${showLabels ? 'labels' : 'plain'}`}
+        key={mapKey}
         style={styles.map}
         mapStyle={mapStyle}
         logo={false}
         attribution={false}
-        onDidFinishLoadingMap={() => onStatusChange?.('loaded')}
-        onDidFailLoadingMap={() => onStatusChange?.('failed')}
+        onDidFinishLoadingMap={() => {
+          setLoadedKey(mapKey);
+          onStatusChange?.('loaded');
+        }}
+        onDidFailLoadingMap={() => {
+          setLoadedKey(mapKey);
+          onStatusChange?.('failed');
+        }}
         onRegionDidChange={handleRegionDidChange}
         onRegionWillChange={(event) => {
           if (event.nativeEvent.userInteraction) onUserMove?.();
@@ -175,6 +188,7 @@ export function OfflineMap({
         />
         {children}
       </Map>
+      {loadedKey !== mapKey ? <View style={styles.cover} pointerEvents="none" /> : null}
       <Attribution position={attributionTop !== undefined ? { top: attributionTop } : { bottom: bottomInset + spacing.sm }} />
     </View>
   );
@@ -216,6 +230,10 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   map: {
     flex: 1,
+  },
+  cover: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.canvas,
   },
   attribution: {
     position: 'absolute',

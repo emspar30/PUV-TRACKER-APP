@@ -23,6 +23,7 @@ import {
 } from '@/shared/config';
 import { generalHistory } from '@/shared/profile/history';
 import { isTrusted } from '@/shared/profile/trust';
+import { badgeCountsOf, useCountsStore } from '@/state/countsStore';
 import { showDialog } from '@/state/dialogStore';
 import { useEnergyStore } from '@/state/energyStore';
 import { useHistoryStore } from '@/state/historyStore';
@@ -61,6 +62,13 @@ export default function ProfileScreen() {
   const energySource = useEnergyStore((state) => state.source);
   const refillIn = useRefillCountdown();
   const rides = useRidesStore((state) => state.rides);
+  // EQ-6: check-ins and relays as the badges count them (every one that went through, not only
+  // those in the ride history)
+  const tripsPlanned = useCountsStore((state) => state.tripsPlanned);
+  const checkInCount = useCountsStore((state) => state.checkIns);
+  const reportCount = useCountsStore((state) => state.reports);
+  const gpsReports = useCountsStore((state) => state.gpsReports);
+  const counts = badgeCountsOf({ tripsPlanned, checkIns: checkInCount, reports: reportCount, gpsReports }, rides);
   const demo = useSettingsStore((state) => state.demoData);
   const trustPoints = useTrustPoints();
   const [picking, setPicking] = useState(false);
@@ -258,8 +266,8 @@ export default function ProfileScreen() {
         <Text style={typography.labelLg}>{strings.profilePage.stats}</Text>
         <View style={styles.stats}>
           <Stat value={rides.length} label={strings.profilePage.rides} />
-          <Stat value={rides.filter((ride) => ride.source === 'checkin').length} label={strings.profilePage.checkins} />
-          <Stat value={rides.filter((ride) => ride.source === 'report').length} label={strings.profilePage.reports} />
+          <Stat value={counts.checkIns} label={strings.profilePage.checkins} />
+          <Stat value={counts.reports} label={strings.profilePage.reports} />
         </View>
       </Card>
 

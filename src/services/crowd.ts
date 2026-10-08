@@ -35,7 +35,7 @@ export const supabaseCrowdPort: CrowdPort = {
   },
 
   async postReport(input, requestKey) {
-    const { error } = await getSupabase().rpc('post_report', {
+    const { data, error } = await getSupabase().rpc('post_report', {
       route: input.routeCode,
       phrase: input.phrase,
       seat_tier: input.seatTier,
@@ -44,7 +44,7 @@ export const supabaseCrowdPort: CrowdPort = {
       stop: input.stopCode,
       request_key: requestKey,
     });
-    return error ? failureOf(error) : null;
+    return error ? failureOf(error) : { postId: String(data) };
   },
 
   async flagPost(postId) {

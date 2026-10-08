@@ -101,7 +101,7 @@ describe('the demo loop: earn by checking in and reporting, spend by tracking', 
   it('reports earn 1.0 with GPS and 0.5 without, once a day each; the next Manila day pays again', async () => {
     const { energy, crowd, advance } = setup();
     await energy.refresh();
-    expect(await crowd.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: true });
+    expect(await crowd.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: true, postId: 'report-aaaaaaaa' });
     await crowd.reports.post(REPORT, 'report-bbbbbbbb');
     await crowd.reports.post({ ...REPORT, withGps: false }, 'report-cccccccc');
     const balance = ENERGY_PASSIVE_AMOUNT + ENERGY_GPS_REPORT + ENERGY_NO_GPS_REPORT;
@@ -138,7 +138,7 @@ const port = (over: Partial<CrowdPort> = {}): CrowdPort => ({
   checkIn: async () => ({ expiresAt: new Date(T0 + CHECKIN_LIFETIME_S * 1000).toISOString() }),
   checkinCounts: async () => [{ station_code: 'AAA', waiting: '2' }],
   endCheckIn: async () => null,
-  postReport: async () => null,
+  postReport: async () => ({ postId: '41' }),
   feed: async () => [
     {
       id: 5,
@@ -185,6 +185,11 @@ describe('the live check-ins and reports', () => {
         demo: false,
       },
     ]);
+  });
+
+  it('returns the new post id, so the feed can mark the post as their own (EQ-7)', async () => {
+    const crowd = createLiveCrowd(port({}));
+    expect(await crowd.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: true, postId: '41' });
   });
 
   it('maps the function errors; a failed end is ignored', async () => {

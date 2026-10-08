@@ -1,106 +1,13 @@
-import { ChevronDown, ChevronUp, CircleAlert, Footprints, Map as MapIcon, PhilippinePeso } from 'lucide-react-native';
-import { useState } from 'react';
+import { CircleAlert } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
-import { Chip, LineBadge, StatusPill } from '@/components';
-import { DRAFT_ROUTE_CODES } from '@/data/seed/routes';
-import type { Classification } from '@/shared/config';
-import type { FareResult } from '@/shared/fare/fare';
+import { LineBadge } from '@/components';
 import type { FailureExplanation } from '@/shared/routing/explainFailure';
-import type { Itinerary, PlanFailureResult } from '@/shared/routing/plan';
+import type { PlanFailureResult } from '@/shared/routing/plan';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
-import { FareBreakdown } from './FareBreakdown';
-import { QuickFareTypeChip } from './FareTypeChips';
-
 const ICON_SIZE = spacing.md + spacing.xs;
-const PESO_ICON_SIZE = spacing.xl;
-const FARE_DECIMALS = 2;
-
-type RideResultProps = {
-  itinerary: Itinerary;
-  fare: FareResult;
-  classification: Classification;
-  badgeColor: string;
-  // Nearest stops to where the rider boards and gets off
-  boardNear: string;
-  getOffNear: string;
-  onViewOnMap: () => void;
-};
-
-// The trip as one card: route, where to board and get off, the fare as the big number, and the
-// working behind "Details". The fare comes from the shared engine; this card only shows it.
-export function RideResult({
-  itinerary,
-  fare,
-  classification,
-  badgeColor,
-  boardNear,
-  getOffNear,
-  onViewOnMap,
-}: RideResultProps) {
-  const styles = useStyles();
-  const { colors, typography } = useTheme();
-  const [walkIn, ride, walkOut] = itinerary.legs;
-  const [showDetails, setShowDetails] = useState(false);
-  const Chevron = showDetails ? ChevronUp : ChevronDown;
-
-  return (
-    <View style={styles.card}>
-      <View style={styles.row}>
-        <LineBadge code={ride.routeCode} color={badgeColor} />
-        <View style={styles.grow}>
-          <Text style={typography.labelLg}>{strings.ride.boardNear(boardNear)}</Text>
-          <Text style={typography.labelLg}>{strings.ride.getOffNear(getOffNear)}</Text>
-        </View>
-        {/* RR2: the route's two legs are not both from Emjay's files yet */}
-        {DRAFT_ROUTE_CODES.has(ride.routeCode) ? <Chip label={strings.common.draft} /> : null}
-      </View>
-
-      <View style={styles.row} accessible accessibilityLabel={strings.ride.fare(fare.rounded)}>
-        <PhilippinePeso color={colors.textPrimary} size={PESO_ICON_SIZE} />
-        <Text style={typography.display}>{fare.rounded.toFixed(FARE_DECIMALS)}</Text>
-      </View>
-
-      <View style={styles.chips}>
-        <Chip label={strings.ride.rideKm(ride.distanceKm)} />
-        <StatusPill label={strings.ride.estimate} tone="warning" />
-      </View>
-      <Text style={typography.bodySm}>{strings.ride.fareDisclaimer}</Text>
-      <QuickFareTypeChip />
-
-      <View style={styles.row}>
-        <Footprints color={colors.textSecondary} size={ICON_SIZE} />
-        <Text style={typography.bodySm}>
-          {strings.ride.walk(walkIn.distanceM)} · {strings.ride.walk(walkOut.distanceM)}
-        </Text>
-      </View>
-
-      <Pressable
-        style={styles.toggle}
-        onPress={() => setShowDetails((shown) => !shown)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: showDetails }}
-      >
-        <Text style={[typography.labelLg, styles.grow]}>{showDetails ? strings.ride.hideDetails : strings.ride.details}</Text>
-        <Chevron color={colors.textSecondary} size={ICON_SIZE} />
-      </Pressable>
-      {showDetails ? (
-        <View style={styles.details}>
-          <Text style={typography.bodySm}>{strings.ride.walkToRoute(strings.ride.from, walkIn.distanceM)}</Text>
-          <Text style={typography.bodySm}>{strings.ride.walkToRoute(strings.ride.to, walkOut.distanceM)}</Text>
-          <FareBreakdown fare={fare} classification={classification} />
-        </View>
-      ) : null}
-
-      <Pressable style={styles.action} onPress={onViewOnMap} accessibilityRole="button">
-        <MapIcon color={colors.primary} size={ICON_SIZE} />
-        <Text style={[typography.labelLg, styles.actionText]}>{strings.ride.viewOnMap}</Text>
-      </Pressable>
-    </View>
-  );
-}
 
 type RideFailureProps = {
   failure: PlanFailureResult;
@@ -171,21 +78,6 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   grow: {
     flex: 1,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  toggle: {
-    minHeight: MIN_TOUCH_TARGET,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  details: {
-    gap: spacing.sm,
   },
   danger: {
     color: colors.danger,

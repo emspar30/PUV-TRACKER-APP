@@ -283,11 +283,6 @@ export default function CheckInScreen() {
   const activeCard = active ? (
     <Animated.View key="active" entering={FadeIn.duration(motion.cardMs)} style={styles.section}>
       <View style={styles.row}>
-        <View style={styles.badges}>
-          {checkIn.routeCodes.map((code) => (
-            <LineBadge key={code} code={code} color={badgeColor(code)} />
-          ))}
-        </View>
         <View style={styles.grow} accessible accessibilityLabel={strings.checkin.countdownLabel(checkIn.stationCode, countdown)}>
           <Text style={typography.headlineSm} numberOfLines={1}>
             {activeStop?.name ?? checkIn.stationCode}
@@ -295,6 +290,12 @@ export default function CheckInScreen() {
           <Text style={typography.bodySm} numberOfLines={1}>
             {strings.checkin.meta([checkIn.stationCode, strings.checkin.waiting(Math.max(waitingAt(checkIn.stationCode), 1))])}
           </Text>
+          {/* EQ-10: the pinged routes in one wrapping row under the station, not a column beside it */}
+          <View style={styles.badges}>
+            {checkIn.routeCodes.map((code) => (
+              <LineBadge key={code} code={code} color={badgeColor(code)} />
+            ))}
+          </View>
         </View>
         <View style={styles.activePill}>
           <Clock color={colors.success} size={ICON_SIZE} />
@@ -480,7 +481,10 @@ const useStyles = makeStyles(({ colors }) => ({
     flex: 1,
   },
   badges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
+    paddingTop: spacing.xs,
   },
   iconButton: {
     width: MIN_TOUCH_TARGET,

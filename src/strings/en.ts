@@ -590,7 +590,7 @@ export const en = {
     stats: 'Your rides',
     rides: 'Rides',
     checkins: 'Check-ins',
-    reports: 'Reports',
+    reports: 'Relays',
     energy: 'Tracking Energy',
     energyFree: 'Free during the pilot',
     // SB2

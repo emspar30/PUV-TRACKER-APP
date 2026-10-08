@@ -9,7 +9,7 @@ import { showDialog } from '@/state/dialogStore';
 import { resetApp } from '@/state/resetApp';
 import { useSessionStore } from '@/state/sessionStore';
 import { useSettingsStore } from '@/state/settingsStore';
-import { FAKE_FIX_ACCURACY_OPTIONS_M, FAKE_FIX_STALE_AGE_S } from '@/shared/config';
+import { DEMO_COMMUTER_STOP_CODE, FAKE_FIX_ACCURACY_OPTIONS_M, FAKE_FIX_STALE_AGE_S } from '@/shared/config';
 import { strings } from '@/strings';
 import { makeStyles, spacing, useTheme } from '@/theme';
 
@@ -21,6 +21,9 @@ export default function DemoSettingsScreen() {
   const { stops } = useRouteData();
   const s = useSettingsStore();
   const status = useSessionStore((state) => state.status);
+  // EQ-15: a stop saved from older route data is not on the list; the default stop stands in
+  // (as in useCommuterPosition), so show that one as chosen
+  const standing = stops.some((stop) => stop.code === s.simulatedStop) ? s.simulatedStop : DEMO_COMMUTER_STOP_CODE;
 
   const confirmReset = () =>
     showDialog({
@@ -107,7 +110,7 @@ export default function DemoSettingsScreen() {
               <Chip
                 key={stop.code}
                 label={stop.code}
-                selected={stop.code === s.simulatedStop}
+                selected={stop.code === standing}
                 onPress={() => s.setSimulatedStop(stop.code)}
                 accessibilityLabel={`${stop.code}, ${stop.name}`}
               />

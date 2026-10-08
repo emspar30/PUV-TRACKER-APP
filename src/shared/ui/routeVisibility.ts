@@ -83,9 +83,19 @@ export function isSingleLegRoute(lines: readonly Pick<DirectedLine, 'routeCode' 
   return ofRoute.length === 1 && ofRoute[0].directionMode !== 'loop';
 }
 
-// Unique route codes, in the order the lines are listed
+// Route codes in route-number order (R1, R2, R3, R14), not text order (EQ-4); codes without a
+// number come last, by text
+export function compareRouteCodes(a: string, b: string): number {
+  const number = (code: string) => {
+    const match = /\d+/.exec(code);
+    return match ? Number(match[0]) : Number.POSITIVE_INFINITY;
+  };
+  return number(a) - number(b) || a.localeCompare(b);
+}
+
+// Unique route codes, in route-number order
 export function routeCodesOf(lines: readonly Pick<DirectedLine, 'routeCode'>[]): string[] {
-  return [...new Set(lines.map((line) => line.routeCode))];
+  return [...new Set(lines.map((line) => line.routeCode))].sort(compareRouteCodes);
 }
 
 // A tapped route chip toggles: the same route again clears the selection

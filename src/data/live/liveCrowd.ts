@@ -28,7 +28,8 @@ export type CrowdPort = {
   checkIn(routeCodes: readonly string[], stationCode: string, requestKey: string): Promise<{ expiresAt: string } | PortFailure>;
   checkinCounts(routeCode: string): Promise<{ station_code: string; waiting: number | string }[]>;
   endCheckIn(): Promise<PortFailure | null>;
-  postReport(input: ReportInput, requestKey: string): Promise<PortFailure | null>;
+  // post_report: the new post's id, or the error
+  postReport(input: ReportInput, requestKey: string): Promise<PortFailure | { postId: string }>;
   // Live, visible feed_posts, newest first
   feed(): Promise<FeedRow[]>;
   // flag_post(post): true once the post is hidden
@@ -98,7 +99,7 @@ export function createLiveCrowd(port: CrowdPort): CrowdRepositories {
         if (!(await port.signedIn())) return { ok: false, reason: 'sign_in' };
         try {
           const result = await port.postReport(input, requestKey);
-          if (result === null) return { ok: true };
+          if ('postId' in result) return { ok: true, postId: result.postId };
           if (result.code === NO_USERNAME) return { ok: false, reason: 'no_username' };
           return failure(result);
         } catch (error) {

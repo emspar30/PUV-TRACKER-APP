@@ -50,7 +50,8 @@ export type ReportInput = {
   withGps: boolean;
 };
 
-export type ReportResult = { ok: true } | CloudFailure | { ok: false; reason: 'no_username' };
+// postId: the new post's id, so the feed can mark the user's own posts "You" (EQ-7)
+export type ReportResult = { ok: true; postId?: string } | CloudFailure | { ok: false; reason: 'no_username' };
 
 // RP1: the Report button. Demo keeps the posts on the phone; live calls post_report and reads
 // feed_posts. A report earns Energy (with GPS 1.0, without 0.5; once a Manila day each).

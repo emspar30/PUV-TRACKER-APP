@@ -1,5 +1,5 @@
 import { UNSELECTED_ROUTE_OPACITY } from '../config';
-import { isSingleLegRoute, returnStyledIds, routeCodesOf, routesAtStop, routeVisibility, stopsForRoute, toggleRoute } from '../ui/routeVisibility';
+import { compareRouteCodes, isSingleLegRoute, returnStyledIds, routeCodesOf, routesAtStop, routeVisibility, stopsForRoute, toggleRoute } from '../ui/routeVisibility';
 
 import { FIXTURE_OUTBOUND, FIXTURE_RETURN, FIXTURE_STOPS, pointAt } from './fixtures/routeFixture';
 
@@ -117,6 +117,12 @@ describe('line style: single-leg routes draw solid', () => {
 describe('route chips', () => {
   it('lists each route once, in order', () => {
     expect(routeCodesOf(LINES)).toEqual(['T1', 'T2']);
+  });
+
+  it('orders routes by number, not as text (EQ-4): R14 after R5', () => {
+    const codes = ['R1', 'R14', 'R2', 'R3', 'R4', 'R5'].map((routeCode) => ({ routeCode }));
+    expect(routeCodesOf(codes)).toEqual(['R1', 'R2', 'R3', 'R4', 'R5', 'R14']);
+    expect(['X', 'R10', 'R9'].sort(compareRouteCodes)).toEqual(['R9', 'R10', 'X']);
   });
 
   it('a tapped chip toggles', () => {
