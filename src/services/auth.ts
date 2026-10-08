@@ -24,6 +24,17 @@ export async function signInWithPassword(email: string, password: string): Promi
   }
 }
 
+// ST2-A: emails a password reset link. The link's page and the email itself are set in the Supabase
+// dashboard. Supabase answers the same whether or not the email has an account.
+export async function sendPasswordReset(email: string): Promise<AuthResult> {
+  try {
+    const { error } = await getSupabase().auth.resetPasswordForEmail(email.trim());
+    return error ? { ok: false, message: error.message } : { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export async function signOut(): Promise<AuthResult> {
   try {
     const { error } = await getSupabase().auth.signOut();

@@ -1,3 +1,4 @@
+import * as SplashScreen from 'expo-splash-screen';
 import { openDatabaseAsync } from 'expo-sqlite';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -81,8 +82,14 @@ export function RouteDataProvider({ children }: { children: ReactNode }) {
     setAttempt((count) => count + 1);
   }, []);
 
+  // ST2-A: the system splash (held from the root layout) closes once the route data is ready or has
+  // failed, so the first screen drawn after it is the app itself
+  useEffect(() => {
+    if (state.status !== 'loading') SplashScreen.hide();
+  }, [state.status]);
+
   if (state.status === 'loading') {
-    // Shown while the local database is created and seeded, which takes a moment on first launch
+    // Under the system splash while the local database is created and seeded; seen only on a retry
     return <LoadingScreen message={strings.loading.routeData} />;
   }
 

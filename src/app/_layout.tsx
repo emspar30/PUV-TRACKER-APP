@@ -1,16 +1,22 @@
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { DialogHost, LoadingScreen, ToastHost } from '@/components';
+import { DialogHost, ToastHost } from '@/components';
 import { RouteDataProvider } from '@/data/RouteDataProvider';
-import { LOADING_MIN_MS } from '@/shared/config';
 import { startEnergySync } from '@/state/energyStore';
 import { startSessionTracking } from '@/state/sessionStore';
 import { ThemeProvider, useTheme } from '@/theme';
 
 const FILL = { flex: 1 } as const;
+
+// ST2-A: the system splash stays up until the route data is ready (RouteDataProvider hides it), so
+// there is no second logo screen after it. Called here, at load, so it runs before the first frame.
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Already hidden (a fast refresh); nothing to hold
+});
 
 export default function RootLayout() {
   // Follows backend sign-in (does nothing when the backend keys are absent) and the Energy wallet
@@ -33,13 +39,6 @@ export default function RootLayout() {
 
 function ThemedStack() {
   const { scheme, colors } = useTheme();
-  // Every launch opens on the loading screen, then the introduction (first launch) or the tabs
-  const [started, setStarted] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setStarted(true), LOADING_MIN_MS);
-    return () => clearTimeout(timer);
-  }, []);
-  if (!started) return <LoadingScreen />;
   return (
     <>
       {/* Dark icons on the light theme, light icons on the dark one */}

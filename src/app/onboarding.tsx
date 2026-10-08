@@ -16,7 +16,7 @@ import {
   WifiOff,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -81,6 +81,20 @@ export default function OnboardingScreen() {
   const [handle, setHandle] = useState(savedUsername ?? '');
 
   const index = STEPS.indexOf(step);
+
+  // ST2-A: sign-in opens over the welcome, which moves on only once someone is signed in; Back from
+  // sign-in returns to the welcome
+  const signingIn = useRef(false);
+  useEffect(
+    () =>
+      useSessionStore.subscribe((state) => {
+        if (signingIn.current && state.status === 'signed-in') {
+          signingIn.current = false;
+          setStep('profile');
+        }
+      }),
+    [],
+  );
   const handleValid = handle.length === 0 || isValidUsername(handle);
 
   const saveHandle = () => {
@@ -104,7 +118,7 @@ export default function OnboardingScreen() {
       <View style={[styles.root, { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom }]}>
         <Welcome
           onSignIn={() => {
-            setStep('profile');
+            signingIn.current = true;
             router.push('/sign-in');
           }}
           onContinue={next}

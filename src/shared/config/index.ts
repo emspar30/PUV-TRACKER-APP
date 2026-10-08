@@ -71,9 +71,6 @@ export const DEMO_COMMUTER_STOP_CODE = 'SMB';
 // My Rides keeps this many recent rides (from "I boarded" at check-in, later from relay reports)
 export const RECENT_RIDES_MAX = 5;
 
-// The loading screen shows at least this long on every launch, so it never flashes
-export const LOADING_MIN_MS = 1200;
-
 // --- Live vehicles from the database (L1)
 // Speeds kept per vehicle for the stopped check (longer than STATIONARY_DURATION_S)
 export const LIVE_SPEED_HISTORY_S = 120;

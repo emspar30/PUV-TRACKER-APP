@@ -661,12 +661,18 @@ export const en = {
 
   signIn: {
     title: 'Sign in',
-    note: 'Live multicabs, check-in counts and reports need an account. The map, routes and fares work without one.',
     createTitle: 'Create account',
-    createNote: 'Only your email and a password. Your handle shows on reports instead of your name.',
     email: 'Email',
     password: 'Password',
     newPassword: (min: number) => `Password (at least ${min} characters)`,
+    // ST2-A
+    confirmPassword: 'Confirm password',
+    mismatch: 'The passwords do not match.',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    forgot: 'Forgot your password?',
+    forgotNeedsEmail: 'Enter your email above first.',
+    resetSent: 'If that email has an account, a reset link is on its way.',
     submit: 'Sign in',
     create: 'Create account',
     submitting: 'Please wait',
