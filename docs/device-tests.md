@@ -49,6 +49,7 @@ Rules:
 | — | ST1 smoke test | `Pixel_7` emulator; partner's Poco X6 Pro | 34; 36 | R1a | **Pending manual QA** (Emjay, 2026-10-07) | The seven checks (cold starts and splash, crash log, tabs and skeletons, consent and blue dot, withdraw, 28 m Fake GPS at check-in, live R4 markers and ETA) are to be run by hand, on the emulator and on the partner's phone. |
 | — | PC1-M1 to M8 | `Pixel_7` emulator; a physical phone for M4 | 34; — | R1a plus the PC1 JavaScript (no rebuild) | **Not run yet** | Compliance batch of 2026-10-08 (STATUS row 6o). The Energy migration is pushed, so M7 applies to live data too |
 | — | RR3-M1 to M5 | `Pixel_7` emulator | 34 | R1a plus the RR3 JavaScript (no rebuild) | **Not run yet** | Real route data, version 6 (STATUS row 6p) |
+| 2026-10-08 | Emulator QA: C1, RP1, N1, SB2, B-batches, PC1, RR3 | `Pixel_7` emulator | 34 | R1a plus `523319f` JavaScript | **Partly passed; 16 findings** | Agent's run, ~14 minutes, Demo data on, then off and signed in as the team test account. Findings EQ-1 to EQ-16 below, for ST2. Live check-in not completed (EQ-16) |
 | | S2-M3 ten minute soak (without GPS) | | | | not run yet | Needs ten minutes of panning and zooming by hand. No crash was reported during Emjay's shorter manual check. |
 | | S2-M2 blue dot, S2-M4 permission denied | | | | deferred (GPS-free order) | Plan Revision 1. |
 
@@ -294,6 +295,31 @@ Press `r` in the Metro terminal. The first launch replaces the stored route rows
 | RR3-M3 | My Rides: NIS → LIB; TAL → FSU; LAN → LBT; ROB → TAL; then TAL → ROB | R3, R4, R5 and R14 trips with a fare; TAL → ROB says the route does not go that way (R14's return is not traced) |
 | RR3-M4 | Demo data on: Map, R1 and R14 | Demo vehicles drive the new lines; R1 goes round without jumping back; R14 turns at both ends (stand-in return) |
 | RR3-M5 | Demo settings: simulated location on | The commuter is at SM City (`SMB`); a device that had MCA saved also lands at SM City |
+
+## Emulator QA findings (2026-10-08, for ST2)
+
+Agent's run on the `Pixel_7` emulator (API 34), build R1a with the JavaScript at `523319f`. Seen working: the bundle refreshed (Energy hidden in the top bar and Profile); six routes on the real lines with demo vehicles; vehicle card with ETA, "km from you" and Demo label; tracking free, with ETA, "km by road" and the stop strip; demo check-in with countdown, tab dot and Cancel; live sign-in; live relay without GPS ("Update relayed", First relay badge) shown in Crowdsource with Trusted and "Near SM City Butuan"; Profile badges and places; Settings Privacy rows (contact address shown, the email link opens Gmail); My Rides SMB to BAN on R1, 6.2 km, ₱16.75 Student (₱21.00 regular); a saved old demo stop (MCA) falls back to SM City.
+
+| # | Severity | Where | Finding |
+| --- | --- | --- | --- |
+| EQ-1 | Major | My Rides fare card (`features/ride/RideCards.tsx`) | No "Estimate" label and no "Does not replace the official fare" (PRD 7.2, 15.3). PC1 put the disclaimer in `RideResult.tsx`, whose fare view is no longer used |
+| EQ-2 | Major (confirm on a phone) | Whole app after ~14 min | Touches stopped working (tabs, card); then the map drew only its top half. Native heap 673 MB, total 908 MB PSS. Log: "Can't cancel already finished gesture" just before. The emulator draws GL in software, which counts in that heap, so the partner's phone must confirm (`adb shell dumpsys meminfo com.tunton.app` after 15 minutes of use) |
+| EQ-3 | Major | Check-in on live data | The collapsed station card did not expand again after a Cancel, so a live check-in could not be made in this run (linked to EQ-2 or not: retest after a restart) |
+| EQ-4 | Medium | Route list, Check-in and Relay chips, Crowdsource filter | Routes sorted as text: R1, R14, R2, R3 … R14 should come last |
+| EQ-5 | Medium | Tracking panel | "2 seats open" in green for 14/16 taken, while the vehicle card uses the red Full tier for the same vehicle (13 or more taken is Full, PRD 7.3) |
+| EQ-6 | Medium | Profile, Your rides | "Reports 0" after a relay, while the badges count it (First relay earned, Helping hand 1/5). Also the label says Reports where the app says relays |
+| EQ-7 | Medium | Crowdsource | The user's own post shows the Flag button instead of "You" |
+| EQ-8 | Medium | Profile | The skeleton stayed about 5 to 8 s (expected 0.9 s, `SKELETON_LONG_MS`) |
+| EQ-9 | Low | Check-in, first open | The map took about 10 s to draw; meanwhile the screen was light beige in Dark mode (white status text on it) |
+| EQ-10 | Low | Check-in, active card | Six route badges stack in a tall column beside the station name |
+| EQ-11 | Low | Check-in | A blank dark strip between the top bar and the map; the card covers most station dots, and the camera does not frame the chosen station in the free space |
+| EQ-12 | Low | Map, tracking | The commuter's own marker (YOU) sits under the round buttons at the right edge |
+| EQ-13 | Low | Route names | Every route card reads "…, outbound"; R3 to R5 names use "Ampayon-Libertad" without the spaces of the new names |
+| EQ-14 | Low | Toast over dialog | "Badge earned" toast is drawn under the dialog's dimmed backdrop |
+| EQ-15 | Low | Demo settings, Stand at | No chip selected when the saved stop is an old code (MCA); SM City is used but not shown as chosen |
+| EQ-16 | Low | Profile, Your places | Places saved before RR3 keep the old placeholder codes (TSO, IMA) |
+
+Not app bugs: the grey gear button on every screen is the Expo development menu (not in user builds); a MapLibre "glClientWaitSync failed" console error at launch comes from the emulator's GL. Switches look half drawn on this emulator (check on a phone).
 
 ## Partner's phone results (merged from b21b0c1)
 
