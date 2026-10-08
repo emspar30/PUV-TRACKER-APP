@@ -178,7 +178,9 @@ export function trimLine(line: Position[], at: Position): TrimResult {
 //   (the downtown loop), and it ends where it passed earlier. The rest of the outbound is the same
 //   road back to the turnaround, so the outbound is derived: from the end, back along the line to
 //   its start (marked derived and partial). Vehicles then go round with no U-turn mid-route.
-export type ReturnRule = 'vice_versa' | 'partial_return' | 'closes_back';
+// - outbound_only (R14, RR3): the traced line is the outbound, it stops short of the far terminal,
+//   and the return is not provided (marked partial; the route is a draft)
+export type ReturnRule = 'vice_versa' | 'partial_return' | 'closes_back' | 'outbound_only';
 
 // closes_back: the distance along the line of the earliest pass by its own end point, at least
 // ROUTE_CLOSE_BACK_MIN_GAP_M before the end; null when the line never comes back there
@@ -219,7 +221,8 @@ export type ImportedRoute = {
     | 'traced loop'
     | 'outbound traced; return derived (reverse)'
     | 'return leg traced, partial; outbound not provided'
-    | 'return traced; outbound derived (back along it to the turnaround)';
+    | 'return traced; outbound derived (back along it to the turnaround)'
+    | 'outbound traced, partial; return not provided';
   pointsBefore: number;
   pointsAfter: number;
   maxDeviationM: number;
@@ -233,7 +236,7 @@ export function importRoute(geojson: unknown, rule: ReturnRule, bounds: Bounds, 
   const issues = [...merged.issues];
   if (merged.line.length > 0) issues.push(...checkOrder(merged.line), ...checkBounds(merged.line, bounds));
   // The traced line is the outbound of a "vice versa" route and the return of a partial one
-  const tracedDirection = rule === 'vice_versa' ? 'outbound' : 'return';
+  const tracedDirection = rule === 'vice_versa' || rule === 'outbound_only' ? 'outbound' : 'return';
   const trimPoint = options.trimAt?.[tracedDirection];
   const trimmed = trimPoint && merged.line.length > 1 ? trimLine(merged.line, trimPoint) : null;
   const { line, maxDeviationM } = simplifyLine(trimmed ? trimmed.line : merged.line);
@@ -254,6 +257,9 @@ export function importRoute(geojson: unknown, rule: ReturnRule, bounds: Bounds, 
       directions: [traced, { direction: 'return', coordinates: reversed, lengthKm, derived: true, partial: false, perDirection: false }],
       note: 'outbound traced; return derived (reverse)',
     };
+  }
+  if (rule === 'outbound_only') {
+    return { ...base, directionMode: 'one_way', directions: [{ ...traced, partial: true }], note: 'outbound traced, partial; return not provided' };
   }
   if (rule === 'closes_back') {
     const atKm = closesBackAtKm(line);

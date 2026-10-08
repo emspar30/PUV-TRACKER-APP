@@ -107,6 +107,13 @@ describe('route import: directions', () => {
     expect(r.directions.map((d) => [d.direction, d.derived, d.partial])).toEqual([['return', false, true]]);
     expect(r.note).toBe('return leg traced, partial; outbound not provided');
   });
+
+  it('an outbound-only leg is stored as the outbound direction, marked partial (R14, RR3)', () => {
+    const r = importRoute({ type: 'LineString', coordinates: street }, 'outbound_only', BOUNDS);
+    expect(r.directionMode).toBe('one_way');
+    expect(r.directions.map((d) => [d.direction, d.derived, d.partial])).toEqual([['outbound', false, true]]);
+    expect(r.note).toBe('outbound traced, partial; return not provided');
+  });
 });
 
 // R4's shape: a highway in from the turnaround, then a loop downtown that ends back on the highway

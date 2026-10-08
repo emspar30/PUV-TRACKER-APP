@@ -6,6 +6,7 @@ import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { askLocationPermission, checkLocationPermission } from '@/services/location';
 import type { Place } from '@/shared/checkin/geofence';
+import { DEMO_COMMUTER_STOP_CODE } from '@/shared/config';
 import { boundsContainPoint } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
 import { fixAgeS } from '@/shared/location/accuracyGate';
@@ -32,7 +33,8 @@ export function useCommuterPosition(): CommuterPosition | null {
 
   return useMemo(() => {
     if (simulated) {
-      const stop = stops.find((candidate) => candidate.code === simulatedStop);
+      // A stop saved from older route data (RR3 replaced the placeholder stops) falls back to the default
+      const stop = stops.find((candidate) => candidate.code === simulatedStop) ?? stops.find((candidate) => candidate.code === DEMO_COMMUTER_STOP_CODE);
       if (stop) return { lat: stop.lat, lon: stop.lon, source: 'simulated', stopCode: stop.code };
     }
     if (fix && boundsContainPoint(TILESET.bounds, fix)) return { lat: fix.lat, lon: fix.lon, source: 'gps', stopCode: null };

@@ -17,7 +17,7 @@ const SCHEMES: ThemeScheme[] = ['light', 'dark'];
 // Route colours as stored with the route data, used as the dark-theme colours. Fixed values here,
 // so this test does not depend on the live seed file.
 const R4_STORED = '#00F5D4';
-const STORED: Readonly<Record<string, string>> = { R3: '#10B981', R4: R4_STORED, R5: '#F97316' };
+const STORED: Readonly<Record<string, string>> = { R1: '#60A5FA', R2: '#F472B6', R3: '#10B981', R4: R4_STORED, R5: '#F97316', R14: '#FACC15' };
 
 // The colour seen where a semi-transparent line lies over the map
 function blend(top: string, bottom: string, opacity: number): string {

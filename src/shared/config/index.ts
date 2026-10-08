@@ -66,7 +66,7 @@ export const TOAST_VISIBLE_MS = 4000;
 // Other vehicles fade to this while one is tracked
 export const TRACK_OTHERS_OPACITY = 0.35;
 // Demo mode: the commuter waits at this stop, until "Use my location" (G0) gives a real position
-export const DEMO_COMMUTER_STOP_CODE = 'JCA';
+export const DEMO_COMMUTER_STOP_CODE = 'SMB';
 
 // My Rides keeps this many recent rides (from "I boarded" at check-in, later from relay reports)
 export const RECENT_RIDES_MAX = 5;
@@ -124,6 +124,10 @@ export const ROUTING_P95_BUDGET_MS = 250;
 // A stop is listed on a line only if it lies within the maximum distance of it
 export const ROUTE_STOP_WARN_DISTANCE_M = 50;
 export const ROUTE_STOP_MAX_DISTANCE_M = 150;
+// RR3 (Emjay, 2026-10-08): a listed stop farther than ROUTE_STOP_MAX_DISTANCE_M from its route but
+// within this is moved onto the nearest point of the line; one farther still is left out until its
+// coordinates are corrected
+export const ROUTE_STOP_SNAP_MAX_M = 500;
 export const ROUTE_SIMPLIFY_TOLERANCE_M = 5;
 // Route import (RR1, scripts/import-route.ts). Run on the PC, never at app runtime.
 // A line with more points than this after simplification is reported

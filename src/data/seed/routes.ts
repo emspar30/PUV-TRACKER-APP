@@ -7,17 +7,19 @@
 import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP } from '../../shared/config';
 import { isDraftRoute } from '../../shared/routing/routeImport';
 
-import { GENERATED_LINES } from './routes.generated';
+import { GENERATED_LINES, GENERATED_STATIONS } from './routes.generated';
 
 // 1: the straight placeholder (S1). 2: Emjay's traced R3, R4 and R5 (RR1).
 // 3: stops assigned to routes (RR1), so R3 and R5 no longer pick up R4's stops.
 // 4: R4 outbound derived back along the updated trace to De Oro (closes_back), so R4 goes round.
 // 5: R5 outbound derived the same way, back to Santo Niño.
-export const ROUTE_DATA_VERSION = 5;
+// 6: RR3: R1, R2 (loops split at the downtown turnaround) and R14 (one leg) added; the real stops
+//    from docs/real_route_stops.md replace the six placeholder stops.
+export const ROUTE_DATA_VERSION = 6;
 
-// True while any route fact is a placeholder. The lines are traced, but the stops and the fares
-// are still placeholders, so the "Sample data" notice stays.
-// TODO(placeholder): set to false when the stops and the official fare are confirmed.
+// True while any route fact is a placeholder. The lines and stops are real (RR3), but the fares
+// are still the v1.0 values, so the "Sample data" notice stays.
+// TODO(placeholder): set to false when the official fare is confirmed.
 export const ROUTE_DATA_IS_PLACEHOLDER = true;
 
 export type SeedDirection = 'outbound' | 'return';
@@ -47,10 +49,14 @@ export type SeedRouteLine = {
 
 // Names from the Butuan City PUJ route map (October 2026). The colour is the dark-theme value
 // stored with the route; the light theme uses LIGHT_ROUTE_COLORS in src/theme/tokens.ts.
+// RR3: R1, R2 and R14 names from Emjay (2026-10-08); R14's trace ends at Taligaman, short of De Oro.
 const ROUTE_META: Readonly<Record<string, { name: string; color: string }>> = {
+  R1: { name: 'Bancasi - Downtown', color: '#60A5FA' },
+  R2: { name: 'Bancasi - Langihan', color: '#F472B6' },
   R3: { name: 'Ampayon-Libertad', color: '#10B981' },
   R4: { name: 'De Oro', color: '#00F5D4' },
   R5: { name: 'Santo Niño', color: '#F97316' },
+  R14: { name: 'Robinsons - De Oro', color: '#FACC15' },
 };
 
 const DIRECTION_ID: Record<SeedDirection, string> = { outbound: 'OUT', return: 'RET' };
@@ -82,14 +88,7 @@ export const DRAFT_ROUTE_CODES: ReadonlySet<string> = new Set(
   ),
 );
 
-// TODO(placeholder): candidate stops, unconfirmed. They belong to R4; R3 and R5 have no stops yet.
-// DEO was moved onto the start of the traced R4 line (De Oro Barangay Hall) on Emjay's decision
-// (2026-10-04); its location is not verified.
-export const SEED_STATIONS: SeedStation[] = [
-  { code: 'IMA', name: 'Imadejas Pob. (Bgy. 24), Butuan City', lat: 8.94755, lon: 125.531184, routeCodes: ['R4'] },
-  { code: 'TSO', name: 'Tandang Sora Pob. (Bgy. 12), Butuan City', lat: 8.946096, lon: 125.533083, routeCodes: ['R4'] },
-  { code: 'RCA', name: '553 R. Calo, Butuan City (Dunkin Donut)', lat: 8.947459, lon: 125.541426, routeCodes: ['R4'] },
-  { code: 'JCA', name: 'J C Aquino Ave, Butuan City', lat: 8.947506, lon: 125.541979, routeCodes: ['R4'] },
-  { code: 'MCA', name: '8-318 M. Calo St, Butuan City', lat: 8.947134, lon: 125.544259, routeCodes: ['R4'] },
-  { code: 'DEO', name: 'De Oro Barangay Hall (location not verified)', lat: 8.92625, lon: 125.64184, routeCodes: ['R4'] },
-];
+// RR3: the real stops (docs/real_route_stops.md), as written by scripts/import-route.ts. Stops
+// listed more than 150 m from their line were moved onto it (moved); six more than 500 m away are
+// left out until their coordinates are corrected (see routes.generated.ts).
+export const SEED_STATIONS: SeedStation[] = GENERATED_STATIONS.map(({ code, name, lat, lon, routeCodes }) => ({ code, name, lat, lon, routeCodes }));

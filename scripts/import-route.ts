@@ -1,4 +1,5 @@
-// Imports the traced route lines in assets/data/ into a seed module (RR1, RR2, RR3).
+// Imports the traced route lines in assets/data/ and the stop list in docs/real_route_stops.md
+// into a seed module (RR1, RR2, RR3).
 // Run on the PC with the installed tsx:
 //   npx tsx scripts/import-route.ts           dry run: report only, writes nothing
 //   npx tsx scripts/import-route.ts --write   writes src/data/seed/routes.generated.ts
@@ -7,15 +8,16 @@
 //
 // Files are found by name (RR3): route_<n>_outbound, _return, _cycle or _primary .geojson, where an
 // _updated file supersedes the plain one. Per-direction files give each leg; a cycle file is split
-// at the route's splitAt point; a primary file keeps the RR1 rule (and the RR2 trim).
+// at the route's splitAt point; a primary file keeps the RR1 rule (and the RR2 trim), or, when the
+// route has a splitAt point (R1, R2: closed loops), is split there like a cycle file.
+// Stops (RR3): see src/shared/routing/stopImport.ts for the keep, move and leave-out rule.
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Position } from 'geojson';
 
 import { TILESET } from '../src/data/map/tileset';
-import { SEED_STATIONS } from '../src/data/seed/routes';
-import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP } from '../src/shared/config';
+import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP, ROUTE_STOP_MAX_DISTANCE_M, ROUTE_STOP_SNAP_MAX_M } from '../src/shared/config';
 import { computeFare } from '../src/shared/fare/fare';
 import { planTrip } from '../src/shared/routing/plan';
 import {
@@ -30,6 +32,7 @@ import {
   type ImportOptions,
   type ReturnRule,
 } from '../src/shared/routing/routeImport';
+import { assignStops, parseStopList } from '../src/shared/routing/stopImport';
 import type { DirectedLine } from '../src/shared/routing/types';
 
 type RouteSource = {
@@ -50,6 +53,11 @@ type RouteSource = {
 
 
 const SOURCES: RouteSource[] = [
+  // R1 and R2 (RR3): closed loops from Bancasi round downtown and back. Split at the point farthest
+  // from the start (the importer's proposal, accepted by Emjay 2026-10-08): near Azote St and
+  // A.D. Curato St. Names from Emjay (2026-10-08).
+  { code: 'R1', number: 1, name: 'Bancasi - Downtown', rule: 'vice_versa', reverseMissing: false, splitAt: [125.54365, 8.94877] },
+  { code: 'R2', number: 2, name: 'Bancasi - Langihan', rule: 'vice_versa', reverseMissing: false, splitAt: [125.54437, 8.94871] },
   { code: 'R3', number: 3, name: 'Ampayon-Libertad', rule: 'vice_versa', reverseMissing: true },
   // R4: the updated trace runs De Oro to downtown and on round the downtown loop back to J C Aquino
   // Ave, where it passed before; the outbound is that road back to De Oro (closes_back). No trim:
@@ -58,11 +66,77 @@ const SOURCES: RouteSource[] = [
   // R5: the same shape as R4, Santo Niño to downtown and on to J C Aquino Ave, where it passed
   // before (closes_back); no trim, the tail is the start of the outbound
   { code: 'R5', number: 5, name: 'Santo Niño', rule: 'closes_back', reverseMissing: false },
+  // R14 (RR3): one leg, Robinsons to Taligaman, short of De Oro; the return is not traced and the
+  // directions file is empty, so it is the outbound only, a draft (Emjay, 2026-10-08)
+  { code: 'R14', number: 14, name: 'Robinsons - De Oro', rule: 'outbound_only', reverseMissing: false },
 ];
+
+// RR3: a station code for each name in docs/real_route_stops.md (letters only, 2 to 4, for the SMS
+// protocol, PRD 12.3). Names at the same position share a code.
+const STOP_CODES: Record<string, string> = {
+  'Dumalagan Crossing': 'DUM',
+  'Bancasi Airport': 'BAN',
+  Libertad: 'LIB',
+  'Robinsons-Transport Terminal': 'ROB',
+  'Robinsons - Transport Terminal': 'ROB',
+  "Butuan Doctors' Hospital": 'BDH',
+  'Hotel Oazis': 'OAZ',
+  'Hotel Oasis': 'OAZ',
+  'SM City Butuan': 'SMB',
+  'Zamora Cemetery': 'ZAM',
+  SJIT: 'SJI',
+  'Butuan Central ES': 'BCE',
+  'Agusan National HS': 'ANH',
+  'Golden Ribbon Cemetery': 'GRC',
+  'M.J. Santos Hospital': 'MJS',
+  'Timber City Academy': 'TCA',
+  'FSUU (Urios)': 'FSU',
+  'Butuan River Park': 'BRP',
+  'Post Office': 'POF',
+  'Obrero ES': 'OBR',
+  'Happy Enterprise': 'HAP',
+  'Langihan Public Market': 'LPM',
+  'Holy Church Redeemer': 'HCR',
+  BCSAT: 'BWB',
+  'Water District': 'BWB',
+  BIR: 'BWB',
+  'BCSAT / Water District / BIR': 'BWB',
+  Ampayon: 'AMP',
+  'Caraga State University (Main Campus)': 'CSU',
+  'CSU Bus Stop': 'CSU',
+  'Tiniwisan Crossing': 'TIN',
+  Nissan: 'NIS',
+  'Baan Viaduct': 'BAA',
+  'De Oro': 'DEO',
+  Taligaman: 'TAL',
+  Antangalon: 'ANT',
+  Antongalon: 'ANT',
+  'Solar Gas Station': 'SOL',
+  LTFRB: 'LTF',
+  'Santo Niño': 'SNO',
+  'Los Angeles': 'LAN',
+  Sumilihon: 'SUM',
+  "The Holy Shepherd's Park": 'HSP',
+  'Lumina - Taguibo': 'LUM',
+  'Langihan Bus - Jeep Terminal': 'LBT',
+  'Bridgetown-Rosewood-Windfields': 'BRW',
+  'Macapagal Bridge-Pangabugan': 'MAC',
+  Mahay: 'MAH',
+};
+
+// The name shown for a code whose names differ in the list
+const STOP_NAMES: Record<string, string> = {
+  ROB: 'Robinsons Transport Terminal',
+  OAZ: 'Hotel Oazis',
+  BWB: 'BCSAT / Water District / BIR',
+  CSU: 'Caraga State University (Main Campus)',
+  ANT: 'Antongalon',
+};
 
 const ROOT = path.join(__dirname, '..');
 const DATA = path.join(ROOT, 'assets', 'data');
 const OUT = path.join(ROOT, 'src', 'data', 'seed', 'routes.generated.ts');
+const STOPS = path.join(ROOT, 'docs', 'real_route_stops.md');
 const write = process.argv.includes('--write');
 const files = pickRouteFiles(fs.readdirSync(DATA));
 const read = (file: string): unknown => JSON.parse(fs.readFileSync(path.join(DATA, file), 'utf8'));
@@ -72,7 +146,10 @@ type Result = { source: RouteSource; used: string[]; directionMode: 'one_way' | 
 
 const results: Result[] = SOURCES.map((source) => {
   const own = files.filter((f) => f.routeNumber === source.number);
-  const legFiles = own.filter((f) => f.kind !== 'primary');
+  // A closed primary file with a splitAt point is read as a cycle file (R1, R2)
+  const legFiles = own
+    .filter((f) => f.kind !== 'primary' || source.splitAt)
+    .map((f) => (f.kind === 'primary' ? { ...f, kind: 'cycle' as const } : f));
   if (legFiles.length > 0) {
     const legs = importLegs(legFiles.map((file) => ({ file, geojson: read(file.file) })), TILESET.bounds, {
       splitAt: source.splitAt,
@@ -90,6 +167,10 @@ const results: Result[] = SOURCES.map((source) => {
   return { source, used: [primary.file], directionMode: route.directionMode, directions: route.directions, issues: route.issues };
 });
 
+// RR3: the stations, from the real stop list checked against these lines
+const linesByRoute = Object.fromEntries(results.map(({ source, directions }) => [source.code, directions.map((d) => d.coordinates)]));
+const { stations, issues: stopIssues } = assignStops(parseStopList(fs.readFileSync(STOPS, 'utf8')), linesByRoute, STOP_CODES, STOP_NAMES);
+
 for (const { source, used, directions, issues } of results) {
   console.log(`\n${source.code} ${source.name} (${used.join(', ') || 'no file'})${isDraftRoute(directions) ? '  [Draft]' : ''}`);
   for (const d of directions) {
@@ -104,10 +185,22 @@ for (const { source, used, directions, issues } of results) {
         `    loop: ${what} at ${loop.fromKm.toFixed(2)}-${loop.toKm.toFixed(2)} km, near ${loop.earlierKm.toFixed(2)} km (${Math.round(loop.nearestM)} m), ${loop.lengthKm.toFixed(2)} km round${loop.confirm ? ' - CONFIRM' : ''}`,
       );
     }
-    const stops = stopDistances(d.coordinates, SEED_STATIONS);
+    const stops = stopDistances(
+      d.coordinates,
+      stations.filter((station) => station.routeCodes.includes(source.code)),
+    );
     console.log(`    stops: ${stops.map((s) => `${s.code} ${s.passes.map((p) => `${p.chainageKm.toFixed(2)} km/${Math.round(p.offsetM)} m`).join(' & ')}`).join('; ') || 'none within 150 m'}`);
   }
   for (const issue of issues) console.log(`  ${issue.level.toUpperCase()}: ${issue.message}`);
+}
+
+console.log(`\nStations: ${stations.length}`);
+for (const station of stations.filter((st) => st.moved)) {
+  console.log(`  moved onto the line: ${station.code} ${station.name}, ${Math.round(station.moved!.offsetM)} m (${station.routeCodes.join(', ')})`);
+}
+for (const issue of stopIssues) {
+  const what = issue.reason === 'too_far' ? 'left out, too far from the line' : 'dropped from a route after the move';
+  console.log(`  ${what}: ${issue.code} ${issue.name}, ${Math.round(issue.offsetM)} m (${issue.routeCodes.join(', ')})`);
 }
 
 // What My Ride would answer with these legs (regular fare)
@@ -124,21 +217,16 @@ const lines: DirectedLine[] = results.flatMap(({ source, directionMode, directio
     fare,
   })),
 );
-const stop = (code: string) => SEED_STATIONS.find((s) => s.code === code)!;
-const endOf = (code: string, direction: 'outbound' | 'return', end: 'start' | 'end') => {
-  const line = lines.find((l) => l.routeCode === code && l.direction === direction) ?? lines.find((l) => l.routeCode === code)!;
-  const p = end === 'start' ? line.coordinates[0] : line.coordinates[line.coordinates.length - 1];
-  return { lon: p[0], lat: p[1] };
-};
+const stop = (code: string) => stations.find((s) => s.code === code)!;
 const trips: [string, { lat: number; lon: number }, { lat: number; lon: number }][] = [
-  ['MCA to DEO', stop('MCA'), stop('DEO')],
-  ['DEO to RCA', stop('DEO'), stop('RCA')],
-  ['RCA to DEO', stop('RCA'), stop('DEO')],
-  ['JCA to MCA', stop('JCA'), stop('MCA')],
-  ['R3 Ampayon end to MCA', endOf('R3', 'outbound', 'start'), stop('MCA')],
-  ['R3 RCA to Ampayon end', stop('RCA'), endOf('R3', 'outbound', 'start')],
-  ['R5 Santo Niño end to MCA', endOf('R5', 'return', 'start'), stop('MCA')],
-  ['R5 MCA to Santo Niño end', stop('MCA'), endOf('R5', 'return', 'start')],
+  ['R1 Bancasi to SM City', stop('BAN'), stop('SMB')],
+  ['R1 Golden Ribbon to Libertad', stop('GRC'), stop('LIB')],
+  ['R2 Libertad to Langihan Market', stop('LIB'), stop('LPM')],
+  ['R3 Nissan to Libertad', stop('NIS'), stop('LIB')],
+  ['R4 Taligaman to FSUU', stop('TAL'), stop('FSU')],
+  ['R5 Los Angeles to Langihan Terminal', stop('LAN'), stop('LBT')],
+  ['R14 Robinsons to Taligaman', stop('ROB'), stop('TAL')],
+  ['R14 Taligaman to Robinsons (not traced)', stop('TAL'), stop('ROB')],
 ];
 console.log('\nMy Ride with these legs (regular fare):');
 for (const [label, from, to] of trips) {
@@ -162,6 +250,8 @@ if (!write) {
 }
 
 const round = (n: number) => Math.round(n * 1e6) / 1e6;
+// A single-quoted TypeScript string, as the rest of the code base writes them
+const quote = (text: string) => `'${text.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 const body = results
   .map(({ source, directionMode, directions }) =>
     directions
@@ -184,7 +274,8 @@ const body = results
 
 fs.writeFileSync(
   OUT,
-  `// GENERATED by scripts/import-route.ts from assets/data/*.geojson. Do not edit by hand.
+  `// GENERATED by scripts/import-route.ts from assets/data/*.geojson and docs/real_route_stops.md.
+// Do not edit by hand.
 // Traced by Emjay in Google My Maps with the Directions tool and drag points (docs/route-trace.md).
 // Pure data: no React Native or Expo imports.
 
@@ -205,6 +296,27 @@ export type GeneratedLine = {
 
 export const GENERATED_LINES: GeneratedLine[] = [
 ${body}
+];
+
+// RR3: docs/real_route_stops.md, checked against the lines above (src/shared/routing/stopImport.ts).
+// moved: the listed position was ${ROUTE_STOP_MAX_DISTANCE_M} to ${ROUTE_STOP_SNAP_MAX_M} m from the line and was moved onto it.
+// Left out until corrected: ${stopIssues.filter((i) => i.reason === 'too_far').map((i) => `${i.name} (${Math.round(i.offsetM)} m)`).join(', ') || 'none'}.
+export type GeneratedStation = {
+  code: string;
+  name: string;
+  lat: number;
+  lon: number;
+  routeCodes: string[];
+  moved: boolean;
+};
+
+export const GENERATED_STATIONS: GeneratedStation[] = [
+${stations
+  .map(
+    (st) =>
+      `  { code: '${st.code}', name: ${quote(st.name)}, lat: ${round(st.lat)}, lon: ${round(st.lon)}, routeCodes: [${st.routeCodes.map(quote).join(', ')}], moved: ${Boolean(st.moved)} },`,
+  )
+  .join('\n')}
 ];
 `,
 );

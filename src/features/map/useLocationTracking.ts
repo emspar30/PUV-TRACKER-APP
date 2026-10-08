@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 
 import { useRouteData } from '@/data/RouteDataProvider';
 import { checkLocationPermission, watchFakeLocation, watchLocation } from '@/services/location';
+import { DEMO_COMMUTER_STOP_CODE } from '@/shared/config';
 import { selectLocationAllowed, useLocationStore } from '@/state/locationStore';
 import { useSettingsStore } from '@/state/settingsStore';
 
@@ -19,7 +20,7 @@ export function useLocationTracking(): void {
   const fakeAccuracyM = useSettingsStore((state) => state.fakeAccuracyM);
   const fakeMocked = useSettingsStore((state) => state.fakeMocked);
   const fakeStale = useSettingsStore((state) => state.fakeStale);
-  const fakePoint = stops.find((stop) => stop.code === fakeStop) ?? null;
+  const fakePoint = stops.find((stop) => stop.code === fakeStop) ?? stops.find((stop) => stop.code === DEMO_COMMUTER_STOP_CODE) ?? null;
   const fakeLat = fakePoint?.lat;
   const fakeLon = fakePoint?.lon;
 

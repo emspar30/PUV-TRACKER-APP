@@ -48,6 +48,7 @@ Rules:
 | 2026-10-07 | R1a build | `Pixel_7` emulator (x86_64) | 34 | R1a: `expo-system-ui`, `expo-splash-screen`, new icons; Expo patch updates (`expo` 57.0.27, `expo-asset` 57.0.19, `expo-constants` 57.0.21, `expo-linking` 57.0.12, `expo-router` 57.0.25, `expo-sqlite` 57.0.4) | **Built and running** | Built by Emjay (`prebuild --platform android --clean`, `run:android`). Agent's check: `android/` regenerated 2026-10-07, APK `lastUpdateTime` 2026-10-07 12:15:32, `expo install --check` up to date, `expo-doctor` 21/21. |
 | — | ST1 smoke test | `Pixel_7` emulator; partner's Poco X6 Pro | 34; 36 | R1a | **Pending manual QA** (Emjay, 2026-10-07) | The seven checks (cold starts and splash, crash log, tabs and skeletons, consent and blue dot, withdraw, 28 m Fake GPS at check-in, live R4 markers and ETA) are to be run by hand, on the emulator and on the partner's phone. |
 | — | PC1-M1 to M8 | `Pixel_7` emulator; a physical phone for M4 | 34; — | R1a plus the PC1 JavaScript (no rebuild) | **Not run yet** | Compliance batch of 2026-10-08 (STATUS row 6o). The Energy migration is pushed, so M7 applies to live data too |
+| — | RR3-M1 to M5 | `Pixel_7` emulator | 34 | R1a plus the RR3 JavaScript (no rebuild) | **Not run yet** | Real route data, version 6 (STATUS row 6p) |
 | | S2-M3 ten minute soak (without GPS) | | | | not run yet | Needs ten minutes of panning and zooming by hand. No crash was reported during Emjay's shorter manual check. |
 | | S2-M2 blue dot, S2-M4 permission denied | | | | deferred (GPS-free order) | Plan Revision 1. |
 
@@ -281,6 +282,18 @@ Press `r` in the Metro terminal; no rebuild is needed. **Never run PC1-M2 with t
 | PC1-M6 | Same as M5, then Track | No ETA pill on the card (it read "~212 min" before). Tracking says "ETA unavailable" with "x.x km by road". By day with a moving `sim-ingest` vehicle: no ETA while it is more than 10 km by road away or slower than 5 km/h; an ETA once it is closer and moving |
 | PC1-M7 | Look at the top bar, Profile, and the Relay form with GPS on; Track a vehicle with Demo data on | No Energy in the top bar; no Tracking Energy card on Profile; no Energy rows in General history; the Relay GPS line reads "Shows your multicab on the live map until your stop". Tracking starts without a "Not enough Energy" dialog. On live data the same once the Energy migration is pushed |
 | PC1-M8 | My Rides: plan MCA to DEO | Under "Estimate": "Does not replace the official fare" |
+
+## RR3 real routes and stops (2026-10-08)
+
+Press `r` in the Metro terminal. The first launch replaces the stored route rows (data version 6) without clearing app data.
+
+| Script | Action | Expected |
+| --- | --- | --- |
+| RR3-M1 | Map: open the route list | Six routes: "Route 1 (Bancasi - Downtown)" (blue), "Route 2 (Bancasi - Langihan)" (pink), R3, R4, R5, "Route 14 (Robinsons - De Oro)" (yellow). Each line follows the roads; R1 and R2 run Bancasi round downtown and back; R14 stops at Taligaman |
+| RR3-M2 | Check-in: All, then each route chip | Station dots on the roads, in the route colour. No dot at Dumalagan, Tiniwisan, De Oro, Santo Niño, Bridgetown or Mahay (left out until corrected) |
+| RR3-M3 | My Rides: NIS → LIB; TAL → FSU; LAN → LBT; ROB → TAL; then TAL → ROB | R3, R4, R5 and R14 trips with a fare; TAL → ROB says the route does not go that way (R14's return is not traced) |
+| RR3-M4 | Demo data on: Map, R1 and R14 | Demo vehicles drive the new lines; R1 goes round without jumping back; R14 turns at both ends (stand-in return) |
+| RR3-M5 | Demo settings: simulated location on | The commuter is at SM City (`SMB`); a device that had MCA saved also lands at SM City |
 
 ## Partner's phone results (merged from b21b0c1)
 
