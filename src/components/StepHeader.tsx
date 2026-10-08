@@ -8,8 +8,9 @@ type StepHeaderProps = {
   title: string;
   onBack?: () => void;
   onSkip?: () => void;
-  // The progress bar: step number (1-based), total steps and a short label on the right
-  step?: { current: number; total: number; label: string };
+  // The progress bar: step number (1-based) and total steps. ST2-B: no step name on the right; the
+  // title already says it
+  step?: { current: number; total: number };
 };
 
 const ICON_SIZE = spacing.lg;
@@ -42,10 +43,7 @@ export function StepHeader({ title, onBack, onSkip, step }: StepHeaderProps) {
       </View>
       {step ? (
         <View style={styles.progress} accessibilityLabel={strings.onboarding.step(step.current, step.total)}>
-          <View style={styles.progressLabels}>
-            <Text style={typography.overline}>{strings.onboarding.step(step.current, step.total)}</Text>
-            <Text style={typography.labelSm}>{step.label}</Text>
-          </View>
+          <Text style={typography.overline}>{strings.onboarding.step(step.current, step.total)}</Text>
           <View style={styles.segments}>
             {Array.from({ length: step.total }, (_, index) => (
               <View key={index} style={[styles.segment, index < step.current && styles.segmentOn]} />
@@ -87,10 +85,6 @@ const useStyles = makeStyles(({ colors }) => ({
   progress: {
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-  },
-  progressLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   segments: {
     flexDirection: 'row',

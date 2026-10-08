@@ -19,6 +19,8 @@ type OptionRowProps = {
   onPress?: () => void;
   // Shown on the right instead of the selection mark, such as a status chip
   trailing?: ReactNode;
+  // Under the subtitle, such as route badges (ST2-B)
+  below?: ReactNode;
   accessibilityLabel?: string;
 };
 
@@ -26,7 +28,7 @@ const MARK_SIZE = spacing.lg;
 const MARK_ICON = spacing.md;
 
 // One row card with an icon, a title and a subtitle (restyle). Used for choices and for feature lists.
-export function OptionRow({ title, subtitle, icon, tone, badge, selected = false, multiple = false, onPress, trailing, accessibilityLabel }: OptionRowProps) {
+export function OptionRow({ title, subtitle, icon, tone, badge, selected = false, multiple = false, onPress, trailing, below, accessibilityLabel }: OptionRowProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const choice = Boolean(onPress);
@@ -43,6 +45,7 @@ export function OptionRow({ title, subtitle, icon, tone, badge, selected = false
           ) : null}
         </View>
         {subtitle ? <Text style={typography.bodySm}>{subtitle}</Text> : null}
+        {below}
       </View>
       {trailing}
       {choice && !trailing ? (

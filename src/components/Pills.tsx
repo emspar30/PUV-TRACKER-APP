@@ -59,13 +59,14 @@ export function Chip({
   );
 }
 
-// A route code on the route's colour, for example "R4". Never truncated.
-export function LineBadge({ code, color }: { code: string; color: string }) {
+// A route code on the route's colour, for example "R4". Never truncated. `small` (ST2-B) for a list
+// where the badge sits under the main text and must not outweigh it.
+export function LineBadge({ code, color, small = false }: { code: string; color: string; small?: boolean }) {
   const styles = useStyles();
   const { routeBadgeText } = useTheme();
   return (
-    <View style={[styles.badge, { backgroundColor: color }]}>
-      <Text style={[styles.badgeText, { color: routeBadgeText }]}>{code}</Text>
+    <View style={[styles.badge, small && styles.badgeSmall, { backgroundColor: color }]}>
+      <Text style={[styles.badgeText, small && styles.badgeTextSmall, { color: routeBadgeText }]}>{code}</Text>
     </View>
   );
 }
@@ -155,6 +156,15 @@ const useStyles = makeStyles(({ colors, typography }) => ({
   },
   badgeText: {
     ...typography.labelLg,
+    fontWeight: '700',
+  },
+  badgeSmall: {
+    minWidth: spacing.lg,
+    paddingHorizontal: spacing.xs + spacing.xs / 2,
+    paddingVertical: 0,
+  },
+  badgeTextSmall: {
+    ...typography.labelMd,
     fontWeight: '700',
   },
 }));

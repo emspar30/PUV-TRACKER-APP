@@ -116,12 +116,12 @@ export const en = {
     sentBodyGps: (stop: string) => `Your location shows on the live map until you reach ${stop}.`,
     failedTitle: 'Update not sent',
     failedBody: 'Try again in a moment.',
-    noUsername: 'Pick a handle in Profile first.',
+    noUsername: 'Pick a username in Profile first.',
     openProfile: 'Open Profile',
   },
 
   topBar: {
-    // Shown until the user picks a handle
+    // Shown until the user picks a username
     guest: 'Commuter',
     notifications: 'Notifications',
     energy: (balance: string, refill: string | null) => `${balance} Tracking Energy${refill ? `, refill in ${refill}` : ''}`,
@@ -500,7 +500,7 @@ export const en = {
     deleteAccountLocalBody: 'Clears everything on this phone',
     deleteTitle: 'Delete your account?',
     deleteBody:
-      'Your account, handle, check-ins, relays, flags and Energy are removed from the server, and this phone is cleared. This cannot be undone.',
+      'Your account, username, check-ins, relays, flags and Energy are removed from the server, and this phone is cleared. This cannot be undone.',
     deleteLocalBody: 'You are not signed in, so only this phone is cleared: profile, places, rides and settings. This cannot be undone.',
     deleteConfirm: 'Delete',
     deleting: 'Deleting…',
@@ -561,16 +561,16 @@ export const en = {
   // Profile page (restyle): who you are in the app, and what stays on the phone
   profilePage: {
     title: 'Profile',
-    handle: 'Handle',
-    noHandle: 'No handle yet',
+    handle: 'Username',
+    noHandle: 'No username yet',
     fareType: 'Fare type',
     change: 'Change',
     // B7: the compact profile header
     fareTypeLabel: (current: string) => `Fare type, ${current}. Change`,
     changeAvatar: 'Change avatar',
     pickAvatar: 'Pick an avatar',
-    editHandle: 'Edit handle',
-    saveHandle: 'Save handle',
+    editHandle: 'Edit username',
+    saveHandle: 'Save username',
     cancelHandle: 'Cancel editing',
     trusted: 'Trusted commuter',
     trustedAvatar: 'Your avatar, Trusted commuter',
@@ -608,8 +608,8 @@ export const en = {
     } as Record<'gps_report' | 'no_gps_report' | 'checkin' | 'passive' | 'tracking', string>,
     energyAmount: (amount: number) => `${amount > 0 ? '+' : '−'}${Math.abs(amount).toFixed(1)}`,
     handleNotSaved: 'Not saved to your account yet',
-    handleTaken: 'Someone already has this handle. Pick another.',
-    handleSaveFailed: 'Could not save the handle. It will be sent again when you sign in.',
+    handleTaken: 'Someone already has this username. Pick another.',
+    handleSaveFailed: 'Could not save the username. It will be sent again when you sign in.',
   },
 
   loading: {
@@ -752,7 +752,6 @@ export const en = {
   },
 
   onboarding: {
-    savedOnPhone: 'Saved on your phone only',
     step: (current: number, total: number) => `Step ${current} of ${total}`,
     next: 'Continue',
     finish: 'Finish setup',
@@ -768,14 +767,17 @@ export const en = {
     welcomeNote: 'No phone number needed · You can sign in later',
     profileStep: 'Profile',
     profileTitle: 'Choose your profile',
-    profileBody: 'Pick an avatar and a handle.',
+    profileBody: 'Pick an avatar and a username.',
     persona: 'Your avatar',
     personaCount: (count: number) => `${count} styles`,
-    handle: 'Handle',
+    handle: 'Username',
     handlePlaceholder: 'e.g. JuanCommuter',
     handleHint: (min: number, max: number) => `${min} to ${max} letters, digits or _. Shown on your reports instead of your name.`,
     handleInvalid: (min: number, max: number) => `Use ${min} to ${max} letters, digits or _`,
-    handleBlocked: 'This handle is not allowed. Pick another.',
+    handleBlocked: 'This username is not allowed. Pick another.',
+    // ST2-B
+    suggestUsername: 'Suggest another username',
+    swipeAvatars: 'Swipe for more',
     typeStep: 'Fare',
     typeTitle: 'Select commuter type',
     typeBody: 'Applies the fare discount to your estimates.',
@@ -793,7 +795,9 @@ export const en = {
     placesNone: 'No place matches',
     placeLabel: (name: string) => `Frequent destination ${name}`,
     // F3: each landmark with the routes that serve it
-    placeRoutes: (name: string, codes: string[]) => (codes.length > 0 ? `${name} · ${codes.join(', ')}` : name),
+    // ST2-B: the full name is the title; the short code and route badges sit under it
+    showMorePlaces: (count: number) => `Show ${count} more`,
+    showFewerPlaces: 'Show fewer',
     permissionsStep: 'Permissions',
     permissionsTitle: 'App permissions',
     permissionsBody: 'Turn on what you want now; you can change it later in Android Settings.',

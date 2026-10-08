@@ -3,6 +3,9 @@ import {
   Accessibility,
   ArrowRight,
   BellRing,
+  ChevronDown,
+  ChevronUp,
+  Dices,
   GraduationCap,
   HeartHandshake,
   Lock,
@@ -19,8 +22,9 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { Button, Card, Logo, OptionRow, StepHeader } from '@/components';
+import { Button, Card, LineBadge, Logo, OptionRow, StepHeader } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
 import { useLocationPermission } from '@/features/map/useCommuterPosition';
@@ -32,12 +36,15 @@ import {
   FARE_DISCOUNT_MULTIPLIER,
   FARE_DISCOUNTED_CLASSES,
   FREQUENT_DESTINATIONS_MAX,
+  ONBOARDING_PLACES_PREVIEW,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
   type Classification,
 } from '@/shared/config';
 import { avatarSetFor } from '@/shared/profile/avatarPick';
+import { suggestUsername } from '@/shared/profile/usernameSuggest';
 import { routesNear } from '@/shared/routing/suggest';
+import { compareRouteCodes } from '@/shared/ui/routeVisibility';
 import { useDestinationsStore } from '@/state/destinationsStore';
 import { useFareType } from '@/state/fareType';
 import { useProfileStore } from '@/state/profileStore';
@@ -47,8 +54,15 @@ import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
 const HERO_SIZE = spacing.xl * 3;
-const PREVIEW_SIZE = spacing.xl * 3;
-const GRID_AVATAR = MIN_TOUCH_TARGET;
+// ST2-B: the avatar swipe row. Every cell is as wide as the chosen avatar, which sits in the middle,
+// larger and in full colour; the others are smaller and faded, and both edges fade into the page.
+const SLIDE_CELL = spacing.xl * 2 + spacing.md;
+const SLIDE_AVATAR = spacing.xl * 2 - spacing.sm;
+const SLIDE_RING = 2;
+const SLIDE_GAP = spacing.sm;
+const SLIDE_STEP = SLIDE_CELL + SLIDE_GAP;
+const SLIDE_FADED = 0.5;
+const SLIDE_FADE_WIDTH = spacing.xl + spacing.md;
 const ICON_SIZE = spacing.md;
 const PERCENT = 100;
 const DISCOUNT_PERCENT = Math.round((1 - FARE_DISCOUNT_MULTIPLIER) * PERCENT);
@@ -66,7 +80,7 @@ const TYPE_ICONS: Record<Classification, LucideIcon> = {
 };
 
 // The introduction (PRD 19, D3, D4, D7; restyle 2026-10-05): a welcome with sign-in, an avatar and
-// handle, the commuter type, frequent places, and what the app will ask for later. Every answer but
+// username, the commuter type, frequent places, and what the app will ask for later. Every answer but
 // the handle stays on the phone; the handle is sent when the user signs in. Skip works on every step,
 // and it can be replayed from Settings. It never asks for a permission itself.
 export default function OnboardingScreen() {
@@ -78,7 +92,8 @@ export default function OnboardingScreen() {
   const setOnboarded = useProfileStore((state) => state.setOnboarded);
   const savedUsername = useUsernameStore((state) => state.username);
   const setUsername = useUsernameStore((state) => state.setUsername);
-  const [handle, setHandle] = useState(savedUsername ?? '');
+  // ST2-B: never empty; without a saved username a suggested one is filled in, ready to edit
+  const [handle, setHandle] = useState(() => savedUsername ?? suggestUsername(Math.random));
 
   const index = STEPS.indexOf(step);
 
@@ -95,10 +110,10 @@ export default function OnboardingScreen() {
       }),
     [],
   );
-  const handleValid = handle.length === 0 || isValidUsername(handle);
+  const handleValid = isValidUsername(handle);
 
   const saveHandle = () => {
-    if (handle.length > 0 && isValidUsername(handle) && handle !== savedUsername) setUsername(handle);
+    if (handleValid && handle !== savedUsername) setUsername(handle);
   };
 
   const finish = () => {
@@ -140,10 +155,12 @@ export default function OnboardingScreen() {
         title={titles[step]}
         onBack={back}
         onSkip={finish}
-        step={{ current: index, total: COUNTED, label: titles[step] }}
+        step={{ current: index, total: COUNTED }}
       />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {step === 'profile' ? <ProfileStep handle={handle} onHandle={setHandle} valid={handleValid} /> : null}
+        {step === 'profile' ? (
+          <ProfileStep handle={handle} onHandle={setHandle} onSuggest={() => setHandle(suggestUsername(Math.random))} valid={handleValid} />
+        ) : null}
         {step === 'type' ? <TypeStep /> : null}
         {step === 'places' ? <PlacesStep /> : null}
         {step === 'permissions' ? <PermissionsStep /> : null}
@@ -217,41 +234,77 @@ function StepIntro({ title, body }: { title: string; body: string }) {
   );
 }
 
-function ProfileStep({ handle, onHandle, valid }: { handle: string; onHandle: (text: string) => void; valid: boolean }) {
+function ProfileStep({
+  handle,
+  onHandle,
+  onSuggest,
+  valid,
+}: {
+  handle: string;
+  onHandle: (text: string) => void;
+  onSuggest: () => void;
+  valid: boolean;
+}) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const avatarId = useProfileStore((state) => state.avatarId);
   const setAvatarId = useProfileStore((state) => state.setAvatarId);
   const gender = useProfileStore((state) => state.gender);
   const avatars = avatarSetFor(gender);
+  // ST2-B: the chosen avatar is kept in the middle, also after Shuffle; a swipe chooses the one that
+  // stops in the middle
+  const row = useRef<ScrollView>(null);
+  const [rowWidth, setRowWidth] = useState(0);
+  const selectedIndex = avatars.indexOf(avatarId ?? -1);
+  useEffect(() => {
+    if (rowWidth > 0 && selectedIndex >= 0) row.current?.scrollTo({ x: selectedIndex * SLIDE_STEP, animated: true });
+  }, [selectedIndex, rowWidth]);
+  const side = Math.max(0, (rowWidth - SLIDE_CELL) / 2);
   return (
     <>
       <StepIntro title={strings.onboarding.profileTitle} body={strings.onboarding.profileBody} />
-      <View style={styles.preview}>
-        <Avatar id={avatarId} size={PREVIEW_SIZE} />
-      </View>
       <View style={styles.groupLabel}>
         <Text style={typography.overline}>{strings.onboarding.persona}</Text>
         <Text style={typography.labelSm}>{strings.onboarding.personaCount(avatars.length)}</Text>
         {/* B7: Shuffle lives here only */}
         <ShuffleAvatarChip />
       </View>
-      <View style={styles.grid} accessibilityRole="radiogroup">
-        {avatars.map((id) => {
-          const selected = id === avatarId;
-          return (
-            <Pressable
-              key={id}
-              style={[styles.gridCell, selected && styles.gridCellOn]}
-              onPress={() => setAvatarId(id)}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              accessibilityLabel={strings.avatar.option(id + 1)}
-            >
-              <Avatar id={id} size={GRID_AVATAR} />
-            </Pressable>
-          );
-        })}
+      <View style={styles.slideRow} onLayout={(event) => setRowWidth(event.nativeEvent.layout.width)}>
+        <ScrollView
+          ref={row}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={SLIDE_STEP}
+          decelerationRate="fast"
+          contentContainerStyle={[styles.slides, { paddingHorizontal: side }]}
+          onMomentumScrollEnd={(event) => {
+            const at = Math.round(event.nativeEvent.contentOffset.x / SLIDE_STEP);
+            const id = avatars[Math.min(Math.max(at, 0), avatars.length - 1)];
+            if (id !== avatarId) setAvatarId(id);
+          }}
+          accessibilityRole="radiogroup"
+          accessibilityHint={strings.onboarding.swipeAvatars}
+        >
+          {avatars.map((id) => {
+            const selected = id === avatarId;
+            return (
+              <Pressable
+                key={id}
+                style={styles.slide}
+                onPress={() => setAvatarId(id)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={strings.avatar.option(id + 1)}
+              >
+                <View style={[styles.ring, selected ? styles.ringOn : styles.faded]}>
+                  <Avatar id={id} size={selected ? SLIDE_CELL - SLIDE_RING * 4 : SLIDE_AVATAR} />
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <EdgeFade side="left" color={colors.canvas} />
+        <EdgeFade side="right" color={colors.canvas} />
       </View>
       <Text style={typography.overline}>{strings.onboarding.handle}</Text>
       <View style={[styles.input, !valid && styles.inputError]}>
@@ -267,6 +320,9 @@ function ProfileStep({ handle, onHandle, valid }: { handle: string; onHandle: (t
           maxLength={USERNAME_MAX_LENGTH}
           accessibilityLabel={strings.onboarding.handle}
         />
+        <Pressable style={styles.suggest} onPress={onSuggest} accessibilityRole="button" accessibilityLabel={strings.onboarding.suggestUsername}>
+          <Dices color={colors.primary} size={ICON_SIZE + spacing.xs} />
+        </Pressable>
       </View>
       <Text style={[typography.bodySm, !valid && styles.error]}>
         {valid
@@ -298,21 +354,26 @@ function TypeStep() {
           />
         ))}
       </View>
-      <SavedOnPhone />
     </>
   );
 }
 
 function PlacesStep() {
   const styles = useStyles();
-  const { colors, typography } = useTheme();
+  const { colors, typography, routeColor } = useTheme();
   const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState(false);
   const destinations = useDestinationsStore((state) => state.destinations);
   const add = useDestinationsStore((state) => state.add);
   const remove = useDestinationsStore((state) => state.remove);
   const needle = query.trim().toLowerCase();
   const matches = LANDMARKS.filter((landmark) => `${landmark.label} ${landmark.name}`.toLowerCase().includes(needle));
   const { lines } = useRouteData();
+  // ST2-B: the first few places, and any already picked; the rest behind Show more
+  const isPicked = (id: string) => destinations.some((item) => item.id === id);
+  const shown = expanded ? matches : matches.filter((landmark, at) => at < ONBOARDING_PLACES_PREVIEW || isPicked(landmark.id));
+  const hidden = matches.length - shown.length;
+  const colorOf = (code: string) => routeColor(code, lines.find((line) => line.routeCode === code)?.color ?? colors.primary);
   return (
     <>
       <StepIntro title={strings.onboarding.placesTitle} body={strings.onboarding.placesBody(FREQUENT_DESTINATIONS_MAX)} />
@@ -328,17 +389,26 @@ function PlacesStep() {
         />
       </View>
       <View style={styles.list}>
-        {matches.map((landmark) => {
-          const selected = destinations.some((item) => item.id === landmark.id);
+        {shown.map((landmark) => {
+          const selected = isPicked(landmark.id);
+          const codes = routesNear(lines, landmark)
+            .map((item) => item.routeCode)
+            .sort(compareRouteCodes);
           return (
             <OptionRow
               key={landmark.id}
               icon={MapPin}
-              title={landmark.label}
-              subtitle={strings.onboarding.placeRoutes(
-                landmark.name,
-                routesNear(lines, landmark).map((item) => item.routeCode),
-              )}
+              title={landmark.name}
+              subtitle={landmark.label}
+              below={
+                codes.length > 0 ? (
+                  <View style={styles.badges}>
+                    {codes.map((code) => (
+                      <LineBadge key={code} code={code} color={colorOf(code)} small />
+                    ))}
+                  </View>
+                ) : undefined
+              }
               multiple
               selected={selected}
               accessibilityLabel={strings.onboarding.placeLabel(`${landmark.label}, ${landmark.name}`)}
@@ -349,8 +419,15 @@ function PlacesStep() {
           );
         })}
         {matches.length === 0 ? <Text style={typography.bodySm}>{strings.onboarding.placesNone}</Text> : null}
+        {matches.length > ONBOARDING_PLACES_PREVIEW && (expanded || hidden > 0) ? (
+          <Pressable style={styles.more} onPress={() => setExpanded(!expanded)} accessibilityRole="button">
+            <Text style={[typography.labelLg, styles.moreText]}>
+              {expanded ? strings.onboarding.showFewerPlaces : strings.onboarding.showMorePlaces(hidden)}
+            </Text>
+            {expanded ? <ChevronUp color={colors.primary} size={ICON_SIZE} /> : <ChevronDown color={colors.primary} size={ICON_SIZE} />}
+          </Pressable>
+        ) : null}
       </View>
-      <SavedOnPhone />
     </>
   );
 }
@@ -411,13 +488,21 @@ function PermissionsStep() {
   );
 }
 
-function SavedOnPhone() {
+// A strip over one end of the avatar row that fades from the page colour to clear
+function EdgeFade({ side, color }: { side: 'left' | 'right'; color: string }) {
   const styles = useStyles();
-  const { colors, typography } = useTheme();
+  const id = `fade-${side}`;
   return (
-    <View style={styles.note}>
-      <Lock color={colors.textSecondary} size={ICON_SIZE} />
-      <Text style={typography.bodySm}>{strings.onboarding.savedOnPhone}</Text>
+    <View pointerEvents="none" style={[styles.fade, side === 'left' ? styles.fadeLeft : styles.fadeRight]}>
+      <Svg width="100%" height="100%">
+        <Defs>
+          <LinearGradient id={id} x1={side === 'left' ? '0' : '1'} y1="0" x2={side === 'left' ? '1' : '0'} y2="0">
+            <Stop offset="0" stopColor={color} stopOpacity={1} />
+            <Stop offset="1" stopColor={color} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#${id})`} />
+      </Svg>
     </View>
   );
 }
@@ -452,29 +537,48 @@ const useStyles = makeStyles(({ colors }) => ({
     justifyContent: 'center',
     gap: spacing.sm,
   },
-  preview: {
-    alignItems: 'center',
-  },
   groupLabel: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+  // Edge to edge, past the page padding, so the row reads as swipeable
+  slideRow: {
+    marginHorizontal: -spacing.md,
   },
-  gridCell: {
-    padding: spacing.xs,
-    borderRadius: radii.card,
-    borderWidth: 2,
-    borderColor: colors.outline,
-    backgroundColor: colors.card,
+  slides: {
+    gap: SLIDE_GAP,
+    alignItems: 'center',
   },
-  gridCellOn: {
+  slide: {
+    width: SLIDE_CELL,
+    height: SLIDE_CELL,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ring: {
+    padding: SLIDE_RING,
+    borderRadius: SLIDE_CELL / 2,
+    borderWidth: SLIDE_RING,
+    borderColor: 'transparent',
+  },
+  ringOn: {
     borderColor: colors.primary,
-    backgroundColor: colors.primaryContainer,
+  },
+  faded: {
+    opacity: SLIDE_FADED,
+  },
+  fade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: SLIDE_FADE_WIDTH,
+  },
+  fadeLeft: {
+    left: 0,
+  },
+  fadeRight: {
+    right: 0,
   },
   input: {
     minHeight: MIN_TOUCH_TARGET + spacing.xs,
@@ -492,6 +596,28 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   inputText: {
     flex: 1,
+  },
+  suggest: {
+    minWidth: MIN_TOUCH_TARGET,
+    minHeight: MIN_TOUCH_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -spacing.sm,
+  },
+  badges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  more: {
+    minHeight: MIN_TOUCH_TARGET,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  moreText: {
+    color: colors.primary,
   },
   error: {
     color: colors.danger,

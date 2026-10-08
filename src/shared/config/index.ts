@@ -32,6 +32,11 @@ export const LIVE_UI_REFRESH_INTERVAL_S = 5;
 // --- Username (PRD 19 D7; the same rule as set_username in the migration)
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 20;
+// ST2-B: the suggested username (a word pair and this many digits), retried if a pair is not allowed
+export const USERNAME_SUGGEST_DIGITS = 3;
+export const USERNAME_SUGGEST_ATTEMPTS = 5;
+// ST2-B: places listed in the introduction before "Show more"
+export const ONBOARDING_PLACES_PREVIEW = 5;
 // D7 blocklist, checked on the phone (any case): names no one may take, and words no name may
 // contain. A small English list for now; Emjay supplies the full English and Cebuano lists before
 // any public release.
