@@ -5,7 +5,7 @@
     "scheme": "tunton",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/tunton-icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#ffffff",
     "platforms": [
@@ -14,10 +14,10 @@
     "android": {
       "package": "com.tunton.app",
       "adaptiveIcon": {
-        "backgroundColor": "#e8f0fe",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#14191e",
+        "foregroundImage": "./assets/tunton-adaptive-foreground.png",
+        "backgroundImage": "./assets/tunton-adaptive-background.png",
+        "monochromeImage": "./assets/tunton-adaptive-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -53,7 +53,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/tunton-icon.png",
           "imageWidth": 200
         }
       ]
