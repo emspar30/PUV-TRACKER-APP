@@ -11,20 +11,22 @@ describe.each(['light', 'dark'] as const)('map labels, %s', (scheme) => {
   const layers = labelLayers(MAP_LABELS[scheme], false);
   const byId = Object.fromEntries(layers.map((layer) => [layer.id, layer]));
 
-  it('has the four tiers at zoom 11, 13, 13 and 15', () => {
+  it('has the five tiers at zoom 11, 13, 13, 15 and 16 (building names, ST2-C3)', () => {
     expect(layers.map((layer) => [layer.id, layer.minzoom])).toEqual([
       ['label-city', 11],
       ['label-barangay', 13],
       ['label-major-road', 13],
       ['label-street', 15],
+      ['label-poi', 16],
     ]);
     expect(layers.map((layer) => layer.id)).toEqual([...LABEL_LAYER_IDS]);
   });
 
-  it('reads only the offline tile source, places and roads', () => {
+  it('reads only the offline tile source: places, roads and points of interest', () => {
     for (const layer of layers) expect(layer.source).toBe(OFFLINE_SOURCE_ID);
     expect(byId['label-city']['source-layer']).toBe('places');
     expect(byId['label-street']['source-layer']).toBe('roads');
+    expect(byId['label-poi']['source-layer']).toBe('pois');
     expect(JSON.stringify(layers)).not.toMatch(/https?:\/\//);
   });
 

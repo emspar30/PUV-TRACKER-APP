@@ -1,5 +1,6 @@
 import {
   Camera,
+  LogManager,
   Map,
   type CameraRef,
   type StyleSpecification,
@@ -12,17 +13,17 @@ import { Pressable, StyleSheet, Text, View, type NativeSyntheticEvent } from 're
 import { GLYPH_FONT_REGULAR, LABEL_PROOF } from '@/data/map/glyphset';
 import { buildOfflineStyle } from '@/data/map/offlineStyle';
 import { TILESET } from '@/data/map/tileset';
-import { useRouteData } from '@/data/RouteDataProvider';
 import {
   MAP_ATTRIBUTION_SHOW_S,
-  MAP_BOUNDS_MARGIN_DEG,
-  MAP_EDGE_INSET_DEG,
   MAP_LABEL_PROOF_DEV,
   MAP_MIN_ZOOM,
   MAP_OVERZOOM_LEVELS,
   MAP_REFIT_WINDOW_MS,
+  MAP_VIEW_START_DEG,
+  MAP_VIEW_STEP_DEG,
 } from '@/shared/config';
-import { boundsOfLines, panBounds, type Bounds } from '@/shared/geo/bounds';
+import { panLimit, roundView, type Bounds } from '@/shared/geo/bounds';
+import { isExpectedMapLog } from '@/shared/map/mapLogs';
 import type { LatLon } from '@/shared/geo/haversine';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
@@ -32,6 +33,11 @@ import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme'
 
 // EQ-12: the right side also keeps clear of the column of round buttons, so a framed point (the
 // commuter while tracking) is never under them
+// A place name with a symbol outside the bundled Latin fonts (such as № or ★) makes MapLibre report
+// the missing glyph range; the symbol is skipped and the label still draws, so that one message is
+// not shown. Every other MapLibre message goes to the console as before.
+LogManager.onLog((event) => isExpectedMapLog(event.message));
+
 const PADDING = { top: spacing.xl, right: spacing.xl + MIN_TOUCH_TARGET, bottom: spacing.xl, left: spacing.xl };
 // B8: the camera may go a little past the offline tiles, so a route near their edge (De Oro, at the
 // north) can still be framed in the space the cards leave; the margin mostly sits under the top bar
@@ -107,12 +113,13 @@ export function OfflineMap({
     return buildOfflineStyle(tilesUrl, baseMap, glyphsUrl, proof) as unknown as StyleSpecification;
   }, [tilesUrl, baseMap, glyphsUrl, colors.textPrimary]);
 
-  // ST2-C2: the camera stays over the routes' area, short of the tile edge, and zooms out to the city
-  const { lines: routeLines } = useRouteData();
-  const panLimit = useMemo(
-    () => panBounds(boundsOfLines(routeLines.map((line) => line.coordinates)), TILESET.bounds, MAP_BOUNDS_MARGIN_DEG, MAP_EDGE_INSET_DEG),
-    [routeLines],
-  );
+  // ST2-C3: the screen edge stops at the tile edge at any zoom: the limit follows the visible area,
+  // rounded so small moves keep it, and the map zooms out to the city at most
+  const [viewKey, setViewKey] = useState(`${MAP_VIEW_START_DEG}x${MAP_VIEW_START_DEG}`);
+  const maxBounds = useMemo(() => {
+    const [lon, lat] = viewKey.split('x').map(Number);
+    return panLimit(TILESET.bounds, [0, 0, lon, lat]);
+  }, [viewKey]);
 
   const padding = { ...PADDING, top: PADDING.top + topInset, bottom: PADDING.bottom + bottomInset };
   // B8: the last area framed and when, to frame it again if the cards over the map change size
@@ -151,7 +158,11 @@ export function OfflineMap({
   const mapKey = `${scheme}-${showLabels ? 'labels' : 'plain'}`;
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
-  const handleRegionDidChange = (event: NativeSyntheticEvent<ViewStateChangeEvent>) => onViewChange?.(event.nativeEvent);
+  const handleRegionDidChange = (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+    const [, , lon, lat] = roundView(event.nativeEvent.bounds, MAP_VIEW_STEP_DEG);
+    setViewKey(`${lon}x${lat}`);
+    onViewChange?.(event.nativeEvent);
+  };
 
   return (
     <View style={styles.root}>
@@ -199,7 +210,7 @@ export function OfflineMap({
           initialViewState={{ bounds: initialBounds, padding }}
           minZoom={MAP_MIN_ZOOM}
           maxZoom={TILESET.maxZoom + MAP_OVERZOOM_LEVELS}
-          maxBounds={panLimit}
+          maxBounds={maxBounds}
         />
         {children}
       </Map>

@@ -20,6 +20,8 @@ type StoredSettings = {
   defaultRoute: string | null;
   seatFilter: boolean;
   arrivalAlert: boolean;
+  // ST2-C3: stop dots on the My Rides map (hidden to move round the map freely)
+  rideStops: boolean;
   // Demo settings: stand at a stop instead of using GPS (for the emulator, which has no real fix)
   simulatedLocation: boolean;
   simulatedStop: string;
@@ -42,6 +44,7 @@ type SettingsState = StoredSettings &
   setDefaultRoute: (code: string | null) => void;
   setSeatFilter: (on: boolean) => void;
   setArrivalAlert: (on: boolean) => void;
+  setRideStops: (on: boolean) => void;
   setSimulatedLocation: (on: boolean) => void;
   setSimulatedStop: (code: string) => void;
   setFakeGps: (on: boolean) => void;
@@ -59,6 +62,7 @@ const DEFAULTS: StoredSettings & FakeGps = {
   defaultRoute: null,
   seatFilter: false,
   arrivalAlert: false,
+  rideStops: true,
   simulatedLocation: false,
   simulatedStop: DEMO_COMMUTER_STOP_CODE,
   fakeGps: false,
@@ -87,6 +91,7 @@ export const useSettingsStore = create<SettingsState>()(
       setDefaultRoute: (defaultRoute) => set({ defaultRoute }),
       setSeatFilter: (seatFilter) => set({ seatFilter }),
       setArrivalAlert: (arrivalAlert) => set({ arrivalAlert }),
+      setRideStops: (rideStops) => set({ rideStops }),
       // The simulated stop and the fake GPS source are one or the other
       setSimulatedLocation: (simulatedLocation) => set(simulatedLocation ? { simulatedLocation, fakeGps: false } : { simulatedLocation }),
       setSimulatedStop: (simulatedStop) => set({ simulatedStop }),
@@ -97,13 +102,14 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'settings',
       storage: deviceStorage,
-      partialize: ({ theme, demoData, mapLabels, defaultRoute, seatFilter, arrivalAlert, simulatedLocation, simulatedStop }) => ({
+      partialize: ({ theme, demoData, mapLabels, defaultRoute, seatFilter, arrivalAlert, rideStops, simulatedLocation, simulatedStop }) => ({
         theme,
         demoData,
         mapLabels,
         defaultRoute,
         seatFilter,
         arrivalAlert,
+        rideStops,
         simulatedLocation,
         simulatedStop,
       }),
@@ -118,6 +124,7 @@ export const useSettingsStore = create<SettingsState>()(
           defaultRoute: typeof stored.defaultRoute === 'string' || stored.defaultRoute === null ? stored.defaultRoute : current.defaultRoute,
           seatFilter: bool(stored.seatFilter, current.seatFilter),
           arrivalAlert: bool(stored.arrivalAlert, current.arrivalAlert),
+          rideStops: bool(stored.rideStops, current.rideStops),
           simulatedLocation: bool(stored.simulatedLocation, current.simulatedLocation),
           simulatedStop: typeof stored.simulatedStop === 'string' ? stored.simulatedStop : current.simulatedStop,
         };

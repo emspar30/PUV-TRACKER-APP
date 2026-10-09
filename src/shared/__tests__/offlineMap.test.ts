@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import {
   OFFLINE_SOURCE_ID,
   OFFLINE_SOURCE_LAYERS,
+  WATER_AREA_MIN_ZOOM,
   buildOfflineStyle,
   pmtilesUrl,
   type MapPalette,
@@ -13,8 +14,8 @@ import { TILESET } from '../../data/map/tileset';
 import { glyphsUrl } from '../map/glyphInstall';
 import { BASE_MAPS } from '../../theme/tokens';
 import { R4_LINES, R4_STATIONS } from './fixtures/r4Placeholder';
-import { MAP_BOUNDS_MARGIN_DEG, MAP_EDGE_INSET_DEG, MAP_OVERZOOM_LEVELS } from '../config';
-import { boundsContain, boundsOfLines, clipBounds, padBounds, panBounds } from '../geo/bounds';
+import { MAP_OVERZOOM_LEVELS, MAP_VIEW_STEP_DEG } from '../config';
+import { boundsContain, boundsOfLines, clipBounds, panLimit, roundView } from '../geo/bounds';
 
 // Distinct marker colours, so the test can tell where each one ends up
 const PALETTE: MapPalette = {
@@ -66,7 +67,22 @@ describe.each([
 
   it('leaves out the water polygons tagged as a lake (the fishponds drawn over land, ST2-C2)', () => {
     const water = style.layers.find((layer) => layer.id === 'water');
-    expect(water?.filter).toEqual(['!', ['in', ['get', 'kind_detail'], ['literal', ['lake']]]]);
+    expect(JSON.stringify(water?.filter)).toContain('["literal",["lake"]]');
+  });
+
+  it('draws inland water areas from zoom 14 and rivers as lines below, the sea at every zoom (ST2-C3)', () => {
+    const byId = Object.fromEntries(style.layers.map((layer) => [layer.id, layer]));
+    expect(byId['water-ocean']).toMatchObject({ type: 'fill', filter: ['==', ['get', 'kind'], 'ocean'] });
+    expect(byId['water-ocean']).not.toHaveProperty('minzoom');
+    expect(byId.water).toMatchObject({ type: 'fill', minzoom: WATER_AREA_MIN_ZOOM });
+    expect(byId['water-river-line']).toMatchObject({ type: 'line', maxzoom: WATER_AREA_MIN_ZOOM, 'source-layer': 'water' });
+  });
+
+  it('does not shade farmland, wetland or woods, which read as water in grey (ST2-C3)', () => {
+    const landuse = style.layers.find((layer) => layer.id === 'landuse');
+    expect(JSON.stringify(landuse?.filter)).toContain('farmland');
+    expect(JSON.stringify(landuse?.filter)).toContain('wetland');
+    expect(JSON.stringify(landuse?.filter)).not.toContain('park');
   });
 
   it('takes every colour from the palette it is given', () => {
@@ -201,25 +217,35 @@ describe('initial map view', () => {
   });
 });
 
-describe('pan bounds (ST2-C2)', () => {
+describe('pan limit (ST2-C3)', () => {
   const tiles = TILESET.bounds;
 
-  it('cover the routes plus the margin, inside the tiles less the edge inset', () => {
-    const routes: [number, number, number, number] = [125.53, 8.93, 125.6, 8.98];
-    const pan = panBounds(routes, tiles, MAP_BOUNDS_MARGIN_DEG, MAP_EDGE_INSET_DEG);
-    expect(boundsContain(tiles, padBounds(pan, MAP_EDGE_INSET_DEG - 1e-9))).toBe(true);
-    expect(pan[0]).toBeCloseTo(125.53 - MAP_BOUNDS_MARGIN_DEG);
-    expect(pan[3]).toBeCloseTo(8.98 + MAP_BOUNDS_MARGIN_DEG);
+  it('lets the screen edge reach the tile edge, and no further', () => {
+    const view: [number, number, number, number] = [125.5, 8.9, 125.52, 8.94];
+    const limit = panLimit(tiles, view);
+    expect(limit[0]).toBeCloseTo(tiles[0] + 0.01);
+    expect(limit[2]).toBeCloseTo(tiles[2] - 0.01);
+    expect(limit[1]).toBeCloseTo(tiles[1] + 0.02);
+    expect(limit[3]).toBeCloseTo(tiles[3] - 0.02);
   });
 
-  it('stop short of the tile edge where a route runs past it (R5 to the north)', () => {
-    const pan = panBounds([125.47, 8.9, 125.65, 9.1], tiles, MAP_BOUNDS_MARGIN_DEG, MAP_EDGE_INSET_DEG);
-    expect(pan[3]).toBeCloseTo(tiles[3] - MAP_EDGE_INSET_DEG);
-    expect(pan[0]).toBeCloseTo(tiles[0] + MAP_EDGE_INSET_DEG);
+  it('reaches nearer the corners the further the map is zoomed in', () => {
+    const wide = panLimit(tiles, [0, 0, 0.2, 0.1]);
+    const close = panLimit(tiles, [0, 0, 0.01, 0.005]);
+    expect(boundsContain(close, wide)).toBe(true);
+    expect(close[3]).toBeGreaterThan(wide[3]);
   });
 
-  it('for the shipped routes, never let the centre reach past the tiles', () => {
-    const pan = panBounds(boundsOfLines(R4_LINES.map((line) => line.coordinates)), tiles, MAP_BOUNDS_MARGIN_DEG, MAP_EDGE_INSET_DEG);
-    expect(boundsContain(tiles, pan)).toBe(true);
+  it('holds the centre at the middle of a side the screen cannot fit', () => {
+    const limit = panLimit(tiles, [0, 0, 1, 1]);
+    expect(limit[0]).toBeCloseTo((tiles[0] + tiles[2]) / 2);
+    expect(limit[0]).toBe(limit[2]);
+  });
+
+  it('rounds the visible area up to the step, so small moves keep the same limit', () => {
+    const a = roundView([125.5, 8.9, 125.5131, 8.92], MAP_VIEW_STEP_DEG);
+    const b = roundView([125.51, 8.91, 125.5229, 8.9299], MAP_VIEW_STEP_DEG);
+    expect(a).toEqual(b);
+    expect(a[2]).toBeGreaterThanOrEqual(0.0131);
   });
 });

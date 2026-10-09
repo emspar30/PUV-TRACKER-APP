@@ -1,14 +1,15 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { ChevronRight, MapPin, Star } from 'lucide-react-native';
+import { ChevronRight, MapPin, MapPinOff, Star } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomSheet, Chip, Hint, LineBadge, Logo, SkeletonCard, TopBar, type SheetRequest } from '@/components';
+import { BottomSheet, Chip, Hint, LineBadge, Logo, RoundButton, SkeletonCard, TopBar, type SheetRequest } from '@/components';
 import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
+import { MAP_PLACES } from '@/data/seed/places';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
@@ -39,6 +40,7 @@ import { useFareType } from '@/state/fareType';
 import { useHintsStore } from '@/state/hintsStore';
 import { useCountsStore } from '@/state/countsStore';
 import { useRidesStore } from '@/state/ridesStore';
+import { useSettingsStore } from '@/state/settingsStore';
 import { showToast } from '@/state/toastStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
@@ -107,6 +109,9 @@ export default function MyRidesScreen() {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState(false);
   const [cardHeight, setCardHeight] = useState(0);
+  // ST2-C3: the stop dots can be hidden to move round the map freely; remembered
+  const showStops = useSettingsStore((state) => state.rideStops);
+  const setShowStops = useSettingsStore((state) => state.setRideStops);
   const [focus, setFocus] = useState<MapFocus | null>(null);
   // The route the rider picked among the alternatives; null follows the best match
   const [chosenRoute, setChosenRoute] = useState<string | null>(null);
@@ -244,12 +249,21 @@ export default function MyRidesScreen() {
     setSearching((current) => (current === target ? null : target));
   };
 
-  // ST2-C2: typed search over the stops and the saved places (no network). With nothing typed yet,
-  // the saved places are offered.
+  // ST2-C2: typed search over the stops and the saved places, and (ST2-C3) the buildings, barangays
+  // and streets of the offline map; no network. With nothing typed yet, the saved places are offered.
   const searchable = useMemo<SearchablePlace[]>(
     () => [
       ...destinations.map((place) => ({ id: place.id, title: place.label, lat: place.lat, lon: place.lon, kind: 'saved' as const })),
       ...stops.map((stop) => ({ id: `stop-${stop.code}`, title: stop.name, code: stop.code, lat: stop.lat, lon: stop.lon, kind: 'stop' as const })),
+      ...MAP_PLACES.map(([title, category, group, lat, lon, near], index) => ({
+        id: `map-${index}`,
+        title,
+        lat,
+        lon,
+        kind: group,
+        category,
+        near: near || undefined,
+      })),
     ],
     [destinations, stops],
   );
@@ -335,9 +349,9 @@ export default function MyRidesScreen() {
               onPress={(position) => pick(pinnedPoint(position))}
             >
               <RouteLines lines={layers.lines} visible={ALL_DIRECTIONS} opacity={layers.opacity} />
-              {/* ST2-C2: every stop, so one can be tapped for From or To */}
+              {/* ST2-C2: every stop, so one can be tapped for From or To; ST2-C3: unless hidden */}
               <StopDots
-                stops={stops}
+                stops={showStops ? stops : []}
                 selectedCode={null}
                 onPressStop={(code) => {
                   const stop = stops.find((candidate) => candidate.code === code);
@@ -386,12 +400,18 @@ export default function MyRidesScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={strings.ride.searchResult(place.title)}
                 >
-                  {place.kind === 'saved' ? <Star color={colors.warning} size={ICON_SIZE} /> : <MapPin color={colors.primary} size={ICON_SIZE} />}
+                  {place.kind === 'saved' ? (
+                    <Star color={colors.warning} size={ICON_SIZE} />
+                  ) : (
+                    <MapPin color={place.kind === 'stop' ? colors.primary : colors.textSecondary} size={ICON_SIZE} />
+                  )}
                   <View style={styles.grow}>
                     <Text style={typography.labelLg} numberOfLines={1}>
                       {place.title}
                     </Text>
-                    <Text style={typography.bodySm}>{place.kind === 'saved' ? strings.ride.savedPlace : place.code}</Text>
+                    <Text style={typography.bodySm} numberOfLines={1}>
+                      {strings.ride.resultDetail(place)}
+                    </Text>
                   </View>
                 </Pressable>
               ))}
@@ -402,6 +422,17 @@ export default function MyRidesScreen() {
           id="ride"
           request={sheetRequest}
           onSnapChange={onSheetSnap}
+          floating={
+            <>
+              <View />
+              <RoundButton
+                icon={showStops ? MapPinOff : MapPin}
+                label={showStops ? strings.ride.hideStops : strings.ride.showStops}
+                active={!showStops}
+                onPress={() => setShowStops(!showStops)}
+              />
+            </>
+          }
           header={
             !loadingResults && itinerary && fare && ride ? (
               <View style={styles.peek}>

@@ -135,31 +135,33 @@ export const PALETTES: Record<ThemeScheme, Palette> = {
   },
 };
 
+// ST2-C3: neutral grey in both themes, with no blue: the tiles mark fishponds, mangroves and the river
+// mouth as water, which read as land on the ground; route colours stand out on the grey
 export const BASE_MAPS: Record<ThemeScheme, BaseMapPalette> = {
   light: {
-    background: '#f8f9fa',
-    land: '#f8f9fa',
-    water: '#dde8f8',
-    landuse: '#e6f4ea',
-    building: '#e8eaed',
+    background: '#f4f4f4',
+    land: '#f4f4f4',
+    water: '#dedede',
+    landuse: '#e6e6e6',
+    building: '#e2e2e2',
     road: '#ffffff',
-    roadCasing: '#dadce0',
-    boundary: '#9aa0a6',
+    roadCasing: '#d4d4d4',
+    boundary: '#9e9e9e',
     landuseOpacity: 0.7,
     buildingOpacity: 1,
     roadOpacity: 1,
     boundaryOpacity: 0.5,
   },
   dark: {
-    background: '#0B0F17',
-    land: '#161F30',
-    water: '#0B0F17',
-    landuse: '#10B981',
-    building: '#94A3B8',
-    road: '#94A3B8',
+    background: '#121212',
+    land: '#1c1c1c',
+    water: '#121212',
+    landuse: '#ffffff',
+    building: '#9e9e9e',
+    road: '#9e9e9e',
     roadCasing: null,
-    boundary: '#94A3B8',
-    landuseOpacity: 0.06,
+    boundary: '#9e9e9e',
+    landuseOpacity: 0.04,
     buildingOpacity: 0.12,
     roadOpacity: 0.55,
     boundaryOpacity: 0.3,
@@ -171,8 +173,8 @@ export const BASE_MAPS: Record<ThemeScheme, BaseMapPalette> = {
 export type MapLabelPaint = { text: string; muted: string; halo: string };
 
 export const MAP_LABELS: Record<ThemeScheme, MapLabelPaint> = {
-  light: { text: '#3c4043', muted: '#5f6368', halo: '#f8f9fa' },
-  dark: { text: '#E2E8F0', muted: '#A7B4C6', halo: '#161F30' },
+  light: { text: '#3c4043', muted: '#5f6368', halo: '#f4f4f4' },
+  dark: { text: '#e0e0e0', muted: '#ababab', halo: '#1c1c1c' },
 };
 
 export const MAP_PAINTS: Record<ThemeScheme, MapPaint> = {

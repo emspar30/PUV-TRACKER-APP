@@ -22,6 +22,50 @@ const meters = (value: number) => {
   return `${Math.round(value / WALK_STEP_M) * WALK_STEP_M} m`;
 };
 
+// ST2-C3: the kind of a map place, as shown under a search result. Kinds not listed read as written
+// in the map data ("sports_centre" as "Sports centre").
+const PLACE_KINDS: Record<string, string> = {
+  school: 'School',
+  kindergarten: 'School',
+  college: 'College',
+  university: 'University',
+  bus_stop: 'Bus stop',
+  bus_station: 'Terminal',
+  place_of_worship: 'Church',
+  religion: 'Church',
+  fuel: 'Fuel station',
+  hotel: 'Hotel',
+  guest_house: 'Inn',
+  fast_food: 'Fast food',
+  restaurant: 'Restaurant',
+  cafe: 'Café',
+  convenience: 'Store',
+  supermarket: 'Supermarket',
+  retail: 'Mall',
+  marketplace: 'Market',
+  bank: 'Bank',
+  atm: 'ATM',
+  pharmacy: 'Pharmacy',
+  hospital: 'Hospital',
+  clinic: 'Clinic',
+  health_post: 'Health center',
+  townhall: 'Barangay hall',
+  police: 'Police',
+  fire_station: 'Fire station',
+  post_office: 'Post office',
+  residential: 'Subdivision',
+  industrial: 'Industrial area',
+  commercial: 'Commercial area',
+  park: 'Park',
+  cemetery: 'Cemetery',
+};
+const placeKind = (kind: string) => {
+  const known = PLACE_KINDS[kind];
+  if (known) return known;
+  const words = kind.replace(/_/g, ' ').trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Place';
+};
+
 export const en = {
   format: { km, peso, meters },
 
@@ -386,8 +430,19 @@ export const en = {
     searchPlaceholder: 'Search a stop or place',
     searchField: (field: string) => `Search for ${field}`,
     searchResult: (name: string) => `Choose ${name}`,
-    savedPlace: 'Your place',
     noMatches: 'No stop or place by that name',
+    // ST2-C3: the line under a search result: a stop's code, "Your place", or the kind of place and
+    // the barangay it is near
+    resultDetail: (place: { kind: string; code?: string; category?: string; near?: string }) => {
+      if (place.kind === 'saved') return 'Your place';
+      if (place.kind === 'stop') return `Stop ${place.code ?? ''}`.trim();
+      if (place.kind === 'area') return 'Barangay';
+      const what = place.kind === 'street' ? 'Street' : placeKind(place.category ?? '');
+      return place.near ? `${what} · near ${place.near}` : what;
+    },
+    // ST2-C3: the stop dots on the My Rides map
+    hideStops: 'Hide stops',
+    showStops: 'Show stops',
     // ST2-C: the top line of the results sheet
     finding: 'Finding routes',
     noRoute: 'No route for this trip',

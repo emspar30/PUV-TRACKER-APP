@@ -186,6 +186,8 @@ export const LABEL_CITY_MIN_ZOOM = 11;
 export const LABEL_BARANGAY_MIN_ZOOM = 13;
 export const LABEL_MAJOR_ROAD_MIN_ZOOM = 13;
 export const LABEL_STREET_MIN_ZOOM = 15;
+// ST2-C3: building and other place names (schools, banks, churches ...) when zoomed in to the street
+export const LABEL_POI_MIN_ZOOM = 16;
 // Place names give way to streets when zoomed in: city names hide from 14, barangay names from 16
 export const LABEL_CITY_MAX_ZOOM = 14;
 export const LABEL_BARANGAY_MAX_ZOOM = 16;
@@ -261,12 +263,12 @@ export const SKELETON_LONG_MS = 900;
 // B8: a route framed this recently is framed again when the cards over the map change size (the
 // bottom card swaps as the route is picked), so it sits in the space they leave
 export const MAP_REFIT_WINDOW_MS = 1500;
-// ST2-C2: the camera stays over the city. Its centre may go this far past the routes (degrees,
-// about 2 km), never closer than MAP_EDGE_INSET_DEG to the edge of the offline tiles (about 5 km,
-// so the screen edge does not pass them), and it zooms out no further than MAP_MIN_ZOOM (the whole
+// ST2-C3: the camera stays over the offline tiles: the screen edge stops at the tile edge at any zoom
+// (the limit follows the visible area, rounded to MAP_VIEW_STEP_DEG; MAP_VIEW_START_DEG is assumed
+// across before the first camera report), and it zooms out no further than MAP_MIN_ZOOM (the whole
 // route area on a phone).
-export const MAP_BOUNDS_MARGIN_DEG = 0.02;
-export const MAP_EDGE_INSET_DEG = 0.05;
+export const MAP_VIEW_START_DEG = 0.1;
+export const MAP_VIEW_STEP_DEG = 0.004;
 export const MAP_MIN_ZOOM = 11.5;
 
 // --- Verification window and check-in (PRD 10.2, 8.4, 7.5). Defined now, used later.

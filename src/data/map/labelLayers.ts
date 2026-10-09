@@ -11,6 +11,7 @@ import {
   LABEL_CITY_MIN_ZOOM,
   LABEL_DIMMED_OPACITY,
   LABEL_MAJOR_ROAD_MIN_ZOOM,
+  LABEL_POI_MIN_ZOOM,
   LABEL_STREET_MIN_ZOOM,
 } from '../../shared/config';
 import type { MapLabelPaint } from '../../theme/tokens';
@@ -39,11 +40,14 @@ const SIZE = {
   city: ['interpolate', ['linear'], ['zoom'], 11, 13, 14, 14],
   barangay: ['interpolate', ['linear'], ['zoom'], 13, 12, 16, 13],
   road: ['interpolate', ['linear'], ['zoom'], 13, 11, 17, 12],
+  poi: ['interpolate', ['linear'], ['zoom'], 16, 11, 18, 12],
 } as const;
 // Lower numbers are placed first: city, barangay, major road, street
-const SORT = { city: 1, barangay: 2, major: 3, street: 4 } as const;
+const SORT = { city: 1, barangay: 2, major: 3, street: 4, poi: 5 } as const;
+// ST2-C3: area names (subdivisions, estates) are left to the barangay tier
+const POI_AREA_KINDS = ['residential', 'industrial', 'commercial'];
 
-export const LABEL_LAYER_IDS = ['label-city', 'label-barangay', 'label-major-road', 'label-street'] as const;
+export const LABEL_LAYER_IDS = ['label-city', 'label-barangay', 'label-major-road', 'label-street', 'label-poi'] as const;
 
 export function labelLayers(paint: MapLabelPaint, dimmed: boolean): LabelLayer[] {
   const opacity = dimmed ? LABEL_DIMMED_OPACITY : 1;
@@ -95,6 +99,15 @@ export function labelLayers(paint: MapLabelPaint, dimmed: boolean): LabelLayer[]
       minzoom: LABEL_STREET_MIN_ZOOM,
       filter: ['in', ['get', 'kind'], ['literal', ['medium_road', 'minor_road']]],
       layout: along(SORT.street),
+      paint: text(paint.muted),
+    },
+    {
+      ...base,
+      id: LABEL_LAYER_IDS[4],
+      'source-layer': 'pois',
+      minzoom: LABEL_POI_MIN_ZOOM,
+      filter: ['all', ['has', 'name'], ['!', ['in', ['get', 'kind'], ['literal', POI_AREA_KINDS]]]],
+      layout: point(GLYPH_FONT_REGULAR, SIZE.poi, SORT.poi),
       paint: text(paint.muted),
     },
   ];

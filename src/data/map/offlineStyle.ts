@@ -45,7 +45,22 @@ export function pmtilesUrl(fileUri: string): string {
 // as blue blocks over places people live; there is no real lake inside the map area. The sea,
 // the river and canals stay.
 export const WATER_KIND_DETAILS_HIDDEN = ['lake'] as const;
-const WATER_FILTER = ['!', ['in', ['get', 'kind_detail'], ['literal', WATER_KIND_DETAILS_HIDDEN]]];
+const NOT_HIDDEN_WATER = ['!', ['in', ['get', 'kind_detail'], ['literal', WATER_KIND_DETAILS_HIDDEN]]];
+// ST2-C3: in the lower zoom tiles (used up to map zoom 14, as MapLibre reads 512 px vector tiles one
+// level down) the extract holds the Agusan River as one polygon whose hole, the land between its
+// channels with downtown, fills most of it, and other water as rings MapLibre cannot fill cleanly:
+// it floods the land around them. Inland water areas are drawn from map zoom 14, where the tiles hold
+// simple pieces; below that rivers and canals are drawn as lines. The sea is drawn at every zoom.
+export const WATER_AREA_MIN_ZOOM = 14;
+const IS_OCEAN = ['==', ['get', 'kind'], 'ocean'];
+const WATER_FILTER = ['all', NOT_HIDDEN_WATER, ['!', IS_OCEAN]];
+const RIVER_LINE_FILTER = ['all', ['==', ['geometry-type'], 'LineString'], ['in', ['get', 'kind'], ['literal', ['river', 'canal']]]];
+const RIVER_LINE_WIDTH = ['interpolate', ['linear'], ['zoom'], 8, 1, 12, 4, 14, 10];
+
+// ST2-C3: the wide rural land uses are not shaded: farmland, wetland and woods cover most of the
+// map around the city and, in grey, read as water. Parks, schools, cemeteries and the like stay.
+export const LANDUSE_KINDS_HIDDEN = ['farmland', 'farmyard', 'orchard', 'meadow', 'grassland', 'scrub', 'wetland', 'wood', 'forest'] as const;
+const LANDUSE_FILTER = ['!', ['in', ['get', 'kind'], ['literal', LANDUSE_KINDS_HIDDEN]]];
 
 const ROAD_WIDTH = ['interpolate', ['linear'], ['zoom'], 8, 0.4, 12, 1, 16, 4];
 // The casing is the road width plus this much on each side
@@ -107,9 +122,29 @@ function buildBaseStyle(tilesUrl: string, palette: MapPalette): OfflineStyle {
         type: 'fill',
         source,
         'source-layer': 'landuse',
+        filter: LANDUSE_FILTER,
         paint: { 'fill-color': palette.landuse, 'fill-opacity': palette.landuseOpacity },
       },
-      { id: 'water', type: 'fill', source, 'source-layer': 'water', filter: WATER_FILTER, paint: { 'fill-color': palette.water } },
+      { id: 'water-ocean', type: 'fill', source, 'source-layer': 'water', filter: IS_OCEAN, paint: { 'fill-color': palette.water } },
+      {
+        id: 'water',
+        type: 'fill',
+        source,
+        'source-layer': 'water',
+        minzoom: WATER_AREA_MIN_ZOOM,
+        filter: WATER_FILTER,
+        paint: { 'fill-color': palette.water },
+      },
+      {
+        id: 'water-river-line',
+        type: 'line',
+        source,
+        'source-layer': 'water',
+        maxzoom: WATER_AREA_MIN_ZOOM,
+        filter: RIVER_LINE_FILTER,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': palette.water, 'line-width': RIVER_LINE_WIDTH },
+      },
       {
         id: 'buildings',
         type: 'fill',

@@ -61,27 +61,29 @@ export function boundsContainPoint(bounds: Bounds, point: { lat: number; lon: nu
 
 const HALVES = 2;
 
-// ST2-C2: where the camera centre may go: the routes' area grown by marginDeg, kept insetDeg inside
-// the tiles so the screen never shows past them. A side that cannot fit is centred on the tiles.
-export function panBounds(routes: Bounds, tiles: Bounds, marginDeg: number, insetDeg: number): Bounds {
+// ST2-C3: where the camera centre may go so the screen edge stops at the tile edge: the tiles less
+// half of what the screen shows. Zoomed in, the centre nearly reaches each corner; zoomed out, it
+// stays well inside. A side the screen cannot fit is held at the tiles' middle.
+export function panLimit(tiles: Bounds, view: Bounds): Bounds {
   const [tw, ts, te, tn] = tiles;
-  const inner: Bounds = [tw + insetDeg, ts + insetDeg, te - insetDeg, tn - insetDeg];
-  const [rw, rs, re, rn] = padBounds(routes, marginDeg);
-  const side = (low: number, high: number, min: number, max: number): [number, number] => {
-    if (min >= max) {
+  const halfLon = Math.abs(view[2] - view[0]) / HALVES;
+  const halfLat = Math.abs(view[3] - view[1]) / HALVES;
+  const side = (min: number, max: number, half: number): [number, number] => {
+    if (max - min <= half * HALVES) {
       const middle = (min + max) / HALVES;
       return [middle, middle];
     }
-    const a = Math.max(low, min);
-    const b = Math.min(high, max);
-    return a < b ? [a, b] : [min, max];
+    return [min + half, max - half];
   };
-  const [west, east] = side(rw, re, inner[0], inner[2]);
-  const [south, north] = side(rs, rn, inner[1], inner[3]);
+  const [west, east] = side(tw, te, halfLon);
+  const [south, north] = side(ts, tn, halfLat);
   return [west, south, east, north];
 }
 
-// B8: the bounds grown by marginDeg on every side
-export function padBounds([west, south, east, north]: Bounds, marginDeg: number): Bounds {
-  return [west - marginDeg, south - marginDeg, east + marginDeg, north + marginDeg];
+// ST2-C3: the visible area rounded out to a step, so small camera moves keep the same limit (no
+// re-render on every pan)
+export function roundView([west, south, east, north]: Bounds, stepDeg: number): Bounds {
+  const spanLon = Math.ceil(Math.abs(east - west) / stepDeg) * stepDeg;
+  const spanLat = Math.ceil(Math.abs(north - south) / stepDeg) * stepDeg;
+  return [0, 0, spanLon, spanLat];
 }
