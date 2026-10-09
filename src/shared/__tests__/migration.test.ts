@@ -245,9 +245,9 @@ describe('migration: row level security and grants', () => {
     expect(sql).toMatch(/rename to "telemetry_latest: team accounts read active vehicles"/);
   });
 
-  it('D1: the last Energy switch leaves tracking free', () => {
+  it('ST2-D2: the last Energy switch makes tracking cost Energy again', () => {
     const switches = statements.filter((s) => s.startsWith('update public.app_config set energy_enabled'));
-    expect(switches.pop()).toBe('update public.app_config set energy_enabled = false');
+    expect(switches.pop()).toBe('update public.app_config set energy_enabled = true');
   });
 
   it('publishes telemetry_latest, and only it, to Realtime', () => {

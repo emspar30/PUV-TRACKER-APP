@@ -1,15 +1,18 @@
 import { router } from 'expo-router';
-import { Bluetooth, X } from 'lucide-react-native';
+import { Bluetooth, MapPin, Search, X } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 
 import { Button, Chip, IconTile, LineBadge, RouteChip } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
 import type { FeedPhrase } from '@/shared/backend/rules';
-import { ENERGY_GPS_REPORT, ENERGY_NO_GPS_REPORT, ENERGY_UI_VISIBLE, FEED_LIFETIME_MIN, FEED_PHRASES } from '@/shared/config';
+import { PlaceResults } from '@/features/search/PlaceResults';
+import { usePlaceMatches, useSearchablePlaces } from '@/features/search/useSearchablePlaces';
+import { ENERGY_GPS_REPORT, ENERGY_NO_GPS_REPORT, ENERGY_UI_VISIBLE, FEED_LIFETIME_MIN, FEED_PHRASES, MAX_WALK_PER_LEG_M } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
-import { destinationOptions, relayStopCode } from '@/shared/relay/broadcast';
+import { destinationOptions, nearestDestination, relayStopCode } from '@/shared/relay/broadcast';
+import type { SearchablePlace } from '@/shared/routing/placeSearch';
 import type { RouteStop } from '@/shared/routing/types';
 import type { SeatTier } from '@/shared/telemetry/occupancy';
 import { sendReport } from '@/state/crowdStore';
@@ -22,6 +25,7 @@ import { useBleVehicle } from './useBleVehicle';
 
 const ICON_SIZE = spacing.md + spacing.xs;
 const PANEL_MAX_HEIGHT = '80%';
+const SEARCH_ICON = spacing.md + spacing.xs;
 const SEAT_TIERS: readonly SeatTier[] = ['green', 'amber', 'red'];
 
 type ReportSheetProps = {
@@ -54,6 +58,15 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
   const [seatTier, setSeatTier] = useState<SeatTier | null>(null);
   const [phrase, setPhrase] = useState<FeedPhrase | null>(null);
   const [destinationCode, setDestinationCode] = useState<string | null>(null);
+  // ST2-D2: the destination is typed and searched like From and To in My Rides (stops, buildings,
+  // barangays, streets; not the saved places). A place that is not a stop becomes the route's stop
+  // nearest to it, shown as "SM City Butuan · get off at SMB".
+  const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [destinationLabel, setDestinationLabel] = useState<string | null>(null);
+  const [searchIssue, setSearchIssue] = useState<string | null>(null);
+  const searchable = useSearchablePlaces({ saved: false });
+  const matches = usePlaceMatches(query, searching, searchable);
   const [pickedVehicle, setVehicleId] = useState<string | null>(null);
   const [withGps, setWithGps] = useState(gpsAvailable);
   const [sending, setSending] = useState(false);
@@ -65,6 +78,24 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
   const vehicleId = ble?.vehicleId ?? pickedVehicle;
   const destinations = useMemo(() => (route ? destinationOptions(stopsOf(route), position) : []), [route, stopsOf, position]);
   const destination = destinations.find((stop) => stop.code === destinationCode) ?? null;
+  const chooseDestination = (place: SearchablePlace) => {
+    const stop = destinations.find((candidate) => candidate.code === place.code) ?? nearestDestination(destinations, place, MAX_WALK_PER_LEG_M);
+    if (!stop) {
+      setSearchIssue(route ? strings.report.destinationTooFar(route, place.title) : strings.report.destinationNone);
+      return;
+    }
+    setDestinationCode(stop.code);
+    setDestinationLabel(stop.code === place.code ? stop.name : strings.report.destinationNear(place.title, stop.code));
+    setSearchIssue(null);
+    setSearching(false);
+    setQuery('');
+  };
+  const clearDestination = () => {
+    setDestinationCode(null);
+    setDestinationLabel(null);
+    setSearchIssue(null);
+  };
+
   // Sharing GPS needs a destination: reaching it is what ends the sharing
   const gpsPossible = gpsAvailable && destination !== null;
   const gps = withGps && gpsPossible;
@@ -130,7 +161,7 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
             <X color={colors.textSecondary} size={ICON_SIZE} />
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={styles.body}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           {ble ? (
             // B4 slot: the vehicle heard over Bluetooth replaces the manual pickers
             <View style={styles.ble} accessible accessibilityLabel={strings.report.bleLabel(ble.routeCode, ble.plate)}>
@@ -196,16 +227,40 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
 
           <Text style={typography.labelLg}>{strings.report.destination}</Text>
           <Text style={typography.bodySm}>{destinations.length > 0 ? strings.report.destinationHint : strings.report.destinationNone}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-            {destinations.map((stop) => (
-              <Chip
-                key={stop.code}
-                label={stop.name}
-                selected={stop.code === destinationCode}
-                onPress={() => setDestinationCode(stop.code === destinationCode ? null : stop.code)}
-              />
-            ))}
-          </ScrollView>
+          {destination ? (
+            <View style={styles.chosen}>
+              <MapPin color={colors.primary} size={SEARCH_ICON} />
+              <Text style={[typography.labelLg, styles.grow]} numberOfLines={1}>
+                {destinationLabel ?? destination.name}
+              </Text>
+              <Pressable style={styles.clear} onPress={clearDestination} accessibilityRole="button" accessibilityLabel={strings.report.destinationClear}>
+                <X color={colors.textSecondary} size={SEARCH_ICON} />
+              </Pressable>
+            </View>
+          ) : destinations.length > 0 ? (
+            <>
+              <View style={styles.searchBox}>
+                <Search color={colors.textSecondary} size={SEARCH_ICON} />
+                <TextInput
+                  style={[typography.bodyLg, styles.searchInput]}
+                  value={query}
+                  onChangeText={(text) => {
+                    setQuery(text);
+                    setSearchIssue(null);
+                  }}
+                  onFocus={() => setSearching(true)}
+                  onSubmitEditing={() => (matches[0] ? chooseDestination(matches[0]) : undefined)}
+                  placeholder={strings.report.destinationSearch}
+                  placeholderTextColor={colors.textTertiary}
+                  autoCorrect={false}
+                  returnKeyType="search"
+                  accessibilityLabel={strings.report.destinationSearch}
+                />
+              </View>
+              {searchIssue ? <Text style={[typography.bodySm, styles.issue]}>{searchIssue}</Text> : null}
+              {searching ? <PlaceResults matches={matches} query={query} onChoose={chooseDestination} /> : null}
+            </>
+          ) : null}
 
           <View style={styles.gpsRow}>
             <View style={styles.grow}>
@@ -234,6 +289,42 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
 }
 
 const useStyles = makeStyles(({ colors }) => ({
+  // ST2-D2: the destination search and the destination chosen
+  searchBox: {
+    minHeight: MIN_TOUCH_TARGET + spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    backgroundColor: colors.card,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.textPrimary,
+  },
+  chosen: {
+    minHeight: MIN_TOUCH_TARGET + spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingLeft: spacing.md,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryContainer,
+  },
+  clear: {
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  issue: {
+    color: colors.warning,
+  },
   backdrop: {
     position: 'absolute',
     top: 0,

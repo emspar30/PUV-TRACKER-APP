@@ -34,9 +34,9 @@ describe('the demo wallet', () => {
     expect(snapshot?.nextRefillMs).toBe(now + ENERGY_PASSIVE_INTERVAL_H * HOUR);
   });
 
-  it('is free by default (D1: Energy off in the demo too, ENERGY_ENABLED_DEMO)', async () => {
-    expect(ENERGY_ENABLED_DEMO).toBe(false);
-    const energy = createDemoEnergy(() => T0);
+  it('is free with Energy switched off (ENERGY_ENABLED_DEMO is on since ST2-D2)', async () => {
+    expect(ENERGY_ENABLED_DEMO).toBe(true);
+    const energy = createDemoEnergy(() => T0, false);
     await energy.refresh();
     expect((await energy.startTracking('track-aaaaaaaa')).ok).toBe(true);
     expect((await energy.startTracking('track-bbbbbbbb')).ok).toBe(true);

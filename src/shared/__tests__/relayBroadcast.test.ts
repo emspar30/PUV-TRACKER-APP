@@ -1,5 +1,5 @@
 import { FEED_STOP_NEAR_M, RELAY_BROADCAST_MAX_MIN, RELAY_DESTINATION_ARRIVED_M } from '../config';
-import { broadcastEnd, destinationOptions, inRouteOrder, relayStopCode, type RelayBroadcast } from '../relay/broadcast';
+import { broadcastEnd, destinationOptions, inRouteOrder, nearestDestination, relayStopCode, type RelayBroadcast } from '../relay/broadcast';
 
 const T0 = Date.UTC(2026, 9, 6, 2, 0, 0);
 const MIN = 60_000;
@@ -51,5 +51,19 @@ describe('relay broadcast (B4)', () => {
     expect(relayStopCode([near, nearer, far], DEST)).toBe('B');
     expect(relayStopCode([far], DEST)).toBeNull();
     expect(relayStopCode([near], null)).toBeNull();
+  });
+});
+
+describe('destination searched by name (ST2-D2)', () => {
+  const near = { code: 'NEA', name: 'Near', ...north(200), routeCodes: ['R4'] };
+  const far = { code: 'FAR', name: 'Far', ...north(900), routeCodes: ['R4'] };
+
+  it('is the route stop nearest the place', () => {
+    expect(nearestDestination([far, near], DEST, 500)?.code).toBe('NEA');
+  });
+
+  it('is none when no stop of the route is close enough', () => {
+    expect(nearestDestination([far], DEST, 500)).toBeNull();
+    expect(nearestDestination([], DEST, 500)).toBeNull();
   });
 });

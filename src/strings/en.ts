@@ -123,6 +123,11 @@ export const en = {
 
   // RP1: the Report button on the Live tab and its panel
   report: {
+    // ST2-D2: the destination typed and searched
+    destinationSearch: 'Search where you will get off',
+    destinationNear: (place: string, stop: string) => `${place} · get off at ${stop}`,
+    destinationTooFar: (route: string, place: string) => `No ${route} stop near ${place}`,
+    destinationClear: 'Clear the destination',
     // "Relay", not "Report": reporting a user is a different action
     button: 'Relay',
     title: 'Relay a multicab update',

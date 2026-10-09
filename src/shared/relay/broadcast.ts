@@ -31,6 +31,21 @@ export function destinationOptions(routeStops: readonly RouteStop[], position: L
   return routeStops.filter((stop) => haversineMeters(position, stop) > RELAY_DESTINATION_ARRIVED_M);
 }
 
+// ST2-D2: a destination searched by name (a building, a street) is the route's stop nearest to it,
+// within maxM; null when no stop of the route is that close
+export function nearestDestination(options: readonly RouteStop[], place: LatLon, maxM: number): RouteStop | null {
+  let best: RouteStop | null = null;
+  let bestM = maxM;
+  for (const stop of options) {
+    const metres = haversineMeters(place, stop);
+    if (metres <= bestM) {
+      best = stop;
+      bestM = metres;
+    }
+  }
+  return best;
+}
+
 // A route's stops in riding order: along its longest stored line, the one that covers the most of it
 export function inRouteOrder(lines: readonly LineCoordinates[], stops: readonly RouteStop[]): RouteStop[] {
   const longest = lines.filter((line) => line.length > 1).reduce<LineCoordinates | null>(

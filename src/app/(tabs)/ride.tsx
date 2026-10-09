@@ -9,7 +9,6 @@ import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
-import { MAP_PLACES } from '@/data/seed/places';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
@@ -23,13 +22,15 @@ import type { PickTarget, PickedPoint } from '@/features/ride/PointPills';
 import { FareSummaryCard, SuggestedRouteCard } from '@/features/ride/RideCards';
 import { RideFailure } from '@/features/ride/RideResult';
 import { TripCard } from '@/features/ride/TripCard';
-import { FARE_REGULAR_MULTIPLIER, FREQUENT_DESTINATIONS_MAX, PLACE_SEARCH_MAX_RESULTS, SKELETON_MIN_MS } from '@/shared/config';
+import { FARE_REGULAR_MULTIPLIER, FREQUENT_DESTINATIONS_MAX, SKELETON_MIN_MS } from '@/shared/config';
 import { discountMultiplier } from '@/shared/fare/fare';
 import { boundsOfLines, clipBounds, withMinimumSpan } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
 import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/describe';
 import { placeIdOf } from '@/shared/routing/suggest';
-import { searchPlaces, type SearchablePlace } from '@/shared/routing/placeSearch';
+import type { SearchablePlace } from '@/shared/routing/placeSearch';
+import { PlaceResults } from '@/features/search/PlaceResults';
+import { usePlaceMatches, useSearchablePlaces } from '@/features/search/useSearchablePlaces';
 import { promptSignIn, useIsGuest } from '@/features/auth/guestGate';
 import { explainFailure, type FailureExplanation } from '@/shared/routing/explainFailure';
 import { fareForItinerary, planOptions, planTrip } from '@/shared/routing/plan';
@@ -71,7 +72,7 @@ function routeCards(lines: DirectedLine[]): RouteCard[] {
 // uses the live (or demo) multicabs coming to the stop.
 export default function MyRidesScreen() {
   const styles = useStyles();
-  const { colors, typography, mapRoute, routeColor, elevation } = useTheme();
+  const { colors, typography, mapRoute, routeColor } = useTheme();
   const insets = useSafeAreaInsets();
   const { lines, stops } = useRouteData();
   const { state: tiles } = useOfflineTiles();
@@ -254,38 +255,8 @@ export default function MyRidesScreen() {
 
   // ST2-C2: typed search over the stops and the saved places, and (ST2-C3) the buildings, barangays
   // and streets of the offline map; no network. With nothing typed yet, the saved places are offered.
-  const searchable = useMemo<SearchablePlace[]>(
-    () => [
-      // A saved place keeps the id it was saved under, which for a stop is the stop's own (stop-LIB): it
-      // is listed once, as the saved place, and every kind has its own key prefix
-      ...destinations.map((place) => {
-        const stop = stops.find((candidate) => `stop-${candidate.code}` === place.id);
-        return { id: `saved-${place.id}`, title: stop?.name ?? place.label, code: stop?.code, lat: place.lat, lon: place.lon, kind: 'saved' as const };
-      }),
-      ...stops
-        .filter((stop) => !destinations.some((place) => place.id === `stop-${stop.code}`))
-        .map((stop) => ({ id: `stop-${stop.code}`, title: stop.name, code: stop.code, lat: stop.lat, lon: stop.lon, kind: 'stop' as const })),
-      ...MAP_PLACES.map(([title, category, group, lat, lon, near], index) => ({
-        id: `map-${index}`,
-        title,
-        lat,
-        lon,
-        kind: group,
-        category,
-        near: near || undefined,
-      })),
-    ],
-    [destinations, stops],
-  );
-  const matches = useMemo(
-    () =>
-      searching === null
-        ? []
-        : query.trim().length > 0
-          ? searchPlaces(query, searchable, PLACE_SEARCH_MAX_RESULTS)
-          : searchable.filter((place) => place.kind === 'saved').slice(0, PLACE_SEARCH_MAX_RESULTS),
-    [searching, query, searchable],
-  );
+  const searchable = useSearchablePlaces({ saved: true });
+  const matches = usePlaceMatches(query, searching !== null, searchable);
   const choose = (place: SearchablePlace) => pick({ lat: place.lat, lon: place.lon, label: place.code ?? place.title });
 
   const layers = useRouteLayers(lines, stops, 'ride', null, itinerary !== null);
@@ -399,34 +370,7 @@ export default function MyRidesScreen() {
               }}
             />
           </View>
-          {searching !== null && (matches.length > 0 || query.trim().length > 0) ? (
-            <View style={[styles.results, elevation.level2]}>
-              {matches.length === 0 ? <Text style={[typography.bodyMd, styles.noMatch]}>{strings.ride.noMatches}</Text> : null}
-              {matches.map((place, index) => (
-                <Pressable
-                  key={place.id}
-                  style={[styles.result, index > 0 && styles.placeDivider]}
-                  onPress={() => choose(place)}
-                  accessibilityRole="button"
-                  accessibilityLabel={strings.ride.searchResult(place.title)}
-                >
-                  {place.kind === 'saved' ? (
-                    <Star color={colors.warning} size={ICON_SIZE} />
-                  ) : (
-                    <MapPin color={place.kind === 'stop' ? colors.primary : colors.textSecondary} size={ICON_SIZE} />
-                  )}
-                  <View style={styles.grow}>
-                    <Text style={typography.labelLg} numberOfLines={1}>
-                      {place.title}
-                    </Text>
-                    <Text style={typography.bodySm} numberOfLines={1}>
-                      {strings.ride.resultDetail(place)}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
+          {searching !== null ? <PlaceResults matches={matches} query={query} onChoose={choose} raised /> : null}
         </View>
         <BottomSheet
           id="ride"
@@ -555,27 +499,13 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
-  // ST2-C2: From and To floating over the top of the map, with the typed matches under them
+  // ST2-C2: From and To floating over the top of the map, with the typed matches under them (PlaceResults)
   overlay: {
     position: 'absolute',
     top: spacing.sm,
     left: spacing.md,
     right: spacing.md,
     gap: spacing.sm,
-  },
-  results: {
-    borderRadius: radii.card,
-    backgroundColor: colors.card,
-  },
-  result: {
-    minHeight: MIN_TOUCH_TARGET + spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  noMatch: {
-    padding: spacing.md,
   },
   map: {
     flex: 1,

@@ -301,8 +301,9 @@ export const NIGHT_MODE_TZ = 'Asia/Manila';
 // --- Energy, feed and tracking (PRD 19, D1, D2, D14; SB1). The same values are the defaults of the
 // server's app_config table, which is what the server enforces; these are for the app and the tests.
 export const ENERGY_ENABLED_DEFAULT = false;
-// D1: tracking is free for the prototype and pilot, in the demo wallet too (Emjay, 2026-10-08)
-export const ENERGY_ENABLED_DEMO = false;
+// ST2-D2: tracking one multicab costs Energy again, in the demo wallet too (Emjay, 2026-10-09: 1 per
+// 30-minute session, PRD 11.1); the live switch is app_config.energy_enabled (20261012000000)
+export const ENERGY_ENABLED_DEMO = true;
 // The Energy balance, refill, history and earn lines. ST2-D: shown again (Emjay, 2026-10-09) so
 // commuters see their balance grow as they check in and relay; tracking stays free (charging off, D1).
 export const ENERGY_UI_VISIBLE = true;
