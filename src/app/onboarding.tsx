@@ -265,7 +265,6 @@ function ProfileStep({
       <StepIntro title={strings.onboarding.profileTitle} body={strings.onboarding.profileBody} />
       <View style={styles.groupLabel}>
         <Text style={typography.overline}>{strings.onboarding.persona}</Text>
-        <Text style={typography.labelSm}>{strings.onboarding.personaCount(avatars.length)}</Text>
         {/* B7: Shuffle lives here only */}
         <ShuffleAvatarChip />
       </View>

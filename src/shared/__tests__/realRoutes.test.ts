@@ -21,8 +21,8 @@ const ride = (from: string, to: string) => {
 };
 
 describe('real route data (RR3)', () => {
-  it('is data version 6, with both legs of R1 and R2, and R14 outbound only', () => {
-    expect(ROUTE_DATA_VERSION).toBe(6);
+  it('is data version 7, with both legs of R1 and R2, and R14 outbound only', () => {
+    expect(ROUTE_DATA_VERSION).toBe(7);
     const legs = (code: string) => data.lines.filter((l) => l.routeCode === code).map((l) => l.direction).sort();
     expect(legs('R1')).toEqual(['outbound', 'return']);
     expect(legs('R2')).toEqual(['outbound', 'return']);

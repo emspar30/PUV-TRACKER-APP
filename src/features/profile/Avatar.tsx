@@ -3,8 +3,8 @@ import { Image } from 'react-native';
 import { AVATAR_COUNT } from '@/shared/config';
 
 // The preset avatars (PRD 19, D3): no photos and no upload. ST2-C: Emjay's illustrations
-// (assets/profile avatars, trimmed to 256 px in assets/avatars). Ids 0 to 10 form the set for
-// "Male" and 11 to 15 the set for "Female"; "Prefer not to say" uses all of them. The avatar is
+// (assets/profile avatars, trimmed to 256 px in assets/avatars). Ids 0 to 9 form the set for
+// "Male" and 10 to 15 the set for "Female"; "Prefer not to say" uses all of them. The avatar is
 // shown only to the user.
 
 // Index = avatar id. The sets are AVATAR_IDS_MALE and AVATAR_IDS_FEMALE in the config.

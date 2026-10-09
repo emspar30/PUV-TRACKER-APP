@@ -27,7 +27,8 @@ export function parseStopList(markdown: string): ListedStop[] {
       routeCode = `R${heading[1]}`;
       continue;
     }
-    const item = /^\s*[*-]\s+(.+?):\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(line);
+    // ST2-C2: the colon after the name may be missing ("Robinsons-Transport 8.94, 125.51")
+    const item = /^\s*[*-]\s+(.+?)(?::\s*|\s+)(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(line);
     if (item && routeCode) stops.push({ routeCode, name: item[1].trim(), lat: Number(item[2]), lon: Number(item[3]) });
   }
   return stops;

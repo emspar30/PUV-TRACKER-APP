@@ -12,8 +12,17 @@ import { Pressable, StyleSheet, Text, View, type NativeSyntheticEvent } from 're
 import { GLYPH_FONT_REGULAR, LABEL_PROOF } from '@/data/map/glyphset';
 import { buildOfflineStyle } from '@/data/map/offlineStyle';
 import { TILESET } from '@/data/map/tileset';
-import { MAP_ATTRIBUTION_SHOW_S, MAP_BOUNDS_MARGIN_DEG, MAP_LABEL_PROOF_DEV, MAP_OVERZOOM_LEVELS, MAP_REFIT_WINDOW_MS } from '@/shared/config';
-import { padBounds, type Bounds } from '@/shared/geo/bounds';
+import { useRouteData } from '@/data/RouteDataProvider';
+import {
+  MAP_ATTRIBUTION_SHOW_S,
+  MAP_BOUNDS_MARGIN_DEG,
+  MAP_EDGE_INSET_DEG,
+  MAP_LABEL_PROOF_DEV,
+  MAP_MIN_ZOOM,
+  MAP_OVERZOOM_LEVELS,
+  MAP_REFIT_WINDOW_MS,
+} from '@/shared/config';
+import { boundsOfLines, panBounds, type Bounds } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
 import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
@@ -26,7 +35,6 @@ import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme'
 const PADDING = { top: spacing.xl, right: spacing.xl + MIN_TOUCH_TARGET, bottom: spacing.xl, left: spacing.xl };
 // B8: the camera may go a little past the offline tiles, so a route near their edge (De Oro, at the
 // north) can still be framed in the space the cards leave; the margin mostly sits under the top bar
-const PAN_BOUNDS = padBounds(TILESET.bounds, MAP_BOUNDS_MARGIN_DEG);
 
 export type MapStatus = 'loading' | 'loaded' | 'failed';
 
@@ -98,6 +106,13 @@ export function OfflineMap({
         : undefined;
     return buildOfflineStyle(tilesUrl, baseMap, glyphsUrl, proof) as unknown as StyleSpecification;
   }, [tilesUrl, baseMap, glyphsUrl, colors.textPrimary]);
+
+  // ST2-C2: the camera stays over the routes' area, short of the tile edge, and zooms out to the city
+  const { lines: routeLines } = useRouteData();
+  const panLimit = useMemo(
+    () => panBounds(boundsOfLines(routeLines.map((line) => line.coordinates)), TILESET.bounds, MAP_BOUNDS_MARGIN_DEG, MAP_EDGE_INSET_DEG),
+    [routeLines],
+  );
 
   const padding = { ...PADDING, top: PADDING.top + topInset, bottom: PADDING.bottom + bottomInset };
   // B8: the last area framed and when, to frame it again if the cards over the map change size
@@ -182,9 +197,9 @@ export function OfflineMap({
         <Camera
           ref={camera}
           initialViewState={{ bounds: initialBounds, padding }}
-          minZoom={TILESET.minZoom}
+          minZoom={MAP_MIN_ZOOM}
           maxZoom={TILESET.maxZoom + MAP_OVERZOOM_LEVELS}
-          maxBounds={PAN_BOUNDS}
+          maxBounds={panLimit}
         />
         {children}
       </Map>

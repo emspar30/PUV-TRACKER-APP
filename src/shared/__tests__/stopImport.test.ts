@@ -20,6 +20,14 @@ describe('stop list (RR3)', () => {
     ]);
   });
 
+  it('reads a position with no space after the comma, and a name with no colon after it (ST2-C2)', () => {
+    const md = '## Route 14 (R14)\n* Robinsons-Transport 8.943060, 125.519548\n* Nissan: 8.9538664,125.5642312\n';
+    expect(parseStopList(md)).toEqual([
+      { routeCode: 'R14', name: 'Robinsons-Transport', lat: 8.94306, lon: 125.519548 },
+      { routeCode: 'R14', name: 'Nissan', lat: 8.9538664, lon: 125.5642312 },
+    ]);
+  });
+
   it('keeps a stop within 150 m as given, moves one within 500 m onto the line, and leaves out one farther', () => {
     const listed = [at('T1', 'Near', 1, ROUTE_STOP_MAX_DISTANCE_M - 10), at('T1', 'Off', 3, ROUTE_STOP_MAX_DISTANCE_M + 50), at('T1', 'Far', 5, ROUTE_STOP_SNAP_MAX_M + 50)];
     const { stations, issues } = assignStops(listed, LINES, { Near: 'NEA', Off: 'OFF', Far: 'FAR' }, {});

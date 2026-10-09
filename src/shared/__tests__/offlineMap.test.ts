@@ -13,8 +13,8 @@ import { TILESET } from '../../data/map/tileset';
 import { glyphsUrl } from '../map/glyphInstall';
 import { BASE_MAPS } from '../../theme/tokens';
 import { R4_LINES, R4_STATIONS } from './fixtures/r4Placeholder';
-import { MAP_OVERZOOM_LEVELS } from '../config';
-import { boundsContain, boundsOfLines, clipBounds, padBounds } from '../geo/bounds';
+import { MAP_BOUNDS_MARGIN_DEG, MAP_EDGE_INSET_DEG, MAP_OVERZOOM_LEVELS } from '../config';
+import { boundsContain, boundsOfLines, clipBounds, padBounds, panBounds } from '../geo/bounds';
 
 // Distinct marker colours, so the test can tell where each one ends up
 const PALETTE: MapPalette = {
@@ -62,6 +62,11 @@ describe.each([
   it('draws the documented Protomaps v4 source layers and no others', () => {
     const used = new Set(style.layers.map((layer) => layer['source-layer']).filter(Boolean));
     expect([...used]).toEqual([...OFFLINE_SOURCE_LAYERS]);
+  });
+
+  it('leaves out the water polygons tagged as a lake (the fishponds drawn over land, ST2-C2)', () => {
+    const water = style.layers.find((layer) => layer.id === 'water');
+    expect(water?.filter).toEqual(['!', ['in', ['get', 'kind_detail'], ['literal', ['lake']]]]);
   });
 
   it('takes every colour from the palette it is given', () => {
@@ -196,11 +201,25 @@ describe('initial map view', () => {
   });
 });
 
-describe('pan bounds (B8)', () => {
-  it('grow the tile bounds on every side, so the tiles stay inside', () => {
-    const padded = padBounds(TILESET.bounds, 0.08);
-    expect(boundsContain(padded, TILESET.bounds)).toBe(true);
-    expect(padded[3] - TILESET.bounds[3]).toBeCloseTo(0.08);
-    expect(TILESET.bounds[0] - padded[0]).toBeCloseTo(0.08);
+describe('pan bounds (ST2-C2)', () => {
+  const tiles = TILESET.bounds;
+
+  it('cover the routes plus the margin, inside the tiles less the edge inset', () => {
+    const routes: [number, number, number, number] = [125.53, 8.93, 125.6, 8.98];
+    const pan = panBounds(routes, tiles, MAP_BOUNDS_MARGIN_DEG, MAP_EDGE_INSET_DEG);
+    expect(boundsContain(tiles, padBounds(pan, MAP_EDGE_INSET_DEG - 1e-9))).toBe(true);
+    expect(pan[0]).toBeCloseTo(125.53 - MAP_BOUNDS_MARGIN_DEG);
+    expect(pan[3]).toBeCloseTo(8.98 + MAP_BOUNDS_MARGIN_DEG);
+  });
+
+  it('stop short of the tile edge where a route runs past it (R5 to the north)', () => {
+    const pan = panBounds([125.47, 8.9, 125.65, 9.1], tiles, MAP_BOUNDS_MARGIN_DEG, MAP_EDGE_INSET_DEG);
+    expect(pan[3]).toBeCloseTo(tiles[3] - MAP_EDGE_INSET_DEG);
+    expect(pan[0]).toBeCloseTo(tiles[0] + MAP_EDGE_INSET_DEG);
+  });
+
+  it('for the shipped routes, never let the centre reach past the tiles', () => {
+    const pan = panBounds(boundsOfLines(R4_LINES.map((line) => line.coordinates)), tiles, MAP_BOUNDS_MARGIN_DEG, MAP_EDGE_INSET_DEG);
+    expect(boundsContain(tiles, pan)).toBe(true);
   });
 });

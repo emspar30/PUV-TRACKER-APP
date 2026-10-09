@@ -40,6 +40,13 @@ export function pmtilesUrl(fileUri: string): string {
   return `pmtiles://${fileUri}`;
 }
 
+// ST2-C2: water polygons tagged as a lake are left out. In the Butuan extract they are hundreds of
+// small unnamed ponds and fishponds north of Bancasi, Libertad and downtown (OpenStreetMap), drawn
+// as blue blocks over places people live; there is no real lake inside the map area. The sea,
+// the river and canals stay.
+export const WATER_KIND_DETAILS_HIDDEN = ['lake'] as const;
+const WATER_FILTER = ['!', ['in', ['get', 'kind_detail'], ['literal', WATER_KIND_DETAILS_HIDDEN]]];
+
 const ROAD_WIDTH = ['interpolate', ['linear'], ['zoom'], 8, 0.4, 12, 1, 16, 4];
 // The casing is the road width plus this much on each side
 const ROAD_CASING_WIDTH = ['interpolate', ['linear'], ['zoom'], 8, 0.8, 12, 2, 16, 6];
@@ -102,7 +109,7 @@ function buildBaseStyle(tilesUrl: string, palette: MapPalette): OfflineStyle {
         'source-layer': 'landuse',
         paint: { 'fill-color': palette.landuse, 'fill-opacity': palette.landuseOpacity },
       },
-      { id: 'water', type: 'fill', source, 'source-layer': 'water', paint: { 'fill-color': palette.water } },
+      { id: 'water', type: 'fill', source, 'source-layer': 'water', filter: WATER_FILTER, paint: { 'fill-color': palette.water } },
       {
         id: 'buildings',
         type: 'fill',

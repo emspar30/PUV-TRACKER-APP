@@ -1,7 +1,7 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { ChevronRight, Star } from 'lucide-react-native';
+import { ChevronRight, MapPin, Star } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomSheet, Chip, Hint, LineBadge, Logo, SkeletonCard, TopBar, type SheetRequest } from '@/components';
@@ -22,12 +22,13 @@ import type { PickTarget, PickedPoint } from '@/features/ride/PointPills';
 import { FareSummaryCard, SuggestedRouteCard } from '@/features/ride/RideCards';
 import { RideFailure } from '@/features/ride/RideResult';
 import { TripCard } from '@/features/ride/TripCard';
-import { FARE_REGULAR_MULTIPLIER, FREQUENT_DESTINATIONS_MAX, SKELETON_MIN_MS } from '@/shared/config';
+import { FARE_REGULAR_MULTIPLIER, FREQUENT_DESTINATIONS_MAX, PLACE_SEARCH_MAX_RESULTS, SKELETON_MIN_MS } from '@/shared/config';
 import { discountMultiplier } from '@/shared/fare/fare';
 import { boundsOfLines, clipBounds, withMinimumSpan } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
 import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/describe';
 import { placeIdOf } from '@/shared/routing/suggest';
+import { searchPlaces, type SearchablePlace } from '@/shared/routing/placeSearch';
 import { explainFailure, type FailureExplanation } from '@/shared/routing/explainFailure';
 import { fareForItinerary, planOptions, planTrip } from '@/shared/routing/plan';
 import { rankRouteOptions } from '@/shared/routing/rankOptions';
@@ -47,7 +48,6 @@ const LOGO_SIZE = spacing.xl * 2;
 const RECENT_SHOWN = 3;
 const MS_PER_MIN = 60000;
 const ICON_SIZE = spacing.md + spacing.xs;
-const FIELD_NAME: Record<PickTarget, string> = { origin: strings.ride.from, destination: strings.ride.to };
 
 type RouteCard = { code: string; name: string };
 
@@ -68,7 +68,7 @@ function routeCards(lines: DirectedLine[]): RouteCard[] {
 // uses the live (or demo) multicabs coming to the stop.
 export default function MyRidesScreen() {
   const styles = useStyles();
-  const { colors, typography, mapRoute, routeColor } = useTheme();
+  const { colors, typography, mapRoute, routeColor, elevation } = useTheme();
   const insets = useSafeAreaInsets();
   const { lines, stops } = useRouteData();
   const { state: tiles } = useOfflineTiles();
@@ -77,6 +77,7 @@ export default function MyRidesScreen() {
   const dismissHint = useHintsStore((state) => state.dismiss);
   const destinations = useDestinationsStore((state) => state.destinations);
   const addDestination = useDestinationsStore((state) => state.add);
+  const removeDestination = useDestinationsStore((state) => state.remove);
   const recentRides = useRidesStore((state) => state.rides);
   // B8: the results show a skeleton on the first visit
   const loadingResults = useSkeleton(SKELETON_MIN_MS);
@@ -101,6 +102,11 @@ export default function MyRidesScreen() {
   const [origin, setOrigin] = useState<PickedPoint | null>(myPosition);
   const [destination, setDestination] = useState<PickedPoint | null>(null);
   const [active, setActive] = useState<PickTarget>(myPosition ? 'destination' : 'origin');
+  // ST2-C2: the field being typed in and the text; the card folded to one line; its height over the map
+  const [searching, setSearching] = useState<PickTarget | null>(null);
+  const [query, setQuery] = useState('');
+  const [collapsed, setCollapsed] = useState(false);
+  const [cardHeight, setCardHeight] = useState(0);
   const [focus, setFocus] = useState<MapFocus | null>(null);
   // The route the rider picked among the alternatives; null follows the best match
   const [chosenRoute, setChosenRoute] = useState<string | null>(null);
@@ -171,6 +177,8 @@ export default function MyRidesScreen() {
       const nextDestination = active === 'destination' ? point : destination;
       setOrigin(nextOrigin);
       setDestination(nextDestination);
+      setSearching(null);
+      setQuery('');
       if (active === 'origin' && !nextDestination) setActive('destination');
       if (active === 'destination' && !nextOrigin) setActive('origin');
       if (nextOrigin && nextDestination) {
@@ -196,8 +204,14 @@ export default function MyRidesScreen() {
     ? (destinations.find(samePoint)?.id ?? LANDMARKS.find(samePoint)?.id ?? placeIdOf(destination))
     : null;
   const destinationSaved = destinationId !== null && destinations.some((item) => item.id === destinationId);
-  const saveDestination = () => {
+  // ST2-C2: the star saves To, and a second tap removes it from Your Places
+  const toggleDestination = () => {
     if (!destination || !destinationId) return;
+    if (destinationSaved) {
+      removeDestination(destinationId);
+      showToast({ icon: Star, title: strings.places.removed(destination.label) });
+      return;
+    }
     const result = addDestination({ id: destinationId, label: destination.label, lat: destination.lat, lon: destination.lon });
     showToast({
       icon: Star,
@@ -220,6 +234,35 @@ export default function MyRidesScreen() {
     else setDestination(null);
     setActive(target);
   };
+
+  // ST2-C2: tapping a field highlights it and opens typing in it; a second tap on the field typed in
+  // closes the typing
+  const activate = (target: PickTarget) => {
+    setActive(target);
+    setCollapsed(false);
+    setQuery('');
+    setSearching((current) => (current === target ? null : target));
+  };
+
+  // ST2-C2: typed search over the stops and the saved places (no network). With nothing typed yet,
+  // the saved places are offered.
+  const searchable = useMemo<SearchablePlace[]>(
+    () => [
+      ...destinations.map((place) => ({ id: place.id, title: place.label, lat: place.lat, lon: place.lon, kind: 'saved' as const })),
+      ...stops.map((stop) => ({ id: `stop-${stop.code}`, title: stop.name, code: stop.code, lat: stop.lat, lon: stop.lon, kind: 'stop' as const })),
+    ],
+    [destinations, stops],
+  );
+  const matches = useMemo(
+    () =>
+      searching === null
+        ? []
+        : query.trim().length > 0
+          ? searchPlaces(query, searchable, PLACE_SEARCH_MAX_RESULTS)
+          : searchable.filter((place) => place.kind === 'saved').slice(0, PLACE_SEARCH_MAX_RESULTS),
+    [searching, query, searchable],
+  );
+  const choose = (place: SearchablePlace) => pick({ lat: place.lat, lon: place.lon, label: place.code ?? place.title });
 
   const layers = useRouteLayers(lines, stops, 'ride', null, itinerary !== null);
 
@@ -276,33 +319,8 @@ export default function MyRidesScreen() {
       <View style={styles.top}>
         <TopBar />
       </View>
-      {/* B5, ST2-C: From and To stay put under the top bar; the map and the results sheet are below */}
-      <View style={styles.fields}>
-        <TripCard
-          origin={origin}
-          destination={destination}
-          active={active}
-          onActivate={setActive}
-          onClear={clearField}
-          onSwap={swap}
-          onUseMyPosition={myPosition ? () => pick(myPosition) : undefined}
-          onSaveDestination={saveDestination}
-          destinationSaved={destinationSaved}
-        />
-        {needsPick ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityLabel={strings.ride.pickStop}>
-            {stops.map((stop) => (
-              <Chip
-                key={stop.code}
-                label={stop.code}
-                accessibilityLabel={strings.ride.pickFor(FIELD_NAME[active], `${stop.code}, ${stop.name}`)}
-                onPress={() => pick(stopPoint(stop))}
-              />
-            ))}
-          </ScrollView>
-        ) : null}
-      </View>
-      {/* The map fills the rest, so a drag on it always pans the map */}
+      {/* The map fills the rest, so a drag on it always pans the map; From and To float over its top
+          (ST2-C2) and the results sheet over its bottom */}
       <View style={styles.grow}>
         <View style={styles.map}>
           {tiles.status === 'ready' ? (
@@ -311,13 +329,15 @@ export default function MyRidesScreen() {
               glyphsUrl={tiles.tiles.glyphsUrl}
               labelsDimmed={itinerary !== null}
               bottomInset={sheetInset}
+              topInset={cardHeight}
               initialBounds={initialBounds}
               focus={focus}
               onPress={(position) => pick(pinnedPoint(position))}
             >
               <RouteLines lines={layers.lines} visible={ALL_DIRECTIONS} opacity={layers.opacity} />
+              {/* ST2-C2: every stop, so one can be tapped for From or To */}
               <StopDots
-                stops={layers.stops}
+                stops={stops}
                 selectedCode={null}
                 onPressStop={(code) => {
                   const stop = stops.find((candidate) => candidate.code === code);
@@ -331,6 +351,52 @@ export default function MyRidesScreen() {
               <Logo size={LOGO_SIZE} />
             </View>
           )}
+        </View>
+        <View style={styles.overlay} pointerEvents="box-none">
+          <View onLayout={(event) => setCardHeight(event.nativeEvent.layout.height + spacing.sm)}>
+            <TripCard
+              origin={origin}
+              destination={destination}
+              active={active}
+              onActivate={activate}
+              onClear={clearField}
+              onSwap={swap}
+              onUseMyPosition={myPosition ? () => pick(myPosition) : undefined}
+              onToggleDestination={toggleDestination}
+              destinationSaved={destinationSaved}
+              searching={searching}
+              query={query}
+              onQuery={setQuery}
+              onSubmitQuery={() => (matches[0] ? choose(matches[0]) : undefined)}
+              collapsed={collapsed}
+              onToggleCollapsed={() => {
+                setCollapsed((value) => !value);
+                setSearching(null);
+              }}
+            />
+          </View>
+          {searching !== null && (matches.length > 0 || query.trim().length > 0) ? (
+            <View style={[styles.results, elevation.level2]}>
+              {matches.length === 0 ? <Text style={[typography.bodyMd, styles.noMatch]}>{strings.ride.noMatches}</Text> : null}
+              {matches.map((place, index) => (
+                <Pressable
+                  key={place.id}
+                  style={[styles.result, index > 0 && styles.placeDivider]}
+                  onPress={() => choose(place)}
+                  accessibilityRole="button"
+                  accessibilityLabel={strings.ride.searchResult(place.title)}
+                >
+                  {place.kind === 'saved' ? <Star color={colors.warning} size={ICON_SIZE} /> : <MapPin color={colors.primary} size={ICON_SIZE} />}
+                  <View style={styles.grow}>
+                    <Text style={typography.labelLg} numberOfLines={1}>
+                      {place.title}
+                    </Text>
+                    <Text style={typography.bodySm}>{place.kind === 'saved' ? strings.ride.savedPlace : place.code}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </View>
         <BottomSheet
           id="ride"
@@ -448,13 +514,27 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
-  fields: {
+  // ST2-C2: From and To floating over the top of the map, with the typed matches under them
+  overlay: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.md,
+    right: spacing.md,
     gap: spacing.sm,
+  },
+  results: {
+    borderRadius: radii.card,
+    backgroundColor: colors.card,
+  },
+  result: {
+    minHeight: MIN_TOUCH_TARGET + spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.outline,
+  },
+  noMatch: {
+    padding: spacing.md,
   },
   map: {
     flex: 1,
@@ -469,9 +549,6 @@ const useStyles = makeStyles(({ colors }) => ({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  chips: {
-    gap: spacing.sm,
   },
   grow: {
     flex: 1,

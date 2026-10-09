@@ -261,8 +261,13 @@ export const SKELETON_LONG_MS = 900;
 // B8: a route framed this recently is framed again when the cards over the map change size (the
 // bottom card swaps as the route is picked), so it sits in the space they leave
 export const MAP_REFIT_WINDOW_MS = 1500;
-// B8: how far past the offline tiles the camera may go (degrees, about 9 km)
-export const MAP_BOUNDS_MARGIN_DEG = 0.08;
+// ST2-C2: the camera stays over the city. Its centre may go this far past the routes (degrees,
+// about 2 km), never closer than MAP_EDGE_INSET_DEG to the edge of the offline tiles (about 5 km,
+// so the screen edge does not pass them), and it zooms out no further than MAP_MIN_ZOOM (the whole
+// route area on a phone).
+export const MAP_BOUNDS_MARGIN_DEG = 0.02;
+export const MAP_EDGE_INSET_DEG = 0.05;
+export const MAP_MIN_ZOOM = 11.5;
 
 // --- Verification window and check-in (PRD 10.2, 8.4, 7.5). Defined now, used later.
 export const ROUTE_SNAP_DISTANCE_M = 30;
@@ -340,10 +345,12 @@ export const GREETING_AFTERNOON_START_H = 11;
 export const GREETING_EVENING_START_H = 17;
 export const GREETING_NIGHT_START_H = 21;
 // Preset avatars: ids 0 to AVATAR_COUNT - 1. A stated gender picks from its own set; no answer or
-// "Prefer not to say" picks from all of them. ST2-C: Emjay's 16 illustrations, 11 male and 5 female.
+// "Prefer not to say" picks from all of them. ST2-C: Emjay's 16 illustrations, 10 male and 6 female.
 export const AVATAR_COUNT = 16;
-export const AVATAR_IDS_MALE: readonly number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-export const AVATAR_IDS_FEMALE: readonly number[] = [11, 12, 13, 14, 15];
+export const AVATAR_IDS_MALE: readonly number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+export const AVATAR_IDS_FEMALE: readonly number[] = [10, 11, 12, 13, 14, 15];
+// ST2-C2: matches listed under From or To while typing in My Rides
+export const PLACE_SEARCH_MAX_RESULTS = 6;
 // Frequent destinations kept on the phone (decision 5)
 export const FREQUENT_DESTINATIONS_MAX = 3;
 // F5: badges from simple counts (PRD 19, D8); no ranking. The "first" badges need one.

@@ -15,7 +15,9 @@ import { GENERATED_LINES, GENERATED_STATIONS } from './routes.generated';
 // 5: R5 outbound derived the same way, back to Santo Niño.
 // 6: RR3: R1, R2 (loops split at the downtown turnaround) and R14 (one leg) added; the real stops
 //    from docs/real_route_stops.md replace the six placeholder stops.
-export const ROUTE_DATA_VERSION = 6;
+// 7: ST2-C2: the stops moved to the middle of the road (Emjay, 2026-10-09) and five added (EMB, PAL,
+//    ROS, LEM, and R3 to R5 listed), 39 in all.
+export const ROUTE_DATA_VERSION = 7;
 
 // True while any route fact is a placeholder. The lines and stops are real (RR3), but the fares
 // are still the v1.0 values, so the "Sample data" notice stays.

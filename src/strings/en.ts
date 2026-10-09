@@ -380,6 +380,14 @@ export const en = {
     recentFrom: (source: 'checkin' | 'report') => (source === 'checkin' ? 'Check-in' : 'Relay report'),
     ago: (minutes: number) =>
       minutes < 1 ? 'Just now' : minutes < MINUTES_PER_HOUR ? `${minutes} min ago` : minutes < MINUTES_PER_DAY ? `${Math.floor(minutes / MINUTES_PER_HOUR)} h ago` : `${Math.floor(minutes / MINUTES_PER_DAY)} d ago`,
+    // ST2-C2: the floating From and To card, and typed search
+    expandTrip: (summary: string) => `${summary}. Show From and To`,
+    collapseTrip: 'Fold From and To',
+    searchPlaceholder: 'Search a stop or place',
+    searchField: (field: string) => `Search for ${field}`,
+    searchResult: (name: string) => `Choose ${name}`,
+    savedPlace: 'Your place',
+    noMatches: 'No stop or place by that name',
     // ST2-C: the top line of the results sheet
     finding: 'Finding routes',
     noRoute: 'No route for this trip',
@@ -740,6 +748,8 @@ export const en = {
     remove: (label: string) => `Remove ${label}`,
     save: 'Save as one of your places',
     saved: (label: string) => `${label} saved to your places`,
+    // ST2-C2: the star tapped again
+    removed: (label: string) => `${label} removed from your places`,
     already: 'Already one of your places',
     full: (max: number) => `You have ${max} places. Remove one in Profile.`,
   },
@@ -770,7 +780,6 @@ export const en = {
     profileTitle: 'Choose your profile',
     profileBody: 'Pick an avatar and a username.',
     persona: 'Your avatar',
-    personaCount: (count: number) => `${count} styles`,
     handle: 'Username',
     handlePlaceholder: 'e.g. JuanCommuter',
     handleHint: (min: number, max: number) => `${min} to ${max} letters, digits or _. Shown on your reports instead of your name.`,

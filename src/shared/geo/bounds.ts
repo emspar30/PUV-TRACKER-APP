@@ -59,6 +59,28 @@ export function boundsContainPoint(bounds: Bounds, point: { lat: number; lon: nu
   return point.lon >= west && point.lon <= east && point.lat >= south && point.lat <= north;
 }
 
+const HALVES = 2;
+
+// ST2-C2: where the camera centre may go: the routes' area grown by marginDeg, kept insetDeg inside
+// the tiles so the screen never shows past them. A side that cannot fit is centred on the tiles.
+export function panBounds(routes: Bounds, tiles: Bounds, marginDeg: number, insetDeg: number): Bounds {
+  const [tw, ts, te, tn] = tiles;
+  const inner: Bounds = [tw + insetDeg, ts + insetDeg, te - insetDeg, tn - insetDeg];
+  const [rw, rs, re, rn] = padBounds(routes, marginDeg);
+  const side = (low: number, high: number, min: number, max: number): [number, number] => {
+    if (min >= max) {
+      const middle = (min + max) / HALVES;
+      return [middle, middle];
+    }
+    const a = Math.max(low, min);
+    const b = Math.min(high, max);
+    return a < b ? [a, b] : [min, max];
+  };
+  const [west, east] = side(rw, re, inner[0], inner[2]);
+  const [south, north] = side(rs, rn, inner[1], inner[3]);
+  return [west, south, east, north];
+}
+
 // B8: the bounds grown by marginDeg on every side
 export function padBounds([west, south, east, north]: Bounds, marginDeg: number): Bounds {
   return [west - marginDeg, south - marginDeg, east + marginDeg, north + marginDeg];

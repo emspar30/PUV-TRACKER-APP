@@ -23,8 +23,8 @@ function restart(): Store {
   return store;
 }
 
-const MALE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const FEMALE = [11, 12, 13, 14, 15];
+const MALE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const FEMALE = [10, 11, 12, 13, 14, 15];
 
 afterEach(() => {
   mockSaved.clear();

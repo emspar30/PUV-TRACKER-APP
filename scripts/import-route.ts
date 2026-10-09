@@ -79,6 +79,7 @@ const STOP_CODES: Record<string, string> = {
   Libertad: 'LIB',
   'Robinsons-Transport Terminal': 'ROB',
   'Robinsons - Transport Terminal': 'ROB',
+  'Robinsons-Transport': 'ROB',
   "Butuan Doctors' Hospital": 'BDH',
   'Hotel Oazis': 'OAZ',
   'Hotel Oasis': 'OAZ',
@@ -90,6 +91,12 @@ const STOP_CODES: Record<string, string> = {
   'Golden Ribbon Cemetery': 'GRC',
   'M.J. Santos Hospital': 'MJS',
   'Timber City Academy': 'TCA',
+  'Timber City Academy Overpass': 'TCA',
+  // ST2-C2: stops added to the list on 2026-10-09
+  'Embassy Hotel': 'EMB',
+  'Palawan Pawnshop': 'PAL',
+  'Rosewood Crossing': 'ROS',
+  'Lemon Crossing': 'LEM',
   'FSUU (Urios)': 'FSU',
   'Butuan River Park': 'BRP',
   'Post Office': 'POF',
@@ -131,6 +138,7 @@ const STOP_NAMES: Record<string, string> = {
   BWB: 'BCSAT / Water District / BIR',
   CSU: 'Caraga State University (Main Campus)',
   ANT: 'Antongalon',
+  TCA: 'Timber City Academy Overpass',
 };
 
 const ROOT = path.join(__dirname, '..');

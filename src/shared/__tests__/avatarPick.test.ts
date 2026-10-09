@@ -13,10 +13,10 @@ function seededRandom(seed: number) {
 const DRAWS = 1000;
 
 describe('avatar sets', () => {
-  it('Male has eleven and Female five, with no overlap, and together make all sixteen', () => {
+  it('Male has ten and Female six, with no overlap, and together make all sixteen', () => {
     expect(AVATAR_COUNT).toBe(16);
-    expect(AVATAR_IDS_MALE).toHaveLength(11);
-    expect(AVATAR_IDS_FEMALE).toHaveLength(5);
+    expect(AVATAR_IDS_MALE).toHaveLength(10);
+    expect(AVATAR_IDS_FEMALE).toHaveLength(6);
     expect(AVATAR_IDS_MALE.filter((id) => AVATAR_IDS_FEMALE.includes(id))).toEqual([]);
     expect([...AVATAR_IDS_MALE, ...AVATAR_IDS_FEMALE].sort((a, b) => a - b)).toEqual(avatarSetFor('unstated'));
   });
@@ -48,7 +48,7 @@ describe('pickAvatar', () => {
 
   it('stays in range at the edges of the random source', () => {
     expect(pickAvatar('male', () => 0)).toBe(0);
-    expect(pickAvatar('male', () => 0.999999)).toBe(10);
+    expect(pickAvatar('male', () => 0.999999)).toBe(9);
     expect(pickAvatar('female', () => 1)).toBe(15);
     expect(isAvatarId(pickAvatar(null, () => 0.5))).toBe(true);
   });
@@ -57,7 +57,7 @@ describe('pickAvatar', () => {
 describe('assignAvatar: picked once, never re-rolled on its own', () => {
   it('assigns from the set when nothing is assigned yet', () => {
     const result = assignAvatar({ avatarId: 0, avatarAssigned: false }, 'female', () => 0);
-    expect(result).toEqual({ avatarId: 11, avatarAssigned: true });
+    expect(result).toEqual({ avatarId: 10, avatarAssigned: true });
   });
 
   it('keeps an assigned avatar for any later answer', () => {
