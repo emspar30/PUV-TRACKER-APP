@@ -10,17 +10,17 @@ import { avatarSetFor } from '@/shared/profile/avatarPick';
 const picker = fs.readFileSync(path.join(__dirname, '..', 'AvatarPicker.tsx'), 'utf8');
 
 describe('avatar picker: only the own set', () => {
-  it('draws the grid from avatarSetFor(gender), not from all twelve', () => {
+  it('draws the grid from avatarSetFor(gender), not from all of them', () => {
     expect(picker).toMatch(/const gender = useProfileStore\(\(state\) => state\.gender\)/);
     expect(picker).toMatch(/avatarSetFor\(gender\)\.map\(/);
     expect(picker).not.toMatch(/AVATAR_IDS\b|AVATAR_COUNT/);
   });
 
-  it('the sets it shows: six for Male, six for Female, twelve otherwise', () => {
+  it('the sets it shows: Male, Female, or all sixteen otherwise', () => {
     expect(avatarSetFor('male')).toEqual(AVATAR_IDS_MALE);
     expect(avatarSetFor('female')).toEqual(AVATAR_IDS_FEMALE);
-    expect(avatarSetFor('unstated')).toHaveLength(12);
-    expect(avatarSetFor(null)).toHaveLength(12);
+    expect(avatarSetFor('unstated')).toHaveLength(16);
+    expect(avatarSetFor(null)).toHaveLength(16);
   });
 
   it('keeps Shuffle beside the grid', () => {

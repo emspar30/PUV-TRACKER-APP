@@ -11,7 +11,7 @@ import { Avatar } from './Avatar';
 const AVATAR_SIZE = MIN_TOUCH_TARGET;
 const RING = spacing.xs;
 
-// A grid of the avatars in the user's own set: the six for the gender answer, or all twelve for
+// A grid of the avatars in the user's own set: the set for the gender answer, or all of them for
 // "Prefer not to say" or no answer (decision after F1 review). The choice is saved on this phone only.
 // B7: onPick lets Profile close the grid again after a choice.
 export function AvatarPicker({ onPick }: { onPick?: () => void } = {}) {

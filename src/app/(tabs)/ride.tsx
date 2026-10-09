@@ -1,10 +1,10 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { ChevronRight, Maximize2, Minimize2, Star } from 'lucide-react-native';
+import { ChevronRight, Star } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Chip, Hint, LineBadge, Logo, RoundButton, SkeletonCard, TopBar } from '@/components';
+import { BottomSheet, Chip, Hint, LineBadge, Logo, SkeletonCard, TopBar, type SheetRequest } from '@/components';
 import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
@@ -32,6 +32,7 @@ import { explainFailure, type FailureExplanation } from '@/shared/routing/explai
 import { fareForItinerary, planOptions, planTrip } from '@/shared/routing/plan';
 import { rankRouteOptions } from '@/shared/routing/rankOptions';
 import type { DirectedLine, RouteDirection, RouteStop } from '@/shared/routing/types';
+import type { SnapName } from '@/shared/ui/sheetSnap';
 import { useDestinationsStore } from '@/state/destinationsStore';
 import { useFareType } from '@/state/fareType';
 import { useHintsStore } from '@/state/hintsStore';
@@ -43,8 +44,6 @@ import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme'
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
 const LOGO_SIZE = spacing.xl * 2;
-// B5: share of the window the map preview takes; made bigger, it fills the space the fields leave
-const MAP_SHARE = 0.3;
 const RECENT_SHOWN = 3;
 const MS_PER_MIN = 60000;
 const ICON_SIZE = spacing.md + spacing.xs;
@@ -62,9 +61,11 @@ function routeCards(lines: DirectedLine[]): RouteCard[] {
   });
 }
 
-// My Rides (restyle): a map preview, From and To, the distance and fare, the best-matching route with
-// ways on to the Map and Check-in tabs, the other routes that serve the trip, and recent rides.
-// Planning runs on the phone; the ranking uses the live (or demo) multicabs coming to the stop.
+// My Rides (restyle): From and To, the distance and fare, the best-matching route with ways on to
+// the Map and Check-in tabs, the other routes that serve the trip, and recent rides. ST2-C: From and
+// To are pinned under the top bar, the map fills the rest of the screen, and the results sit in a
+// sheet over it that opens half way when a trip is planned. Planning runs on the phone; the ranking
+// uses the live (or demo) multicabs coming to the stop.
 export default function MyRidesScreen() {
   const styles = useStyles();
   const { colors, typography, mapRoute, routeColor } = useTheme();
@@ -77,9 +78,6 @@ export default function MyRidesScreen() {
   const destinations = useDestinationsStore((state) => state.destinations);
   const addDestination = useDestinationsStore((state) => state.add);
   const recentRides = useRidesStore((state) => state.rides);
-  const { height: windowHeight } = useWindowDimensions();
-  // B5: bigger map: it takes the free space and the results hide; From, To and the stop chips stay
-  const [mapExpanded, setMapExpanded] = useState(false);
   // B8: the results show a skeleton on the first visit
   const loadingResults = useSkeleton(SKELETON_MIN_MS);
   // "5 min ago" on recent rides counts from when this screen opened
@@ -250,6 +248,23 @@ export default function MyRidesScreen() {
     return null;
   }, [plan, origin, destination, lines, swap, pinnedPoint, explanation.kind]);
 
+  // ST2-C: a new result (a route, or no route) opens the sheet half way, once per result. Applied
+  // while rendering, with no effect.
+  const resultId = !origin || !destination || !plan ? null : itinerary ? `ok:${itinerary.legs[1].routeCode}` : `fail:${plan.ok ? '' : plan.reason}`;
+  const resultKey = resultId && origin && destination ? `${placeIdOf(origin)}>${placeIdOf(destination)}>${resultId}` : null;
+  const [seenResult, setSeenResult] = useState(resultKey);
+  const [sheetRequest, setSheetRequest] = useState<SheetRequest | null>(null);
+  // ST2-C: framed trips keep clear of the sheet (peek or half; fully open is a reading view, so the
+  // map keeps the last clearance). A new height right after a fit frames the trip again.
+  const [sheetInset, setSheetInset] = useState(0);
+  const onSheetSnap = useCallback((snap: SnapName, visibleHeight: number) => {
+    if (snap !== 'expanded') setSheetInset(visibleHeight);
+  }, []);
+  if (resultKey !== seenResult) {
+    setSeenResult(resultKey);
+    if (resultKey) setSheetRequest((current) => ({ key: (current?.key ?? 0) + 1, snap: 'half' }));
+  }
+
   const nearestCode = (point: LatLon) => nearestStop(stops, point)?.stop.code ?? '';
   const colorOf = (code: string) => routeColor(code, lines.find((line) => line.routeCode === code)?.color ?? colors.primary);
 
@@ -261,44 +276,7 @@ export default function MyRidesScreen() {
       <View style={styles.top}>
         <TopBar />
       </View>
-      {/* The map sits outside the scrolling page, so a drag on it always pans the map */}
-      <View style={[styles.mapWrap, mapExpanded && styles.grow]}>
-        <View style={[styles.map, mapExpanded ? styles.grow : { height: windowHeight * MAP_SHARE }]}>
-          {tiles.status === 'ready' ? (
-            <OfflineMap
-              tilesUrl={tiles.tiles.url}
-              glyphsUrl={tiles.tiles.glyphsUrl}
-              labelsDimmed={itinerary !== null}
-              initialBounds={initialBounds}
-              focus={focus}
-              onPress={(position) => pick(pinnedPoint(position))}
-            >
-              <RouteLines lines={layers.lines} visible={ALL_DIRECTIONS} opacity={layers.opacity} />
-              <StopDots
-                stops={layers.stops}
-                selectedCode={null}
-                onPressStop={(code) => {
-                  const stop = stops.find((candidate) => candidate.code === code);
-                  if (stop) pick(stopPoint(stop));
-                }}
-              />
-              <TripLayers lines={lines} origin={originPin} destination={destinationPin} itinerary={itinerary} />
-            </OfflineMap>
-          ) : (
-            <View style={styles.centered}>
-              <Logo size={LOGO_SIZE} />
-            </View>
-          )}
-          <View style={styles.mapChip} pointerEvents="box-none">
-            <RoundButton
-              icon={mapExpanded ? Minimize2 : Maximize2}
-              label={mapExpanded ? strings.ride.shrinkMap : strings.ride.expandMap}
-              onPress={() => setMapExpanded((value) => !value)}
-            />
-          </View>
-        </View>
-      </View>
-      {/* B5: From and To stay put under the map, in both sizes; only the results below them scroll */}
+      {/* B5, ST2-C: From and To stay put under the top bar; the map and the results sheet are below */}
       <View style={styles.fields}>
         <TripCard
           origin={origin}
@@ -324,8 +302,56 @@ export default function MyRidesScreen() {
           </ScrollView>
         ) : null}
       </View>
-      {mapExpanded ? null : (
-        <ScrollView style={styles.grow} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {/* The map fills the rest, so a drag on it always pans the map */}
+      <View style={styles.grow}>
+        <View style={styles.map}>
+          {tiles.status === 'ready' ? (
+            <OfflineMap
+              tilesUrl={tiles.tiles.url}
+              glyphsUrl={tiles.tiles.glyphsUrl}
+              labelsDimmed={itinerary !== null}
+              bottomInset={sheetInset}
+              initialBounds={initialBounds}
+              focus={focus}
+              onPress={(position) => pick(pinnedPoint(position))}
+            >
+              <RouteLines lines={layers.lines} visible={ALL_DIRECTIONS} opacity={layers.opacity} />
+              <StopDots
+                stops={layers.stops}
+                selectedCode={null}
+                onPressStop={(code) => {
+                  const stop = stops.find((candidate) => candidate.code === code);
+                  if (stop) pick(stopPoint(stop));
+                }}
+              />
+              <TripLayers lines={lines} origin={originPin} destination={destinationPin} itinerary={itinerary} />
+            </OfflineMap>
+          ) : (
+            <View style={styles.centered}>
+              <Logo size={LOGO_SIZE} />
+            </View>
+          )}
+        </View>
+        <BottomSheet
+          id="ride"
+          request={sheetRequest}
+          onSnapChange={onSheetSnap}
+          header={
+            !loadingResults && itinerary && fare && ride ? (
+              <View style={styles.peek}>
+                <LineBadge code={ride.routeCode} color={colorOf(ride.routeCode)} small />
+                <Text style={[typography.labelLg, styles.grow]} numberOfLines={1}>
+                  {cards.find((card) => card.code === ride.routeCode)?.name ?? ride.routeCode}
+                </Text>
+                <Text style={typography.labelLg}>{strings.ride.fare(fare.rounded)}</Text>
+              </View>
+            ) : (
+              <Text style={typography.labelLg} numberOfLines={1}>
+                {loadingResults ? strings.ride.finding : needsPick ? strings.ride.choose : strings.ride.noRoute}
+              </Text>
+            )
+          }
+        >
           {loadingResults ? (
             <>
               <SkeletonCard />
@@ -407,9 +433,8 @@ export default function MyRidesScreen() {
               </View>
             </>
           ) : null}
-
-        </ScrollView>
-      )}
+        </BottomSheet>
+      </View>
     </View>
   );
 }
@@ -423,11 +448,6 @@ const useStyles = makeStyles(({ colors }) => ({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
-  content: {
-    gap: spacing.md,
-    padding: spacing.md,
-    paddingTop: spacing.sm,
-  },
   fields: {
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -436,19 +456,13 @@ const useStyles = makeStyles(({ colors }) => ({
     borderBottomWidth: 1,
     borderBottomColor: colors.outline,
   },
-  mapWrap: {
-    paddingHorizontal: spacing.md,
-  },
   map: {
-    overflow: 'hidden',
-    borderRadius: radii.lg,
+    flex: 1,
     backgroundColor: colors.surface,
   },
-  mapChip: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    alignItems: 'flex-end',
+  peek: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   centered: {

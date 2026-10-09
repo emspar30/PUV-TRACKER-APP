@@ -118,7 +118,7 @@ export default function OnboardingScreen() {
 
   const finish = () => {
     saveHandle();
-    // Skipping still gives an avatar, from all twelve when there is no answer
+    // Skipping still gives an avatar, from all of them when there is no answer
     assignAvatar();
     setOnboarded(true);
     // Opened from Settings there is a screen to go back to; on first launch there is not

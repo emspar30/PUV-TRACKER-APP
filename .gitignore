@@ -45,3 +45,5 @@ yarn-error.*
 .env
 .env.*
 !.env.example
+# Avatar originals (about 80 MB); the app uses the 256 px copies in assets/avatars
+/assets/profile avatars/

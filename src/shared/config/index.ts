@@ -340,10 +340,10 @@ export const GREETING_AFTERNOON_START_H = 11;
 export const GREETING_EVENING_START_H = 17;
 export const GREETING_NIGHT_START_H = 21;
 // Preset avatars: ids 0 to AVATAR_COUNT - 1. A stated gender picks from its own set; no answer or
-// "Prefer not to say" picks from all of them.
-export const AVATAR_COUNT = 12;
-export const AVATAR_IDS_MALE: readonly number[] = [0, 1, 2, 3, 4, 5];
-export const AVATAR_IDS_FEMALE: readonly number[] = [6, 7, 8, 9, 10, 11];
+// "Prefer not to say" picks from all of them. ST2-C: Emjay's 16 illustrations, 11 male and 5 female.
+export const AVATAR_COUNT = 16;
+export const AVATAR_IDS_MALE: readonly number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+export const AVATAR_IDS_FEMALE: readonly number[] = [11, 12, 13, 14, 15];
 // Frequent destinations kept on the phone (decision 5)
 export const FREQUENT_DESTINATIONS_MAX = 3;
 // F5: badges from simple counts (PRD 19, D8); no ranking. The "first" badges need one.

@@ -286,22 +286,3 @@ export const TEXT_PAIRS: readonly (readonly [text: TextToken, background: TextTo
   ['textPrimary', 'dangerContainer'],
   ['textSecondary', 'dangerContainer'],
 ];
-
-// Colours of the preset avatar drawings (src/features/profile/Avatar.tsx). They are illustrations,
-// the same in both themes. Skin tones and hair colours are shared by both avatar sets.
-export const AVATAR_ART = {
-  skin: ['#F3CDAF', '#DDA67E', '#B47A52', '#7E5234'],
-  hair: { black: '#1F1A17', darkBrown: '#3D2A1F', brown: '#6E4A2E', grey: '#8A8A8A' },
-  // Shirt colour, then the matching background
-  outfits: {
-    teal: ['#00897B', '#B2DFDB'],
-    amber: ['#F9A825', '#FFE9A8'],
-    blue: ['#1E88E5', '#BBDEFB'],
-    green: ['#43A047', '#C8E6C9'],
-    purple: ['#8E24AA', '#E1BEE7'],
-    orange: ['#EF6C00', '#FFD8B0'],
-    rose: ['#D81B60', '#F8BBD0'],
-  },
-  ink: '#2B2B2B',
-  cap: '#C62828',
-} as const;

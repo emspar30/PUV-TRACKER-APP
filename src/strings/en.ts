@@ -380,8 +380,9 @@ export const en = {
     recentFrom: (source: 'checkin' | 'report') => (source === 'checkin' ? 'Check-in' : 'Relay report'),
     ago: (minutes: number) =>
       minutes < 1 ? 'Just now' : minutes < MINUTES_PER_HOUR ? `${minutes} min ago` : minutes < MINUTES_PER_DAY ? `${Math.floor(minutes / MINUTES_PER_HOUR)} h ago` : `${Math.floor(minutes / MINUTES_PER_DAY)} d ago`,
-    expandMap: 'Make the map bigger',
-    shrinkMap: 'Make the map smaller',
+    // ST2-C: the top line of the results sheet
+    finding: 'Finding routes',
+    noRoute: 'No route for this trip',
   },
 
   // Check-in: a local countdown in UX2; the cloud check-in, geofence and reminder arrive in G1

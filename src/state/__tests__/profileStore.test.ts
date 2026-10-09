@@ -23,8 +23,8 @@ function restart(): Store {
   return store;
 }
 
-const MALE = [0, 1, 2, 3, 4, 5];
-const FEMALE = [6, 7, 8, 9, 10, 11];
+const MALE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const FEMALE = [11, 12, 13, 14, 15];
 
 afterEach(() => {
   mockSaved.clear();
@@ -70,11 +70,11 @@ describe('profile store: the avatar is picked once', () => {
     expect(restart().getState().avatarId).toBe(after);
   });
 
-  it('skipping the question picks from all twelve', () => {
+  it('skipping the question picks from all sixteen', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.99);
     const store = restart();
     store.getState().assignAvatar();
-    expect(store.getState().avatarId).toBe(11);
+    expect(store.getState().avatarId).toBe(15);
   });
 
   it('a phone from before onboarding v2 keeps its hand-picked avatar', () => {
