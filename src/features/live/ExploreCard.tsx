@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Logo } from '@/components';
+import { TourTarget } from '@/features/tour/TourTarget';
 import { pickGreeting } from '@/shared/profile/greeting';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
@@ -32,13 +33,16 @@ export function ExploreCard({ onAllRoutes }: { onAllRoutes: () => void }) {
       <Chevron color={colors.textSecondary} size={ICON_SIZE} />
     </Pressable>
   );
+  // ST2-D: the tips tour points at the search field
   const search = (
-    <Pressable style={[styles.search, minimized && styles.grow]} onPress={() => router.navigate('/ride')} accessibilityRole="search">
-      <Search color={colors.textSecondary} size={ICON_SIZE} />
-      <Text style={[typography.bodyLg, styles.placeholder]} numberOfLines={1}>
-        {strings.live.explore.search}
-      </Text>
-    </Pressable>
+    <TourTarget id="search" style={minimized ? styles.grow : undefined}>
+      <Pressable style={styles.search} onPress={() => router.navigate('/ride')} accessibilityRole="search">
+        <Search color={colors.textSecondary} size={ICON_SIZE} />
+        <Text style={[typography.bodyLg, styles.placeholder]} numberOfLines={1}>
+          {strings.live.explore.search}
+        </Text>
+      </Pressable>
+    </TourTarget>
   );
   if (minimized) {
     return (

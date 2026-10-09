@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { DialogHost, ToastHost } from '@/components';
 import { RouteDataProvider } from '@/data/RouteDataProvider';
+import { TourHost } from '@/features/tour/TourHost';
 import { startEnergySync } from '@/state/energyStore';
 import { startSessionTracking } from '@/state/sessionStore';
 import { ThemeProvider, useTheme } from '@/theme';
@@ -48,6 +49,8 @@ function ThemedStack() {
       <DialogHost />
       {/* EQ-14: after the dialog, so a notice (such as Badge earned) is not under its dimmed backdrop */}
       <ToastHost />
+      {/* ST2-D: the tips tour bubbles, over everything, with no backdrop */}
+      <TourHost />
     </>
   );
 }

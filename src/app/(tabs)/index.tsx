@@ -27,10 +27,13 @@ import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { TrackingLayers } from '@/features/tracking/TrackingLayers';
+import { TourTarget } from '@/features/tour/TourTarget';
 import { TrackingBar } from '@/features/tracking/TrackingBar';
 import { TrackingPanel } from '@/features/tracking/TrackingPanel';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { useVehicles } from '@/features/vehicles/useVehicles';
+import { useTourStore } from '@/state/tourStore';
+import { promptSignIn, useIsGuest } from '@/features/auth/guestGate';
 import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
 import {
   ENERGY_TRACKING_COST,
@@ -44,6 +47,7 @@ import {
   TRACK_OTHERS_OPACITY,
   TRACKING_SESSION_MIN,
   SKELETON_MIN_MS,
+  TOUR_START_DELAY_MS,
 } from '@/shared/config';
 import { canReportWithGps } from '@/shared/checkin/geofence';
 import { nearestStop } from '@/shared/routing/describe';
@@ -133,6 +137,19 @@ export default function MapScreen() {
 
   // Tabs stay mounted; vehicles refresh only while Map is the tab in front
   const focused = useIsFocused();
+  // ST2-D: a guest cannot relay or track; those controls show a lock and ask them to sign in
+  const guest = useIsGuest();
+
+  // ST2-D: the tips tour starts by itself once, the first time the Map tab shows after the
+  // introduction, when its controls are laid out
+  const tourDone = useTourStore((state) => state.done);
+  const tourRunning = useTourStore((state) => state.step !== null);
+  const startTour = useTourStore((state) => state.start);
+  useEffect(() => {
+    if (tourDone || tourRunning || !focused) return;
+    const timer = setTimeout(startTour, TOUR_START_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [tourDone, tourRunning, focused, startTour]);
   const live = useVehicles(repos.vehicles, focused ? selectedRoute : null);
   // B2: each route with one stored leg also has its stand-in other leg, so ETAs follow a vehicle round
   const loopLines = useMemo(() => withReturnLegs(lines), [lines]);
@@ -277,6 +294,7 @@ export default function MapScreen() {
   // SB2: tracking one PUV is paid with Energy (free while Energy is off); signing in comes first
   // on live data (D6)
   const startTracking = async (id: string) => {
+    if (guest) return promptSignIn();
     const routeCode = live.vehicles.find((candidate) => candidate.id === id)?.routeCode ?? selectedRoute;
     if (startingTrack.current || !routeCode) return;
     startingTrack.current = true;
@@ -471,7 +489,7 @@ export default function MapScreen() {
         pointerEvents="box-none"
         onLayout={(event) => setTopHeight(event.nativeEvent.layout.height)}
       >
-        <TopBar />
+        <TopBar tour />
         {selectedOption ? (
           <ActiveRouteCard
             code={selectedOption.code}
@@ -495,14 +513,25 @@ export default function MapScreen() {
       <View style={styles.bottom} onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)} pointerEvents="box-none">
         <View style={styles.buttons} pointerEvents="box-none" onLayout={(event) => setButtonsHeight(event.nativeEvent.layout.height)}>
           {trackedId ? <RoundButton icon={Crosshair} label={strings.live.tracking.jumpTo} onPress={jumpToTracked} active /> : null}
-          <RoundButton icon={RadioTower} label={strings.report.title} onPress={() => setReportOpen(true)} />
-          <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
-          <RoundButton
-            icon={LocateFixed}
-            label={location.following ? strings.location.following : strings.location.locateMe}
-            onPress={locate}
-            active={commuter?.source === 'simulated' || (location.following && location.locationAllowed)}
-          />
+          <TourTarget id="relay">
+            <RoundButton
+              icon={RadioTower}
+              label={guest ? strings.guest.locked(strings.report.title) : strings.report.title}
+              onPress={() => (guest ? promptSignIn() : setReportOpen(true))}
+              locked={guest}
+            />
+          </TourTarget>
+          <TourTarget id="routes">
+            <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
+          </TourTarget>
+          <TourTarget id="locate">
+            <RoundButton
+              icon={LocateFixed}
+              label={location.following ? strings.location.following : strings.location.locateMe}
+              onPress={locate}
+              active={commuter?.source === 'simulated' || (location.following && location.locationAllowed)}
+            />
+          </TourTarget>
         </View>
         {location.showExplainer ? <LocationExplainer onContinue={location.continueExplainer} onNotNow={location.dismissExplainer} /> : null}
         {location.reducedMode ? (
@@ -556,6 +585,7 @@ export default function MapScreen() {
             eta={vehicleEta?.kind === 'approaching' ? strings.live.tracking.minutes(vehicleEta.etaS) : null}
             distanceKm={vehicleKm}
             onTrack={() => void startTracking(vehicle.id)}
+            locked={guest}
             onClose={() => setSelectedVehicle(null)}
           />
         ) : stop ? (

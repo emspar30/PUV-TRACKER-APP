@@ -194,6 +194,9 @@ export const LABEL_BARANGAY_MAX_ZOOM = 16;
 export const LABEL_DIMMED_OPACITY = 0.5;
 export const MAP_LABELS_DEFAULT = true;
 
+// ST2-D: the tips tour starts this long after the Map tab first shows, once the map and cards are laid out
+export const TOUR_START_DELAY_MS = 1200;
+
 // --- Route lines on the map (UX3; PRD 7.2: other routes fade to 8% opacity)
 // Lines are drawn only for a selected route; routes that are not selected are drawn this faint
 export const UNSELECTED_ROUTE_OPACITY = 0.08;
@@ -300,9 +303,9 @@ export const NIGHT_MODE_TZ = 'Asia/Manila';
 export const ENERGY_ENABLED_DEFAULT = false;
 // D1: tracking is free for the prototype and pilot, in the demo wallet too (Emjay, 2026-10-08)
 export const ENERGY_ENABLED_DEMO = false;
-// D1: the Energy balance, refill, history and earn lines are hidden while tracking is free. Earning
-// still runs on the server; true shows them again for a demonstration.
-export const ENERGY_UI_VISIBLE = false;
+// The Energy balance, refill, history and earn lines. ST2-D: shown again (Emjay, 2026-10-09) so
+// commuters see their balance grow as they check in and relay; tracking stays free (charging off, D1).
+export const ENERGY_UI_VISIBLE = true;
 export const ENERGY_WALLET_CAP = 5;
 export const ENERGY_GPS_REPORT = 1.0;
 export const ENERGY_NO_GPS_REPORT = 0.5;

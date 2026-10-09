@@ -30,6 +30,7 @@ import type { LatLon } from '@/shared/geo/haversine';
 import { describePoint, nearestStop, snapToRoute } from '@/shared/routing/describe';
 import { placeIdOf } from '@/shared/routing/suggest';
 import { searchPlaces, type SearchablePlace } from '@/shared/routing/placeSearch';
+import { promptSignIn, useIsGuest } from '@/features/auth/guestGate';
 import { explainFailure, type FailureExplanation } from '@/shared/routing/explainFailure';
 import { fareForItinerary, planOptions, planTrip } from '@/shared/routing/plan';
 import { rankRouteOptions } from '@/shared/routing/rankOptions';
@@ -110,6 +111,8 @@ export default function MyRidesScreen() {
   const [collapsed, setCollapsed] = useState(false);
   const [cardHeight, setCardHeight] = useState(0);
   // ST2-C3: the stop dots can be hidden to move round the map freely; remembered
+  // ST2-D: a guest cannot open Check-in from the suggested route either
+  const guest = useIsGuest();
   const showStops = useSettingsStore((state) => state.rideStops);
   const setShowStops = useSettingsStore((state) => state.setRideStops);
   const [focus, setFocus] = useState<MapFocus | null>(null);
@@ -253,8 +256,15 @@ export default function MyRidesScreen() {
   // and streets of the offline map; no network. With nothing typed yet, the saved places are offered.
   const searchable = useMemo<SearchablePlace[]>(
     () => [
-      ...destinations.map((place) => ({ id: place.id, title: place.label, lat: place.lat, lon: place.lon, kind: 'saved' as const })),
-      ...stops.map((stop) => ({ id: `stop-${stop.code}`, title: stop.name, code: stop.code, lat: stop.lat, lon: stop.lon, kind: 'stop' as const })),
+      // A saved place keeps the id it was saved under, which for a stop is the stop's own (stop-LIB): it
+      // is listed once, as the saved place, and every kind has its own key prefix
+      ...destinations.map((place) => {
+        const stop = stops.find((candidate) => `stop-${candidate.code}` === place.id);
+        return { id: `saved-${place.id}`, title: stop?.name ?? place.label, code: stop?.code, lat: place.lat, lon: place.lon, kind: 'saved' as const };
+      }),
+      ...stops
+        .filter((stop) => !destinations.some((place) => place.id === `stop-${stop.code}`))
+        .map((stop) => ({ id: `stop-${stop.code}`, title: stop.name, code: stop.code, lat: stop.lat, lon: stop.lon, kind: 'stop' as const })),
       ...MAP_PLACES.map(([title, category, group, lat, lon, near], index) => ({
         id: `map-${index}`,
         title,
@@ -474,7 +484,7 @@ export default function MyRidesScreen() {
                 boardAt={nearestCode(ride.from)}
                 getOffAt={nearestCode(ride.to)}
                 onViewOnMap={() => router.navigate({ pathname: '/', params: { route: ride.routeCode, at: String(Date.now()) } })}
-                onCheckin={() => router.navigate('/checkin')}
+                onCheckin={() => (guest ? promptSignIn() : router.navigate('/checkin'))}
               />
             </>
           ) : null}

@@ -6,6 +6,7 @@ import type { Classification } from '@/shared/config';
 import type { GreetingPeriod } from '@/shared/profile/greeting';
 import type { PlanFailure } from '@/shared/routing/plan';
 import type { SnapName } from '@/shared/ui/sheetSnap';
+import type { TourStepId } from '@/shared/ui/tourPlacement';
 
 const km = (value: number) => `${value.toFixed(1)} km`;
 const MINUTES_PER_HOUR = 60;
@@ -169,6 +170,8 @@ export const en = {
     guest: 'Commuter',
     notifications: 'Notifications',
     energy: (balance: string, refill: string | null) => `${balance} Tracking Energy${refill ? `, refill in ${refill}` : ''}`,
+    // ST2-D: the balance in the header, out of the wallet's cap
+    energyOf: (balance: string, cap: number) => `${balance}/${cap}`,
     // PRD 14: the server cannot be reached; the offline map, routing and fares keep working
     offline: 'Offline · Live updates paused',
   },
@@ -434,7 +437,7 @@ export const en = {
     // ST2-C3: the line under a search result: a stop's code, "Your place", or the kind of place and
     // the barangay it is near
     resultDetail: (place: { kind: string; code?: string; category?: string; near?: string }) => {
-      if (place.kind === 'saved') return 'Your place';
+      if (place.kind === 'saved') return place.code ? `Your place · Stop ${place.code}` : 'Your place';
       if (place.kind === 'stop') return `Stop ${place.code ?? ''}`.trim();
       if (place.kind === 'area') return 'Barangay';
       const what = place.kind === 'street' ? 'Street' : placeKind(place.category ?? '');
@@ -576,6 +579,9 @@ export const en = {
     offlineMap: 'Offline map',
     offlineMapBody: 'Butuan City, built into the app',
     bundled: 'Built in',
+    // ST2-D
+    replayTour: 'Replay tips tour',
+    replayTourBody: 'The bubbles that point out each button on the Map',
     licences: 'Licences',
   },
 
@@ -746,6 +752,36 @@ export const en = {
     cancel: 'Cancel',
   },
 
+  // ST2-D: what a guest sees on a control that needs an account
+  guest: {
+    title: 'Account needed',
+    body: 'Please sign in or create an account to use this feature.',
+    signIn: 'Sign in',
+    notNow: 'Not now',
+    locked: (feature: string) => `${feature}, needs an account`,
+  },
+
+  // ST2-D: the tips tour, one bubble per control on the Map tab
+  tour: {
+    steps: {
+      profile: { title: 'Your profile', body: 'Your avatar, username and fare type. Tap it for your badges.' },
+      menu: { title: 'Menu', body: 'Settings, your places, and this tour again.' },
+      relay: { title: 'Relay a multicab', body: 'On a multicab? Tell others if it has seats, is full or stuck in traffic.' },
+      routes: { title: 'Routes', body: 'Pick a route to see its line, stops and multicabs.' },
+      locate: { title: 'Where you are', body: 'Puts the map on you.' },
+      search: { title: 'Plan a trip', body: 'Type where you are going for the best route and the fare.' },
+      checkin: { title: 'Check in', body: 'Waiting at a stop? Check in so drivers know someone is there.' },
+      ride: { title: 'My Rides', body: 'From, To, the fare and the routes that take you there.' },
+      crowdsource: { title: 'Crowdsource', body: 'What other commuters reported in the last hour.' },
+    } satisfies Record<TourStepId, { title: string; body: string }>,
+    count: (step: number, total: number) => `${step}/${total}`,
+    next: 'Next',
+    finish: "Let's ride!",
+    skip: 'Skip',
+    skipLabel: 'Skip the tips tour',
+    done: "Tour done. You're ready to ride!",
+  },
+
   // Tunton, the app's persona (PRD 19, D11): short and friendly
   persona: {
     name: 'Tunton',
@@ -768,7 +804,7 @@ export const en = {
 
   // F5: badges from the user's own counts (D8); no ranking
   badges: {
-    title: (earned: number, total: number) => `Badges (${earned}/${total})`,
+    title: (earned: number, total: number) => `Trust Badges (${earned}/${total})`,
     names: {
       first_trip: 'First trip planned',
       first_checkin: 'First check-in',

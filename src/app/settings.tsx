@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Armchair, BellRing, FileDown, FileText, Languages, Mail, Map as MapIcon, Moon, Navigation, Route, ShieldCheck, Trash2, Type } from 'lucide-react-native';
+import { Armchair, BellRing, FileDown, FileText, Languages, Lightbulb, Mail, Map as MapIcon, Moon, Navigation, Route, ShieldCheck, Trash2, Type } from 'lucide-react-native';
 import { Linking } from 'react-native';
 
 import { Screen, SettingsGroup, SettingsRow } from '@/components';
@@ -12,6 +12,7 @@ import { showDialog } from '@/state/dialogStore';
 import { useLocationStore } from '@/state/locationStore';
 import { useSessionStore } from '@/state/sessionStore';
 import { useSettingsStore } from '@/state/settingsStore';
+import { useTourStore } from '@/state/tourStore';
 import { strings } from '@/strings';
 
 // Settings & preferences (restyle), opened from the menu. Everything here is stored on this phone
@@ -133,6 +134,16 @@ export default function SettingsScreen() {
       <SettingsGroup title={strings.settings.system}>
         <SettingsRow first icon={Languages} title={strings.settings.language} detail={strings.settings.english} />
         <SettingsRow icon={MapIcon} title={strings.settings.offlineMap} subtitle={strings.settings.offlineMapBody} badge={strings.settings.bundled} />
+        {/* ST2-D: the tips tour again, on the Map tab */}
+        <SettingsRow
+          icon={Lightbulb}
+          title={strings.settings.replayTour}
+          subtitle={strings.settings.replayTourBody}
+          onPress={() => {
+            useTourStore.getState().start();
+            router.navigate('/');
+          }}
+        />
         <SettingsRow icon={FileText} title={strings.settings.licences} onPress={() => router.push('/licences')} />
       </SettingsGroup>
     </Screen>

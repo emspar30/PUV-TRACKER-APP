@@ -7,6 +7,7 @@ import { useLocationStore } from './locationStore';
 import { useProfileStore } from './profileStore';
 import { useRidesStore } from './ridesStore';
 import { useSettingsStore } from './settingsStore';
+import { useTourStore } from './tourStore';
 import { useTrustStore } from './trustStore';
 import { useUsernameStore } from './usernameStore';
 
@@ -24,6 +25,8 @@ export function resetApp(): void {
   useTrustStore.setState(useTrustStore.getInitialState(), true);
   useUsernameStore.setState(useUsernameStore.getInitialState(), true);
   useSettingsStore.getState().resetSettings();
+  // ST2-D: the tips tour shows again after the introduction
+  useTourStore.setState({ done: false, step: null });
   // Last, so the introduction opens with everything above already cleared
   useProfileStore.setState(useProfileStore.getInitialState(), true);
 }
