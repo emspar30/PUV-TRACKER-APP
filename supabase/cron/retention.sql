@@ -22,3 +22,11 @@ select cron.schedule('retention-telemetry-raw', '7 * * * *',
   $$ delete from public.telemetry_raw
      where received_at < now() - interval '7 days'
         or (at_night and received_at < now() - interval '24 hours') $$);
+
+-- DR3, driver side: the SMS queue 7 days (delivery records for the gateway health checks and E7);
+-- the worker's alerts 30 days.
+select cron.schedule('retention-sms-outbox', '41 3 * * *',
+  $$ delete from public.sms_outbox where created_at < now() - interval '7 days' $$);
+
+select cron.schedule('retention-ops-alerts', '47 3 * * *',
+  $$ delete from public.ops_alerts where created_at < now() - interval '30 days' $$);

@@ -71,11 +71,13 @@ describe('provisioning codes (PRD 9.5; DR2)', () => {
     expect(parseProvisioning(reencode({ ...DRIVER, v: 2 }), 'driver', NOW)).toEqual({ ok: false, reason: 'wrong_version' });
   });
 
-  it('refuses a worker address without HTTPS', () => {
-    expect(parseProvisioning(reencode({ ...GATEWAY, workerUrl: 'http://worker.example.org' }), 'gateway', NOW)).toEqual({
-      ok: false,
-      reason: 'insecure_url',
-    });
+  it('refuses a worker address without HTTPS, except localhost for development over USB', () => {
+    for (const workerUrl of ['http://worker.example.org', 'http://192.168.1.5:8787', 'http://localhost.example.org']) {
+      expect(parseProvisioning(reencode({ ...GATEWAY, workerUrl }), 'gateway', NOW)).toEqual({ ok: false, reason: 'insecure_url' });
+    }
+    for (const workerUrl of ['http://localhost:8787', 'http://127.0.0.1:8787/v1']) {
+      expect(parseProvisioning(reencode({ ...GATEWAY, workerUrl }), 'gateway', NOW)).toMatchObject({ ok: true });
+    }
   });
 
   it.each([

@@ -4,18 +4,38 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { SMS_SEQ_MODULUS } from '../config';
+
 const ROOT = path.join(__dirname, '..', '..', '..');
 const MIGRATIONS = path.join(ROOT, 'supabase', 'migrations');
 
-const sql = fs
+const FILES = fs
   .readdirSync(MIGRATIONS)
   .filter((name) => name.endsWith('.sql'))
-  .sort()
-  .map((name) => fs.readFileSync(path.join(MIGRATIONS, name), 'utf8'))
-  .join('\n')
-  // Drop comments, so a word in a comment cannot satisfy or fail a check
-  .replace(/--.*$/gm, '')
-  .toLowerCase();
+  .sort();
+const DRIVER_SIDE = '20261013000000_driver_side.sql';
+
+const read = (names: string[]) =>
+  names
+    .map((name) => fs.readFileSync(path.join(MIGRATIONS, name), 'utf8'))
+    .join('\n')
+    // Drop comments, so a word in a comment cannot satisfy or fail a check
+    .replace(/--.*$/gm, '')
+    .toLowerCase();
+
+const sql = read(FILES);
+// The commuter side, where no table may hold a rider's personal details
+const riderSql = read(FILES.filter((name) => name !== DRIVER_SIDE));
+// DR3: the driver side (driver SIM numbers, the SMS queue), server-only
+const driverSql = read([DRIVER_SIDE]);
+const DRIVER_SIDE_TABLES = [
+  'public.vehicle_beacons',
+  'public.driver_devices',
+  'public.gateways',
+  'public.sms_outbox',
+  'public.sms_dispatch_state',
+  'public.ops_alerts',
+];
 
 // Function bodies ($$ ... $$) are checked on their own; outside them, statements split on ';'
 const bodies = [...sql.matchAll(/\$\$([\s\S]*?)\$\$/g)].map((match) => match[1]);
@@ -122,9 +142,11 @@ describe('migration: tables', () => {
   });
 
   it('stores no rider category, avatar, name, email or phone in any table', () => {
-    for (const word of ['classification', 'avatar', 'full_name', 'email', 'phone', 'discount']) {
+    for (const word of ['classification', 'avatar', 'full_name', 'email', 'discount']) {
       expect(sql).not.toContain(word);
     }
+    // Phone numbers exist only on the driver side (driver and gateway SIMs), never for riders
+    expect(riderSql).not.toContain('phone');
   });
 
   it('keeps the user id out of telemetry_latest, so rider identity cannot reach the map', () => {
@@ -165,7 +187,14 @@ describe('migration: row level security and grants', () => {
   });
 
   it('server-only tables are invisible to clients: no grant and no policy', () => {
-    for (const table of ['public.team_accounts', 'public.telemetry_ingest_log', 'public.telemetry_raw', 'public.feed_flags', 'public.feed_review_queue']) {
+    for (const table of [
+      'public.team_accounts',
+      'public.telemetry_ingest_log',
+      'public.telemetry_raw',
+      'public.feed_flags',
+      'public.feed_review_queue',
+      ...DRIVER_SIDE_TABLES,
+    ]) {
       expect(clientGrantsOn(table)).toEqual([]);
       expect(policiesOn(table)).toEqual([]);
     }
@@ -245,9 +274,11 @@ describe('migration: row level security and grants', () => {
     expect(sql).toMatch(/rename to "telemetry_latest: team accounts read active vehicles"/);
   });
 
-  it('ST2-D2: the last Energy switch makes tracking cost Energy again', () => {
+  it('DR3 option B (Emjay, 2026-10-12): the last Energy switch keeps tracking free; turning it on waits in supabase/pending', () => {
     const switches = statements.filter((s) => s.startsWith('update public.app_config set energy_enabled'));
-    expect(switches.pop()).toBe('update public.app_config set energy_enabled = true');
+    expect(switches.pop()).toBe('update public.app_config set energy_enabled = false');
+    const pending = fs.readFileSync(path.join(ROOT, 'supabase', 'pending', 'energy_on.sql'), 'utf8');
+    expect(pending).toContain('update public.app_config set energy_enabled = true;');
   });
 
   it('publishes telemetry_latest, and only it, to Realtime', () => {
@@ -257,5 +288,69 @@ describe('migration: row level security and grants', () => {
 
   it('contains no destructive statement', () => {
     expect(statements.filter((s) => /^(drop|truncate|delete) /.test(s))).toEqual([]);
+  });
+});
+
+describe('migration: driver side (DR3)', () => {
+  const driverStatements = driverSql
+    .replace(/\$\$[\s\S]*?\$\$/g, '$$body$$')
+    .split(';')
+    .map((s) => s.replace(/\s+/g, ' ').trim());
+  const driverFunctions = driverStatements
+    .filter((s) => s.startsWith('create function'))
+    .map((s) => /create function public\.(\w+)/.exec(s)![1]);
+  const tableBody = (table: string) => {
+    const body = driverSql.slice(driverSql.indexOf(`create table ${table} (`));
+    return body.slice(0, body.indexOf(');'));
+  };
+
+  it('creates the driver-side tables, all server-only', () => {
+    expect(tables).toEqual(expect.arrayContaining(DRIVER_SIDE_TABLES));
+    for (const table of DRIVER_SIDE_TABLES) {
+      expect(clientGrantsOn(table)).toEqual([]);
+      expect(policiesOn(table)).toEqual([]);
+    }
+  });
+
+  it('leaves the commuter tables alone: vehicles, which signed-in users read, gains no column', () => {
+    expect(driverStatements.filter((s) => s.startsWith('alter table') && !s.endsWith('enable row level security'))).toEqual([]);
+    expect(driverStatements.filter((s) => /^(alter|create) policy/.test(s))).toEqual([]);
+  });
+
+  it('keeps secrets in Vault: tables hold only Vault ids, never a secret, key or token', () => {
+    for (const table of DRIVER_SIDE_TABLES) expect(tableBody(table)).not.toMatch(/\b(secret|sms_key|token)\s+text\b/);
+    expect(tableBody('public.vehicle_beacons')).toMatch(/secret_id\s+uuid not null/);
+    expect(tableBody('public.driver_devices')).toMatch(/sms_key_id\s+uuid not null/);
+    expect(tableBody('public.gateways')).toContain("token_hash         text not null check (token_hash ~ '^[0-9a-f]{64}$')");
+  });
+
+  it('holds driver numbers only in the two server-only tables, in E.164', () => {
+    expect(DRIVER_SIDE_TABLES.filter((table) => tableBody(table).includes('phone_e164'))).toEqual(['public.driver_devices', 'public.gateways']);
+    expect(tableBody('public.driver_devices')).toContain(String.raw`phone_e164      text not null check (phone_e164 ~ '^\+639[0-9]{9}$')`);
+  });
+
+  it('lets only the service role run the worker and admin functions; vault_put is internal', () => {
+    expect(driverFunctions).toHaveLength(14);
+    expect(driverStatements).toContain('revoke execute on function public.vault_put(text, text, text) from public, anon, authenticated');
+    expect(driverStatements.some((s) => s.startsWith('grant execute on function public.vault_put'))).toBe(false);
+    for (const name of driverFunctions.filter((fn) => fn !== 'vault_put')) {
+      expect(name).toMatch(/^(worker|admin)_/);
+      const revoke = driverStatements.find((s) => s.startsWith(`revoke execute on function public.${name}(`));
+      expect(revoke).toMatch(/ from public, anon, authenticated$/);
+      const grants = driverStatements.filter((s) => s.startsWith(`grant execute on function public.${name}(`));
+      expect(grants).toHaveLength(1);
+      expect(grants[0]).toMatch(/ to service_role$/);
+    }
+  });
+
+  it('wraps sequence numbers at the protocol modulus and keeps one active phone per vehicle', () => {
+    expect(driverSql).toContain(`% ${SMS_SEQ_MODULUS}`);
+    expect(driverSql).toContain(`last_seq        integer check (last_seq between 0 and ${SMS_SEQ_MODULUS - 1})`);
+    expect(driverSql).toContain('create unique index driver_devices_one_active_per_vehicle on public.driver_devices (vehicle_id) where active');
+  });
+
+  it('counts waiting commuters by the same rule as checkin_counts', () => {
+    const body = bodies.find((b) => b.includes('from public.checkins c') && b.includes('count(*)::bigint') && b.includes('group by c.route_id'));
+    expect(body).toContain('c.expires_at > now()');
   });
 });

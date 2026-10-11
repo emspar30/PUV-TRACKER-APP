@@ -6,6 +6,7 @@ import { normalizePhNumber } from './phone';
 
 // The one-time setup code an admin shows as a QR on the PC (PRD 9.5; DR3, DR4, DR7):
 //   TPV1.<base64url of the JSON payload>
+// The worker address must be HTTPS, except http://localhost for development over USB.
 // It carries the phone's secrets, so it is printed only in the provisioning script's terminal and
 // never saved; the app hands the secrets straight to its native module. The payload is ASCII only.
 // The admin PIN (Q12) is stored as a salted SHA-256: a 6-digit PIN can be found by trying them all,
@@ -32,6 +33,9 @@ const VEHICLE_ID_RE = /^[A-Z0-9][A-Z0-9-]{0,23}$/;
 const ROUTE_RE = /^R\d{1,2}$/;
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 const HTTPS_RE = /^https:\/\/[^\s/?#]+(\/[^\s]*)?$/;
+// Development only: the gateway reaches the worker on the team PC over USB (adb reverse); DR7's
+// release build refuses it
+const LOCALHOST_RE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?(\/[^\s]*)?$/;
 const SHORT_ID_MAX = 0xffff;
 
 type Common = {
@@ -140,7 +144,7 @@ function gatewayPayload(data: Record<string, unknown>): GatewayProvisioning | 'i
   if (!isString(gatewayId) || !GATEWAY_ID_RE.test(gatewayId)) return null;
   if (!isString(token) || !TOKEN_RE.test(token)) return null;
   if (!isString(workerUrl)) return null;
-  if (!HTTPS_RE.test(workerUrl)) return 'insecure_url';
+  if (!HTTPS_RE.test(workerUrl) && !LOCALHOST_RE.test(workerUrl)) return 'insecure_url';
   return data as GatewayProvisioning;
 }
 

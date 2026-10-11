@@ -61,7 +61,7 @@ The design of the database, what you do in the Supabase dashboard, and the live 
 
 1. **Create two accounts** under Authentication, Users, "Add user", with "Auto Confirm User" on: a team account and an outsider. Use addresses and passwords made for testing.
 2. **Fill in `.env`** (copy `.env.example`; git-ignored): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and the four `TEST_...` values. **Once these are filled in, `npx jest` runs the live tests.**
-3. **Never paste the secret or service-role key** in this project.
+3. **The service-role key** never goes in the app, in a committed file or in a chat. Since DR3 (2026-10-12) it may sit in the team PC's git-ignored `.env` as `SUPABASE_SERVICE_ROLE_KEY`, for the driver-side admin scripts, their live tests and the SMS worker only (section 8).
 4. Have the **database password** and the **project reference** ready for `supabase link`. You type them; the agent never sees or prints them.
 5. **Do not enable `pg_cron` yet.** The agent asks you at step 3 below.
 
@@ -90,3 +90,42 @@ on conflict (user_id) do nothing;
 ## 7. After the live steps
 
 Restart Metro, because the `EXPO_PUBLIC_` values are read when the app is bundled. Settings then shows "Not signed in" with a Sign in button instead of "Team account · not set up".
+
+## 8. Driver side (DR3, 2026-10-12)
+
+Migration `20261013000000_driver_side.sql`; design in `docs/IMPLEMENTATION_PLAN_DRIVER.md` sections 6, 8 and DR3.
+
+**Tables, all server-only** (Row Level Security on, no client grant, no policy):
+
+| Table | Holds | Kept |
+| --- | --- | --- |
+| `vehicle_beacons` | A vehicle's beacon short id (1 to 65535) and its secret's Vault id | Life of the vehicle |
+| `driver_devices` | A driver phone: vehicle, SIM number (E.164), SMS key's Vault id, last sequence number, active | Until retired; delete the rows (and numbers) at pilot end |
+| `gateways` | The gateway phone: SHA-256 of its token, SIM number, last heartbeat | — |
+| `sms_outbox` | Texts to send and how they went | 7 days (cron) |
+| `sms_dispatch_state` | What each route was last sent | — |
+| `ops_alerts` | Problems the worker found (Q9: read here, in the dashboard) | 30 days (cron) |
+
+**Secrets live in Vault only.** Tables hold the Vault id. Driver numbers are personal data, readable only with the service role.
+
+**Functions:** `worker_*` for the SMS worker (DR6) and `admin_*` for the scripts. Every one is security definer and callable only by the service role. `vault_put` is internal.
+
+**Scripts** (Emjay's PC, `npx tsx`; they read `SUPABASE_SERVICE_ROLE_KEY` from `.env`, never print it, and show secrets only inside the setup QR):
+
+| Order | Command | Does |
+| --- | --- | --- |
+| 1 | `npx tsx scripts/provision-gateway.ts --gateway GW-01 --phone 09… --worker-url https://…` | Saves the gateway, prints its setup QR (a new token each run) |
+| 2 | `npx tsx scripts/provision-driver.ts --vehicle R4-001 --plate "ABC 123" --route R4 --phone 09…` | Creates or updates the vehicle, new beacon secret, new device and SMS key; prints the driver setup QR. `--replace` for a new or reset phone |
+| — | `npx tsx scripts/retire-device.ts DRV-0001` | Stops texts to a phone and replaces its vehicle's beacon secret |
+
+**Energy (option B, 2026-10-12):** `energy_on` is set aside in `supabase/pending/energy_on.sql`, so tracking stays free on the live project. To turn it on later, copy the file into `supabase/migrations/` under a timestamp later than the last migration, then dry-run and push.
+
+**Live steps for DR3** (each approved first):
+
+| # | Command | Changes the live project? |
+| --- | --- | --- |
+| 0 | `npx supabase login`, then `npx supabase link --project-ref <ref>` (you type the database password) | No. Links this PC's CLI to the project. |
+| 1 | `npx supabase db push --dry-run` | No. Must list **only** `20261013000000_driver_side.sql`. |
+| 2 | `npx supabase db push` | **Yes.** The tables and functions above. |
+| 3 | Paste the two new jobs at the end of `supabase/cron/retention.sql` into the SQL Editor | **Yes.** Two jobs. |
+| 4 | `npx jest tests/integration/driverSide.test.ts` | Writes and removes its own test rows (vehicle `R99-DR3-TEST`, gateway `GW-99`). |

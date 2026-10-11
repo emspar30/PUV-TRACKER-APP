@@ -214,7 +214,6 @@ scripts/
   provision-driver.ts             new
   provision-gateway.ts            new
   retire-device.ts                new
-  rotate-beacon.ts                new
   sms-sign.ts                     new: prints a signed test message (emulator tests)
   decode-beacon.ts                new: decodes and checks a captured beacon payload
   fake-gateway.ts                 new: pulls from the worker and prints, for DR6 without phones
@@ -408,7 +407,7 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 
 | Secret | Created by | Stored | Readable by | Rotation |
 | --- | --- | --- | --- | --- |
-| Vehicle beacon secret (32 bytes) | `provision-driver.ts` | Supabase Vault; driver phone (Keystore-encrypted) | `verify_beacon()` (security definer); the driver beacon service | `rotate-beacon.ts` + re-provision (runbook 11.5) |
+| Vehicle beacon secret (32 bytes) | `provision-driver.ts` | Supabase Vault; driver phone (Keystore-encrypted) | `verify_beacon()` (security definer); the driver beacon service | `retire-device.ts` (it also replaces the beacon secret) + re-provision (runbook 11.5) |
 | Driver SMS key (32 bytes) | `provision-driver.ts` | Vault; driver phone (Keystore-encrypted) | Worker (service role); driver app | Re-provision |
 | Gateway token (32 bytes) | `provision-gateway.ts` | SHA-256 hash in `gateways`; gateway phone (Keystore-encrypted) | Worker compares hashes | `provision-gateway.ts --rotate` |
 | Supabase service role key | Supabase dashboard | Worker host environment; Emjay's PC `.env` for the scripts | Worker, provisioning scripts | Dashboard |
@@ -558,14 +557,14 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 | `supabase/seed.sql` | chg: `short_id` for the test vehicles |
 | `src/shared/__tests__/migration.test.ts` | chg |
 | `tests/integration/driverSide.test.ts` | new (skipped without `.env`) |
-| `scripts/provision-driver.ts`, `scripts/provision-gateway.ts`, `scripts/retire-device.ts`, `scripts/rotate-beacon.ts` | new |
+| `scripts/provision-driver.ts`, `scripts/provision-gateway.ts`, `scripts/retire-device.ts`, `scripts/admin-common.ts` | new |
 | `.env.example` | chg: `SUPABASE_SERVICE_ROLE_KEY=` (empty; for the scripts and the worker only) |
 | `docs/BACKEND_SETUP.md` | chg: a "Driver side" section |
 
 **Migration contents**
 
 1. `create extension if not exists pgcrypto with schema extensions;` and a check that `supabase_vault` is enabled (both are on by default in hosted projects; the migration fails loudly if not).
-2. `vehicles`: add `short_id integer unique check (short_id between 1 and 65535)` and `beacon_secret_id uuid` (a Vault secret id). The test vehicles get short ids 1, 2 and 3.
+2. **As built (2026-10-12):** a server-only `vehicle_beacons` table (`vehicle_id`, `short_id` 1 to 65535, `secret_id` in Vault, `rotated_at`) instead of new columns on `vehicles`, because signed-in commuters can read `vehicles`. Short ids are given at provisioning, not seeded.
 3. `driver_devices`: `device_id text primary key` (`^DRV-[0-9]{4}$`), `vehicle_id` (references `vehicles`), `phone_e164 text not null` (`^\+639[0-9]{9}$`), `sms_key_secret_id uuid not null`, `last_seq integer`, `active boolean default true`, `provisioned_at`, `retired_at`, `note`. Row Level Security on, no policies.
 4. `gateways`: `gateway_id text primary key` (`^GW-[0-9]{2}$`), `token_hash text not null`, `phone_e164`, `active`, `last_heartbeat_at`, `last_status jsonb`. Row Level Security on, no policies.
 5. `sms_outbox`: `id bigint identity`, `device_id`, `route_id`, `seq`, `encoding` (`text` or `data`), `body_text`, `body_b64`, `status` (`queued`, `claimed`, `sent`, `delivered`, `failed`, `expired`), `attempts`, `gateway_id`, `created_at`, `claimed_at`, `sent_at`, `delivered_at`, `expires_at`, `error`. An index on `(status, created_at)`. Row Level Security on, no policies.
@@ -583,15 +582,17 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
    | `worker_result(id bigint, status text, error text)` | Records sent, delivered or failed; re-queues failures under the attempt limit |
    | `worker_gateway_auth(token_hash text)` | Returns the active gateway id for a token hash, or null |
    | `worker_heartbeat(gateway text, status jsonb)` | Updates the gateway row |
-   | `admin_provision_driver(...)` | Creates the Vault secrets and the `driver_devices` row, sets `vehicles.short_id` and `beacon_secret_id`; returns the device id |
-   | `admin_provision_gateway(...)`, `admin_retire_device(device text)`, `admin_rotate_beacon(vehicle text)` | As named; retiring sets `active = false` and `retired_at` |
+   | `admin_provision_driver(...)` | Creates or updates the vehicle, gives it a new beacon secret, creates the device and its SMS key (both in Vault); refuses a second active phone; returns the device id, short id and gateway numbers |
+   | `admin_provision_gateway(...)`, `admin_retire_device(device, new_beacon_secret)` | As named; retiring sets `active = false`, expires the phone's queued texts, overwrites its SMS key in Vault and (with a new secret) replaces the beacon secret. **As built:** this replaces the planned `admin_rotate_beacon` and `rotate-beacon.ts` |
+   | `vault_put(name, value, description)` | Internal (granted to nobody): creates a Vault secret, or updates the one with that name, so a vehicle or device id provisioned again never collides |
 9. **Retention** (`cron/retention.sql`): `sms_outbox` rows older than 7 days are deleted daily; `ops_alerts` older than 30 days.
 
 **Scripts** (run on Emjay's PC with `npx tsx`; read `.env`; print no secrets except inside the QR)
 
 - `provision-driver.ts --vehicle R4-001 --plate "ABC 123" --route R4 --phone 09171234567 [--short-id N]` makes 32-byte secrets with `crypto.randomBytes` and calls `admin_provision_driver`. It then prints the provisioning QR in the terminal with `qrcode-terminal` (Q8), along with the device id, vehicle and route. The admin PIN is prompted for and never echoed.
 - `provision-gateway.ts --gateway GW-01 --phone … --worker-url https://…` prints the gateway QR. `--rotate` replaces the token.
-- `retire-device.ts DRV-0001` and `rotate-beacon.ts R4-001` (rotation prints a new QR for the same device).
+- `retire-device.ts DRV-0001` (asks to confirm; also replaces the vehicle's beacon secret with one nobody holds).
+- **As built:** the gateway QR accepts `http://localhost` or `http://127.0.0.1` as the worker address for development over USB (`adb reverse`); every other address must be HTTPS.
 
 **Tests**
 
@@ -1007,14 +1008,13 @@ These are written in full into `docs/BACKEND_SETUP.md` (worker and database) and
 
 ### 11.4 Re-provision a driver phone (sequence resync, new phone, factory reset)
 
-Run `provision-driver.ts` again for the same vehicle with `--replace DRV-xxxx`. This retires the old device and creates a new one with a new key and sequence. Scan the new QR on the phone (admin → Re-provision). The old QR and key stop working at once.
+Run `provision-driver.ts` again for the same vehicle with `--replace`. This retires the old device and creates a new one with a new key and sequence. Scan the new QR on the phone (admin → Re-provision). The old QR and key stop working at once.
 
 ### 11.5 Lost or stolen driver phone
 
-1. `npx tsx scripts/retire-device.ts DRV-xxxx`: the worker stops texting it within one cycle.
-2. `npx tsx scripts/rotate-beacon.ts <vehicle>`: the old beacon code stops validating at once.
-3. Provision a replacement phone (11.1) with the new QR.
-4. Record the incident; if the phone held a pilot participant's number, follow the breach procedure in PRD 15.1.
+1. `npx tsx scripts/retire-device.ts DRV-xxxx`: the worker stops texting it within one cycle, and the vehicle's beacon secret is replaced, so the old phone's codes stop validating at once.
+2. Provision a replacement phone (11.1) with the new QR.
+3. Record the incident; if the phone held a pilot participant's number, follow the breach procedure in PRD 15.1.
 
 ### 11.6 Gateway outage
 
