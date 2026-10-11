@@ -118,7 +118,7 @@ Migration `20261013000000_driver_side.sql`; design in `docs/IMPLEMENTATION_PLAN_
 | 2 | `npx tsx scripts/provision-driver.ts --vehicle R4-001 --plate "ABC 123" --route R4 --phone 09…` | Creates or updates the vehicle, new beacon secret, new device and SMS key; prints the driver setup QR. `--replace` for a new or reset phone |
 | — | `npx tsx scripts/retire-device.ts DRV-0001` | Stops texts to a phone and replaces its vehicle's beacon secret |
 
-**Energy (option B, 2026-10-12):** `energy_on` is set aside in `supabase/pending/energy_on.sql`, so tracking stays free on the live project. To turn it on later, copy the file into `supabase/migrations/` under a timestamp later than the last migration, then dry-run and push.
+**Energy (2026-10-12):** the live project already has `20261012000000_energy_on` (tracking costs Energy); it stays in `supabase/migrations`, Emjay's choice. A migration applied live must stay in this folder under its name: otherwise `db push` refuses to run ("Remote migration versions not found in local migrations directory").
 
 **Live steps for DR3** (each approved first):
 

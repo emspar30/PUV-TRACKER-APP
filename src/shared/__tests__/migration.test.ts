@@ -274,11 +274,9 @@ describe('migration: row level security and grants', () => {
     expect(sql).toMatch(/rename to "telemetry_latest: team accounts read active vehicles"/);
   });
 
-  it('DR3 option B (Emjay, 2026-10-12): the last Energy switch keeps tracking free; turning it on waits in supabase/pending', () => {
+  it('ST2-D2: the last Energy switch makes tracking cost Energy again (applied live; kept, Emjay 2026-10-12)', () => {
     const switches = statements.filter((s) => s.startsWith('update public.app_config set energy_enabled'));
-    expect(switches.pop()).toBe('update public.app_config set energy_enabled = false');
-    const pending = fs.readFileSync(path.join(ROOT, 'supabase', 'pending', 'energy_on.sql'), 'utf8');
-    expect(pending).toContain('update public.app_config set energy_enabled = true;');
+    expect(switches.pop()).toBe('update public.app_config set energy_enabled = true');
   });
 
   it('publishes telemetry_latest, and only it, to Realtime', () => {
