@@ -279,11 +279,15 @@ A message lists **stops and their current counts**. The driver app **merges** th
 
 A single SMS holds 160 GSM-7 septets. **`|` is in the GSM-7 extension table and costs 2 septets**, so each message costs `length + 5` (five pipes). `src/shared/sms/gsm.ts` counts septets exactly. `pack.ts` puts stops in riding order and starts a new message (its own sequence number) when the next stop would pass `SMS_TEXT_MAX_SEPTETS`.
 
-| Route | Stops | One message, 1-digit counts | Fits? |
+| Route | Stops | One text message, counts up to 99 | One data message |
 | --- | --- | --- | --- |
-| R2 (longest list) | 18 | `HM2\|R2\|0042\|1930\|` 17 + 18 × 6 − 1 = 107 + `\|9F2C41AB` 9 = 133 chars, + 5 = **138 septets** | Yes |
-| R2 with 2-digit counts everywhere | 18 | 151 chars + 5 = **156** | Yes, barely |
-| R2 with 3-digit counts | 18 | 169 + 5 | No: split into two |
+| **R4** (longest list, the pilot route) | 18 | **156 of 160 septets** | 120 of 133 bytes |
+| R14 | 17 | 150 | 114 |
+| R2 | 17 | 149 | 114 |
+| R5 | 16 | 142 | 108 |
+| R1, R3 | 13 | 121 | 90 |
+
+*Measured in DR2 (2026-10-12) on the seed data (route data version 7). Three-digit counts, or more stops, make `pack.ts` split the list into two messages; `smsPacking.test.ts` checks that every route still fits in one message at counts up to 99.*
 
 #### 6.2.4 Binary form (data SMS, PRD 9.3 primary path)
 
@@ -300,7 +304,7 @@ A data SMS carries at most 140 bytes; the port header takes 7, so **`DATA_SMS_MA
 | … | `n` × [code length (1 byte), code (ASCII), count (2 bytes)] |
 | last 4 | MAC |
 
-The binary form is **only a transport encoding**. The driver app decodes it back to the canonical text, then runs the existing `validateHeatmap` on that text. The MAC is always computed over the text's signed part, so there is one signing rule and one validator. R2 with 18 stops is 8 + 18 × 6 + 4 = 120 bytes.
+The binary form is **only a transport encoding**. The driver app decodes it back to the canonical text, then runs the existing `validateHeatmap` on that text. The MAC is always computed over the text's signed part, so there is one signing rule and one validator. R4's 18 stops take 8 + 18 × 6 + 4 = 120 bytes; at most 20 three-letter stops fit one data SMS.
 
 #### 6.2.5 Sequence numbers and keys
 
@@ -370,6 +374,8 @@ All go in `src/shared/config/index.ts` (no magic numbers in `src/shared`). Value
 | `RSSI_MARGIN_DB` | 8 | commuter | 0.3, 10.1 |
 | `ARMED_SCAN_MIN` | 15 | commuter | 0.3, 8.1 |
 | `CLOCK_DRIFT_WARN_S` | 90 | driver | 8.2, 14 |
+| `CLOCK_DRIFT_SAMPLES` | 5 (added in DR2) | driver | 14 |
+| `BEACON_LOST_S` | 10 (added in DR2: a beacon not heard this long is gone; tuned in E1) | commuter | 10.1 |
 | `HEATMAP_BAND_EDGES` | `[1, 5, 10]` (0, 1–4, 5–9, 10+) | driver | 9.4 |
 | `DRIVER_SHOW_EXACT_COUNTS` | `true` (Q5) | driver | 9.4 |
 | `DRIVER_NIGHT_BANDS_ONLY` | `true` (Q11) | driver | 10.4 |
@@ -379,7 +385,7 @@ All go in `src/shared/config/index.ts` (no magic numbers in `src/shared`). Value
 | `DATA_SMS_PORT` | chosen in DR2 (not a well-known port) | driver, gateway | 9.3 |
 | `SMS_DISPATCH_MIN_CHANGE` | 2 | worker | 9.6 |
 | `SMS_DISPATCH_INTERVAL_MIN` | 5 | worker | 9.6 |
-| `SMS_OPERATING_START`, `SMS_OPERATING_END` | `'05:00'`, `'21:00'` (Q6) | worker | 9.6 |
+| `SMS_OPERATING_START_MIN`, `SMS_OPERATING_END_MIN` | 300, 1260 (05:00 and 21:00 as minutes after midnight, Manila; Q6) | worker | 9.6 |
 | `SMS_OUTBOX_TTL_MIN` | 10 (a stale count is worse than none; must stay under `SMS_MAX_AGE_MIN`) | worker | 12.3 |
 | `SMS_CLAIM_LEASE_S` | 120 | worker | — |
 | `SMS_SEND_MAX_ATTEMPTS` | 3 | worker | 14 |
@@ -501,7 +507,7 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 | `src/shared/sms/binary.ts` | `encodeHeatmapBinary(text)`, `decodeHeatmapBinary(bytes)` → canonical text or null |
 | `src/shared/sms/dispatch.ts` | `dispatchDecision(prev, counts, nowMs)` → `{ send: false } \| { send: true, reason: 'first' \| 'change' \| 'interval' \| 'cleared' }`; `inOperatingHours(nowMs)` |
 | `src/shared/driver/heatmap.ts` | `emptyHeatmap(routeStops)`, `applyMessage(state, parsed, receivedAtMs)`, `heatmapBand(count)`, `isStale(state, nowMs)`, `displayCount(state, code, nowMs)` (applies Q5 and Q11) |
-| `src/shared/driver/drift.ts` | `driftSample(deviceMs, smscMs)`, `driftStatus(samples)` (median of the last 5; `ok`, `warn` or `unknown`) |
+| `src/shared/driver/drift.ts` | `driftSample(deviceMs, smscMs)`, `driftStatus(samples)` (the **smallest** of the last 5, not the median, as built in DR2: delivery delay only ever makes a sample larger, so the fastest message says the most about the clock; `ok`, `warn` or `unknown`) |
 | `src/shared/driver/phone.ts` | `normalizePhNumber(raw)` (`09…`, `639…`, `+639…` → E.164, else null) |
 | `src/shared/driver/provisioning.ts` | `encodeProvisioning(payload)`, `parseProvisioning(text, nowMs)` → `{ ok, payload } \| { ok: false, reason }`, `hashAdminPin(pin, salt)` |
 | `src/shared/config/index.ts` | chg: section 7 |
@@ -527,7 +533,7 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 | `smsBinary.test.ts` | Round trip to the identical text; 18 stops → 120 bytes ≤ 133; a truncated buffer or a bad magic byte → null; the decoded text's MAC still validates |
 | `smsDispatch.test.ts` | `first`; a change of 1 → no send; a change of 2 → `change`; 4 min 59 s with counts → no send; 5 min → `interval`; all zero after non-zero → `cleared` once, then nothing; 21:00 and 04:59 → nothing (Q6); a midnight crossing |
 | `driverHeatmap.test.ts` | Merge keeps unlisted stops; a split pair applies fully; bands at 0, 1, 4, 5, 9, 10; stale at 15:00.0 min, not at 14:59.9; `unknown` before any message; bands-only at 21:00 when `DRIVER_NIGHT_BANDS_ONLY` |
-| `driverDrift.test.ts` | +95 s → `warn`; +85 s → `ok`; median ignores one outlier; no samples → `unknown` |
+| `driverDrift.test.ts` | +95 s → `warn`; +85 s → `ok`; a delayed message does not raise a false warning; no samples → `unknown` |
 | `driverPhone.test.ts` | `09171234567`, `639171234567` and `+639171234567` → `+639171234567`; landline or short codes → null |
 | `provisioning.test.ts` | Round trip; expired → `expired`; wrong kind → `wrong_kind`; a secret of 63 hex characters → `malformed`; an `http://` worker URL → `insecure_url` |
 

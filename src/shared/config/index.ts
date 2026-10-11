@@ -374,9 +374,28 @@ export const CONNECTION_PROBE_TIMEOUT_MS = 5000;
 // --- Privacy (PRD 15.1): the contact point for privacy questions and data requests (Emjay, 2026-10-08)
 export const PRIVACY_CONTACT_EMAIL = 'emspar30@gmail.com';
 
-// --- BLE (PRD 10.1, 12.4). Only the smoothing function exists in v0.
+// --- BLE (PRD 10.1, 12.4). Starting hypotheses, tuned by field experiments E1 and E2 (PRD 17.1).
 export const RSSI_SMOOTHING_ALPHA = 0.3;
 export const RSSI_PRESENCE_THRESHOLD_DBM = -65;
+// The stronger of two beacons wins only if it leads by this much; otherwise ambiguous (PRD 10.1)
+export const RSSI_MARGIN_DB = 8;
+// A beacon is present after its smoothed signal stays above the threshold this long (PRD 10.1)
+export const BEACON_PRESENCE_S = 3;
+// DR2: a beacon not heard for this long is gone, whatever its last signal (hypothesis; E1)
+export const BEACON_LOST_S = 10;
+// The commuter app listens for this long once armed (PRD 8.1)
+export const ARMED_SCAN_MIN = 15;
+
+// --- Driver beacon (PRD 8.2, 9.2; DR2, docs/IMPLEMENTATION_PLAN_DRIVER.md section 6.1). Not a secret:
+// every Tunton beacon advertises this service UUID, so commuter phones can filter on it.
+export const BEACON_SERVICE_UUID = '45ca985d-065a-488b-b652-af6ec6cf1b4e';
+export const BEACON_PAYLOAD_VERSION = 1;
+// The rotating code changes every slot; the server accepts the current slot plus or minus the tolerance
+export const BEACON_SLOT_S = 60;
+export const BEACON_SLOT_TOLERANCE = 1;
+// Advertising settings passed to the native module (PRD 9.2: balanced, about 250 ms; power tuned in E1)
+export const BEACON_ADVERTISE_MODE = 'balanced';
+export const BEACON_TX_POWER = 'medium';
 
 // --- SMS protocol v2 (PRD 12.3)
 export const SMS_MAX_AGE_MIN = 30;
@@ -384,3 +403,32 @@ export const SMS_STALE_HEATMAP_MIN = 15;
 export const SMS_SEQ_MODULUS = 10000;
 // A sequence number is newer if it is 1 to this many ahead of the last one, modulo SMS_SEQ_MODULUS.
 export const SMS_SEQ_NEWER_WINDOW = 5000;
+// One text SMS holds 160 GSM-7 septets; a data SMS 140 bytes, less the 7-byte port header
+// (DATA_SMS_MAX_BYTES is confirmed on the pilot carrier in DR5)
+export const SMS_TEXT_MAX_SEPTETS = 160;
+export const DATA_SMS_MAX_BYTES = 133;
+// The driver app listens for data SMS on this port (not a well-known port)
+export const DATA_SMS_PORT = 8901;
+
+// --- Heatmap dispatch (PRD 9.6; the SMS worker, DR6). Per route, the worker sends when a stop's
+// count changes by DISPATCH_MIN_CHANGE or more, or every DISPATCH_INTERVAL_MIN while any count is
+// above zero, and only between the operating hours (minutes after midnight, Asia/Manila; Q6: 05:00 to 21:00).
+export const SMS_DISPATCH_MIN_CHANGE = 2;
+export const SMS_DISPATCH_INTERVAL_MIN = 5;
+export const SMS_OPERATING_START_MIN = 300;
+export const SMS_OPERATING_END_MIN = 1260;
+
+// --- Driver app (PRD 9.4; DR5). Waiting counts are shown in bands: 0, 1 to 4, 5 to 9, 10 or more.
+export const HEATMAP_BAND_EDGES = [1, 5, 10] as const;
+// Q5: exact numbers in the list (the map shows bands). Q11: bands only during Night Mode.
+export const DRIVER_SHOW_EXACT_COUNTS = true;
+export const DRIVER_NIGHT_BANDS_ONLY = true;
+// The driver phone warns when its clock is off by more than this (PRD 8.2, 14)
+export const CLOCK_DRIFT_WARN_S = 90;
+// The clock estimate looks at the last few heatmap messages' carrier timestamps
+export const CLOCK_DRIFT_SAMPLES = 5;
+
+// --- Provisioning (PRD 9.5; DR3, DR4). A setup QR expires this long after it is printed.
+export const PROVISIONING_QR_TTL_MIN = 15;
+// Q12: the admin screens are behind a PIN of this many digits
+export const ADMIN_PIN_DIGITS = 6;

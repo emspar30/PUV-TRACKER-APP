@@ -1,0 +1,79 @@
+{
+  "_comment": "Beacon test vectors (docs/IMPLEMENTATION_PLAN_DRIVER.md 6.1). Test secrets only. payload = version | shortId | slot & 0xFFFF | first 4 bytes of HMAC-SHA256(secret, version | shortId | slot as uint32), big-endian. Written by scripts/gen-beacon-vectors.ts.",
+  "version": 1,
+  "slotSeconds": 60,
+  "vectors": [
+    {
+      "secretHex": "792d675ac21039ecf0792c58eac30c4052a0d384b127007f42d8ac60211aeaf4",
+      "shortId": 1,
+      "slot": 0,
+      "payloadHex": "010001000030c43668"
+    },
+    {
+      "secretHex": "bbeee45c29e2e6a870196a76045d74f8270b0cb223cc71d422705caeca29f7c8",
+      "shortId": 1,
+      "slot": 1,
+      "payloadHex": "01000100012fc114ef"
+    },
+    {
+      "secretHex": "080028b928aa9243b85e6f19895123ca52ca750c4c0e713dea69790d4e59e1b1",
+      "shortId": 2,
+      "slot": 65535,
+      "payloadHex": "010002ffff863f2f80"
+    },
+    {
+      "secretHex": "85edcc3cf35fc40e1e9bdf2b4ea8bce907b2351707e0379065477eed2040f1c2",
+      "shortId": 255,
+      "slot": 65536,
+      "payloadHex": "0100ff0000a6d5f7c7"
+    },
+    {
+      "secretHex": "1cb49a6455a54056521182b0af390c0c2f13e714d33dbe55a335a17b66f900d0",
+      "shortId": 256,
+      "slot": 65537,
+      "payloadHex": "0101000001ab9da3d9"
+    },
+    {
+      "secretHex": "6823f19245a7998d52dca54b165c52bbb3800e36a734d8ee042495877a4377cc",
+      "shortId": 513,
+      "slot": 131071,
+      "payloadHex": "010201ffffcd12574b"
+    },
+    {
+      "secretHex": "bb42a3815da5783b904feae36ed706aa4114633904139a90d21dde9435cbfbb3",
+      "shortId": 4660,
+      "slot": 29600000,
+      "payloadHex": "011234a9009cd3d2bf"
+    },
+    {
+      "secretHex": "a88f1266f886552b04e4fa808bb628c7efe2a3c59e49b2c1d2e39798d387991c",
+      "shortId": 4660,
+      "slot": 29600001,
+      "payloadHex": "011234a90181066a23"
+    },
+    {
+      "secretHex": "25c82ff1eda82115900157d5aeb086ae7d49e9f312d20311e7a6ad03349c4d40",
+      "shortId": 65535,
+      "slot": 29600002,
+      "payloadHex": "01ffffa902aca51bd2"
+    },
+    {
+      "secretHex": "d11543725db03ad5e9392e749101df8a3c3cab4e9022a81b43b6e07714617d0b",
+      "shortId": 42,
+      "slot": 29627000,
+      "payloadHex": "01002a127870ee3e7d"
+    },
+    {
+      "secretHex": "e7441e29b41d2a39cdc701d2bbd0e803b743682a2a36812212c697392e1c2fc4",
+      "shortId": 7,
+      "slot": 12345678,
+      "payloadHex": "010007614e09bff602"
+    },
+    {
+      "secretHex": "da8a9c6e7c29b5e7e34d3142dd4c650aac6a8d448121087a5f48fd0784a6a049",
+      "shortId": 100,
+      "slot": 4294967295,
+      "payloadHex": "010064ffff993631c4"
+    }
+  ]
+}
