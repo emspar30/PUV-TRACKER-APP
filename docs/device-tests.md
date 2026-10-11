@@ -296,6 +296,17 @@ Press `r` in the Metro terminal. The first launch replaces the stored route rows
 | RR3-M4 | Demo data on: Map, R1 and R14 | Demo vehicles drive the new lines; R1 goes round without jumping back; R14 turns at both ends (stand-in return) |
 | RR3-M5 | Demo settings: simulated location on | The commuter is at SM City (`SMB`); a device that had MCA saved also lands at SM City |
 
+## DR1 three apps from one codebase (2026-10-12)
+
+Each variant is its own Android project: run its prebuild before building it (the package name differs), and `npm run prebuild:commuter` before going back to the commuter app. Metro for the driver app runs on port 8082, the gateway on 8083.
+
+| Script | Action | Expected |
+| --- | --- | --- |
+| DR1-M1 | `npm run prebuild:driver`, `npm run android:driver`; the same for gateway; then `npm run prebuild:commuter`, `npm run android` | Three icons with three names on one emulator: Tunton APP, Tunton Driver, Tunton Gateway. The commuter app opens to the Map tab as before (spot-check ST1). The driver app shows "Tunton Driver" and "Not set up yet"; the gateway app "Tunton Gateway" and "Not set up yet". Each keeps working after the others are installed |
+| DR1-M2 | `npx tsx scripts/check-apk-permissions.ts <variant> <file>` for each app, with its APK (needs Android SDK build-tools) or `android/app/build/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml` right after that variant's local build | No FORBIDDEN or MISSING line. UNREVIEWED lines are reviewed and added to `scripts/variant-permissions.json`. The commuter list equals the R1a build's. The driver and gateway apps have no location permission |
+
+**Agent's checks without a native build (2026-10-12):** `npx expo export --platform android --no-bytecode --no-minify` per variant, into a scratch folder. The driver bundle holds the driver screens only; the gateway bundle the gateway screens only; neither holds the Supabase client or the commuter screens (8.3 MB each against the commuter's 14 MB, unminified). The commuter bundle holds no driver or gateway screen. The first driver bundle **did** hold the Supabase client, pulled in through the `@/components` barrel (its top bar reads the session); fixed by importing `@/components/Screen` directly, and now caught by `variantBoundaries.test.ts` and lint.
+
 ## Emulator QA findings (2026-10-08, for ST2)
 
 Agent's run on the `Pixel_7` emulator (API 34), build R1a with the JavaScript at `523319f`. Seen working: the bundle refreshed (Energy hidden in the top bar and Profile); six routes on the real lines with demo vehicles; vehicle card with ETA, "km from you" and Demo label; tracking free, with ETA, "km by road" and the stop strip; demo check-in with countdown, tab dot and Cancel; live sign-in; live relay without GPS ("Update relayed", First relay badge) shown in Crowdsource with Trusted and "Near SM City Butuan"; Profile badges and places; Settings Privacy rows (contact address shown, the email link opens Gmail); My Rides SMB to BAN on R1, 6.2 km, ₱16.75 Student (₱21.00 regular); a saved old demo stop (MCA) falls back to SM City.

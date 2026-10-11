@@ -113,6 +113,8 @@ Last updated: 2026-10-04, after the docs tidy-up (history files moved to `docs/h
 | 86 | LB1b | Labels are built (city 11, barangay and major road 13, street 15; under the route lines; 50 % while a route is selected; Settings → Map labels; 4.5:1 tested) but **not yet seen or measured**: emulator automation was stopped (2026-10-05). Before numbers: map frames p50 61 ms, p95 91–95 ms (SurfaceFlinger), UI p50 19–30 ms; emulator, not representative of a phone. To do: look at zoom 11, 13, 15 in Light and Dark, then repeat the measurement with labels on. | Emulator | Open |
 | 72 | RR1 | Tracing method for the three lines, "to be confirmed by the user" in `docs/route-trace.md` | Emjay | Open |
 | 64 | Merge | Dev-client crash "App react context shouldn't be created before" (`DevLauncherAppLoader`), on the old 2026-10-02 build; who observed it is not recorded | Emulator and phone after R1a (ST1-M5) | Open, cause unknown |
+| 87 | DR1 | Three apps from one codebase: build and install the driver and gateway apps beside the commuter app; three icons, three names; the commuter app opens and behaves as before, the driver app shows "Tunton Driver · Not set up yet", the gateway app "Tunton Gateway · Not set up yet" (DR1-M1). Prebuild per variant first (`npm run prebuild:driver`, then `npm run android:driver`; the same for gateway; `npm run prebuild:commuter` to go back) | Emulator, approved builds | Open
+| 88 | DR1 | Permission check on each built app: `npx tsx scripts/check-apk-permissions.ts <variant> <apk or merged AndroidManifest.xml>`; review every UNREVIEWED line and add the accepted ones to `allowed` in `scripts/variant-permissions.json`; the commuter list must match the R1a build's (DR1-M2) | A built APK, or a local Gradle build | Open
 
 ## Items
 

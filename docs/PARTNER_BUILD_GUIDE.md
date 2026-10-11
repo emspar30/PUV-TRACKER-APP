@@ -66,6 +66,21 @@ npx expo prebuild --platform android
 
 Expect "Finished prebuild". (Since R1a, `expo-system-ui` is installed, so the old yellow note about `userInterfaceStyle` should no longer appear.)
 
+### Three apps from one project (DR1, 2026-10-12)
+
+The project builds three apps: the commuter app (Tunton APP, `com.tunton.app`), the driver app (Tunton Driver, `com.tunton.driver`) and the gateway app (Tunton Gateway, `com.tunton.gateway`). The `APP_VARIANT` setting picks one; without it you get the commuter app, exactly as before.
+
+- Each app is its own Android project. Generate it before building it, with `--clean`, because the package name differs:
+
+```powershell
+npm run prebuild:driver
+```
+
+  Use `prebuild:gateway` or `prebuild:commuter` for the others. Always run `prebuild:commuter` before going back to the commuter app.
+- Then build and run with `npm run android:driver` (or `android:gateway`; `npm run android` for the commuter app). The driver app's Metro runs on port 8082 and the gateway's on 8083, so two can run at once.
+- In PowerShell, `$env:APP_VARIANT='driver'` also works for a single command window, but the npm scripts above set it for you on any shell.
+- EAS: `development-driver`, `development-gateway`, `preview-driver`, `preview-gateway` (and `release-driver`, `release-gateway` later). `development` and `preview` stay the commuter app.
+
 ## 5. Build
 
 **EAS cloud builds (note, 2026-10-04).** `eas.json` and the EAS project ID in `app.json` (`extra.eas.projectId`) belong to the partner's Expo account, for his phone builds (`npx eas-cli@latest build --profile development --platform android`). The local build below does not need them, an Expo account or a login. Neither file holds a token or a password; never add one.

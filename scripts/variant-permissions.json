@@ -1,0 +1,46 @@
+{
+  "_comment": "DR1: the Android permissions each app may hold. 'allowed' grows only after a person reviews a built APK's list (scripts/check-apk-permissions.ts prints the unreviewed ones). {package} is the app's package.",
+  "commuter": {
+    "package": "com.tunton.app",
+    "required": [
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.INTERNET"
+    ],
+    "allowed": [],
+    "forbidden": [
+      "android.permission.ACCESS_BACKGROUND_LOCATION",
+      "android.permission.SEND_SMS",
+      "android.permission.RECEIVE_SMS",
+      "android.permission.READ_SMS",
+      "android.permission.BLUETOOTH_ADVERTISE",
+      "android.permission.CAMERA"
+    ]
+  },
+  "driver": {
+    "package": "com.tunton.driver",
+    "required": ["android.permission.POST_NOTIFICATIONS"],
+    "allowed": [],
+    "forbidden": [
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.ACCESS_BACKGROUND_LOCATION",
+      "android.permission.SEND_SMS",
+      "android.permission.READ_SMS"
+    ]
+  },
+  "gateway": {
+    "package": "com.tunton.gateway",
+    "required": ["android.permission.POST_NOTIFICATIONS"],
+    "allowed": [],
+    "forbidden": [
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.ACCESS_BACKGROUND_LOCATION",
+      "android.permission.RECEIVE_SMS",
+      "android.permission.READ_SMS",
+      "android.permission.BLUETOOTH_ADVERTISE"
+    ]
+  }
+}

@@ -941,6 +941,20 @@ export const en = {
     fontCopyright: 'Copyright 2022 The Noto Project Authors',
   },
 
+  // DR1: the driver app (docs/IMPLEMENTATION_PLAN_DRIVER.md). Placeholder until DR4 and DR5.
+  driver: {
+    appName: 'Tunton Driver',
+    notProvisioned: 'Not set up yet',
+    notProvisionedBody: 'An admin sets up this phone for one multicab with a setup code.',
+  },
+
+  // DR1: the gateway app. Placeholder until DR7.
+  gateway: {
+    appName: 'Tunton Gateway',
+    notSetUp: 'Not set up yet',
+    notSetUpBody: 'An admin sets up this phone with a setup code. It then sends the waiting counts to drivers by text.',
+  },
+
   dev: {
     overlay: (install: string, mapStatus: string) => `DEV  tiles: ${install}  map: ${mapStatus}`,
     camera: (zoom: number, lon: number, lat: number) =>
