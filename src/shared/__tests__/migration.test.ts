@@ -13,7 +13,9 @@ const FILES = fs
   .readdirSync(MIGRATIONS)
   .filter((name) => name.endsWith('.sql'))
   .sort();
+// DR3's migration and its later fixes
 const DRIVER_SIDE = '20261013000000_driver_side.sql';
+const DRIVER_SIDE_FILES = FILES.filter((name) => name.startsWith('20261013'));
 
 const read = (names: string[]) =>
   names
@@ -25,7 +27,7 @@ const read = (names: string[]) =>
 
 const sql = read(FILES);
 // The commuter side, where no table may hold a rider's personal details
-const riderSql = read(FILES.filter((name) => name !== DRIVER_SIDE));
+const riderSql = read(FILES.filter((name) => !DRIVER_SIDE_FILES.includes(name)));
 // DR3: the driver side (driver SIM numbers, the SMS queue), server-only
 const driverSql = read([DRIVER_SIDE]);
 const DRIVER_SIDE_TABLES = [
@@ -345,6 +347,12 @@ describe('migration: driver side (DR3)', () => {
     expect(driverSql).toContain(`% ${SMS_SEQ_MODULUS}`);
     expect(driverSql).toContain(`last_seq        integer check (last_seq between 0 and ${SMS_SEQ_MODULUS - 1})`);
     expect(driverSql).toContain('create unique index driver_devices_one_active_per_vehicle on public.driver_devices (vehicle_id) where active');
+  });
+
+  it('fix 20261013000001: an alert kind may contain digits (latency_p90)', () => {
+    const fix = read(['20261013000001_ops_alerts_kind.sql']);
+    expect(fix).toContain("add constraint ops_alerts_kind_check check (kind ~ '^[a-z0-9_]{1,40}$')");
+    expect(new RegExp('^[a-z0-9_]{1,40}$').test('latency_p90')).toBe(true);
   });
 
   it('counts waiting commuters by the same rule as checkin_counts', () => {
