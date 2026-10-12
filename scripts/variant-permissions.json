@@ -40,7 +40,12 @@
     "required": [
       "android.permission.POST_NOTIFICATIONS",
       "android.permission.SEND_SMS",
-      "android.permission.READ_PHONE_STATE"
+      "android.permission.READ_PHONE_STATE",
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+      "android.permission.RECEIVE_BOOT_COMPLETED",
+      "android.permission.WAKE_LOCK",
+      "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
     ],
     "allowed": [],
     "forbidden": [

@@ -12,4 +12,12 @@ android {
     versionCode 1
     versionName '0.1.0'
   }
+  testOptions {
+    unitTests.returnDefaultValues = true
+  }
+}
+
+dependencies {
+  // DR7: BackoffTest checks the gateway's retry waits
+  testImplementation 'junit:junit:4.13.2'
 }

@@ -366,6 +366,20 @@ No phones: the worker and a stand-in gateway run on the PC, against the live pro
 | DR6-M5 | `npx tsx scripts/fake-gateway.ts --fail 1`, then a check-in | The first message is reported failed and printed again on a later pull (re-queued); after 3 failures a message stays `failed` |
 | After | `npx tsx scripts/fake-gateway.ts --retire`; `Select-String` the worker's output for `\+639\d{9}` | GW-99 switched off; no full phone number anywhere in the logs |
 
+## DR7 gateway app and the first end-to-end run (2026-10-13)
+
+Needs: a `development-gateway` build made after DR7; the worker running on the laptop (`npm run worker:dev`, DR6) and **no fake gateway** (both would take the same queue: run `npx tsx scripts/fake-gateway.ts --retire` first); load on the gateway SIM; the phone on USB with `adb reverse tcp:8787 tcp:8787`. With one phone, it is the gateway and the driver phone at once (texts to its own number, as in DR5). Gateway setup code: `npx tsx scripts/provision-gateway.ts --gateway GW-01 --phone <this phone's number> --worker-url http://localhost:8787`. The driver phone in the database must be this phone's number and its driver app set up with **that** device's code, so the keys match (`provision-driver.ts --replace` for the vehicle, then Set up again in the driver app).
+
+| ID | Script | Expected |
+| --- | --- | --- |
+| DR7-M1 | Gateway app: scan, confirm, permissions, background, SIM, "Send test" to a team number, Start | The test shows Sent ✓ then Delivered ✓; the home screen says Running, and "Last check … s ago" stays under 10 s |
+| DR7-M2 | **End to end:** `npx tsx scripts/dev-checkin.ts --route R4 --station SMB` (05:00 to 21:00) | Within about 40 s the gateway log shows `pull`, then `sent` and `delivered`; the driver app shows SMB with 1 waiting. Record the time from the check-in command to the driver update, 20 times; **p90 ≤ 60 s** (PRD 13) |
+| DR7-M3 | 80 messages in 10 minutes (alternate a check-in and `--end` every 15 s on R4) | All sent, no Android "allow sending many messages?" prompt. If it appears, the limiter setting did not take (runbook 11.3 step 4): record the phone |
+| DR7-M4 | Gateway screen off for 8 h on the charger | `gateways.last_heartbeat_at` keeps moving; no `gateway_heartbeat` alert |
+| DR7-M5 | Airplane mode on the gateway for 10 min while someone is checked in | An alert after 5 min; the queued texts expire after 10 min; after reconnecting only fresh ones are sent |
+| DR7-M6 | Restart the gateway phone, unlock it, do not open the app | The "Tunton gateway on" notification comes back and sending resumes; record the time |
+| DR7-M7 | Take the SIM out for 2 minutes during demand | Sends fail with an error code and go back to the queue; they resume when the SIM is back; a failure alert if over 5 % |
+
 ## Emulator QA findings (2026-10-08, for ST2)
 
 Agent's run on the `Pixel_7` emulator (API 34), build R1a with the JavaScript at `523319f`. Seen working: the bundle refreshed (Energy hidden in the top bar and Profile); six routes on the real lines with demo vehicles; vehicle card with ETA, "km from you" and Demo label; tracking free, with ETA, "km by road" and the stop strip; demo check-in with countdown, tab dot and Cancel; live sign-in; live relay without GPS ("Update relayed", First relay badge) shown in Crowdsource with Trusted and "Near SM City Butuan"; Profile badges and places; Settings Privacy rows (contact address shown, the email link opens Gmail); My Rides SMB to BAN on R1, 6.2 km, ₱16.75 Student (₱21.00 regular); a saved old demo stop (MCA) falls back to SM City.

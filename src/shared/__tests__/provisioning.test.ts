@@ -6,6 +6,7 @@ import {
   hashAdminPin,
   isValidPin,
   parseProvisioning,
+  workerUrlUsable,
   type DriverProvisioning,
   type GatewayProvisioning,
 } from '../driver/provisioning';
@@ -121,5 +122,22 @@ describe('admin PIN (Q12; DR2)', () => {
     expect(checkAdminPin(PIN, DRIVER)).toBe(true);
     expect(checkAdminPin('482917', DRIVER)).toBe(false);
     expect(checkAdminPin('48291', DRIVER)).toBe(false);
+  });
+});
+
+describe('gateway worker address per build (DR7)', () => {
+  it('takes HTTPS in every build', () => {
+    expect(workerUrlUsable('https://tunton-worker.example.com', false)).toBe(true);
+    expect(workerUrlUsable('https://tunton-worker.example.com', true)).toBe(true);
+  });
+
+  it('takes http://localhost only in a development build', () => {
+    expect(workerUrlUsable('http://localhost:8787', true)).toBe(true);
+    expect(workerUrlUsable('http://localhost:8787', false)).toBe(false);
+  });
+
+  it('never takes plain HTTP to another host', () => {
+    expect(workerUrlUsable('http://192.168.1.5:8787', true)).toBe(false);
+    expect(workerUrlUsable('http://worker.example.com', true)).toBe(false);
   });
 });

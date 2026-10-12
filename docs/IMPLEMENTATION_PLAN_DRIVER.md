@@ -897,6 +897,15 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 
 **Accept.** DR7-M1 to M4 and M6 pass; M2's p90 is recorded (passing or not, as PRD 0.2 S10 requires).
 
+**As built (2026-10-13):**
+- **No OkHttp:** `WorkerClient.kt` uses Android's own `HttpURLConnection`, so the module needs no extra library.
+- **No network security config:** Expo's debug manifest already allows plain HTTP in development builds (`usesCleartextTraffic`), which `http://localhost` over `adb reverse` needs. Preview and release builds refuse plain HTTP, so the setup screen refuses an `http://` worker address there up front (`workerUrlUsable`, tested).
+- **A partial wake lock** (`WAKE_LOCK`) keeps the service's loop running with the screen off; the phone stays on the charger.
+- **Delivery reports** are posted as they arrive, on their own thread; a failed delivery report is logged, not reported (the message was already sent). Some carriers send none, so the waiting list is capped.
+- **The token** lives only in the native module (its own Android Keystore key, `tunton_gateway_secrets`), never in JavaScript storage (`gatewayStore` keeps non-secret fields; tested).
+- **Admin PIN** on the gateway's own screen guards Start/Stop, the event log, Set up again and the carrier test.
+- **Tests:** `gatewaySetup.test.ts` (status words, start rule, settings from config, no token stored) and `workerUrlUsable` in `provisioning.test.ts` instead of a `.tsx` screen test (no UI test library, as in DR5); JUnit `BackoffTest.kt` (runs only where the Android SDK is installed).
+
 **Approvals.**
 - Gateway development and preview builds.
 - The Cloudflare Tunnel on the team PC (if not done in DR6).
@@ -1031,7 +1040,15 @@ These are written in full into `docs/BACKEND_SETUP.md` (worker and database) and
 
 ### 11.3 Gateway phone set-up and daily check
 
-- **Set-up:** DR7 task 3, plus the QR and setup flow.
+- **Set-up (as built, DR7):**
+  1. On the PC: `npx tsx scripts/provision-gateway.ts --gateway GW-01 --phone <gateway SIM> --worker-url <https tunnel address>` (development over USB: `--worker-url http://localhost:8787`, with `adb reverse tcp:8787 tcp:8787`; only a development build accepts it).
+  2. On the gateway phone, Tunton Gateway: scan the code, confirm; allow SMS, Phone and notifications (on Android 13 and later, if SMS is refused without a prompt: App info, ⋮, Allow restricted settings); allow it to run in the background (battery optimisation off); pick the Smart/TNT SIM; send a test text to a team phone; Start.
+  3. Phone preparation: keep it on the charger; automatic date and time on; screen lock off (or screen pinning); Messages notifications off; on Xiaomi phones also Autostart on and the app locked in the recent apps (backlog 102).
+  4. Raise Android's outgoing-SMS limiter (approval; read both back with `settings get`):
+     ```
+     adb shell settings put global sms_outgoing_check_max_count 2000
+     adb shell settings put global sms_outgoing_check_interval_ms 1800000
+     ```
 - **Daily** (two minutes): open the gateway status screen; check that "sent today" is rising during service hours, failures are under 5 %, the battery is charging and the SIM has load. Check `ops_alerts` in the Supabase dashboard.
 
 ### 11.4 Re-provision a driver phone (sequence resync, new phone, factory reset)

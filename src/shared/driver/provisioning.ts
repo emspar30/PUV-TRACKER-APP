@@ -178,6 +178,13 @@ export function parseProvisioning(text: string, kind: Provisioning['kind'], nowM
   return payload ? { ok: true, payload } : { ok: false, reason: 'malformed' };
 }
 
+// DR7: may this build use the gateway's worker address? HTTPS always; http://localhost only in a
+// development build, where the gateway reaches the PC over USB (adb reverse). Android itself refuses
+// plain HTTP in preview and release builds, so the setup says so up front instead of failing later.
+export function workerUrlUsable(workerUrl: string, developmentBuild: boolean): boolean {
+  return HTTPS_RE.test(workerUrl) || (developmentBuild && LOCALHOST_RE.test(workerUrl));
+}
+
 export function isValidPin(pin: string): boolean {
   return pin.length === ADMIN_PIN_DIGITS && /^\d+$/.test(pin);
 }

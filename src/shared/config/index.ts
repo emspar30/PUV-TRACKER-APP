@@ -439,6 +439,10 @@ export const GATEWAY_PULL_S = 10;
 export const GATEWAY_HEARTBEAT_S = 60;
 // The gateway gives up waiting for Android's "sent" result after this (DR7)
 export const GATEWAY_SENT_TIMEOUT_S = 30;
+// DR7: when the worker cannot be reached, the gateway waits these steps before trying again (then
+// stays at the last), and keeps this many recent events for its log screen
+export const GATEWAY_BACKOFF_S = [10, 30, 60, 120] as const;
+export const GATEWAY_EVENTS_MAX = 100;
 // Health alerts (Q9: dashboard only), checked during the operating hours, at most one per kind per
 // OPS_ALERT_QUIET_MIN: no gateway heartbeat for GATEWAY_HEARTBEAT_ALERT_MIN; more than
 // GATEWAY_FAIL_ALERT_RATIO of the last hour's messages failed (once at least
