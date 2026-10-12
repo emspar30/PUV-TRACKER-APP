@@ -43,7 +43,8 @@
     "preview-gateway": {
       "extends": "preview",
       "env": {
-        "APP_VARIANT": "gateway"
+        "APP_VARIANT": "gateway",
+        "EXPO_PUBLIC_CARRIER_TEST": "1"
       }
     },
     "release-driver": {

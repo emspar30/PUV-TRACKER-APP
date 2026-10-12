@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { prepareOfflineTiles, type OfflineTiles } from './tiles';
+import { prepareOfflineTiles, type OfflineTiles } from '@/data/offline/tiles';
 
 export type OfflineTilesState =
   | { status: 'preparing' }

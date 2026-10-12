@@ -324,6 +324,30 @@ Needs: a driver build that includes the beacon (a `preview-driver` EAS build mad
 | DR4-M8 | A phone that cannot advertise, if one is at hand | Setup stops with "This phone cannot act as a beacon" |
 | DR4-M9 | Admin: Turn beacon off, then on; then Set up again | Off: phone B stops seeing it; on: back. Set up again returns to the scan screen; the old QR is refused once expired (15 min) |
 
+## DR5 heatmap by SMS and the carrier test (2026-10-12)
+
+Needs: `preview-driver` and `preview-gateway` builds made after DR5 (the gateway build has the carrier test: `EXPO_PUBLIC_CARRIER_TEST=1`), **phone A** (driver) with a SIM, **phone G** (gateway) with a **Smart/TNT** SIM, and a third, personal phone for M2 and M6. No SMS worker yet (DR6): phone G's carrier test sends signed test messages itself.
+
+Set-up: on the PC, `npx tsx scripts/dev-driver-qr.ts --route R4 --gateway-number <phone G's number>` (it asks for an admin PIN, saves nothing, and prints the development SMS key). On phone A: Admin, Set up again (if set up in DR4), scan the code, confirm, allow Nearby devices and notifications, then **Allow text messages**. If Android refuses without a prompt, it is a restricted setting: Open settings, ⋮ (top right), Allow restricted settings, back, Try again (note it, backlog 97). On phone G: Tunton Gateway, Carrier test, Allow SMS and Phone; type phone A's number and the SMS key; route R4.
+
+| ID | Script | Expected |
+| --- | --- | --- |
+| DR5-M1 | Phone G: Send data (1 message), then Send text (1) | Within seconds phone A's list shows counts for R4's stops and the map's nodes glow by band; the strip says "Updated just now" and, after a message, "Clock OK" (or how far off it is); Admin shows "data · accepted" and "text · accepted" with their sequence numbers |
+| DR5-M2 | Phone G, mode `repeat`, then `bad_signature`, then `old_time`, each Send text. Personal phone: text phone A `HM2\|R4\|0001\|1200\|SMB:3\|00000000` | Phone A's counts do not change; Admin, Dropped by reason: `old_sequence 1`, `bad_signature 1`, `stale_time 1`, `wrong_sender 1` (PRD 0.2 S9) |
+| DR5-M3 | Send nothing for 15 min (phone A stays on the home screen) | The map and list turn grey, "No update for 15 min" and "These counts are old" (PRD 0.2 S9); never "no one waiting" |
+| DR5-M4 | Phone A: close the app (swipe it away, not Force stop). Phone G: Send data. Wait 10 s, open the app | The new counts appear at once (the native inbox kept the message) |
+| DR5-M5 | Carrier test, mode `normal`, phone G on Smart/TNT: (1) 20 data SMS (How many 20); (2) 20 text SMS; (3) data with Extra stops raised until a message no longer arrives (the size line shows its bytes); (4) only if some driver SIMs are not Smart/TNT: 5 data SMS to such a SIM | Record in the table below. The result chooses DR6's primary path (`SMS_PRIMARY_ENCODING`) with Emjay, and confirms `DATA_SMS_MAX_BYTES` (133) |
+| DR5-M6 | Personal phone: text phone A an ordinary message ("Hello") | Phone A's Messages app shows it as usual; Tunton shows nothing, Admin's log and inbox count do not change |
+
+**DR5-M5 results** (fill in on the day; latency = phone G's send time to phone A's Admin log time, both clocks set automatically):
+
+| Test | Sent | Sent OK (phone G) | Delivered report | Arrived in Tunton (phone A Admin) | Shown in phone A's Messages app or notifications | Latency, typical and worst | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Data SMS, Smart/TNT to driver SIM | 20 | | | | | | |
+| Text SMS, Smart/TNT to driver SIM | 20 | | | | | | |
+| Largest data SMS that arrived | — | | | bytes: | | | |
+| Data SMS to another network (optional) | 5 | | | | | | |
+
 ## Emulator QA findings (2026-10-08, for ST2)
 
 Agent's run on the `Pixel_7` emulator (API 34), build R1a with the JavaScript at `523319f`. Seen working: the bundle refreshed (Energy hidden in the top bar and Profile); six routes on the real lines with demo vehicles; vehicle card with ETA, "km from you" and Demo label; tracking free, with ETA, "km by road" and the stop strip; demo check-in with countdown, tab dot and Cancel; live sign-in; live relay without GPS ("Update relayed", First relay badge) shown in Crowdsource with Trusted and "Near SM City Butuan"; Profile badges and places; Settings Privacy rows (contact address shown, the email link opens Gmail); My Rides SMB to BAN on R1, 6.2 km, ₱16.75 Student (₱21.00 regular); a saved old demo stop (MCA) falls back to SM City.

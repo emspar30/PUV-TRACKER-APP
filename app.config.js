@@ -27,6 +27,11 @@ const DRIVER_SIDE_ONLY = [
 // without it in app.json, and this blocks it in case a library adds it anyway
 const NEVER = ['android.permission.RECORD_AUDIO'];
 
+// DR5: the driver app only receives SMS and the gateway app only sends; neither reads the phone's
+// own messages. Their plugins add the one each needs; these block the rest in case a library adds them.
+const DRIVER_SMS_BLOCKED = ['android.permission.SEND_SMS', 'android.permission.READ_SMS'];
+const GATEWAY_SMS_BLOCKED = ['android.permission.RECEIVE_SMS', 'android.permission.READ_SMS'];
+
 // The commuter app is exactly app.json (com.tunton.app, src/app), except that the driver-side
 // permissions are blocked as well as background location. The driver and gateway apps have no
 // location at all: the system tracks vehicles, not drivers (PRD 3.2, 9.1), and the gateway only texts.
@@ -40,7 +45,7 @@ const SETTINGS = {
     scheme: 'tunton-driver',
     routerRoot: 'src/driver/app',
     permissions: ['android.permission.POST_NOTIFICATIONS'],
-    blocked: [...LOCATION, ...NEVER],
+    blocked: [...LOCATION, ...DRIVER_SMS_BLOCKED, ...NEVER],
     plugin: './plugins/withDriverAndroid',
   },
   gateway: {
@@ -49,7 +54,7 @@ const SETTINGS = {
     scheme: 'tunton-gateway',
     routerRoot: 'src/gateway/app',
     permissions: ['android.permission.POST_NOTIFICATIONS'],
-    blocked: [...LOCATION, ...NEVER],
+    blocked: [...LOCATION, ...GATEWAY_SMS_BLOCKED, ...NEVER],
     plugin: './plugins/withGatewayAndroid',
   },
 };

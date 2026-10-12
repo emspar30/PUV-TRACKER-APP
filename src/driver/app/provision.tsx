@@ -10,17 +10,22 @@ import { strings } from '@/strings';
 import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
 import { beaconOptions, requestBeaconPermissions } from '../features/beacon/beacon';
+import { ensureInboxConfigured } from '../features/heatmap/inbox';
+import { requestSmsPermission } from '../features/heatmap/smsPermission';
 import { setupFrom, useDriverStore } from '../state/driverStore';
 import { getSupport, isBeaconAvailable, provision, startAdvertising } from '../../../modules/tunton-beacon';
 
 // DR4: setting up a driver phone (PRD 9.5). Scan the setup QR from provision-driver.ts, confirm the
-// multicab, grant Nearby devices and notifications, then the phone stores its secrets in the Android
-// Keystore (native module) and starts the beacon. The admin checks it from a second phone (DR4-M2).
+// multicab, grant Nearby devices and notifications, then text messages (DR5), then the phone stores
+// its secrets in the Android Keystore (native module), starts the beacon and turns its SMS inbox on.
+// The admin checks the beacon from a second phone (DR4-M2). Text messages can be skipped (the beacon
+// works without them) and allowed later from the admin screen; the home screen says they are off.
 
 type Step =
   | { kind: 'scan'; error: string | null }
   | { kind: 'confirm'; payload: DriverProvisioning }
   | { kind: 'permissions'; payload: DriverProvisioning; denied: boolean }
+  | { kind: 'sms'; payload: DriverProvisioning; denied: boolean }
   | { kind: 'starting'; payload: DriverProvisioning }
   | { kind: 'failed'; payload: DriverProvisioning; message: string }
   | { kind: 'done' };
@@ -64,6 +69,18 @@ export default function Provision() {
       setStep({ kind: 'permissions', payload, denied: true });
       return;
     }
+    setStep({ kind: 'sms', payload, denied: false });
+  };
+
+  const askSms = async (payload: DriverProvisioning) => {
+    if (!(await requestSmsPermission())) {
+      setStep({ kind: 'sms', payload, denied: true });
+      return;
+    }
+    await startSetUp(payload);
+  };
+
+  const startSetUp = async (payload: DriverProvisioning) => {
     setStep({ kind: 'starting', payload });
     await setUp(payload);
   };
@@ -81,6 +98,7 @@ export default function Provision() {
     try {
       await provision(payload.shortId, payload.beaconSecret, payload.smsKey);
       await startAdvertising(beaconOptions());
+      await ensureInboxConfigured();
       setSetup(setupFrom(payload, Date.now()));
       setBeaconEnabled(true);
       setStep({ kind: 'done' });
@@ -130,6 +148,20 @@ export default function Provision() {
           <Text style={typography.bodyLg}>{step.denied ? text.permissionDenied : text.permissionsBody}</Text>
           <Button label={step.denied ? text.tryAgain : text.allow} onPress={() => void askPermissions(step.payload)} />
           {step.denied ? <Button label={text.openSettings} variant="secondary" onPress={() => void Linking.openSettings()} /> : null}
+        </>
+      ) : null}
+
+      {step.kind === 'sms' ? (
+        <>
+          <Text style={typography.headlineSm}>{text.smsTitle}</Text>
+          <Text style={typography.bodyLg}>{step.denied ? text.smsDenied : text.smsBody}</Text>
+          <Button label={step.denied ? text.tryAgain : text.smsAllow} onPress={() => void askSms(step.payload)} />
+          {step.denied ? (
+            <>
+              <Button label={text.openSettings} variant="secondary" onPress={() => void Linking.openSettings()} />
+              <Button label={text.smsSkip} variant="text" onPress={() => void startSetUp(step.payload)} />
+            </>
+          ) : null}
         </>
       ) : null}
 

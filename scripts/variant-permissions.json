@@ -22,7 +22,8 @@
   "driver": {
     "package": "com.tunton.driver",
     "required": [
-      "android.permission.POST_NOTIFICATIONS"
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.RECEIVE_SMS"
     ],
     "allowed": [],
     "forbidden": [
@@ -37,7 +38,9 @@
   "gateway": {
     "package": "com.tunton.gateway",
     "required": [
-      "android.permission.POST_NOTIFICATIONS"
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.SEND_SMS",
+      "android.permission.READ_PHONE_STATE"
     ],
     "allowed": [],
     "forbidden": [

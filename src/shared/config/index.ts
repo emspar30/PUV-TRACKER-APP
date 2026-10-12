@@ -417,6 +417,9 @@ export const SMS_DISPATCH_MIN_CHANGE = 2;
 export const SMS_DISPATCH_INTERVAL_MIN = 5;
 export const SMS_OPERATING_START_MIN = 300;
 export const SMS_OPERATING_END_MIN = 1260;
+// The gateway waits this long between two sends (PRD 16 risk 3: carrier spam filters). DR5's
+// carrier test uses it; the gateway service in DR7 too.
+export const GATEWAY_SEND_GAP_MS = 1500;
 
 // --- Driver app (PRD 9.4; DR5). Waiting counts are shown in bands: 0, 1 to 4, 5 to 9, 10 or more.
 export const HEATMAP_BAND_EDGES = [1, 5, 10] as const;
@@ -427,6 +430,10 @@ export const DRIVER_NIGHT_BANDS_ONLY = true;
 export const CLOCK_DRIFT_WARN_S = 90;
 // The clock estimate looks at the last few heatmap messages' carrier timestamps
 export const CLOCK_DRIFT_SAMPLES = 5;
+// DR5: the native inbox keeps this many heatmap messages until the app drains them (the oldest go
+// first), and the admin screen lists this many recent results, accepted or not
+export const DRIVER_INBOX_MAX = 50;
+export const DRIVER_RECENT_LOG_MAX = 20;
 
 // --- Provisioning (PRD 9.5; DR3, DR4). A setup QR expires this long after it is printed.
 export const PROVISIONING_QR_TTL_MIN = 15;

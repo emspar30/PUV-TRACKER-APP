@@ -1,30 +1,32 @@
 import { BatteryState, useBatteryLevel, useBatteryState } from 'expo-battery';
-import { BatteryCharging, BatteryMedium, Bluetooth, BluetoothOff } from 'lucide-react-native';
+import { BatteryCharging, BatteryMedium, Bluetooth, BluetoothOff, Clock, MessageSquare } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
 import { describeBeacon } from '../beacon/beacon';
+import type { Described } from '../heatmap/describe';
 import type { BeaconStatus } from '../../../../modules/tunton-beacon';
 
-// The driver app's status strip (PRD 9.4): the beacon and the battery now; the last SMS and the clock
-// come with the heatmap (DR5). Holding it for 3 s opens the admin PIN (Q12); a tap does nothing, so
-// the driver is never asked to touch it (PRD 15.3).
+// The driver app's status strip (PRD 9.4): the beacon, the last heatmap update, the clock (checked
+// against the carrier's SMS timestamps, DR5) and the battery. Holding it for 3 s opens the admin PIN
+// (Q12); a tap does nothing, so the driver is never asked to touch it (PRD 15.3).
 
 const ICON = 22;
 const ADMIN_HOLD_MS = 3000;
 const PERCENT = 100;
 
-type Props = { status: BeaconStatus; onAdminHold: () => void };
+type Props = { status: BeaconStatus; update: Described; clock: Described; onAdminHold: () => void };
 
-export function StatusStrip({ status, onAdminHold }: Props) {
+export function StatusStrip({ status, update, clock, onAdminHold }: Props) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const level = useBatteryLevel();
   const batteryState = useBatteryState();
   const beacon = describeBeacon(status);
-  const toneColor = beacon.tone === 'ok' ? colors.success : beacon.tone === 'warn' ? colors.warning : colors.danger;
+  const tone = (value: Described['tone']) => (value === 'ok' ? colors.success : value === 'warn' ? colors.warning : colors.danger);
+  const toneColor = tone(beacon.tone);
   const charging = batteryState === BatteryState.CHARGING || batteryState === BatteryState.FULL;
   const BeaconIcon = status.bluetoothOn ? Bluetooth : BluetoothOff;
   const BatteryIcon = charging ? BatteryCharging : BatteryMedium;
@@ -40,6 +42,18 @@ export function StatusStrip({ status, onAdminHold }: Props) {
         <BeaconIcon color={toneColor} size={ICON} />
         <Text style={[typography.labelLg, { color: toneColor }]} numberOfLines={1}>
           {beacon.label}
+        </Text>
+      </View>
+      <View style={styles.item}>
+        <MessageSquare color={tone(update.tone)} size={ICON} />
+        <Text style={[typography.labelLg, { color: tone(update.tone) }]} numberOfLines={1}>
+          {update.label}
+        </Text>
+      </View>
+      <View style={styles.item}>
+        <Clock color={tone(clock.tone)} size={ICON} />
+        <Text style={[typography.labelLg, { color: tone(clock.tone) }]} numberOfLines={1}>
+          {clock.label}
         </Text>
       </View>
       <View style={styles.item}>

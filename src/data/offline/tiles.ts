@@ -15,6 +15,8 @@ import bundledTiles from '../../../assets/map/butuan_v2.pmtiles';
 
 import { prepareOfflineGlyphs } from './glyphs';
 
+// DR5: here, not in src/features/map, because the driver app's static heatmap map uses it too and
+// the driver app may not import commuter features (PRD 6.2; eslint.config.js)
 const TILE_FOLDER = 'map';
 
 export type OfflineTiles = {

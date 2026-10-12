@@ -742,6 +742,17 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 
 **Accept.** DR5-M1 to M4 and M6 pass; DR5-M5 is recorded and the primary path is chosen with Emjay.
 
+**As built (2026-10-12):**
+- The module was written by hand in the `create-expo-module --local` shape, like `tunton-beacon`. **One** receiver class with two intent filters (data on the port, text) instead of two receivers. The plugin keeps its own copy of the port (a plugin cannot import the TypeScript config); `driverInbox.test.ts` checks the two agree.
+- The inbox is **off until the app turns it on** (`configure`, at setup or on the first start of a phone set up in DR4), so a phone that is not set up stores nothing. A data SMS is stored as hex, not base64. The `onHeatmapSms` event carries nothing: the app drains the inbox, so a missed event loses nothing.
+- The checks are in `src/shared/driver/inbox.ts` (pure, tested in Node), not in the hook. A message is judged at the time the phone **received** it, so one that waited in the inbox while the app was closed is not refused as stale. A message for another route is dropped as `wrong_route` (a reason added to the PRD's four).
+- **Tests without a UI library:** the project has no React Native testing library, so instead of `heatmapScreen.test.tsx` the screen rules are in `shared/driver/heatmapView.ts` and tested there; `useHeatmapInbox.test.ts` became `heatmapInbox.test.ts` on the drain step the hook calls.
+- **Emulator tests on phones:** this PC has no Android SDK, and an emulator cannot advertise BLE (the setup stops at the beacon self-test). DR5-M1 to M4 are written for two phones: the gateway's carrier test also sends the bad copies (`repeat`, `bad_signature`, `old_time`), and a personal phone the `wrong_sender` text.
+- **Development setup code:** `scripts/dev-driver-qr.ts` prints a driver setup code with a development SMS key and shows the key, saving nothing (vehicle `DEV-R4`, beacon id 65000), so the carrier test can sign for that phone before the worker exists. Such a phone is set up again with `provision-driver.ts` before the pilot (backlog 99).
+- The carrier test is in **development and `preview-gateway`** builds (`EXPO_PUBLIC_CARRIER_TEST=1` in `eas.json`), never in `release-gateway`. The plan said development builds only, but its approved builds are preview builds.
+- **Android 13 and later** may block `RECEIVE_SMS` and `SEND_SMS` for an app installed from an APK ("restricted setting"); the setup screen explains the steps, and text messages can be skipped there and allowed later from admin (backlog 97).
+- `src/features/map/tiles.ts` and `glyphs.ts` moved to `src/data/offline/`, because the driver app may not import commuter features. `GATEWAY_SEND_GAP_MS`, `DRIVER_INBOX_MAX` and `DRIVER_RECENT_LOG_MAX` added to `shared/config`.
+
 **Approvals.**
 - `npx create-expo-module@latest --local` (name `tunton-sms`).
 - Driver and gateway development builds.
