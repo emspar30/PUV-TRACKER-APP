@@ -52,6 +52,7 @@ Rules:
 | 2026-10-08 | Emulator QA: C1, RP1, N1, SB2, B-batches, PC1, RR3 | `Pixel_7` emulator | 34 | R1a plus `523319f` JavaScript | **Partly passed; 16 findings** | Agent's run, ~14 minutes, Demo data on, then off and signed in as the team test account. Findings EQ-1 to EQ-16 below, for ST2. Live check-in not completed (EQ-16) |
 | | S2-M3 ten minute soak (without GPS) | | | | not run yet | Needs ten minutes of panning and zooming by hand. No crash was reported during Emjay's shorter manual check. |
 | | S2-M2 blue dot, S2-M4 permission denied | | | | deferred (GPS-free order) | Plan Revision 1. |
+| 2026-10-12 | DR4-M1 to M9 | Two physical Android phones: phone A (driver), phone B (nRF Connect) | not recorded | EAS `preview-driver` build `5161a334` | **Pass** (Emjay) | QR setup, Nearby devices and notifications, "Beacon on". Phone B (nRF Connect, no UUID filter on Android: found as the nameless, non-connectable device next to it) showed the service UUID `45ca985d-065a-488b-b652-af6ec6cf1b4e`; PRD 0.2 S6 acceptance met. Emjay reports the other checks passed too. Not recorded: phone models and Android versions, M4's battery drop and temperature, M6's time to resume (ask before the field tests) |
 
 ## Known issues when running S0-M1
 
