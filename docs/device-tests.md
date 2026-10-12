@@ -326,7 +326,7 @@ Needs: a driver build that includes the beacon (a `preview-driver` EAS build mad
 
 ## DR5 heatmap by SMS and the carrier test (2026-10-12)
 
-Needs: `preview-driver` and `preview-gateway` builds made after DR5 (the gateway build has the carrier test: `EXPO_PUBLIC_CARRIER_TEST=1`), **phone A** (driver) with a SIM, **phone G** (gateway) with a **Smart/TNT** SIM, and a third, personal phone for M2 and M6. No SMS worker yet (DR6): phone G's carrier test sends signed test messages itself.
+Needs: `preview-driver` build `1ca117e7` and `preview-gateway` build `f24d8954` (2026-10-12), or later ones (the gateway build has the carrier test: `EXPO_PUBLIC_CARRIER_TEST=1`), **phone A** (driver) with a SIM, **phone G** (gateway) with a **Smart/TNT** SIM, and a third, personal phone for M2 and M6. No SMS worker yet (DR6): phone G's carrier test sends signed test messages itself.
 
 Set-up: on the PC, `npx tsx scripts/dev-driver-qr.ts --route R4 --gateway-number <phone G's number>` (it asks for an admin PIN, saves nothing, and prints the development SMS key). On phone A: Admin, Set up again (if set up in DR4), scan the code, confirm, allow Nearby devices and notifications, then **Allow text messages**. If Android refuses without a prompt, it is a restricted setting: Open settings, ⋮ (top right), Allow restricted settings, back, Try again (note it, backlog 97). On phone G: Tunton Gateway, Carrier test, Allow SMS and Phone; type phone A's number and the SMS key; route R4.
 
