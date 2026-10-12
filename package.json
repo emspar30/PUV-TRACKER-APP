@@ -60,6 +60,8 @@
     "prebuild:gateway": "node scripts/with-variant.js gateway -- npx expo prebuild --clean --platform android",
     "android:driver": "node scripts/with-variant.js driver -- npx expo run:android --port 8082",
     "android:gateway": "node scripts/with-variant.js gateway -- npx expo run:android --port 8083",
+    "worker:dev": "tsx services/sms-worker/src/main.ts",
+    "worker:build": "esbuild services/sms-worker/src/main.ts --bundle --platform=node --target=node22 --format=cjs --outfile=services/sms-worker/dist/worker.cjs",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "test": "jest",

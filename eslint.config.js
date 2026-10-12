@@ -87,6 +87,24 @@ module.exports = defineConfig([
     },
   },
   {
+    // DR6: the SMS worker runs in plain Node on the team PC: no React, React Native, Expo or app
+    // code. It reaches src/shared and the route data by relative path, so its bundle needs no aliases.
+    files: ['services/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['react', 'react-native', 'react-native/*', 'react-native-*', 'expo', 'expo/*', 'expo-*', '@expo/*', '@maplibre/*', '@/*'],
+              message: 'The SMS worker is plain Node: import src/shared by relative path, never app code.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Every threshold lives in src/shared/config (PRD 0.1 rule 3)
     files: ['src/shared/**/*.ts'],
     ignores: ['src/shared/config/**', 'src/shared/**/__tests__/**'],

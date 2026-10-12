@@ -421,6 +421,37 @@ export const SMS_OPERATING_END_MIN = 1260;
 // carrier test uses it; the gateway service in DR7 too.
 export const GATEWAY_SEND_GAP_MS = 1500;
 
+// --- SMS worker (DR6; docs/IMPLEMENTATION_PLAN_DRIVER.md section 7). The worker checks the counts
+// every WORKER_CYCLE_S and reloads the driver phones (and their keys) every WORKER_DEVICE_REFRESH_MIN.
+export const WORKER_CYCLE_S = 30;
+export const WORKER_DEVICE_REFRESH_MIN = 10;
+// A queued message not sent within this is dropped: a stale count is worse than none (it must stay
+// under SMS_MAX_AGE_MIN, or the driver phone would refuse it anyway)
+export const SMS_OUTBOX_TTL_MIN = 10;
+// The gateway has this long to report a message it took, before it goes back to the queue
+export const SMS_CLAIM_LEASE_S = 120;
+export const SMS_SEND_MAX_ATTEMPTS = 3;
+// The gateway's HTTP API: request bodies above this are refused; at most GATEWAY_PULL_MAX messages
+// per pull; the gateway pulls every GATEWAY_PULL_S and sends a heartbeat every GATEWAY_HEARTBEAT_S
+export const WORKER_BODY_MAX_BYTES = 4096;
+export const GATEWAY_PULL_MAX = 10;
+export const GATEWAY_PULL_S = 10;
+export const GATEWAY_HEARTBEAT_S = 60;
+// The gateway gives up waiting for Android's "sent" result after this (DR7)
+export const GATEWAY_SENT_TIMEOUT_S = 30;
+// Health alerts (Q9: dashboard only), checked during the operating hours, at most one per kind per
+// OPS_ALERT_QUIET_MIN: no gateway heartbeat for GATEWAY_HEARTBEAT_ALERT_MIN; more than
+// GATEWAY_FAIL_ALERT_RATIO of the last hour's messages failed (once at least
+// GATEWAY_FAIL_ALERT_MIN_MESSAGES were tried); 90 % of messages took more than SMS_LATENCY_P90_TARGET_S
+// from queued to sent (PRD 13)
+export const GATEWAY_HEARTBEAT_ALERT_MIN = 5;
+export const GATEWAY_FAIL_ALERT_RATIO = 0.05;
+export const GATEWAY_FAIL_ALERT_MIN_MESSAGES = 20;
+export const SMS_LATENCY_P90_TARGET_S = 60;
+export const OPS_ALERT_QUIET_MIN = 60;
+// The worker's port when PORT is not set (the gateway's development setup code uses it)
+export const WORKER_DEFAULT_PORT = 8787;
+
 // --- Driver app (PRD 9.4; DR5). Waiting counts are shown in bands: 0, 1 to 4, 5 to 9, 10 or more.
 export const HEATMAP_BAND_EDGES = [1, 5, 10] as const;
 // Q5: exact numbers in the list (the map shows bands). Q11: bands only during Night Mode.
