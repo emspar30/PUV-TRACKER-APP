@@ -78,6 +78,12 @@ describe('app variants (DR1)', () => {
     expect(configFor(variant).android.blockedPermissions).toEqual(expect.arrayContaining(LOCATION));
   });
 
+  it.each(['commuter', 'driver', 'gateway'])('blocks the microphone in the %s app (DR4: the camera only scans QR codes)', (variant) => {
+    expect(configFor(variant).android.blockedPermissions).toContain('android.permission.RECORD_AUDIO');
+    const camera = configFor(variant).plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-camera');
+    expect(camera).toEqual(['expo-camera', { recordAudioAndroid: false }]);
+  });
+
   it('gives every variant the same native plugins, so the native modules link the same way', () => {
     const shared = pluginNames(base);
     for (const variant of ['commuter', 'driver', 'gateway']) {

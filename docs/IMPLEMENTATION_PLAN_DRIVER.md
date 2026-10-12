@@ -670,6 +670,13 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 
 **Accept.** DR4-M1, M2, M3, M5 and M6 pass on two real phones. JUnit and Jest pass. `check-apk-permissions` passes for driver and commuter.
 
+**As built (2026-10-12):**
+- The module was written by hand in the shape `create-expo-module --local` produces (that command asks its questions interactively); autolinking finds it.
+- The **SMS key can be read back** by JavaScript (`getSmsKey`), because the heatmap is validated in TypeScript (DR5). The beacon secret can still only be written.
+- The admin PIN is chosen on the PC when the setup code is printed (DR3's script), so the phone has no PIN step.
+- `expo-camera`'s plugin is set to `recordAudioAndroid: false`, and `RECORD_AUDIO` is blocked in all three apps.
+- The Kotlin code is unverified until the first EAS build compiles it (backlog 93).
+
 **Approvals.**
 - `npx create-expo-module@latest --local` (name `tunton-beacon`).
 - `npx expo install expo-camera expo-keep-awake expo-battery`.

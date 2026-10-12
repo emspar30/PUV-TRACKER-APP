@@ -1,11 +1,14 @@
 import { Stack } from 'expo-router';
+import { useKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
 
 import { ThemeProvider, useTheme } from '@/theme';
 
-// DR1: the driver app's root (APP_VARIANT=driver; app.config.js points Expo Router here).
+// The driver app's root (APP_VARIANT=driver; app.config.js points Expo Router here).
 // One-way by design (PRD 6.2): nothing under src/driver may reach the cloud; lint enforces it.
+// DR4: the screen stays on while the app is open, as a dashboard phone on the vehicle charger.
 export default function DriverLayout() {
+  useKeepAwake();
   return (
     <ThemeProvider>
       <ThemedStack />

@@ -23,12 +23,16 @@ const DRIVER_SIDE_ONLY = [
   'android.permission.CAMERA',
 ];
 
+// No app records audio: expo-camera (QR scanning in the driver and gateway apps) is configured
+// without it in app.json, and this blocks it in case a library adds it anyway
+const NEVER = ['android.permission.RECORD_AUDIO'];
+
 // The commuter app is exactly app.json (com.tunton.app, src/app), except that the driver-side
 // permissions are blocked as well as background location. The driver and gateway apps have no
 // location at all: the system tracks vehicles, not drivers (PRD 3.2, 9.1), and the gateway only texts.
 const SETTINGS = {
   commuter: {
-    blocked: ['android.permission.ACCESS_BACKGROUND_LOCATION', ...DRIVER_SIDE_ONLY],
+    blocked: ['android.permission.ACCESS_BACKGROUND_LOCATION', ...DRIVER_SIDE_ONLY, ...NEVER],
   },
   driver: {
     name: 'Tunton Driver',
@@ -36,7 +40,7 @@ const SETTINGS = {
     scheme: 'tunton-driver',
     routerRoot: 'src/driver/app',
     permissions: ['android.permission.POST_NOTIFICATIONS'],
-    blocked: LOCATION,
+    blocked: [...LOCATION, ...NEVER],
     plugin: './plugins/withDriverAndroid',
   },
   gateway: {
@@ -45,7 +49,7 @@ const SETTINGS = {
     scheme: 'tunton-gateway',
     routerRoot: 'src/gateway/app',
     permissions: ['android.permission.POST_NOTIFICATIONS'],
-    blocked: LOCATION,
+    blocked: [...LOCATION, ...NEVER],
     plugin: './plugins/withGatewayAndroid',
   },
 };

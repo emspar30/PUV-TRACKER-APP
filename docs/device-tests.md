@@ -307,6 +307,22 @@ Each variant is its own Android project: run its prebuild before building it (th
 
 **Agent's checks without a native build (2026-10-12):** `npx expo export --platform android --no-bytecode --no-minify` per variant, into a scratch folder. The driver bundle holds the driver screens only; the gateway bundle the gateway screens only; neither holds the Supabase client or the commuter screens (8.3 MB each against the commuter's 14 MB, unminified). The commuter bundle holds no driver or gateway screen. The first driver bundle **did** hold the Supabase client, pulled in through the `@/components` barrel (its top bar reads the session); fixed by importing `@/components/Screen` directly, and now caught by `variantBoundaries.test.ts` and lint.
 
+## DR4 driver phone setup and beacon (2026-10-12)
+
+Needs: a driver build that includes the beacon (a `preview-driver` EAS build made after DR4), phone A as the driver phone, phone B with the free "nRF Connect" app, and the PC with `SUPABASE_SERVICE_ROLE_KEY` in `.env`. The setup QR: `npx tsx scripts/provision-driver.ts --vehicle R4-TEST-01 --plate "TEST 001" --route R4 --phone <phone A's number> --gateway-number <any team number>` (until the gateway exists, DR7). The beacon service UUID is `45ca985d-065a-488b-b652-af6ec6cf1b4e`.
+
+| Script | Action | Expected |
+| --- | --- | --- |
+| DR4-M1 | Phone A: open Tunton Driver, Allow camera, scan the QR; confirm TEST 001, Route 4; Continue, allow Nearby devices and notifications | "Beacon on"; a "Tunton beacon on" notification; Done shows the home: the status strip (beacon, battery), TEST 001, Route 4 |
+| DR4-M2 | Phone B: nRF Connect, Scanner, filter by the UUID above | A device with that service UUID; its service data is 9 bytes starting `01 00 01` (version 1, short id 1 for the first test vehicle); the last 6 bytes **change within 60 s, at each minute boundary** (PRD 0.2 S6) |
+| DR4-M3 | Phone A: hold the status strip 3 s, enter the admin PIN; read "Code … · slot …"; within the minute run `npx tsx scripts/decode-beacon.ts` (DR8) or compare with phone B | The same 18-character code as phone B shows. A code copied 3 minutes earlier must fail the server check in DR8 |
+| DR4-M4 | Phone A screen off for 30 minutes | Phone B sees the beacon the whole time; record the battery drop and how warm the phone is |
+| DR4-M5 | Phone A: Bluetooth off for 1 minute, then on | The strip says "Bluetooth is off"; within 10 s of turning it on, "Beacon on" and phone B sees it again |
+| DR4-M6 | Restart phone A and unlock it, without opening the app | Phone B sees the beacon again; record the time it took |
+| DR4-M7 | Phone A: Settings, Apps, Tunton Driver, Force stop | Record what happens (expected: the beacon stops until the app is opened; opening it starts the beacon again) |
+| DR4-M8 | A phone that cannot advertise, if one is at hand | Setup stops with "This phone cannot act as a beacon" |
+| DR4-M9 | Admin: Turn beacon off, then on; then Set up again | Off: phone B stops seeing it; on: back. Set up again returns to the scan screen; the old QR is refused once expired (15 min) |
+
 ## Emulator QA findings (2026-10-08, for ST2)
 
 Agent's run on the `Pixel_7` emulator (API 34), build R1a with the JavaScript at `523319f`. Seen working: the bundle refreshed (Energy hidden in the top bar and Profile); six routes on the real lines with demo vehicles; vehicle card with ETA, "km from you" and Demo label; tracking free, with ETA, "km by road" and the stop strip; demo check-in with countdown, tab dot and Cancel; live sign-in; live relay without GPS ("Update relayed", First relay badge) shown in Crowdsource with Trusted and "Near SM City Butuan"; Profile badges and places; Settings Privacy rows (contact address shown, the email link opens Gmail); My Rides SMB to BAN on R1, 6.2 km, ₱16.75 Student (₱21.00 regular); a saved old demo stop (MCA) falls back to SM City.

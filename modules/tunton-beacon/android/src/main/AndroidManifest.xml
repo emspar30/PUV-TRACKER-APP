@@ -1,0 +1,4 @@
+<!-- Empty on purpose: this module is linked into every app variant, so its permissions, service and
+     receiver are added by plugins/withDriverAndroid.js for the driver app only (DR4). -->
+<manifest>
+</manifest>

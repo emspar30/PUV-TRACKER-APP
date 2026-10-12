@@ -1,0 +1,23 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.tunton'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.tuntonbeacon"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+  testOptions {
+    unitTests.returnDefaultValues = true
+  }
+}
+
+dependencies {
+  // DR4: BeaconCodeTest checks the Kotlin code against tests/fixtures/beacon-vectors.json
+  testImplementation 'junit:junit:4.13.2'
+}
