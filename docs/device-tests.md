@@ -349,6 +349,23 @@ Set-up: on the PC, `npx tsx scripts/dev-driver-qr.ts --route R4 --gateway-number
 | Largest data SMS that arrived | — | | | bytes: | | | |
 | Data SMS to another network (optional) | 5 | | | | | | |
 
+## DR6 SMS worker with a fake gateway (2026-10-13)
+
+No phones: the worker and a stand-in gateway run on the PC, against the live project. **Between 05:00 and 21:00 Manila only** (outside those hours the worker sends nothing, by design). Needs: `.env` with `SUPABASE_SERVICE_ROLE_KEY` and the `TEST_*` accounts; `services/sms-worker/.env` with `SMS_PRIMARY_ENCODING=data`; an active R4 driver phone in the database (DRV-0001 from DR4, or set one up with `provision-driver.ts`). Three terminals:
+
+1. `npm run worker:dev`
+2. `npx tsx scripts/fake-gateway.ts`
+3. the check-in commands below.
+
+| ID | Script | Expected |
+| --- | --- | --- |
+| DR6-M1 | Terminal 3: `npx tsx scripts/dev-checkin.ts --route R4 --station SMB` | Within about 40 s, terminal 2 prints one message per active R4 phone, `HM2\|R4\|…\|SMB:1,…` with every R4 stop listed (zeros included), marked `[valid for DRV-…]`; terminal 1 logs `queued` with reason `first` |
+| DR6-M2 | Terminal 3: `npx tsx scripts/dev-checkin.ts --end` | Within the next cycle, a message with `SMB:0` (reason `cleared`), then nothing more |
+| DR6-M3 | Stop terminal 2 (Ctrl+C) for 6 minutes | Terminal 1 logs `alert recorded` with kind `gateway_heartbeat`; one row in `ops_alerts` (Supabase dashboard, Table editor) and no second one within the hour |
+| DR6-M4 | With terminal 2 stopped, check in again (M1) and wait 12 minutes; then start terminal 2 | The queued messages become `expired` after 10 minutes (`sms_outbox`); terminal 2 prints no old message when it comes back, only new ones |
+| DR6-M5 | `npx tsx scripts/fake-gateway.ts --fail 1`, then a check-in | The first message is reported failed and printed again on a later pull (re-queued); after 3 failures a message stays `failed` |
+| After | `npx tsx scripts/fake-gateway.ts --retire`; `Select-String` the worker's output for `\+639\d{9}` | GW-99 switched off; no full phone number anywhere in the logs |
+
 ## Emulator QA findings (2026-10-08, for ST2)
 
 Agent's run on the `Pixel_7` emulator (API 34), build R1a with the JavaScript at `523319f`. Seen working: the bundle refreshed (Energy hidden in the top bar and Profile); six routes on the real lines with demo vehicles; vehicle card with ETA, "km from you" and Demo label; tracking free, with ETA, "km by road" and the stop strip; demo check-in with countdown, tab dot and Cancel; live sign-in; live relay without GPS ("Update relayed", First relay badge) shown in Crowdsource with Trusted and "Near SM City Butuan"; Profile badges and places; Settings Privacy rows (contact address shown, the email link opens Gmail); My Rides SMB to BAN on R1, 6.2 km, ₱16.75 Student (₱21.00 regular); a saved old demo stop (MCA) falls back to SM City.

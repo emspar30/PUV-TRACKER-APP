@@ -820,6 +820,16 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 
 **Accept.** DR6-M1 to M4 pass; the worker logs show no full number, key or token (search the log file for `+639` followed by 9 digits).
 
+**As built (2026-10-13):**
+- **No new migration.** The health figures (gateway heartbeats, the last hour's outcomes and latencies) are read from `gateways` and `sms_outbox` with the service role; the DR3 functions cover everything else.
+- **Every stop in every message.** The snapshot lists only stops where someone waits, so the worker takes each route's stops from the bundled route data (`src/data/seed`, ordered with `inRouteOrder` as in the driver app) and sends them all, zeros included. A check-in at a stop the route data does not list is ignored.
+- **Health runs only during SMS hours**, so a gateway quiet at night raises nothing. A failure ratio needs at least 20 tried messages in the hour (`GATEWAY_FAIL_ALERT_MIN_MESSAGES`), so one failure in three is no alert. A gateway never seen counts as a heartbeat gap.
+- `/v1/result` answers `409` when the message is not the gateway's to report (the plan said `204` only).
+- **Settings:** the environment, then `services/sms-worker/.env`, then the repository `.env` (`EXPO_PUBLIC_SUPABASE_URL` stands in for `SUPABASE_URL`), so development needs no copy of the key. `SMS_PRIMARY_ENCODING` is required; `PORT` defaults to 8787.
+- **Fake gateway:** registers a development gateway `GW-99` with a token held in memory only, checks each message's signature with that phone's key (service role, as the worker), and `--fail N` / `--retire`. Ctrl+C leaves GW-99 on, so DR6-M3's heartbeat alert can fire.
+- **`scripts/dev-checkin.ts`** replaces the commuter emulator in DR6-M1, M2 and M4 (this PC has no emulator): a check-in as the team test account through the app's own functions.
+- `esbuild` comes through `tsx` (0.28.2) for now; the direct dev dependency waits for approval (backlog 105).
+
 **Approvals.**
 - `npm install --save-dev esbuild` (dev only).
 - Running the worker against the live project (it uses the service role key).
