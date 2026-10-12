@@ -13,7 +13,8 @@ import type { BeaconStatus } from '../../../../modules/tunton-beacon';
 // against the carrier's SMS timestamps, DR5) and the battery. Holding it for 3 s opens the admin PIN
 // (Q12); a tap does nothing, so the driver is never asked to touch it (PRD 15.3).
 // Look (Stitch design, 2026-10-12): a white floating bar like the commuter app's top bar, holding one
-// status pill per item, tinted by its tone, as the commuter app's StatusPill.
+// status pill per item, tinted by its tone, as the commuter app's StatusPill. A fixed 2 x 2 grid
+// (beacon, update / clock, battery), so no pill moves when another's text changes length.
 
 const ICON = 16;
 const DOT = spacing.sm;
@@ -34,10 +35,14 @@ export function StatusStrip({ status, update, clock, onAdminHold }: Props) {
 
   return (
     <Pressable onLongPress={onAdminHold} delayLongPress={ADMIN_HOLD_MS} style={styles.strip} accessibilityLabel={strings.driver.holdForAdmin}>
-      <StatusItem icon={status.bluetoothOn ? Bluetooth : BluetoothOff} tone={beacon.tone} label={beacon.label} />
-      <StatusItem icon={MessageSquare} tone={update.tone} label={update.label} />
-      <StatusItem icon={Clock} tone={clock.tone} label={clock.label} />
-      <StatusItem icon={charging ? BatteryCharging : BatteryMedium} tone={batteryTone} label={batteryLabel} />
+      <View style={styles.row}>
+        <StatusItem icon={status.bluetoothOn ? Bluetooth : BluetoothOff} tone={beacon.tone} label={beacon.label} />
+        <StatusItem icon={MessageSquare} tone={update.tone} label={update.label} />
+      </View>
+      <View style={styles.row}>
+        <StatusItem icon={Clock} tone={clock.tone} label={clock.label} />
+        <StatusItem icon={charging ? BatteryCharging : BatteryMedium} tone={batteryTone} label={batteryLabel} />
+      </View>
     </Pressable>
   );
 }
@@ -65,9 +70,6 @@ function StatusItem({ icon: Icon, tone, label }: { icon: LucideIcon; tone: Tone;
 const useStyles = makeStyles(({ colors, elevation, typography }) => ({
   strip: {
     minHeight: MIN_TOUCH_TARGET,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
     gap: spacing.sm,
     padding: spacing.sm + spacing.xs,
     borderRadius: radii.card,
@@ -76,7 +78,14 @@ const useStyles = makeStyles(({ colors, elevation, typography }) => ({
     backgroundColor: colors.card,
     ...elevation.level2,
   },
+  row: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  // Each pill takes half the row, whatever its text; a long label ends with "…"
   pill: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs + spacing.xs / 2,
@@ -91,5 +100,6 @@ const useStyles = makeStyles(({ colors, elevation, typography }) => ({
   },
   label: {
     ...typography.labelMd,
+    flexShrink: 1,
   },
 }));

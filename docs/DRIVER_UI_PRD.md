@@ -108,7 +108,7 @@ Same Tunton Driver home screen as before (plate "KDX 4821", Route 4, same stops 
 
 ```
 Tunton Driver home, right after setup, before the first SMS update.
-- Status strip: "Beacon on" (green), "No update yet" (amber), "Clock not checked" (amber), "64% · Charging".
+- Status strip: "Beacon on" (green), "No update yet" (amber), "Clock: no text yet" (amber), "64% · Charging".
 - Plate "KDX 4821", "Route 4".
 - Map: Route 4 line with all 18 stops as small grey dots, no glow.
 - List heading "Waiting passengers" with "No update yet". Every stop listed in riding order with a grey "—" chip and no number (a stop without a count shows a dash, never 0).
@@ -234,7 +234,7 @@ Buttons at the bottom: secondary pill "Turn beacon off" (or primary "Turn beacon
 | --- | --- |
 | Beacon | "Beacon on" ok · "Beacon starting" warn · "Beacon restarting" warn · "Beacon off" warn · "Bluetooth is off" bad · "Nearby devices permission is off" bad · "This phone cannot act as a beacon" bad · "Not set up" bad · "Beacon stopped" bad |
 | Update | "Updated just now" / "Updated N min ago" ok · "No update yet" warn · "No update for N min" bad |
-| Clock | "Clock OK" ok · "Clock not checked" warn · "Clock off by N s" / "Clock off by N min" bad |
+| Clock | "Clock OK" ok · "Clock: no text yet" warn · "Clock off by N s" / "Clock off by N min" bad |
 | Battery | "N% · Charging" · "N% · Not charging" |
 
 ### 4.3 What the designs may not change

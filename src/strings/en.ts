@@ -968,7 +968,8 @@ export const en = {
     },
     smsMissing: 'Text messages are off. Waiting counts cannot arrive. Ask an admin.',
     clock: {
-      unknown: 'Clock not checked',
+      // Checked only against the carrier's time on a heatmap text, so before the first one it waits
+      unknown: 'Clock: no text yet',
       ok: 'Clock OK',
       // driftS > 0: the phone is ahead
       off: (minutes: number) => `Clock off by ${minutes} min`,
