@@ -1,8 +1,10 @@
 import { Redirect, router } from 'expo-router';
+import { TriangleAlert } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LineBadge } from '@/components/Pills';
 import { driftStatus } from '@/shared/driver/drift';
 import { heatmapView } from '@/shared/driver/heatmapView';
 import { strings } from '@/strings';
@@ -24,6 +26,8 @@ import { canReceiveSms, isSmsAvailable } from '../../../modules/tunton-sms';
 // it for admin), the multicab, the static map of the route with a glowing node per stop (top half)
 // and the stops in riding order with their counts (bottom half). The heatmap greys when no valid
 // message came for SMS_STALE_HEATMAP_MIN, and says how old it is.
+// Look: the Stitch design (docs/DRIVER_UI_PRD.md 3.1, 2026-10-12) in the commuter app's style: white
+// outlined cards, the route badge, status pills. The map stays fixed; only the list scrolls.
 
 // The age and the stale state change by the minute
 const TICK_MS = 30_000;
@@ -45,7 +49,7 @@ export default function DriverHome() {
   const status = useBeaconStatus();
   const now = useNow();
   const styles = useStyles();
-  const { colors, typography } = useTheme();
+  const { colors, typography, routeColor } = useTheme();
   // The setup is saved but the phone lost its secrets (a restored backup, a reset lock screen)
   const lostSecrets = setup !== null && isBeaconAvailable() && !isProvisioned();
   const smsOff = setup !== null && isSmsAvailable() && !canReceiveSms();
@@ -77,22 +81,25 @@ export default function DriverHome() {
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
       <StatusStrip status={status} update={update} clock={describeClock(driftStatus(driftSamples))} onAdminHold={() => router.push('/admin')} />
-      <View style={styles.vehicle}>
-        <Text style={[typography.headlineLg, styles.plate]} numberOfLines={1} adjustsFontSizeToFit>
-          {setup.plate}
-        </Text>
-        <Text style={typography.headlineMd}>{strings.driver.route(setup.routeCode)}</Text>
+      <View style={[styles.card, styles.vehicle]}>
+        <View style={styles.plate}>
+          <Text style={[typography.labelSm, styles.caps]}>{strings.driver.vehiclePlate}</Text>
+          <Text style={[typography.headlineLg, styles.plateText]} numberOfLines={1} adjustsFontSizeToFit>
+            {setup.plate}
+          </Text>
+        </View>
+        <LineBadge code={setup.routeCode} color={routeColor(setup.routeCode, route.color)} />
+        <View style={styles.routeText}>
+          <Text style={typography.headlineSm}>{strings.driver.route(setup.routeCode)}</Text>
+          {route.name ? (
+            <Text style={typography.bodySm} numberOfLines={1}>
+              {route.name}
+            </Text>
+          ) : null}
+        </View>
       </View>
-      {lostSecrets ? (
-        <View style={[styles.card, styles.warning]}>
-          <Text style={typography.headlineSm}>{strings.driver.resetNeeded}</Text>
-        </View>
-      ) : null}
-      {smsOff ? (
-        <View style={[styles.card, styles.warning]}>
-          <Text style={typography.headlineSm}>{strings.driver.smsMissing}</Text>
-        </View>
-      ) : null}
+      {lostSecrets ? <Warning text={strings.driver.resetNeeded} /> : null}
+      {smsOff ? <Warning text={strings.driver.smsMissing} /> : null}
       <View style={styles.half}>
         <HeatmapMap route={route} rows={view.rows} stale={stale || view.freshness === 'never'} />
       </View>
@@ -110,6 +117,21 @@ export default function DriverHome() {
   );
 }
 
+// Information only: the driver has nothing to do here but tell an admin
+function Warning({ text }: { text: string }) {
+  const styles = useStyles();
+  const { colors, typography } = useTheme();
+  return (
+    <View style={[styles.card, styles.warning]}>
+      <TriangleAlert color={colors.warning} size={WARNING_ICON} />
+      <Text style={[typography.headlineSm, styles.warningText]}>{text}</Text>
+    </View>
+  );
+}
+
+const WARNING_ICON = 24;
+const PLATE_LETTER_SPACING = 0.5;
+
 const useStyles = makeStyles(({ colors }) => ({
   root: {
     flex: 1,
@@ -117,23 +139,41 @@ const useStyles = makeStyles(({ colors }) => ({
     padding: spacing.md,
     backgroundColor: colors.canvas,
   },
-  vehicle: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  plate: {
-    flexShrink: 1,
-  },
   card: {
     padding: spacing.md,
     gap: spacing.sm,
-    borderRadius: radii.md,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.outline,
     backgroundColor: colors.card,
   },
+  vehicle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + spacing.xs,
+  },
+  plate: {
+    flex: 1,
+  },
+  caps: {
+    textTransform: 'uppercase',
+  },
+  plateText: {
+    fontWeight: '700',
+    letterSpacing: PLATE_LETTER_SPACING,
+  },
+  routeText: {
+    alignItems: 'flex-end',
+    maxWidth: '40%',
+  },
   warning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderColor: colors.warningContainer,
     backgroundColor: colors.warningContainer,
+  },
+  warningText: {
+    flex: 1,
   },
   half: {
     flex: 1,

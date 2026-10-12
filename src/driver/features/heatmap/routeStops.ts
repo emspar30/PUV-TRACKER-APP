@@ -1,4 +1,4 @@
-import { SEED_LINES, SEED_STATIONS } from '@/data/seed/routes';
+import { ROUTE_META, SEED_LINES, SEED_STATIONS } from '@/data/seed/routes';
 import { boundsOfLines, type Bounds } from '@/shared/geo/bounds';
 import type { LineCoordinates } from '@/shared/geo/line';
 import { inRouteOrder } from '@/shared/relay/broadcast';
@@ -10,6 +10,8 @@ import type { RouteStop } from '@/shared/routing/types';
 
 export type DriverRoute = {
   routeCode: string;
+  // The route's name, such as "De Oro" for R4
+  name: string;
   stops: RouteStop[];
   lines: LineCoordinates[];
   color: string;
@@ -27,6 +29,7 @@ export function driverRoute(routeCode: string): DriverRoute {
   const stops = SEED_STATIONS.filter((station) => station.routeCodes.includes(routeCode));
   const route: DriverRoute = {
     routeCode,
+    name: ROUTE_META[routeCode]?.name ?? '',
     stops: inRouteOrder(lines, stops),
     lines,
     color: lineRows[0]?.routeColor ?? '',

@@ -948,6 +948,7 @@ export const en = {
     notProvisioned: 'Not set up yet',
     notProvisionedBody: 'An admin sets up this phone for one multicab with a setup code.',
     route: (code: string) => `Route ${code.slice(1)}`,
+    vehiclePlate: 'Vehicle plate',
     // DR5: the heatmap. Never "no one waiting" when the truth is "no update" (PRD 2.3).
     heatmap: {
       title: 'Waiting passengers',

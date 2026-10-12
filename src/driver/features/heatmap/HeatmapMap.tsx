@@ -157,7 +157,9 @@ export function HeatmapMap({ route, rows, stale }: Props) {
 const useStyles = makeStyles(({ colors }) => ({
   root: {
     flex: 1,
-    borderRadius: radii.md,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.outline,
     overflow: 'hidden',
     backgroundColor: colors.surface,
   },
