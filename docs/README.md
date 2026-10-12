@@ -15,6 +15,7 @@ Start with **`STATUS.md`**.
 | `PRD.md` | Requirements; section 19 is user flow v2 |
 | `IMPLEMENTATION_PLAN_MASTER.md` | The plan for all remaining work. `AGENTS.md` will name it once the one-line change waiting for Emjay's review is committed. |
 | `IMPLEMENTATION_PLAN_DRIVER.md` | The driver side: driver app, SMS worker, gateway app and commuter boarding detection (steps DR0 to DR9); proposal, 2026-10-11 |
+| `DRIVER_UI_PRD.md` | UI brief for the Tunton Driver app, written as prompts for Google Stitch (overall brief, one prompt per screen, the rules the designs must keep); 2026-10-12 |
 | `STATUS.md` | Where we are, from code and tests |
 | `AUDIT_BACKLOG.md` | Open things Emjay must check by hand; closed items are in `history/AUDIT_BACKLOG_CLOSED.md` |
 | `device-tests.md` | Manual test scripts and the results log |
