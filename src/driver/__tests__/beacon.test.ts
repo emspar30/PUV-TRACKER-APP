@@ -6,7 +6,8 @@ import { beaconOptions, describeBeacon } from '../features/beacon/beacon';
 import { getStatus, getSupport, isBeaconAvailable, isProvisioned, NOT_AVAILABLE, provision, type BeaconStatus } from '../../../modules/tunton-beacon';
 import { BEACON_PAYLOAD_VERSION, BEACON_SERVICE_UUID, BEACON_SLOT_S } from '@/shared/config';
 
-const status = (overrides: Partial<BeaconStatus>): BeaconStatus => ({ ...NOT_AVAILABLE, lastError: null, ...overrides });
+// A phone with Bluetooth on and the beacon service alive, unless a test says otherwise
+const status = (overrides: Partial<BeaconStatus>): BeaconStatus => ({ ...NOT_AVAILABLE, lastError: null, bluetoothOn: true, running: true, ...overrides });
 
 describe('beacon status in words (DR4)', () => {
   it('says the beacon is on while advertising', () => {
@@ -16,6 +17,16 @@ describe('beacon status in words (DR4)', () => {
   it('says it is starting, or off, without an error', () => {
     expect(describeBeacon(status({ enabled: true }))).toEqual({ tone: 'warn', label: strings.driver.beaconStarting });
     expect(describeBeacon(status({ enabled: false }))).toEqual({ tone: 'warn', label: strings.driver.beaconOff });
+  });
+
+  // DR5 device test (Android 16, Xiaomi): the app was swiped away, which killed the service; the
+  // strip said "Beacon starting" for ever, even with Bluetooth off
+  it('says Bluetooth is off even when the service is not there to say it', () => {
+    expect(describeBeacon(status({ enabled: true, bluetoothOn: false, running: false }))).toEqual({ tone: 'bad', label: strings.driver.beaconError.bluetooth_off });
+  });
+
+  it('says the beacon is restarting when its service was killed', () => {
+    expect(describeBeacon(status({ enabled: true, running: false }))).toEqual({ tone: 'warn', label: strings.driver.beaconRestarting });
   });
 
   it('names the problem in plain words', () => {

@@ -50,6 +50,10 @@ export type BeaconSummary = { tone: 'ok' | 'warn' | 'bad'; label: string };
 export function describeBeacon(status: BeaconStatus): BeaconSummary {
   const text = strings.driver;
   if (status.advertising) return { tone: 'ok', label: text.beaconOn };
+  // DR5: Bluetooth off is said even when the service is not there to report it
+  if (status.enabled && !status.bluetoothOn && status.lastError !== 'not_available') return { tone: 'bad', label: text.beaconError.bluetooth_off };
+  // The service was killed with the app; the home screen starts it again
+  if (status.enabled && !status.running && status.lastError !== 'not_available') return { tone: 'warn', label: text.beaconRestarting };
   if (status.enabled && !status.lastError) return { tone: 'warn', label: text.beaconStarting };
   if (!status.enabled && status.lastError === null) return { tone: 'warn', label: text.beaconOff };
   const errors = text.beaconError as Record<string, string>;

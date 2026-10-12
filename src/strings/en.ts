@@ -976,6 +976,7 @@ export const en = {
     beaconOn: 'Beacon on',
     beaconOff: 'Beacon off',
     beaconStarting: 'Beacon starting',
+    beaconRestarting: 'Beacon restarting',
     bluetoothOff: 'Bluetooth is off',
     battery: (percent: number) => `${percent}%`,
     charging: 'Charging',
@@ -1079,6 +1080,9 @@ export const en = {
       sendText: 'Send text',
       sendData: 'Send data',
       permissions: 'Allow SMS and Phone',
+      smsOff:
+        'SMS permission is off, so nothing can be sent. Tap Allow. If no prompt appears, Android treats it as a restricted setting: Open settings, ⋮ (top right), Allow restricted settings, then Permissions, SMS and Phone: Allow.',
+      openSettings: 'Open settings',
       size: (bytes: number, septets: number) => `Data ${bytes} bytes · text ${septets} septets`,
       invalid: 'Check the number (0917… or +63917…) and the key.',
       results: 'Results',

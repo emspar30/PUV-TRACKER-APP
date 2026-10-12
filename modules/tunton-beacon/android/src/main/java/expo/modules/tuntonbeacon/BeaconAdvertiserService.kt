@@ -34,6 +34,10 @@ import java.util.UUID
 class BeaconAdvertiserService : Service() {
   private val handler = Handler(Looper.getMainLooper())
   private var advertisingSet: AdvertisingSet? = null
+  // True from startAdvertisingSet until its callback answers. A second start meanwhile (the app and
+  // the home screen can both start the service within milliseconds) would reuse the callback, which
+  // Android refuses with an exception that crashed the app (DR5 device test, Android 16)
+  private var starting = false
   private var settings: BeaconSettings? = null
   private var secret: ByteArray? = null
   private var shortId: Int = 0
@@ -60,6 +64,7 @@ class BeaconAdvertiserService : Service() {
 
   private val callback = object : AdvertisingSetCallback() {
     override fun onAdvertisingSetStarted(set: AdvertisingSet?, txPower: Int, status: Int) {
+      starting = false
       if (status == ADVERTISE_SUCCESS && set != null) {
         advertisingSet = set
         BeaconState.update(advertising = true)
@@ -89,6 +94,7 @@ class BeaconAdvertiserService : Service() {
     settings = loaded
     secret = BeaconCode.hexToBytes(secretHex)
     shortId = store.shortId
+    running = true
 
     startInForeground(loaded)
     if (!receiverRegistered) {
@@ -112,6 +118,7 @@ class BeaconAdvertiserService : Service() {
       unregisterReceiver(bluetoothReceiver)
       receiverRegistered = false
     }
+    running = false
     BeaconState.update(advertising = false, lastError = BeaconState.lastError)
     super.onDestroy()
   }
@@ -142,7 +149,7 @@ class BeaconAdvertiserService : Service() {
   @SuppressLint("MissingPermission")
   private fun startAdvertising() {
     val settings = settings ?: return
-    if (advertisingSet != null) return
+    if (advertisingSet != null || starting) return
     if (!canAdvertise()) {
       BeaconState.update(advertising = false, lastError = "no_permission")
       return
@@ -166,16 +173,21 @@ class BeaconAdvertiserService : Service() {
       .setTxPowerLevel(txPowerOf(settings.txPower))
       .build()
     val data = AdvertiseData.Builder().addServiceUuid(uuid).setIncludeDeviceName(false).setIncludeTxPowerLevel(false).build()
+    starting = true
     try {
       advertiser.startAdvertisingSet(parameters, data, scanResponse(), null, null, callback)
     } catch (error: SecurityException) {
+      starting = false
       BeaconState.update(advertising = false, lastError = "no_permission")
+    } catch (error: IllegalArgumentException) {
+      // Already started with this callback: its answer is still on the way
     }
   }
 
   @SuppressLint("MissingPermission")
   private fun stopAdvertising() {
     handler.removeCallbacks(rotate)
+    starting = false
     val adapter = (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
     try {
       adapter?.bluetoothLeAdvertiser?.stopAdvertisingSet(callback)
@@ -237,6 +249,12 @@ class BeaconAdvertiserService : Service() {
   }
 
   companion object {
+    // Whether the service is alive in this process. After the system kills the app (a swipe from
+    // the recent apps on some phones, a force stop) a new process starts with it false, while the
+    // "enabled" setting is still true: the app then knows to start the service again.
+    @Volatile var running: Boolean = false
+      private set
+
     private const val CHANNEL_ID = "tunton_beacon"
     private const val NOTIFICATION_ID = 4101
     private const val ROTATION_MARGIN_MS = 50L

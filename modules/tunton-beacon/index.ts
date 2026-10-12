@@ -17,6 +17,8 @@ export type BeaconStatus = {
   enabled: boolean;
   bluetoothOn: boolean;
   advertising: boolean;
+  // The beacon service is alive. False with enabled true: the system killed the app (DR5 finding)
+  running: boolean;
   lastSlot: number | null;
   lastPayloadHex: string | null;
   // not_provisioned, no_permission, bluetooth_off, not_supported, advertise_failed_<code>
@@ -33,6 +35,9 @@ export type BeaconOptions = {
   notificationText: string;
 };
 
+// What the native module returns; a build from before DR5's fix has no `running`
+type NativeStatus = Omit<BeaconStatus, 'running'> & { running?: boolean };
+
 type NativeBeacon = {
   getSupport(): BeaconSupport;
   provision(shortId: number, beaconSecretHex: string, smsKeyHex: string): Promise<void>;
@@ -41,8 +46,8 @@ type NativeBeacon = {
   clearProvisioning(): Promise<void>;
   startAdvertising(options: BeaconOptions): Promise<void>;
   stopAdvertising(): Promise<void>;
-  getStatus(): BeaconStatus;
-  addListener(event: 'onStatus', listener: (status: BeaconStatus) => void): EventSubscription;
+  getStatus(): NativeStatus;
+  addListener(event: 'onStatus', listener: (status: NativeStatus) => void): EventSubscription;
 };
 
 const native = requireOptionalNativeModule<NativeBeacon>('TuntonBeacon');
@@ -52,6 +57,7 @@ export const NOT_AVAILABLE: BeaconStatus = {
   enabled: false,
   bluetoothOn: false,
   advertising: false,
+  running: false,
   lastSlot: null,
   lastPayloadHex: null,
   lastError: 'not_available',
@@ -64,7 +70,10 @@ export function getSupport(): BeaconSupport {
 }
 
 export function getStatus(): BeaconStatus {
-  return native?.getStatus() ?? NOT_AVAILABLE;
+  if (!native) return NOT_AVAILABLE;
+  const status = native.getStatus();
+  // An app built before `running` existed: assume the service runs (the DR4 behaviour)
+  return { ...status, running: status.running ?? status.enabled };
 }
 
 export function isProvisioned(): boolean {
@@ -83,5 +92,5 @@ export const startAdvertising = (options: BeaconOptions) => required().startAdve
 export const stopAdvertising = () => required().stopAdvertising();
 
 export function addStatusListener(listener: (status: BeaconStatus) => void): EventSubscription | null {
-  return native?.addListener('onStatus', listener) ?? null;
+  return native?.addListener('onStatus', (status) => listener({ ...status, running: status.running ?? status.enabled })) ?? null;
 }

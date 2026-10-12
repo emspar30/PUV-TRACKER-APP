@@ -104,6 +104,7 @@ class TuntonBeaconModule : Module() {
       "enabled" to store.enabled,
       "bluetoothOn" to (adapter?.isEnabled == true),
       "advertising" to BeaconState.advertising,
+      "running" to BeaconAdvertiserService.running,
       "lastSlot" to BeaconState.lastSlot?.toDouble(),
       "lastPayloadHex" to BeaconState.lastPayloadHex,
       "lastError" to BeaconState.lastError,

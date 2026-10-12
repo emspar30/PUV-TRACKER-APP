@@ -52,14 +52,17 @@ export default function DriverHome() {
 
   useHeatmapInbox(setup !== null && !lostSecrets);
 
-  // The beacon should be on but the service is not running (a force stop): start it again
+  // The beacon should be on but its service is not running: the system killed the app (a force
+  // stop, or a swipe from the recent apps on some phones, DR5). Start it again; a second start
+  // while one is under way is ignored by the service.
+  const serviceDown = !status.enabled || !status.running;
   useEffect(() => {
-    if (setup && beaconEnabled && !lostSecrets && isBeaconAvailable() && !status.enabled) {
+    if (setup && beaconEnabled && !lostSecrets && isBeaconAvailable() && serviceDown) {
       startAdvertising(beaconOptions()).catch(() => {
         // Shown through the status strip
       });
     }
-  }, [setup, beaconEnabled, lostSecrets, status.enabled]);
+  }, [setup, beaconEnabled, lostSecrets, serviceDown]);
 
   const route = useMemo(() => (setup ? driverRoute(setup.routeCode) : null), [setup]);
   const forRoute = heatmap && setup && heatmap.route === setup.routeCode ? heatmap : null;

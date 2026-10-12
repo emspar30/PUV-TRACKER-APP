@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { PermissionsAndroid, Pressable, Text, TextInput, View } from 'react-native';
+import { Linking, PermissionsAndroid, Pressable, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
@@ -12,7 +12,7 @@ import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
 import { carrierTestEnabled } from '../carrierTest';
-import { addSendResultListener, listSims, sendData, sendText, type SendResult, type SimInfo } from '../../../modules/tunton-sms';
+import { addSendResultListener, canSendSms, listSims, sendData, sendText, type SendResult, type SimInfo } from '../../../modules/tunton-sms';
 
 // DR5: the carrier test (plan DR5 task 2, device test DR5-M5; PRD 16 risk 4). Sends signed test
 // heatmap messages, as text or as data SMS on DATA_SMS_PORT, from this phone's chosen SIM to a driver
@@ -79,6 +79,7 @@ export default function CarrierTest() {
   const [padding, setPadding] = useState('0');
   const [mode, setMode] = useState<Mode>('normal');
   const [sims, setSims] = useState<SimInfo[]>(listSims);
+  const [canSend, setCanSend] = useState(canSendSms);
   const [sim, setSim] = useState<number | null>(null);
   const [log, setLog] = useState<Sent[]>([]);
   // Kept apart from the log, so a result that comes back before its entry is shown is not lost
@@ -107,6 +108,7 @@ export default function CarrierTest() {
   const allow = async () => {
     await PermissionsAndroid.requestMultiple([PermissionsAndroid.PERMISSIONS.SEND_SMS, PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE]);
     setSims(listSims());
+    setCanSend(canSendSms());
   };
 
   const send = async (kind: 'text' | 'data') => {
@@ -128,7 +130,13 @@ export default function CarrierTest() {
   return (
     <Screen title={text.title}>
       <Text style={typography.bodyMd}>{text.intro}</Text>
-      <Button label={text.permissions} variant="secondary" onPress={() => void allow()} />
+      {canSend ? null : (
+        <>
+          <Text style={[typography.bodyMd, { color: colors.danger }]}>{text.smsOff}</Text>
+          <Button label={text.permissions} variant="secondary" onPress={() => void allow()} />
+          <Button label={text.openSettings} variant="text" onPress={() => void Linking.openSettings()} />
+        </>
+      )}
 
       <Field label={text.to} value={to} onChange={setTo} keyboard="phone-pad" />
       <Field label={text.key} value={key} onChange={(value) => setKey(value.trim())} />
