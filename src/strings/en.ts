@@ -966,7 +966,9 @@ export const en = {
       noStops: 'No stops for this route in this version of the app.',
       mapUnavailable: 'The map could not load. The list still works.',
     },
-    smsMissing: 'Text messages are off. Waiting counts cannot arrive. Ask an admin.',
+    // The home screen's warnings: the problem, then what to do in bold (Stitch 3.5)
+    smsMissing: 'Text messages are off. Waiting counts cannot arrive.',
+    askAdmin: 'Ask an admin.',
     clock: {
       // Checked only against the carrier's time on a heatmap text, so before the first one it waits
       unknown: 'Clock: no text yet',
@@ -984,7 +986,7 @@ export const en = {
     charging: 'Charging',
     notCharging: 'Not charging',
     holdForAdmin: 'Hold here 3 s for admin',
-    resetNeeded: 'This phone must be set up again. Ask an admin.',
+    resetNeeded: 'This phone must be set up again.',
     beaconError: {
       not_provisioned: 'Not set up',
       no_permission: 'Nearby devices permission is off',
@@ -1016,14 +1018,25 @@ export const en = {
       yes: 'Yes, set up',
       scanAgain: 'Scan again',
       permissionsTitle: 'Two permissions',
-      permissionsBody: 'Nearby devices lets riders’ phones find this multicab. Notifications shows that the beacon is on.',
+      nearbyTitle: 'Nearby devices',
+      nearbyBody: 'Lets riders’ phones find this multicab.',
+      notificationsTitle: 'Notifications',
+      notificationsBody: 'Shows that the beacon is on.',
       allow: 'Continue',
       permissionDenied: 'Nearby devices was not allowed. The beacon cannot start without it.',
       smsTitle: 'Text messages',
-      smsBody: 'To receive waiting counts by text. Tunton reads only its own messages, never personal texts.',
+      smsWhy: 'To receive waiting counts by text',
+      smsPrivacy: 'Tunton reads only its own messages, never personal texts.',
       smsAllow: 'Allow text messages',
-      smsDenied:
-        'Text messages were not allowed. If Android says this is a restricted setting: open Settings, tap ⋮ (top right), “Allow restricted settings”, then come back and try again.',
+      // Android 13+ blocks SMS permissions for an app installed outside the Play Store until this is
+      // allowed in the app's settings (Stitch 3.9: the fix as three steps)
+      smsDeniedTitle: 'Text messages were not allowed.',
+      smsRestricted: 'If Android says this is a restricted setting:',
+      smsSteps: {
+        open: 'Tap Open settings.',
+        allow: 'Tap ⋮ (top right), then “Allow restricted settings”.',
+        back: 'Come back here and tap Try again.',
+      },
       smsSkip: 'Skip for now',
       openSettings: 'Open settings',
       tryAgain: 'Try again',
@@ -1038,6 +1051,9 @@ export const en = {
     admin: {
       title: 'Admin',
       pinPrompt: 'Admin PIN',
+      pinProgress: (entered: number, total: number) => `${entered} of ${total} digits entered`,
+      clear: 'Clear',
+      deleteDigit: 'Delete last digit',
       unlock: 'Unlock',
       wrongPin: 'Wrong PIN.',
       device: (deviceId: string, shortId: number) => `${deviceId} · beacon ${shortId}`,
@@ -1049,7 +1065,8 @@ export const en = {
       setUpAgainConfirm: 'This removes this phone’s setup. You need a new setup code.',
       // DR5: what arrived by SMS (no message bodies are kept)
       smsTitle: 'Heatmap messages',
-      smsCounts: (accepted: number, inbox: number) => `${accepted} accepted · ${inbox} waiting in the inbox`,
+      accepted: (count: number) => `${count} accepted`,
+      inbox: (count: number) => `${count} waiting in the inbox`,
       smsOff: 'Text messages permission is off',
       smsAllow: 'Allow text messages',
       rejected: 'Dropped, by reason',

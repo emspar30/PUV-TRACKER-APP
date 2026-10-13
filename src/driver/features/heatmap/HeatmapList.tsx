@@ -8,7 +8,8 @@ import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme'
 // yet shows a dash, never 0; a stale list is greyed as a whole.
 // Look (Stitch design, 2026-10-12): one white outlined card per stop: its number in riding order,
 // the name, the exact count large and bold, and the band as a pill chip. Where only the band may be
-// shown (Q5, Q11: at night), the chip takes the count's place and size.
+// shown (Q5, Q11: at night), the chip takes the count's place and size; the home screen's heading
+// says so (Stitch 3.4).
 
 const ROW_MIN_HEIGHT = 56;
 const CHIP_MIN_WIDTH = 56;
@@ -21,11 +22,11 @@ const COUNT_STYLE = { fontSize: 26, lineHeight: 32, fontWeight: '700' as const, 
 const CHIP_TEXT = { fontSize: 19, lineHeight: 24 };
 const BIG_CHIP_TEXT = { fontSize: 22, lineHeight: 28 };
 
-type Props = { rows: readonly HeatmapRow[]; stale: boolean; bandsOnly: boolean };
+type Props = { rows: readonly HeatmapRow[]; stale: boolean };
 
 const ordinal = (index: number) => String(index + 1).padStart(2, '0');
 
-export function HeatmapList({ rows, stale, bandsOnly }: Props) {
+export function HeatmapList({ rows, stale }: Props) {
   const styles = useStyles();
   const { colors, mapPaint, typography } = useTheme();
   const text = strings.driver.heatmap;
@@ -36,7 +37,6 @@ export function HeatmapList({ rows, stale, bandsOnly }: Props) {
 
   return (
     <View style={[styles.list, stale && { opacity: STALE_OPACITY }]}>
-      {bandsOnly ? <Text style={typography.bodyMd}>{text.bandsOnly}</Text> : null}
       {rows.map((row, index) => {
         const known = row.display.kind === 'known' ? row.display : null;
         const fill = known && !stale ? bandColors[known.band] : colors.surfaceHigh;

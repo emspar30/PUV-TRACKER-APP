@@ -1,15 +1,22 @@
 import { router } from 'expo-router';
+import { LockOpen, MessageSquare, Power, RadioTower, RotateCcw, ShieldCheck, TriangleAlert } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { IconTile } from '@/components/IconTile';
+import { StatusPill, type StatusTone } from '@/components/Pills';
 import { Screen } from '@/components/Screen';
 import { ADMIN_PIN_DIGITS } from '@/shared/config';
 import { checkAdminPin } from '@/shared/driver/provisioning';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
+import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
-import { beaconOptions, useBeaconStatus } from '../features/beacon/beacon';
+import { Notice } from '../components/Notice';
+import { PinPad } from '../components/PinPad';
+import { beaconOptions, describeBeacon, useBeaconStatus } from '../features/beacon/beacon';
+import type { Tone } from '../features/heatmap/describe';
 import { drainAndApply, ensureInboxConfigured } from '../features/heatmap/inbox';
 import { requestSmsPermission } from '../features/heatmap/smsPermission';
 import { useDriverStore } from '../state/driverStore';
@@ -22,6 +29,13 @@ import { canReceiveSms, disableInbox, inboxSize, isSmsAvailable } from '../../..
 // DR5: the heatmap messages: how many were accepted, the dropped ones by reason (DR5-M2), a short
 // log (kind, time, outcome, sequence number; never a message body), the clock samples, and the text
 // messages permission for a phone set up before DR5.
+// Look: the Stitch designs 3.11 and 3.12 (docs/DRIVER_UI_PRD.md) in the commuter app's style: the PIN
+// as six boxes over an on-screen keypad; then one card for the beacon and one for the messages, codes
+// and the log in a fixed-width font so their columns line up.
+
+const SHIELD_SIZE = spacing.xl + spacing.md;
+const SHIELD_ICON = spacing.lg;
+const PILL_TONE: Record<Tone, StatusTone> = { ok: 'success', warn: 'warning', bad: 'danger' };
 
 const pad2 = (value: number) => String(value).padStart(2, '0');
 const clockTime = (ms: number) => {
@@ -86,86 +100,157 @@ export default function DriverAdmin() {
   if (!unlocked) {
     return (
       <Screen title={text.title}>
-        <Text style={typography.headlineSm}>{text.pinPrompt}</Text>
-        <TextInput
-          style={[typography.headlineMd, styles.pin]}
-          value={pin}
-          onChangeText={(value) => setPin(value.replace(/\D/g, ''))}
-          keyboardType="number-pad"
-          secureTextEntry
-          maxLength={ADMIN_PIN_DIGITS}
-          autoFocus
-          placeholderTextColor={colors.textTertiary}
-          accessibilityLabel={text.pinPrompt}
-        />
-        {wrong ? <Text style={[typography.bodyLg, { color: colors.danger }]}>{text.wrongPin}</Text> : null}
-        <Button label={text.unlock} onPress={unlock} disabled={pin.length !== ADMIN_PIN_DIGITS} />
+        <View style={styles.pinHead}>
+          <View style={styles.shield}>
+            <ShieldCheck color={colors.primary} size={SHIELD_ICON} />
+          </View>
+          <Text style={typography.headlineLg} accessibilityRole="header">
+            {text.pinPrompt}
+          </Text>
+        </View>
+        <PinPad length={ADMIN_PIN_DIGITS} value={pin} onChange={setPin} label={text.pinPrompt} />
+        {wrong ? <Text style={[typography.bodyLg, styles.center, { color: colors.danger }]}>{text.wrongPin}</Text> : null}
+        <Button label={text.unlock} leadingIcon={LockOpen} onPress={unlock} disabled={pin.length !== ADMIN_PIN_DIGITS} />
       </Screen>
     );
   }
 
+  const beacon = describeBeacon(status);
+  const dropped = Object.entries(rejected);
+
   return (
     <Screen title={text.title}>
-      <View style={styles.card}>
-        <Text style={typography.headlineSm}>{text.device(setup.deviceId, setup.shortId)}</Text>
-        <Text style={typography.bodyMd} selectable>
-          {status.lastPayloadHex !== null && status.lastSlot !== null ? text.code(status.lastPayloadHex, status.lastSlot) : text.noCode}
-        </Text>
+      {isSmsAvailable() && !smsOn ? (
+        <Notice tone="danger" icon={TriangleAlert} title={text.smsOff}>
+          <Button label={text.smsAllow} leadingIcon={MessageSquare} onPress={() => void allowSms()} />
+        </Notice>
+      ) : null}
+      <Card>
+        <View style={styles.cardHead}>
+          <IconTile icon={RadioTower} />
+          <Text style={[typography.headlineSm, styles.grow]}>{text.device(setup.deviceId, setup.shortId)}</Text>
+        </View>
+        <StatusPill label={beacon.label} tone={PILL_TONE[beacon.tone]} />
+        <View style={styles.inset}>
+          <Text style={[typography.bodyMd, styles.mono]} selectable>
+            {status.lastPayloadHex !== null && status.lastSlot !== null ? text.code(status.lastPayloadHex, status.lastSlot) : text.noCode}
+          </Text>
+        </View>
         {status.lastError ? <Text style={[typography.bodyMd, { color: colors.danger }]}>{status.lastError}</Text> : null}
-      </View>
-      <View style={styles.card}>
-        <Text style={typography.headlineSm}>{text.smsTitle}</Text>
-        <Text style={typography.bodyMd}>{text.smsCounts(accepted, inboxSize())}</Text>
-        {driftSamples.length > 0 ? <Text style={typography.bodyMd}>{text.clockDrift(driftSamples[driftSamples.length - 1])}</Text> : null}
-        <Text style={typography.labelLg}>{text.rejected}</Text>
-        <Text style={typography.bodyMd}>
-          {Object.keys(rejected).length === 0
-            ? text.noneRejected
-            : Object.entries(rejected)
-                .map(([reason, count]) => `${reason} ${count}`)
-                .join(' · ')}
-        </Text>
-        <Text style={typography.labelLg}>{text.recentTitle}</Text>
+      </Card>
+      <Card>
+        <View style={styles.cardHead}>
+          <IconTile icon={MessageSquare} />
+          <Text style={[typography.headlineSm, styles.grow]}>{text.smsTitle}</Text>
+        </View>
+        <View style={styles.inset}>
+          <View style={styles.counts}>
+            <Text style={typography.headlineMd}>{text.accepted(accepted)}</Text>
+            <Text style={typography.bodyMd}>{text.inbox(inboxSize())}</Text>
+          </View>
+          {driftSamples.length > 0 ? <Text style={typography.bodyMd}>{text.clockDrift(driftSamples[driftSamples.length - 1])}</Text> : null}
+        </View>
+        <Text style={[typography.labelSm, styles.caps]}>{text.rejected}</Text>
+        {dropped.length === 0 ? (
+          <Text style={typography.bodyMd}>{text.noneRejected}</Text>
+        ) : (
+          <View style={styles.reasons}>
+            {dropped.map(([reason, count]) => (
+              <View key={reason} style={styles.reason}>
+                <Text style={[typography.labelMd, styles.mono]}>{reason}</Text>
+                <Text style={[typography.labelMd, styles.reasonCount]}>{count}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+        <Text style={[typography.labelSm, styles.caps]}>{text.recentTitle}</Text>
         {recent.length === 0 ? <Text style={typography.bodyMd}>{text.noRecent}</Text> : null}
         {recent.map((log, index) => (
-          <Text key={`${log.receivedMs}-${index}`} style={[typography.bodyMd, { color: log.outcome === 'accepted' ? colors.textPrimary : colors.danger }]}>
+          <Text
+            key={`${log.receivedMs}-${index}`}
+            style={[typography.bodySm, styles.mono, { color: log.outcome === 'accepted' ? colors.textPrimary : colors.danger }]}
+          >
             {text.logLine(clockTime(log.receivedMs), log.kind, log.outcome, log.seq)}
           </Text>
         ))}
-      </View>
-      {isSmsAvailable() && !smsOn ? (
-        <>
-          <Text style={[typography.bodyLg, { color: colors.danger }]}>{text.smsOff}</Text>
-          <Button label={text.smsAllow} onPress={() => void allowSms()} />
-        </>
-      ) : null}
-      <Button label={beaconEnabled ? text.turnOff : text.turnOn} variant={beaconEnabled ? 'secondary' : 'primary'} onPress={() => void toggleBeacon()} />
+      </Card>
+      <Button
+        label={beaconEnabled ? text.turnOff : text.turnOn}
+        leadingIcon={Power}
+        variant={beaconEnabled ? 'secondary' : 'primary'}
+        onPress={() => void toggleBeacon()}
+      />
       {confirmingReset ? (
-        <>
-          <Text style={typography.bodyLg}>{text.setUpAgainConfirm}</Text>
-          <Button label={text.setUpAgain} variant="danger" onPress={() => void setUpAgain()} />
-        </>
+        <Notice tone="danger" icon={RotateCcw} title={text.setUpAgainConfirm}>
+          <Button label={text.setUpAgain} leadingIcon={RotateCcw} variant="danger" onPress={() => void setUpAgain()} />
+        </Notice>
       ) : (
-        <Button label={text.setUpAgain} variant="text" onPress={() => setConfirmingReset(true)} />
+        <Button label={text.setUpAgain} leadingIcon={RotateCcw} variant="text" onPress={() => setConfirmingReset(true)} />
       )}
     </Screen>
   );
 }
 
 const useStyles = makeStyles(({ colors }) => ({
-  pin: {
-    minHeight: MIN_TOUCH_TARGET,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.outline,
-    color: colors.textPrimary,
-    letterSpacing: spacing.sm,
+  pinHead: {
+    alignItems: 'center',
+    gap: spacing.sm + spacing.xs,
   },
-  card: {
-    padding: spacing.md,
-    gap: spacing.sm,
+  shield: {
+    width: SHIELD_SIZE,
+    height: SHIELD_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: SHIELD_SIZE,
+    backgroundColor: colors.primaryContainer,
+  },
+  center: {
+    textAlign: 'center',
+  },
+  grow: {
+    flex: 1,
+  },
+  caps: {
+    textTransform: 'uppercase',
+  },
+  // Codes and the log: Android's fixed-width font, so the columns line up
+  mono: {
+    fontFamily: 'monospace',
+  },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + spacing.xs,
+  },
+  inset: {
+    gap: spacing.xs,
+    padding: spacing.sm + spacing.xs,
     borderRadius: radii.md,
-    backgroundColor: colors.card,
+    backgroundColor: colors.surface,
+  },
+  counts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  reasons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  reason: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs + spacing.xs / 2,
+    paddingHorizontal: spacing.sm + spacing.xs,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+  },
+  reasonCount: {
+    color: colors.danger,
+    fontWeight: '700',
   },
 }));

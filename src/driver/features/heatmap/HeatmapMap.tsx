@@ -13,8 +13,8 @@ import type { DriverRoute } from './routeStops';
 
 // DR5: the driver's static map (PRD 9.4): the bundled offline tiles, the route framed once, no
 // gestures (nothing to touch while driving, PRD 15.3), and a glowing node per stop sized and coloured
-// by its band. Unknown stops are small grey dots; a stale heatmap is all grey. If the map cannot
-// load, the list below still works alone (plan risk R8).
+// by its band. Unknown stops are small grey dots; a stale heatmap is all grey, its route line faded
+// (Stitch 3.2). If the map cannot load, the list below still works alone (plan risk R8).
 
 type TilesState = { status: 'preparing' } | { status: 'ready'; url: string } | { status: 'error' };
 
@@ -25,6 +25,7 @@ const GLOW_SCALE = 2.2;
 const GLOW_OPACITY = 0.45;
 const LINE_WIDTH = 4;
 const LINE_OPACITY = 0.6;
+const STALE_LINE_OPACITY = 0.3;
 const FRAME_PADDING = spacing.lg;
 
 function useDriverTiles(): TilesState {
@@ -120,7 +121,11 @@ export function HeatmapMap({ route, rows, stale }: Props) {
             <Layer
               id="driver-route-line"
               type="line"
-              paint={{ 'line-color': routeColor(route.routeCode, route.color), 'line-width': LINE_WIDTH, 'line-opacity': LINE_OPACITY }}
+              paint={{
+                'line-color': stale ? mapPaint.stale : routeColor(route.routeCode, route.color),
+                'line-width': LINE_WIDTH,
+                'line-opacity': stale ? STALE_LINE_OPACITY : LINE_OPACITY,
+              }}
               layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             />
           </GeoJSONSource>

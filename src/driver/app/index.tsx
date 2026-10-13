@@ -1,5 +1,5 @@
 import { Redirect, router } from 'expo-router';
-import { TriangleAlert } from 'lucide-react-native';
+import { MessageSquareOff, Smartphone, TriangleAlert } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { heatmapView } from '@/shared/driver/heatmapView';
 import { strings } from '@/strings';
 import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
+import { Notice } from '../components/Notice';
 import { beaconOptions, useBeaconStatus } from '../features/beacon/beacon';
 import { describeClock, describeUpdate } from '../features/heatmap/describe';
 import { HeatmapList } from '../features/heatmap/HeatmapList';
@@ -26,8 +27,10 @@ import { canReceiveSms, isSmsAvailable } from '../../../modules/tunton-sms';
 // it for admin), the multicab, the static map of the route with a glowing node per stop (top half)
 // and the stops in riding order with their counts (bottom half). The heatmap greys when no valid
 // message came for SMS_STALE_HEATMAP_MIN, and says how old it is.
-// Look: the Stitch design (docs/DRIVER_UI_PRD.md 3.1, 2026-10-12) in the commuter app's style: white
-// outlined cards, the route badge, status pills. The map stays fixed; only the list scrolls.
+// Look: the Stitch designs (docs/DRIVER_UI_PRD.md 3.1 to 3.5, 2026-10-12) in the commuter app's style:
+// white outlined cards, the route badge, status pills. The map stays fixed; only the list scrolls. A
+// stale heatmap gets a red notice over the list (3.2); at night the heading says only ranges are shown
+// (3.4); a problem the driver cannot fix is an amber notice with "Ask an admin." (3.5).
 
 // The age and the stale state change by the minute
 const TICK_MS = 30_000;
@@ -98,38 +101,29 @@ export default function DriverHome() {
           ) : null}
         </View>
       </View>
-      {lostSecrets ? <Warning text={strings.driver.resetNeeded} /> : null}
-      {smsOff ? <Warning text={strings.driver.smsMissing} /> : null}
+      {lostSecrets ? <Notice tone="warning" icon={Smartphone} title={strings.driver.resetNeeded} body={strings.driver.askAdmin} strongBody /> : null}
+      {smsOff ? <Notice tone="warning" icon={MessageSquareOff} title={strings.driver.smsMissing} body={strings.driver.askAdmin} strongBody /> : null}
       <View style={styles.half}>
-        <HeatmapMap route={route} rows={view.rows} stale={stale || view.freshness === 'never'} />
+        <HeatmapMap route={route} rows={view.rows} stale={stale} />
       </View>
       <View style={styles.half}>
+        {stale ? <Notice tone="danger" icon={TriangleAlert} title={update.label} body={text.staleBody} /> : null}
         <View style={styles.listHeader}>
-          <Text style={typography.headlineSm}>{text.title}</Text>
-          <Text style={[typography.headlineSm, { color: update.tone === 'bad' ? colors.danger : colors.textSecondary }]}>{update.label}</Text>
+          <View style={styles.heading}>
+            <Text style={typography.headlineSm}>{text.title}</Text>
+            {view.bandsOnly ? <Text style={[typography.bodyMd, { color: colors.textSecondary }]}>{text.bandsOnly}</Text> : null}
+          </View>
+          {/* When stale, the notice above already says how old the counts are */}
+          {stale ? null : <Text style={[typography.headlineSm, { color: update.tone === 'warn' ? colors.warning : colors.textSecondary }]}>{update.label}</Text>}
         </View>
-        {stale ? <Text style={[typography.bodyLg, { color: colors.danger }]}>{text.staleBody}</Text> : null}
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          <HeatmapList rows={view.rows} stale={stale} bandsOnly={view.bandsOnly} />
+          <HeatmapList rows={view.rows} stale={stale} />
         </ScrollView>
       </View>
     </SafeAreaView>
   );
 }
 
-// Information only: the driver has nothing to do here but tell an admin
-function Warning({ text }: { text: string }) {
-  const styles = useStyles();
-  const { colors, typography } = useTheme();
-  return (
-    <View style={[styles.card, styles.warning]}>
-      <TriangleAlert color={colors.warning} size={WARNING_ICON} />
-      <Text style={[typography.headlineSm, styles.warningText]}>{text}</Text>
-    </View>
-  );
-}
-
-const WARNING_ICON = 24;
 const PLATE_LETTER_SPACING = 0.5;
 
 const useStyles = makeStyles(({ colors }) => ({
@@ -166,15 +160,6 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'flex-end',
     maxWidth: '40%',
   },
-  warning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderColor: colors.warningContainer,
-    backgroundColor: colors.warningContainer,
-  },
-  warningText: {
-    flex: 1,
-  },
   half: {
     flex: 1,
     gap: spacing.xs,
@@ -182,9 +167,12 @@ const useStyles = makeStyles(({ colors }) => ({
   listHeader: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    alignItems: 'baseline',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
+  },
+  heading: {
+    flexShrink: 1,
   },
   list: {
     paddingBottom: spacing.md,

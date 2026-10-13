@@ -274,3 +274,30 @@ The driver app already shares the theme module (`@/theme`), so colours, spacing 
 2. **Night glare.** The driver app is light only, matching the commuter app. A bright white screen on the dashboard at night can dazzle the driver. The commuter app already has a dark theme in the same design language, so a dark driver home after 21:00 would stay consistent; decide after a night test with the light design.
 3. **Language.** English only today. Cebuano or Tagalog labels for drivers would need translated strings.
 4. **Out of scope here:** the Tunton Gateway app (the SMS sender phone, DR7) and the commuter app.
+
+---
+
+## Part 5. As built (2026-10-13)
+
+All twelve screens are built in `src/driver/` from Stitch's export (`stitch_tunton_driver_app_ui/`, shared 2026-10-13), in the commuter app's style (Part 4.4). Stitch's own `DESIGN.md` (Roboto Flex, `#0041a2`, `#fcf9f8`) was not used. Every row of the Part 4.4 table is fixed except the gateway carrier test (low priority, out of scope).
+
+| Screen | Built as |
+| --- | --- |
+| 3.1 Home | On 2026-10-12: the floating status strip (a fixed 2 × 2 grid), the plate, `LineBadge` and route name, the map card, one outlined card per stop with its number in riding order, the count and the band chip |
+| 3.2 Stale | A red notice over the list: warning icon, "No update for N min", "These counts are old. They may have changed." The age beside the heading is hidden then (the notice says it). The map's nodes and route line turn grey, the line faint; the list stays at 50 % with grey chips and keeps its numbers |
+| 3.3 Nothing yet | As 3.1's build: "No update yet" in amber beside the heading, a "—" chip on every stop, grey dots on the map |
+| 3.4 Night | "Ranges only at night" in grey under the heading (it used to be the first line of the list, so it scrolled away) |
+| 3.5 Problems | An amber notice per problem, each with its own icon (message-off for text messages, a phone for "set up again"): the problem in amber, then "Ask an admin." in bold. No buttons |
+| 3.6 Scan | Step header "STEP 1 OF 5". The camera (320 dp) with four white corner marks around a 200 dp square; a bad code in a red notice under it. Without the camera permission: a grey placeholder with a camera icon and the reason, and "Allow camera" at the bottom |
+| 3.7 Confirm | The plate large on a grey inset, then the route badge, "Route 4", the route's name and "Vehicle …". "Yes, set up" and "Scan again" at the bottom |
+| 3.8 Permissions | Two option rows with icon tiles (Bluetooth, bell), "Continue". Denied: a red notice, "Try again", "Open settings" |
+| 3.9 Text messages | An option row with a message icon. Blocked: an amber notice, "If Android says this is a restricted setting:", and three numbered steps with icons (Open settings; ⋮, Allow restricted settings; come back and Try again). Then "Try again", "Open settings", "Skip for now" |
+| 3.10 Step 5 | Checking: a card with a spinner. Failed: a red notice with the reason, "Try again" (it shows Checking again) and "Scan again". Done: a green check in a circle, "Beacon on", the line about the second phone, "Done" |
+| 3.11 PIN | A shield, "Admin PIN", six boxes (a dot per digit, a blue outline on the next one), an on-screen keypad (1–9, Clear, 0, delete), "Wrong PIN." in red, "Unlock" (off until six digits). The system keyboard is no longer used |
+| 3.12 Admin | Text messages off: a red notice with "Allow text messages" at the top. A beacon card (icon tile, "DRV-0001 · beacon 1", a status pill with the strip's beacon words, the code in a fixed-width font, selectable). A messages card ("24 accepted" large, the inbox, the clock; dropped reasons as pills with red counts; the log in a fixed-width font, dropped lines in red). "Turn beacon off/on"; "Set up again", then a red notice with the red "Set up again" |
+
+**Back arrow** in the setup: steps 2 to 4 go back one step. Step 1 has none (nothing to go back to), nor has step 5 (the setup is under way or done).
+
+**Left out (Stitch added them; not in the brief):** "Telemetry Offline", "Reconnecting to City Dispatch Terminal…", "Butuan City Multicab Operator", "Multicab unit · Butuan City", the dark satellite map with "LIVE GPS CORRIDORS", "Active Corridor Overview" and its legend, "Night Schedule Active", "Real-time terminal and bay loads", sub-names under stops, a highlighted row for busy stops, the "Route Selection" title and avatar button on every screen, "Admin Provisioning" and similar step names, "Awaiting QR payload", "Fleet Portal", "Enter alphanumeric key instead", "LTO registration plate", "City Franchise Verified", "Dedicated Cockpit Device", vehicle photos, "Simulate denial response", "End-to-end municipal encryption", "SMS Gateway Online", TX power and battery voltage tiles, "Nordic nRF52", "v4.18-rel", "Factory Provisioning Reset", letters under the keypad digits, and "Clock not checked" (the brief now says "Clock: no text yet").
+
+**Code:** `src/driver/components/Notice.tsx` (a tinted card: leading icon, the problem in the tone's colour, an optional line and buttons) and `PinPad.tsx`. The commuter `StatusPill` has a `danger` tone. Strings were split so "Ask an admin." can be bold and the setup rows have titles; what they say is unchanged. No rule, threshold or check changed (Part 4.3).
