@@ -10,16 +10,17 @@ import {
 import type { FeatureCollection, LineString, Point } from 'geojson';
 import { Maximize, Minus, Plus } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View, type NativeSyntheticEvent } from 'react-native';
+import { StyleSheet, Text, View, type LayoutChangeEvent, type NativeSyntheticEvent } from 'react-native';
 
 import { RoundButton } from '@/components/RoundButton';
 import { GLYPH_FONT_MEDIUM } from '@/data/map/glyphset';
 import { buildOfflineStyle } from '@/data/map/offlineStyle';
 import { TILESET } from '@/data/map/tileset';
 import { prepareOfflineTiles } from '@/data/offline/tiles';
-import { DRIVER_MAP_DETAIL_ZOOM, DRIVER_MAP_MIN_ZOOM, DRIVER_MAP_ZOOM_STEP, MAP_OVERZOOM_LEVELS, MAP_VIEW_STEP_DEG } from '@/shared/config';
+import { DRIVER_MAP_DETAIL_ZOOM, DRIVER_MAP_MAX_ZOOM_IN, DRIVER_MAP_ZOOM_STEP, MAP_OVERZOOM_LEVELS } from '@/shared/config';
 import type { HeatmapRow } from '@/shared/driver/heatmapView';
 import { northCenterCap, type Bounds } from '@/shared/geo/bounds';
+import { fitCamera, latAboveCenter, zoomAbout, type Size } from '@/shared/geo/fit';
 import { strings } from '@/strings';
 import { makeStyles, spacing, useTheme } from '@/theme';
 
@@ -30,12 +31,13 @@ import type { DriverRoute } from './routeStops';
 // line faded (Stitch 3.2). If the map cannot load, the list still works alone (plan risk R8).
 // Owner's decision 2026-10-14 (it replaces "framed once, no gestures"): the map fills the screen
 // under the floating panels, each stop is named, and it may be dragged and zoomed. Its centre stays
-// over the offline tiles (Butuan), so it never shows another town. Owner, 2026-10-14 (second pass):
-// it never zooms out past the default view, and never shows the blank past the tiles' north edge at
-// the top of the screen (the other edges stay under the panels). Round buttons zoom in and out and bring back the
-// default view (the route framed in the space the panels leave). Zoomed in past
-// DRIVER_MAP_DETAIL_ZOOM, each node shows its count (or its band at night). Nothing needs a tap:
-// untouched, the map stays on the default view.
+// over the offline tiles (Butuan), so it never shows another town. Owner, 2026-10-14 (later passes):
+// the default view (the route framed in the space the panels leave) is worked out from the screen
+// (shared/geo/fit.ts), not read back from the map, and is the furthest it zooms out; it zooms in at
+// most DRIVER_MAP_MAX_ZOOM_IN levels more; the top of the screen never passes the tiles' north edge
+// (the other edges stay under the panels). Round buttons zoom in and out and bring back the default
+// view in one tap. Zoomed in past DRIVER_MAP_DETAIL_ZOOM, each node shows its count (or its band at
+// night). Nothing needs a tap: untouched, the map stays on the default view.
 
 type TilesState = { status: 'preparing' } | { status: 'ready'; url: string; glyphsUrl: string | null } | { status: 'error' };
 
@@ -61,6 +63,12 @@ const FRAME_MARGIN = spacing.lg;
 const SIDE_MARGIN = spacing.xl * 2;
 // The column of round buttons on the right, kept clear when the route is framed
 const BUTTONS_WIDTH = spacing.md + spacing.xl + spacing.md;
+// A zoom this close to its aim counts as reached
+const ZOOM_EPSILON = 0.01;
+// A new camera limit (maxBounds) stops any camera animation when it reaches the map, and a camera
+// command can reach the map before a prop change made in the same render; a button's move waits this
+// long, so the limit for its zoom lands first
+const MOVE_AFTER_LIMIT_MS = 60;
 
 function useDriverTiles(): TilesState {
   const [state, setState] = useState<TilesState>({ status: 'preparing' });
@@ -94,19 +102,18 @@ export function HeatmapMap({ route, rows, stale, topInset, bottomInset }: Props)
   const { baseMap, colors, mapPaint, mapRoute, routeColor, typography } = useTheme();
   const tiles = useDriverTiles();
   const camera = useRef<CameraRef>(null);
-  // The zoom of the default view, known from its first camera report; counts show above it
-  const defaultZoom = useRef<number | null>(null);
-  const zoom = useRef<number | null>(null);
-  // Set while the camera moves to the default view, so its zoom is taken as the default
-  const framing = useRef(true);
+  const [size, setSize] = useState<Size | null>(null);
+  // Where the map last said it was, and where the buttons last sent it (several quick taps add up)
+  const view = useRef<{ zoom: number; center: [number, number] } | null>(null);
+  const aim = useRef<{ zoom: number; center: [number, number] } | null>(null);
   // The driver moved the map: a panel changing size no longer moves it back
   const moved = useRef(false);
   const [detail, setDetail] = useState(false);
-  // Set from the default view once it is reached: the smallest zoom, and the highest the centre may
-  // go; null while the camera frames the route (the limits would hold it back)
-  const [limits, setLimits] = useState<{ minZoom: number; northCap: number; keepLat: number } | null>(null);
-  // Each new value frames the route again, after the limits are released
-  const [fitKey, setFitKey] = useState(0);
+  // The highest the camera centre may go, so the top of the screen stays on the tiles
+  const [northCap, setNorthCap] = useState<number | null>(null);
+  // A button's move, made after the render that set the limit for its zoom (the old limit would
+  // clamp it)
+  const [move, setMove] = useState<{ zoom: number; center: [number, number]; key: number } | null>(null);
 
   const mapStyle = useMemo(
     () => (tiles.status === 'ready' ? (buildOfflineStyle(tiles.url, baseMap, tiles.glyphsUrl) as unknown as StyleSpecification) : null),
@@ -115,57 +122,73 @@ export function HeatmapMap({ route, rows, stale, topInset, bottomInset }: Props)
   // Text on the map needs the installed glyphs; without them the nodes still show, unnamed
   const named = tiles.status === 'ready' && tiles.glyphsUrl !== null;
 
-  const padding = {
-    top: topInset + FRAME_MARGIN,
-    bottom: bottomInset + FRAME_MARGIN,
-    left: SIDE_MARGIN,
-    right: Math.max(SIDE_MARGIN, BUTTONS_WIDTH + FRAME_MARGIN),
-  };
+  const stripRight = Math.max(SIDE_MARGIN, BUTTONS_WIDTH + FRAME_MARGIN);
+  // The default view: the route in the space the panels and the buttons leave
+  const fit = useMemo(
+    () =>
+      size && route.bounds
+        ? fitCamera(route.bounds, size, {
+            top: topInset + FRAME_MARGIN,
+            bottom: bottomInset + FRAME_MARGIN,
+            left: SIDE_MARGIN,
+            right: stripRight,
+          })
+        : null,
+    [size, route.bounds, topInset, bottomInset, stripRight],
+  );
+  const maxZoom = fit ? Math.min(fit.zoom + DRIVER_MAP_MAX_ZOOM_IN, TILESET.maxZoom + MAP_OVERZOOM_LEVELS) : null;
 
   const showDefaultView = () => {
-    framing.current = true;
+    if (!fit) return;
     moved.current = false;
-    setLimits(null);
-    setFitKey((key) => key + 1);
+    aim.current = null;
+    camera.current?.easeTo({ center: fit.center, zoom: fit.zoom, duration: mapRoute.cameraAnimationMs });
   };
 
-  // Runs after the render that released the limits, so the camera may reach the default view
-  useEffect(() => {
-    if (fitKey === 0 || !route.bounds) return;
-    camera.current?.fitBounds(route.bounds, { padding, duration: mapRoute.cameraAnimationMs });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fitKey]);
-
-  // A panel grew or shrank (a warning appeared): frame the route again, unless the driver moved the map
+  // A panel grew or shrank (a warning appeared): back to the new default view, unless the driver moved the map
   useEffect(() => {
     if (!moved.current) showDefaultView();
-  }, [topInset, bottomInset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fit]);
 
+  // The limit at a zoom: the top of the screen on the tiles' north edge, the default view always allowed
+  const capFor = (centerLat: number, zoom: number) =>
+    northCenterCap(TILESET.bounds, size ? latAboveCenter(centerLat, zoom, size.height) : 0, fit ? fit.center[1] : centerLat);
+
+  // The buttons zoom about the middle of the strip of map between the panels, not the screen's
+  // middle (under the list), so what the driver sees stays in view
   const zoomBy = (levels: number) => {
-    if (zoom.current === null) return;
+    if (!fit || maxZoom === null) return;
     moved.current = true;
-    const target = Math.min(Math.max(zoom.current + levels, limits?.minZoom ?? DRIVER_MAP_MIN_ZOOM), TILESET.maxZoom + MAP_OVERZOOM_LEVELS);
-    camera.current?.zoomTo(target, { duration: mapRoute.cameraAnimationMs });
+    const from = aim.current ?? view.current ?? fit;
+    const zoom = Math.min(Math.max(from.zoom + levels, fit.zoom), maxZoom);
+    const center = zoomAbout(from.center, from.zoom, zoom, { x: (SIDE_MARGIN - stripRight) / 2, y: (topInset - bottomInset) / 2 });
+    aim.current = { zoom, center };
+    if (size) setNorthCap(capFor(center[1], zoom));
+    setMove((last) => ({ zoom, center, key: (last?.key ?? 0) + 1 }));
   };
 
+  useEffect(() => {
+    if (!move) return undefined;
+    const timer = setTimeout(
+      () => camera.current?.easeTo({ center: move.center, zoom: move.zoom, duration: mapRoute.cameraAnimationMs }),
+      MOVE_AFTER_LIMIT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [move, mapRoute.cameraAnimationMs]);
+
   const onRegionDidChange = (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
-    const view = event.nativeEvent;
-    zoom.current = view.zoom;
-    const [, centerLat] = view.center;
-    // How far the screen reaches above its centre, rounded up so small moves keep the same limit
-    const above = Math.ceil((view.bounds[3] - centerLat) / MAP_VIEW_STEP_DEG) * MAP_VIEW_STEP_DEG;
-    if (framing.current || defaultZoom.current === null) {
-      defaultZoom.current = view.zoom;
-      framing.current = false;
-      setLimits({ minZoom: view.zoom, northCap: northCenterCap(TILESET.bounds, above, centerLat), keepLat: centerLat });
-    } else {
-      setLimits((current) => (current ? { ...current, northCap: northCenterCap(TILESET.bounds, above, current.keepLat) } : current));
-    }
-    setDetail(view.zoom >= defaultZoom.current + DRIVER_MAP_DETAIL_ZOOM);
+    const { zoom, center, userInteraction } = event.nativeEvent;
+    view.current = { zoom, center: [center[0], center[1]] };
+    if (userInteraction || (aim.current !== null && Math.abs(zoom - aim.current.zoom) < ZOOM_EPSILON)) aim.current = null;
+    if (!fit || !size) return;
+    setDetail(zoom >= fit.zoom + DRIVER_MAP_DETAIL_ZOOM);
+    // Not while a button's move is under way: its limit is already set for where it is going
+    if (aim.current === null) setNorthCap(capFor(center[1], zoom));
   };
 
   const [west, south, east] = TILESET.bounds;
-  const maxBounds: Bounds = limits ? [west, south, east, limits.northCap] : TILESET.bounds;
+  const maxBounds: Bounds = northCap !== null ? [west, south, east, northCap] : TILESET.bounds;
 
   const nodes = useMemo<FeatureCollection<Point>>(() => {
     const bandColors = [mapPaint.stop, mapPaint.occupancyGreen, mapPaint.occupancyAmber, mapPaint.occupancyRed];
@@ -216,8 +239,8 @@ export function HeatmapMap({ route, rows, stale, topInset, bottomInset }: Props)
   }
 
   return (
-    <View style={styles.root}>
-      {mapStyle ? (
+    <View style={styles.root} onLayout={({ nativeEvent: { layout } }: LayoutChangeEvent) => setSize({ width: layout.width, height: layout.height })}>
+      {mapStyle && fit && maxZoom !== null ? (
         <Map
           style={styles.fill}
           mapStyle={mapStyle}
@@ -235,9 +258,9 @@ export function HeatmapMap({ route, rows, stale, topInset, bottomInset }: Props)
         >
           <Camera
             ref={camera}
-            initialViewState={{ bounds: route.bounds, padding }}
-            minZoom={limits?.minZoom ?? DRIVER_MAP_MIN_ZOOM}
-            maxZoom={TILESET.maxZoom + MAP_OVERZOOM_LEVELS}
+            initialViewState={{ center: fit.center, zoom: fit.zoom }}
+            minZoom={fit.zoom - ZOOM_EPSILON}
+            maxZoom={maxZoom}
             maxBounds={maxBounds}
           />
           <GeoJSONSource id="driver-route" data={lines}>

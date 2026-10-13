@@ -6,13 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LineBadge } from '@/components/Pills';
 import { driftStatus } from '@/shared/driver/drift';
-import { heatmapView } from '@/shared/driver/heatmapView';
+import { busiestStop, heatmapView } from '@/shared/driver/heatmapView';
 import { strings } from '@/strings';
 import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
 import { Notice } from '../components/Notice';
 import { beaconOptions, useBeaconStatus } from '../features/beacon/beacon';
 import { describeClock, describeUpdate } from '../features/heatmap/describe';
+import { BusiestStop } from '../features/heatmap/BusiestStop';
 import { HeatmapLegend } from '../features/heatmap/HeatmapLegend';
 import { HeatmapList } from '../features/heatmap/HeatmapList';
 import { HeatmapMap } from '../features/heatmap/HeatmapMap';
@@ -93,6 +94,7 @@ export default function DriverHome() {
   const stale = view.freshness === 'stale';
   const text = strings.driver.heatmap;
 
+  const busiest = busiestStop(view.rows);
   const measured = screenHeight !== null && topEnd !== null && bottomStart !== null;
 
   return (
@@ -112,11 +114,11 @@ export default function DriverHome() {
                 {setup.plate}
               </Text>
             </View>
-            <LineBadge code={setup.routeCode} color={routeColor(setup.routeCode, route.color)} />
+            {/* Owner, 2026-10-14: the route badge, and the route's ends (or its loop) under it */}
             <View style={styles.routeText}>
-              <Text style={typography.headlineSm}>{strings.driver.route(setup.routeCode)}</Text>
+              <LineBadge code={setup.routeCode} color={routeColor(setup.routeCode, route.color)} />
               {route.name ? (
-                <Text style={typography.bodySm} numberOfLines={1}>
+                <Text style={[typography.bodyMd, styles.routeName]} numberOfLines={2}>
                   {route.name}
                 </Text>
               ) : null}
@@ -143,6 +145,7 @@ export default function DriverHome() {
               {/* When stale, the notice above already says how old the counts are */}
               {stale ? null : <Text style={[typography.headlineSm, { color: update.tone === 'warn' ? colors.warning : colors.textSecondary }]}>{update.label}</Text>}
             </View>
+            {busiest && !stale ? <BusiestStop stop={busiest} /> : null}
             <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
               <HeatmapList rows={view.rows} stale={stale} />
             </ScrollView>
@@ -207,7 +210,11 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
   },
   routeText: {
     alignItems: 'flex-end',
-    maxWidth: '40%',
+    gap: spacing.xs,
+    maxWidth: '45%',
+  },
+  routeName: {
+    textAlign: 'right',
   },
   listHeader: {
     flexDirection: 'row',

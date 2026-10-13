@@ -474,9 +474,9 @@ export const DRIVER_RECENT_LOG_MAX = 20;
 // above the default view (the route framed) each stop shows its count instead of only its colour
 export const DRIVER_MAP_ZOOM_STEP = 1;
 export const DRIVER_MAP_DETAIL_ZOOM = 0.75;
-// Lower than the commuter's MAP_MIN_ZOOM: the whole route must fit the strip of map the driver's
-// panels leave (R4 needs about 10.5 on a 412 dp phone)
-export const DRIVER_MAP_MIN_ZOOM = 10;
+// It zooms out no further than the default view (the route framed between the panels, worked out
+// per screen) and in at most this many levels more
+export const DRIVER_MAP_MAX_ZOOM_IN = 3;
 
 // --- Provisioning (PRD 9.5; DR3, DR4). A setup QR expires this long after it is printed.
 export const PROVISIONING_QR_TTL_MIN = 15;

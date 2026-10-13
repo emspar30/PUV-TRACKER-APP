@@ -29,3 +29,19 @@ export function heatmapView(state: HeatmapState | null, stops: readonly HeatmapS
     bandsOnly: known.length > 0 && known.every((row) => row.display.kind === 'known' && row.display.exact === null),
   };
 }
+
+export type BusiestStop = { code: string; name: string; band: number; exact: number | null };
+
+// Owner, 2026-10-14: the stop with the most passengers waiting, named over the list so it stands out
+// without reordering it (the list stays in riding order). By exact count, or by band where only bands
+// are shown (Q11); the first in riding order wins a tie. Null when no stop has anyone waiting.
+export function busiestStop(rows: readonly HeatmapRow[]): BusiestStop | null {
+  let best: BusiestStop | null = null;
+  for (const row of rows) {
+    if (row.display.kind !== 'known' || row.display.band === 0) continue;
+    const { band, exact } = row.display;
+    const beats = !best || band > best.band || (band === best.band && exact !== null && best.exact !== null && exact > best.exact);
+    if (beats) best = { code: row.code, name: row.name, band, exact };
+  }
+  return best;
+}

@@ -966,6 +966,9 @@ export const en = {
       noStops: 'No stops for this route in this version of the app.',
       mapUnavailable: 'The map could not load. The list still works.',
       // The map's round buttons and the colour key over the list (owner's request 2026-10-14)
+      // The stop with the most passengers waiting, over the list (owner, 2026-10-14)
+      mostWaiting: 'Most waiting',
+      mostWaitingLabel: (name: string, value: string) => `Most waiting: ${name}, ${value}`,
       zoomIn: 'Zoom in',
       zoomOut: 'Zoom out',
       defaultView: 'Show the whole route',
