@@ -214,10 +214,14 @@ export default function Provision() {
               </Text>
             </View>
             <View style={styles.routeRow}>
-              {badgeColor ? <LineBadge code={payload.routeCode} color={badgeColor} /> : null}
-              <View style={styles.grow}>
-                <Text style={typography.headlineSm}>{strings.driver.route(payload.routeCode)}</Text>
-                {route.name ? <Text style={typography.bodySm}>{route.name}</Text> : null}
+              {/* As the home's plate card: the route badge, and the route's ends (or its loop) under it */}
+              <View style={[styles.grow, styles.routeText]}>
+                {badgeColor ? (
+                  <LineBadge code={payload.routeCode} color={badgeColor} />
+                ) : (
+                  <Text style={typography.headlineSm}>{strings.driver.route(payload.routeCode)}</Text>
+                )}
+                {route.name ? <Text style={typography.bodyMd}>{route.name}</Text> : null}
               </View>
               <Text style={typography.bodySm}>{text.vehicle(payload.vehicleId)}</Text>
             </View>
@@ -476,6 +480,10 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   plateText: {
     fontWeight: '700',
+  },
+  routeText: {
+    alignItems: 'flex-start',
+    gap: spacing.xs,
   },
   routeRow: {
     flexDirection: 'row',
