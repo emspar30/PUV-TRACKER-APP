@@ -179,7 +179,7 @@ export default function Provision() {
         <>
           <Intro title={text.scanTitle} body={text.scanBody} />
           {camera?.granted ? (
-            <View style={styles.camera}>
+            <View style={styles.cameraLive}>
               <CameraView style={styles.fill} facing="back" barcodeScannerSettings={{ barcodeTypes: ['qr'] }} onBarcodeScanned={onScanned} />
               <Viewfinder />
             </View>
@@ -408,6 +408,11 @@ const useStyles = makeStyles(({ colors }) => ({
     borderRadius: radii.card,
     overflow: 'hidden',
     backgroundColor: colors.surface,
+  },
+  // The live camera: no clipping and no fill: on Android they hide the camera's SurfaceView (a blank
+  // box on a Xiaomi, Android 16, 2026-10-13)
+  cameraLive: {
+    height: CAMERA_HEIGHT,
   },
   cameraOff: {
     alignItems: 'center',

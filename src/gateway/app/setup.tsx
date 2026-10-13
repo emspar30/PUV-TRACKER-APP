@@ -263,7 +263,8 @@ function Choice({ label, on, onPress }: { label: string; on: boolean; onPress: (
 
 const useStyles = makeStyles(({ colors }) => ({
   overline: { marginBottom: -spacing.xs },
-  camera: { height: CAMERA_HEIGHT, borderRadius: radii.card, overflow: 'hidden', backgroundColor: colors.surface },
+  // No clipping and no fill: on Android they hide the camera's SurfaceView (a blank box, 2026-10-13)
+  camera: { height: CAMERA_HEIGHT },
   fill: { flex: 1 },
   card: { padding: spacing.md, gap: spacing.sm, borderRadius: radii.card, borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.card },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
