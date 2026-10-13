@@ -4,7 +4,7 @@ import { strings } from '@/strings';
 import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
 // What the map's colours mean (owner's request 2026-10-14): one floating pill per band with waiting
-// passengers, "● Light (1–4)", "● Moderate (5–9)", "● Heavy (10+)", in the map's node colours. The
+// passengers, "● Light (1–4)", "● Moderate (5–9)", "● Crowded (10+)", in the map's node colours. The
 // ranges are the list's band labels (HEATMAP_BAND_EDGES).
 
 const DOT_SIZE = spacing.sm + spacing.xs / 2;
@@ -16,7 +16,7 @@ export function HeatmapLegend() {
   const items = [
     { name: text.legend.light, color: mapPaint.occupancyGreen, band: 1 },
     { name: text.legend.moderate, color: mapPaint.occupancyAmber, band: 2 },
-    { name: text.legend.heavy, color: mapPaint.occupancyRed, band: 3 },
+    { name: text.legend.crowded, color: mapPaint.occupancyRed, band: 3 },
   ];
   return (
     <View style={styles.row}>
@@ -33,9 +33,10 @@ export function HeatmapLegend() {
 }
 
 const useStyles = makeStyles(({ colors, elevation }) => ({
-  // One row: the pills shrink before they wrap
+  // One centred row: the pills shrink before they wrap
   row: {
     flexDirection: 'row',
+    justifyContent: 'center',
     gap: spacing.xs + spacing.xs / 2,
   },
   pill: {

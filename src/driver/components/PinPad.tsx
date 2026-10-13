@@ -11,25 +11,37 @@ type PinPadProps = {
   onChange: (value: string) => void;
   // What the PIN is for, read out with the number of digits entered
   label: string;
+  // Under the boxes, such as "Wrong PIN."
+  error?: string | null;
 };
 
 const BOX_HEIGHT = spacing.xl + spacing.lg;
 const DOT_SIZE = spacing.sm + spacing.xs;
-const KEY_SIZE = spacing.xl * 2;
+const KEY_HEIGHT = spacing.xl * 2 + spacing.sm;
 const KEY_GAP = spacing.sm + spacing.xs;
-const DELETE_ICON = spacing.lg;
-const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+const DELETE_ICON = spacing.lg + spacing.xs;
+const ROWS = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+];
 
-// The admin PIN (Stitch 3.11): one box per digit, filled with a dot as it is typed, and a keypad on
-// the screen, so the system keyboard never covers the boxes or the Unlock button. Digits are never
-// shown, not even for a moment.
-export function PinPad({ length, value, onChange, label }: PinPadProps) {
+// The admin PIN (Stitch 3.11; owner, 2026-10-14): one box per digit, filled with a dot as it is
+// typed, and a keypad on the screen, so the system keyboard never covers the boxes. The keys span the
+// screen's width and sit low, near the thumb, so it works one-handed; the caller puts Unlock under
+// it. Digits are never shown, not even for a moment.
+export function PinPad({ length, value, onChange, label, error }: PinPadProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const text = strings.driver.admin;
   const type = (digit: string) => {
     if (value.length < length) onChange(value + digit);
   };
+  const digitKey = (digit: string) => (
+    <Key key={digit} onPress={() => type(digit)} label={digit}>
+      <Text style={[typography.headlineLg, styles.digit]}>{digit}</Text>
+    </Key>
+  );
   return (
     <View style={styles.root}>
       <View style={styles.boxes} accessible accessibilityLabel={`${label}: ${text.pinProgress(value.length, length)}`}>
@@ -39,21 +51,22 @@ export function PinPad({ length, value, onChange, label }: PinPadProps) {
           </View>
         ))}
       </View>
+      {error ? <Text style={[typography.bodyLg, styles.error]}>{error}</Text> : null}
       <View style={styles.keys}>
-        {DIGITS.map((digit) => (
-          <Key key={digit} onPress={() => type(digit)} label={digit}>
-            <Text style={[typography.headlineMd, styles.digit]}>{digit}</Text>
-          </Key>
+        {ROWS.map((row) => (
+          <View key={row.join('')} style={styles.row}>
+            {row.map(digitKey)}
+          </View>
         ))}
-        <Key onPress={() => onChange('')} label={text.clear} plain>
-          <Text style={typography.labelLg}>{text.clear}</Text>
-        </Key>
-        <Key onPress={() => type('0')} label="0">
-          <Text style={[typography.headlineMd, styles.digit]}>0</Text>
-        </Key>
-        <Key onPress={() => onChange(value.slice(0, -1))} label={text.deleteDigit} plain>
-          <Delete color={colors.textPrimary} size={DELETE_ICON} />
-        </Key>
+        <View style={styles.row}>
+          <Key onPress={() => onChange('')} label={text.clear} plain>
+            <Text style={typography.labelLg}>{text.clear}</Text>
+          </Key>
+          {digitKey('0')}
+          <Key onPress={() => onChange(value.slice(0, -1))} label={text.deleteDigit} plain>
+            <Delete color={colors.textPrimary} size={DELETE_ICON} />
+          </Key>
+        </View>
       </View>
     </View>
   );
@@ -74,8 +87,10 @@ function Key({ onPress, label, plain = false, children }: { onPress: () => void;
 }
 
 const useStyles = makeStyles(({ colors }) => ({
+  // Fills the space between the heading and Unlock; the keypad sits at its bottom
   root: {
-    gap: spacing.lg,
+    flex: 1,
+    gap: spacing.md,
   },
   boxes: {
     flexDirection: 'row',
@@ -102,19 +117,25 @@ const useStyles = makeStyles(({ colors }) => ({
     borderRadius: DOT_SIZE,
     backgroundColor: colors.textPrimary,
   },
+  error: {
+    color: colors.danger,
+    textAlign: 'center',
+  },
   keys: {
-    width: KEY_SIZE * 3 + KEY_GAP * 2,
+    flex: 1,
+    justifyContent: 'flex-end',
+    gap: KEY_GAP,
+  },
+  row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignSelf: 'center',
     gap: KEY_GAP,
   },
   key: {
-    width: KEY_SIZE,
-    height: KEY_SIZE,
+    flex: 1,
+    height: KEY_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radii.pill,
+    borderRadius: radii.card,
   },
   keyFilled: {
     borderWidth: 1,

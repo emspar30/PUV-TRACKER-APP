@@ -972,7 +972,7 @@ export const en = {
       legend: {
         light: 'Light',
         moderate: 'Moderate',
-        heavy: 'Heavy',
+        crowded: 'Crowded',
         label: (name: string, range: string) => `${name} (${range})`,
       },
     },

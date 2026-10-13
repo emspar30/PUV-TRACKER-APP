@@ -17,8 +17,9 @@ import { GLYPH_FONT_MEDIUM } from '@/data/map/glyphset';
 import { buildOfflineStyle } from '@/data/map/offlineStyle';
 import { TILESET } from '@/data/map/tileset';
 import { prepareOfflineTiles } from '@/data/offline/tiles';
-import { DRIVER_MAP_DETAIL_ZOOM, DRIVER_MAP_MIN_ZOOM, DRIVER_MAP_ZOOM_STEP, MAP_OVERZOOM_LEVELS } from '@/shared/config';
+import { DRIVER_MAP_DETAIL_ZOOM, DRIVER_MAP_MIN_ZOOM, DRIVER_MAP_ZOOM_STEP, MAP_OVERZOOM_LEVELS, MAP_VIEW_STEP_DEG } from '@/shared/config';
 import type { HeatmapRow } from '@/shared/driver/heatmapView';
+import { northCenterCap, type Bounds } from '@/shared/geo/bounds';
 import { strings } from '@/strings';
 import { makeStyles, spacing, useTheme } from '@/theme';
 
@@ -29,8 +30,9 @@ import type { DriverRoute } from './routeStops';
 // line faded (Stitch 3.2). If the map cannot load, the list still works alone (plan risk R8).
 // Owner's decision 2026-10-14 (it replaces "framed once, no gestures"): the map fills the screen
 // under the floating panels, each stop is named, and it may be dragged and zoomed. Its centre stays
-// over the offline tiles (Butuan), so it never shows another town; the commuter map's tighter limit
-// (the screen edge at the tile edge) would fight the off-centre framing the panels need. Round buttons zoom in and out and bring back the
+// over the offline tiles (Butuan), so it never shows another town. Owner, 2026-10-14 (second pass):
+// it never zooms out past the default view, and never shows the blank past the tiles' north edge at
+// the top of the screen (the other edges stay under the panels). Round buttons zoom in and out and bring back the
 // default view (the route framed in the space the panels leave). Zoomed in past
 // DRIVER_MAP_DETAIL_ZOOM, each node shows its count (or its band at night). Nothing needs a tap:
 // untouched, the map stays on the default view.
@@ -100,6 +102,11 @@ export function HeatmapMap({ route, rows, stale, topInset, bottomInset }: Props)
   // The driver moved the map: a panel changing size no longer moves it back
   const moved = useRef(false);
   const [detail, setDetail] = useState(false);
+  // Set from the default view once it is reached: the smallest zoom, and the highest the centre may
+  // go; null while the camera frames the route (the limits would hold it back)
+  const [limits, setLimits] = useState<{ minZoom: number; northCap: number; keepLat: number } | null>(null);
+  // Each new value frames the route again, after the limits are released
+  const [fitKey, setFitKey] = useState(0);
 
   const mapStyle = useMemo(
     () => (tiles.status === 'ready' ? (buildOfflineStyle(tiles.url, baseMap, tiles.glyphsUrl) as unknown as StyleSpecification) : null),
@@ -116,34 +123,49 @@ export function HeatmapMap({ route, rows, stale, topInset, bottomInset }: Props)
   };
 
   const showDefaultView = () => {
-    if (!route.bounds) return;
     framing.current = true;
     moved.current = false;
-    camera.current?.fitBounds(route.bounds, { padding, duration: mapRoute.cameraAnimationMs });
+    setLimits(null);
+    setFitKey((key) => key + 1);
   };
+
+  // Runs after the render that released the limits, so the camera may reach the default view
+  useEffect(() => {
+    if (fitKey === 0 || !route.bounds) return;
+    camera.current?.fitBounds(route.bounds, { padding, duration: mapRoute.cameraAnimationMs });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitKey]);
 
   // A panel grew or shrank (a warning appeared): frame the route again, unless the driver moved the map
   useEffect(() => {
     if (!moved.current) showDefaultView();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topInset, bottomInset]);
 
   const zoomBy = (levels: number) => {
     if (zoom.current === null) return;
     moved.current = true;
-    const target = Math.min(Math.max(zoom.current + levels, DRIVER_MAP_MIN_ZOOM), TILESET.maxZoom + MAP_OVERZOOM_LEVELS);
+    const target = Math.min(Math.max(zoom.current + levels, limits?.minZoom ?? DRIVER_MAP_MIN_ZOOM), TILESET.maxZoom + MAP_OVERZOOM_LEVELS);
     camera.current?.zoomTo(target, { duration: mapRoute.cameraAnimationMs });
   };
 
   const onRegionDidChange = (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
     const view = event.nativeEvent;
     zoom.current = view.zoom;
+    const [, centerLat] = view.center;
+    // How far the screen reaches above its centre, rounded up so small moves keep the same limit
+    const above = Math.ceil((view.bounds[3] - centerLat) / MAP_VIEW_STEP_DEG) * MAP_VIEW_STEP_DEG;
     if (framing.current || defaultZoom.current === null) {
       defaultZoom.current = view.zoom;
       framing.current = false;
+      setLimits({ minZoom: view.zoom, northCap: northCenterCap(TILESET.bounds, above, centerLat), keepLat: centerLat });
+    } else {
+      setLimits((current) => (current ? { ...current, northCap: northCenterCap(TILESET.bounds, above, current.keepLat) } : current));
     }
     setDetail(view.zoom >= defaultZoom.current + DRIVER_MAP_DETAIL_ZOOM);
   };
+
+  const [west, south, east] = TILESET.bounds;
+  const maxBounds: Bounds = limits ? [west, south, east, limits.northCap] : TILESET.bounds;
 
   const nodes = useMemo<FeatureCollection<Point>>(() => {
     const bandColors = [mapPaint.stop, mapPaint.occupancyGreen, mapPaint.occupancyAmber, mapPaint.occupancyRed];
@@ -214,9 +236,9 @@ export function HeatmapMap({ route, rows, stale, topInset, bottomInset }: Props)
           <Camera
             ref={camera}
             initialViewState={{ bounds: route.bounds, padding }}
-            minZoom={DRIVER_MAP_MIN_ZOOM}
+            minZoom={limits?.minZoom ?? DRIVER_MAP_MIN_ZOOM}
             maxZoom={TILESET.maxZoom + MAP_OVERZOOM_LEVELS}
-            maxBounds={TILESET.bounds}
+            maxBounds={maxBounds}
           />
           <GeoJSONSource id="driver-route" data={lines}>
             <Layer

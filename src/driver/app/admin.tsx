@@ -30,7 +30,7 @@ import { canReceiveSms, disableInbox, inboxSize, isSmsAvailable } from '../../..
 // log (kind, time, outcome, sequence number; never a message body), the clock samples, and the text
 // messages permission for a phone set up before DR5.
 // Look: the Stitch designs 3.11 and 3.12 (docs/DRIVER_UI_PRD.md) in the commuter app's style: the PIN
-// as six boxes over an on-screen keypad; then one card for the beacon and one for the messages, codes
+// as six boxes over a full-width on-screen keypad, Unlock at the bottom (one-handed, owner 2026-10-14); then one card for the beacon and one for the messages, codes
 // and the log in a fixed-width font so their columns line up.
 
 const SHIELD_SIZE = spacing.xl + spacing.md;
@@ -99,7 +99,7 @@ export default function DriverAdmin() {
 
   if (!unlocked) {
     return (
-      <Screen title={text.title}>
+      <Screen title={text.title} scroll={false}>
         <View style={styles.pinHead}>
           <View style={styles.shield}>
             <ShieldCheck color={colors.primary} size={SHIELD_ICON} />
@@ -108,8 +108,7 @@ export default function DriverAdmin() {
             {text.pinPrompt}
           </Text>
         </View>
-        <PinPad length={ADMIN_PIN_DIGITS} value={pin} onChange={setPin} label={text.pinPrompt} />
-        {wrong ? <Text style={[typography.bodyLg, styles.center, { color: colors.danger }]}>{text.wrongPin}</Text> : null}
+        <PinPad length={ADMIN_PIN_DIGITS} value={pin} onChange={setPin} label={text.pinPrompt} error={wrong ? text.wrongPin : null} />
         <Button label={text.unlock} leadingIcon={LockOpen} onPress={unlock} disabled={pin.length !== ADMIN_PIN_DIGITS} />
       </Screen>
     );
@@ -203,9 +202,6 @@ const useStyles = makeStyles(({ colors }) => ({
     justifyContent: 'center',
     borderRadius: SHIELD_SIZE,
     backgroundColor: colors.primaryContainer,
-  },
-  center: {
-    textAlign: 'center',
   },
   grow: {
     flex: 1,
