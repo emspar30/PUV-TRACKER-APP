@@ -972,6 +972,8 @@ export const en = {
       zoomIn: 'Zoom in',
       zoomOut: 'Zoom out',
       defaultView: 'Show the whole route',
+      hideNames: 'Hide stop names',
+      showNames: 'Show stop names',
       legend: {
         light: 'Light',
         moderate: 'Moderate',
