@@ -10,7 +10,7 @@ import {
 import type { FeatureCollection, LineString, Point } from 'geojson';
 import { Captions, CaptionsOff, Maximize, Minus, Plus } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type NativeSyntheticEvent } from 'react-native';
+import { StyleSheet, Text, View, type LayoutChangeEvent, type NativeSyntheticEvent } from 'react-native';
 
 import { RoundButton } from '@/components/RoundButton';
 import { GLYPH_FONT_MEDIUM } from '@/data/map/glyphset';
@@ -22,7 +22,7 @@ import type { HeatmapRow } from '@/shared/driver/heatmapView';
 import { northCenterCap, type Bounds } from '@/shared/geo/bounds';
 import { fitCamera, latAboveCenter, zoomAbout, type Size } from '@/shared/geo/fit';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
+import { makeStyles, spacing, useTheme } from '@/theme';
 
 import type { DriverRoute } from './routeStops';
 
@@ -38,7 +38,7 @@ import type { DriverRoute } from './routeStops';
 // (the other edges stay under the panels). Round buttons zoom in and out and bring back the default
 // view in one tap. Zoomed in past DRIVER_MAP_DETAIL_ZOOM, each node shows its count (or its band at
 // night). Nothing needs a tap: untouched, the map stays on the default view.
-// Owner, 2026-10-14: a "Hide stop names" pill beside the reset button clears the names from the
+// Owner, 2026-10-14: a round button under the reset button hides the stop names on the
 // default view (busy downtown names can cover the dots); zoomed in to the counts, names always show.
 
 type TilesState = { status: 'preparing' } | { status: 'ready'; url: string; glyphsUrl: string | null } | { status: 'error' };
@@ -71,7 +71,6 @@ const ZOOM_EPSILON = 0.01;
 // command can reach the map before a prop change made in the same render; a button's move waits this
 // long, so the limit for its zoom lands first
 const MOVE_AFTER_LIMIT_MS = 60;
-const PILL_ICON = spacing.md + spacing.xs;
 
 function useDriverTiles(): TilesState {
   const [state, setState] = useState<TilesState>({ status: 'preparing' });
@@ -342,31 +341,24 @@ export function HeatmapMap({ route, rows, stale, topInset, bottomInset }: Props)
           </GeoJSONSource>
         </Map>
       ) : null}
-      {/* The map credit at the top of the visible strip: the buttons take its bottom */}
-      <Text style={[typography.caption, styles.credit, { top: topInset + spacing.sm }]}>{strings.common.attribution}</Text>
+      <Text style={[typography.caption, styles.credit, { bottom: bottomInset + spacing.sm }]}>{strings.common.attribution}</Text>
       <View style={[styles.buttons, { bottom: bottomInset + spacing.sm }]}>
         <RoundButton icon={Plus} label={strings.driver.heatmap.zoomIn} onPress={() => zoomBy(DRIVER_MAP_ZOOM_STEP)} />
         <RoundButton icon={Minus} label={strings.driver.heatmap.zoomOut} onPress={() => zoomBy(-DRIVER_MAP_ZOOM_STEP)} />
-        <View style={styles.lastRow}>
-          {named ? (
-            <Pressable
-              style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
-              onPress={() => setNamesHidden((hidden) => !hidden)}
-              accessibilityRole="switch"
-              accessibilityState={{ checked: !namesHidden }}
-            >
-              {namesHidden ? <Captions color={colors.textSecondary} size={PILL_ICON} /> : <CaptionsOff color={colors.textSecondary} size={PILL_ICON} />}
-              <Text style={typography.labelLg}>{namesHidden ? strings.driver.heatmap.showNames : strings.driver.heatmap.hideNames}</Text>
-            </Pressable>
-          ) : null}
-          <RoundButton icon={Maximize} label={strings.driver.heatmap.defaultView} onPress={showDefaultView} />
-        </View>
+        <RoundButton icon={Maximize} label={strings.driver.heatmap.defaultView} onPress={showDefaultView} />
+        {named ? (
+          <RoundButton
+            icon={namesHidden ? Captions : CaptionsOff}
+            label={namesHidden ? strings.driver.heatmap.showNames : strings.driver.heatmap.hideNames}
+            onPress={() => setNamesHidden((hidden) => !hidden)}
+          />
+        ) : null}
       </View>
     </View>
   );
 }
 
-const useStyles = makeStyles(({ colors, elevation }) => ({
+const useStyles = makeStyles(({ colors }) => ({
   root: {
     ...StyleSheet.absoluteFill,
     backgroundColor: colors.canvas,
@@ -386,26 +378,6 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
   buttons: {
     position: 'absolute',
     right: spacing.md,
-    alignItems: 'flex-end',
     gap: spacing.sm + spacing.xs,
-  },
-  lastRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  // As the round buttons: white, the same shadow, 48 dp tall
-  pill: {
-    height: MIN_TOUCH_TARGET,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    backgroundColor: colors.sheet,
-    ...elevation.level2,
-  },
-  pressed: {
-    backgroundColor: colors.surfaceHigh,
   },
 }));
