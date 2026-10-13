@@ -7,6 +7,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { ADMIN_PIN_DIGITS } from '@/shared/config';
 import { checkAdminPin } from '@/shared/driver/provisioning';
+import { simLabel } from '@/shared/sms/carrier';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -71,7 +72,7 @@ export default function GatewayHome() {
   const tone = (value: Tone) => (value === 'ok' ? colors.success : value === 'warn' ? colors.warning : colors.danger);
   const charging = batteryState === BatteryState.CHARGING || batteryState === BatteryState.FULL;
   const sms = isSmsAvailable() && canSendSms();
-  const simLabel = listSims().find((info) => info.subscriptionId === status.subscriptionId);
+  const chosenSim = listSims().find((info) => info.subscriptionId === status.subscriptionId);
 
   const unlock = () => {
     const ok = checkAdminPin(pin, setup);
@@ -130,7 +131,9 @@ export default function GatewayHome() {
         <Text style={[typography.bodyMd, { color: charging ? colors.textPrimary : colors.danger }]}>
           {text.battery(level >= 0 ? Math.round(level * PERCENT) : 0, charging)}
         </Text>
-        <Text style={typography.bodyMd}>{text.sim(simLabel ? (simLabel.carrierName ?? simLabel.displayName ?? String(simLabel.subscriptionId)) : text.simDefault)}</Text>
+        <Text style={typography.bodyMd}>
+          {text.sim(chosenSim ? strings.gateway.simName(simLabel(chosenSim).slot, simLabel(chosenSim).network) : text.simDefault)}
+        </Text>
       </View>
 
       <Text style={typography.headlineSm}>{text.adminTitle}</Text>

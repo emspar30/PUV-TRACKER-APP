@@ -7,6 +7,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { normalizePhNumber } from '@/shared/driver/phone';
 import { parseProvisioning, workerUrlUsable, type GatewayProvisioning } from '@/shared/driver/provisioning';
+import { simLabel } from '@/shared/sms/carrier';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -102,7 +103,10 @@ export default function GatewaySetupScreen() {
       return;
     }
     setSmsDenied(false);
-    setSims(listSims());
+    // The SIM must be chosen (no "phone default"); with one SIM there is nothing to choose
+    const found = listSims();
+    setSims(found);
+    setSim(found.length === 1 ? found[0].subscriptionId : null);
     setStep(isIgnoringBatteryOptimizations() ? 'sim' : 'battery');
   };
 
@@ -191,18 +195,21 @@ export default function GatewaySetupScreen() {
         <>
           <Text style={typography.headlineSm}>{text.simTitle}</Text>
           <Text style={typography.bodyLg}>{text.simBody}</Text>
+          {sims.length === 0 ? <Text style={typography.bodyMd}>{text.simNone}</Text> : null}
           <View style={styles.chips}>
-            <Choice label={text.simDefault} on={sim === null} onPress={() => setSim(null)} />
-            {sims.map((info) => (
-              <Choice
-                key={info.subscriptionId}
-                label={`${info.slotIndex + 1}: ${info.carrierName ?? info.displayName ?? info.subscriptionId}`}
-                on={sim === info.subscriptionId}
-                onPress={() => setSim(info.subscriptionId)}
-              />
-            ))}
+            {sims.map((info) => {
+              const { slot, network } = simLabel(info);
+              return (
+                <Choice
+                  key={info.subscriptionId}
+                  label={strings.gateway.simName(slot, network)}
+                  on={sim === info.subscriptionId}
+                  onPress={() => setSim(info.subscriptionId)}
+                />
+              );
+            })}
           </View>
-          <Button label={text.continue} onPress={() => setStep('test')} />
+          <Button label={text.continue} onPress={() => setStep('test')} disabled={sims.length > 0 && sim === null} />
         </>
       ) : null}
 

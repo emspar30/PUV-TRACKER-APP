@@ -1082,6 +1082,8 @@ export const en = {
   // The gateway app (DR1, DR5 carrier test, DR7)
   gateway: {
     appName: 'Tunton Gateway',
+    // A SIM by its slot and network family (shared/sms/carrier.ts), such as "SIM 1 · Globe/TM"
+    simName: (slot: number, network: string | null) => (network ? `SIM ${slot} · ${network}` : `SIM ${slot}`),
     // DR7: the sending service, its setup and its screens
     notification: {
       title: 'Tunton gateway on',
@@ -1153,8 +1155,10 @@ export const en = {
       batteryDone: 'Allowed: Android will not pause the gateway.',
       continue: 'Continue',
       simTitle: 'Which SIM sends?',
-      simBody: 'Pick the Smart/TNT SIM that has the SMS plan.',
-      simDefault: 'Phone default',
+      simBody: 'Pick the SIM that has load and the SMS plan.',
+      // Android listed no SIM (the Phone permission was refused): sending still works, from the
+      // phone's default SIM for texts
+      simNone: 'Android did not list the SIMs. Texts will go from the phone’s default SIM for messages.',
       testTitle: 'Send a test text',
       testBody: 'Send one text to a team phone to check the SIM works. You can skip this.',
       testNumber: 'Team phone number',

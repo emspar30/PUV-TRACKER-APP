@@ -7,6 +7,7 @@ import { Screen } from '@/components/Screen';
 import { SEED_STATIONS } from '@/data/seed/routes';
 import { DATA_SMS_PORT, GATEWAY_SEND_GAP_MS } from '@/shared/config';
 import { normalizePhNumber } from '@/shared/driver/phone';
+import { simLabel } from '@/shared/sms/carrier';
 import { buildTestHeatmap, paddingCodes } from '@/shared/sms/testMessage';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
@@ -153,7 +154,7 @@ export default function CarrierTest() {
       <View style={styles.chips}>
         {sims.length === 0 ? <Text style={typography.bodyMd}>{text.noSims}</Text> : null}
         {sims.map((info) => (
-          <Chip key={info.subscriptionId} label={`${info.slotIndex + 1}: ${info.carrierName ?? info.displayName ?? info.subscriptionId}`} on={sim === info.subscriptionId} onPress={() => setSim(sim === info.subscriptionId ? null : info.subscriptionId)} />
+          <Chip key={info.subscriptionId} label={strings.gateway.simName(simLabel(info).slot, simLabel(info).network)} on={sim === info.subscriptionId} onPress={() => setSim(sim === info.subscriptionId ? null : info.subscriptionId)} />
         ))}
       </View>
       <View style={styles.chips}>
