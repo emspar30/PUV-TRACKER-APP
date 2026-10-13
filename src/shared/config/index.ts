@@ -469,6 +469,14 @@ export const CLOCK_DRIFT_SAMPLES = 5;
 // first), and the admin screen lists this many recent results, accepted or not
 export const DRIVER_INBOX_MAX = 50;
 export const DRIVER_RECENT_LOG_MAX = 20;
+// The driver's map (owner's decision 2026-10-14, replacing "no gestures"): it may be dragged and
+// zoomed within the offline tiles; each zoom button moves this many levels, and from this many levels
+// above the default view (the route framed) each stop shows its count instead of only its colour
+export const DRIVER_MAP_ZOOM_STEP = 1;
+export const DRIVER_MAP_DETAIL_ZOOM = 0.75;
+// Lower than the commuter's MAP_MIN_ZOOM: the whole route must fit the strip of map the driver's
+// panels leave (R4 needs about 10.5 on a 412 dp phone)
+export const DRIVER_MAP_MIN_ZOOM = 10;
 
 // --- Provisioning (PRD 9.5; DR3, DR4). A setup QR expires this long after it is printed.
 export const PROVISIONING_QR_TTL_MIN = 15;

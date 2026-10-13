@@ -226,7 +226,7 @@ Buttons at the bottom: secondary pill "Turn beacon off" (or primary "Turn beacon
 | Contrast | WCAG AA; a band chip label is bold at 22 sp (large text) | `DESIGN.md`, contrast tests |
 | Screen | Kept on while the app is open; portrait (`app.json`) | DR4 |
 | One-way | The driver app has no internet, no location, no sign-in | PRD 6.2 |
-| Map | Offline tiles, framed once on the route, no gestures | PRD 9.4, risk R8 |
+| Map | Offline tiles. **Changed by the owner 2026-10-14** (was "framed once, no gestures"): it rests on the route framed, may be dragged and zoomed with its centre kept over the Butuan tiles, and one tap on a round button brings the route back (Part 6) | PRD 9.4, risk R8 |
 
 ### 4.2 Status strip: every state
 
@@ -301,3 +301,22 @@ All twelve screens are built in `src/driver/` from Stitch's export (`stitch_tunt
 **Left out (Stitch added them; not in the brief):** "Telemetry Offline", "Reconnecting to City Dispatch Terminal…", "Butuan City Multicab Operator", "Multicab unit · Butuan City", the dark satellite map with "LIVE GPS CORRIDORS", "Active Corridor Overview" and its legend, "Night Schedule Active", "Real-time terminal and bay loads", sub-names under stops, a highlighted row for busy stops, the "Route Selection" title and avatar button on every screen, "Admin Provisioning" and similar step names, "Awaiting QR payload", "Fleet Portal", "Enter alphanumeric key instead", "LTO registration plate", "City Franchise Verified", "Dedicated Cockpit Device", vehicle photos, "Simulate denial response", "End-to-end municipal encryption", "SMS Gateway Online", TX power and battery voltage tiles, "Nordic nRF52", "v4.18-rel", "Factory Provisioning Reset", letters under the keypad digits, and "Clock not checked" (the brief now says "Clock: no text yet").
 
 **Code:** `src/driver/components/Notice.tsx` (a tinted card: leading icon, the problem in the tone's colour, an optional line and buttons) and `PinPad.tsx`. The commuter `StatusPill` has a `danger` tone. Strings were split so "Ask an admin." can be bold and the setup rows have titles; what they say is unchanged. No rule, threshold or check changed (Part 4.3).
+
+---
+
+## Part 6. Home redesign: the map behind floating panels (owner, 2026-10-14)
+
+The owner asked for this after using 3.1 on the phone. It replaces 3.1's half-map, half-list layout and the "framed once, no gestures" rule (Part 4.1).
+
+| Part | Built as |
+| --- | --- |
+| Layout | The map fills the screen. Floating over its top: the status strip, the multicab card and any warning. Floating over its bottom: the colour key, then the "Waiting passengers" panel (38 % of the screen's height, light grey, the stops as white cards, scrolling). The route is framed in the space between them, framed again when a warning appears or goes, unless the driver moved the map |
+| Stop names | Every stop is named beside its dot (Noto Sans Medium 14, from the bundled glyphs). Where names collide, the busier stop keeps its name; zooming in shows the rest |
+| Zoomed in | From `DRIVER_MAP_DETAIL_ZOOM` (0.75 level) above the default view, each dot becomes a disc with its count, the band at night (Q11), "—" before the first count. By default the dots show only colour and name |
+| Round buttons | Bottom right, over the map, stacked: zoom in, zoom out (`DRIVER_MAP_ZOOM_STEP`, 1 level), and "Show the whole route" (one tap: the default view again, centred) |
+| Dragging | One-finger drag and two-finger pinch. No rotation, tilt or double-tap zoom. The centre stays over the offline tiles (`TILESET.bounds`, Butuan); the commuter's tighter limit fought the off-centre framing. Zoom from `DRIVER_MAP_MIN_ZOOM` (10, so R4 fits the strip of map left between the panels) to the tiles' maximum plus overzoom |
+| Colour key | "● Light (1–4)", "● Moderate (5–9)", "● Heavy (10+)": white floating pills in one row, the ranges from the band labels (`HEATMAP_BAND_EDGES`) |
+
+**Still true:** nothing on the home screen needs a tap; untouched, the map stays on the default view. **Safety note:** a map moved by hand stays where it was left until "Show the whole route" is tapped. If that is a problem on the road, the map could return to the default view by itself after a minute untouched (not built).
+
+**Seen on the phone 2026-10-14** (Xiaomi 2311DRK48G, `development-driver` build, through adb): default view, names, zoomed-in discs ("—", no counts yet), dragging stopped at the tile edge, reset. Counts on the discs not yet seen (no heatmap message since the new setup).

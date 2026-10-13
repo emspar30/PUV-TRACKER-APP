@@ -965,6 +965,16 @@ export const en = {
       waiting: (count: number) => `${count} waiting`,
       noStops: 'No stops for this route in this version of the app.',
       mapUnavailable: 'The map could not load. The list still works.',
+      // The map's round buttons and the colour key over the list (owner's request 2026-10-14)
+      zoomIn: 'Zoom in',
+      zoomOut: 'Zoom out',
+      defaultView: 'Show the whole route',
+      legend: {
+        light: 'Light',
+        moderate: 'Moderate',
+        heavy: 'Heavy',
+        label: (name: string, range: string) => `${name} (${range})`,
+      },
     },
     // The home screen's warnings: the problem, then what to do in bold (Stitch 3.5)
     smsMissing: 'Text messages are off. Waiting counts cannot arrive.',
