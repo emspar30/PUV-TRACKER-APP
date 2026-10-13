@@ -1004,6 +1004,7 @@ export const en = {
       scanTitle: 'Scan the setup code',
       scanBody: 'Point the camera at the code on the admin computer.',
       cameraNeeded: 'The camera is needed to read the setup code.',
+      cameraBlocked: 'The camera is off for this app. Open settings, Permissions, Camera, and allow it.',
       allowCamera: 'Allow camera',
       invalid: {
         malformed: 'That is not a Tunton driver setup code.',

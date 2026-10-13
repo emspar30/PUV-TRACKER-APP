@@ -16,8 +16,8 @@ import {
   TriangleAlert,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ActivityIndicator, AppState, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
@@ -81,7 +81,7 @@ function previousStep(step: Step): Step | null {
 
 export default function Provision() {
   const [step, setStep] = useState<Step>({ kind: 'scan', error: null });
-  const [camera, requestCamera] = useCameraPermissions();
+  const [camera, requestCamera, getCamera] = useCameraPermissions();
   const paused = useRef(false);
   const setSetup = useDriverStore((state) => state.setSetup);
   const setBeaconEnabled = useDriverStore((state) => state.setBeaconEnabled);
@@ -107,6 +107,17 @@ export default function Provision() {
     paused.current = false;
     setStep({ kind: 'scan', error: null });
   };
+
+  // Back from Android's settings (the camera allowed there): look again
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') getCamera().catch(() => undefined);
+    });
+    return () => subscription.remove();
+  }, [getCamera]);
+
+  // Once the camera was refused for good, Android shows no prompt: only its settings can allow it
+  const cameraBlocked = camera !== null && !camera.granted && !camera.canAskAgain;
 
   const askPermissions = async (payload: DriverProvisioning) => {
     const granted = await requestBeaconPermissions();
@@ -175,13 +186,17 @@ export default function Provision() {
           ) : (
             <View style={[styles.camera, styles.cameraOff]}>
               <Camera color={colors.textSecondary} size={CAMERA_ICON} />
-              <Text style={[typography.bodyLg, styles.center]}>{text.cameraNeeded}</Text>
+              <Text style={[typography.bodyLg, styles.center]}>{cameraBlocked ? text.cameraBlocked : text.cameraNeeded}</Text>
             </View>
           )}
           {step.error ? <Notice tone="danger" icon={CircleAlert} title={step.error} /> : null}
         </>
       );
-      actions = camera?.granted ? null : <Button label={text.allowCamera} leadingIcon={Camera} onPress={() => void requestCamera()} />;
+      actions = camera?.granted ? null : cameraBlocked ? (
+        <Button label={text.openSettings} leadingIcon={Settings} onPress={() => void Linking.openSettings()} />
+      ) : (
+        <Button label={text.allowCamera} leadingIcon={Camera} onPress={() => void requestCamera()} />
+      );
       break;
 
     case 'confirm': {
