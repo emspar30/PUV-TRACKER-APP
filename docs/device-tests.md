@@ -382,6 +382,19 @@ Needs: a `development-gateway` build made after DR7; the worker running on the l
 | DR7-M6 | Restart the gateway phone, unlock it, do not open the app | The "Tunton gateway on" notification comes back and sending resumes; record the time |
 | DR7-M7 | Take the SIM out for 2 minutes during demand | Sends fail with an error code and go back to the queue; they resume when the SIM is back; a failure alert if over 5 % |
 
+## DR8 commuter boarding detection (2026-10-14)
+
+Needs: `20261014000000_beacon_verify.sql` pushed (backlog 114); a commuter `development` build made after DR8 (EAS build #9, backlog 115) on **phone B**, signed in, Demo data off, location consent and permission given, location on; **phone A** running the driver app with a **real** setup code (`provision-driver.ts`; a `dev-driver-qr.ts` code answers `unknown_vehicle`), beacon on. For M3, a second driver phone with its own real code on the same route.
+
+| ID | Script | Expected |
+| --- | --- | --- |
+| DR8-M1 | B: open Relay 1 m from A. The first time: the explainer ("Find your multicab by Bluetooth"), Continue, allow Nearby devices | Within **10 s** of opening Relay (PRD S7) the card shows "Found by Bluetooth" with A's route badge and plate; the Route and vehicle pickers are hidden. Record the time. Send a relay: the post's `beacon_ok` is true (dashboard, `feed_posts`) |
+| DR8-M2 | Replay: an A code from its Admin log (or `lastPayloadHex`) 3 minutes old, through `verify_beacon` (SQL editor as a signed-in user, or the live suite) | Status `beacon_expired` (PRD S7: two or more slots old rejected) |
+| DR8-M3 | Two driver phones side by side, B between them | "Two multicabs nearby. Pick yours below." with the pickers; moving B next to one gives "Found by Bluetooth" for that one |
+| DR8-M4 | B checks in on A's route at a stop, then opens Relay next to A | The toast "Boarded R… · plate" and the check-in ends (the Check-in tab is free again); the next heatmap message to A shows the stop's count lower |
+| DR8-M5 | B, fresh install or Nearby devices revoked: open Relay, "Not now"; then Continue and Deny | The pickers work as before; "Not now" leaves a "Find my multicab by Bluetooth" link; after Deny twice, "Nearby devices is off for Tunton" with Open settings |
+| Also | Location off on B; Bluetooth off on B; the panel open for 15 min | "Turn on your phone's location…"; "Bluetooth is off…"; "Stopped looking…" (the scan ends after `ARMED_SCAN_MIN`). Record whether results arrive at all on B with location off but Nearby devices on (Android 12+): the code assumes they do not |
+
 ## Emulator QA findings (2026-10-08, for ST2)
 
 Agent's run on the `Pixel_7` emulator (API 34), build R1a with the JavaScript at `523319f`. Seen working: the bundle refreshed (Energy hidden in the top bar and Profile); six routes on the real lines with demo vehicles; vehicle card with ETA, "km from you" and Demo label; tracking free, with ETA, "km by road" and the stop strip; demo check-in with countdown, tab dot and Cancel; live sign-in; live relay without GPS ("Update relayed", First relay badge) shown in Crowdsource with Trusted and "Near SM City Butuan"; Profile badges and places; Settings Privacy rows (contact address shown, the email link opens Gmail); My Rides SMB to BAN on R1, 6.2 km, ₱16.75 Student (₱21.00 regular); a saved old demo stop (MCA) falls back to SM City.

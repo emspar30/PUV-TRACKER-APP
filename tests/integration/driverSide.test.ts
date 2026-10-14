@@ -1,4 +1,4 @@
-// DR3 acceptance tests against the LIVE Supabase project (docs/IMPLEMENTATION_PLAN_DRIVER.md, DR3).
+// DR3 and DR8 acceptance tests against the LIVE Supabase project (docs/IMPLEMENTATION_PLAN_DRIVER.md).
 // Skipped, with a printed reason, until .env holds the service role key and the test accounts, and
 // until 20261013000000_driver_side.sql is applied. They work only on their own rows: vehicle
 // R99-DR3-TEST on the made-up route R99, gateway GW-99 and alert kind dr3_test, all removed at the end.
@@ -10,6 +10,10 @@ import * as path from 'node:path';
 import { parseEnv } from 'node:util';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+import { encodeBeacon, payloadToHex, slotOf } from '../../src/shared/beacon/code';
+import { BEACON_SLOT_S } from '../../src/shared/config';
+import vectors from '../fixtures/beacon-vectors.json';
 
 const ENV_FILE = path.join(__dirname, '..', '..', '.env');
 const env: Record<string, string | undefined> = fs.existsSync(ENV_FILE) ? parseEnv(fs.readFileSync(ENV_FILE, 'utf8')) : {};
@@ -182,6 +186,111 @@ live('DR3 driver side, live project', () => {
     for (const row of snapshot.data as { route_id: string; station_code: string; waiting: number }[]) {
       expect(row.waiting).toBeGreaterThan(0);
     }
+  }, TIMEOUT_MS);
+});
+
+// DR8: verify_beacon and post_report's beacon argument, against the real functions (20261014000000).
+// Vehicle R99-DR8-TEST gets the first shared vector's secret, so the SQL check is held to the same
+// rule as src/shared/beacon/code.ts. The server's clock decides the slot: codes are made from now.
+live('DR8 boarding detection, live project', () => {
+  const BEACON_VEHICLE = 'R99-DR8-TEST';
+  const SECRET = vectors.vectors[0].secretHex;
+  const MS_PER_S = 1000;
+  // Too close to a slot boundary, a small clock difference with the server could move the slot
+  const BOUNDARY_MARGIN_MS = 5000;
+  let admin: SupabaseClient;
+  let writer: SupabaseClient;
+  let applied = false;
+  let shortId = 0;
+
+  async function cleanUp() {
+    const ours = await admin.from('driver_devices').select('device_id').eq('vehicle_id', BEACON_VEHICLE);
+    const ids = (ours.data ?? []).map((row: { device_id: string }) => row.device_id);
+    if (ids.length > 0) await admin.from('driver_devices').delete().in('device_id', ids);
+    await admin.from('feed_posts').delete().eq('route_id', ROUTE);
+    await admin.from('vehicles').delete().eq('vehicle_id', BEACON_VEHICLE);
+  }
+
+  async function awayFromBoundary() {
+    const intoSlot = Date.now() % (BEACON_SLOT_S * MS_PER_S);
+    if (intoSlot < BOUNDARY_MARGIN_MS || intoSlot > BEACON_SLOT_S * MS_PER_S - BOUNDARY_MARGIN_MS) {
+      await new Promise((resolve) => setTimeout(resolve, 2 * BOUNDARY_MARGIN_MS));
+    }
+  }
+
+  const code = (slotOffset: number) => payloadToHex(encodeBeacon({ shortId, slot: slotOf(Date.now()) + slotOffset }, SECRET));
+  const verify = async (payloadHex: string) => {
+    const { data, error } = await writer.rpc('verify_beacon', { payload_hex: payloadHex });
+    if (error) throw new Error(error.message);
+    return (data as { vehicle_id: string | null; route_id: string | null; plate: string | null; status: string }[])[0];
+  };
+
+  beforeAll(async () => {
+    admin = createClient(env.EXPO_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, options);
+    writer = createClient(env.EXPO_PUBLIC_SUPABASE_URL!, env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, options);
+    const signIn = await writer.auth.signInWithPassword({ email: env.TEST_WRITER_EMAIL!, password: env.TEST_WRITER_PASSWORD! });
+    if (signIn.error) throw new Error(`Sign-in failed: ${signIn.error.message}`);
+    const probe = await writer.rpc('verify_beacon', { payload_hex: '00' });
+    applied = !probe.error;
+    if (!applied) {
+      console.log(`[boarding detection] NOT RUN: 20261014000000_beacon_verify.sql is not applied (${probe.error?.message})`);
+      return;
+    }
+    await cleanUp();
+    const provisioned = await admin
+      .rpc('admin_provision_driver', { vehicle: BEACON_VEHICLE, plate: 'TEST 098', route: ROUTE, phone: DRIVER_PHONE, wanted_short_id: null, beacon_secret: SECRET, sms_key: hex32(), note: 'DR8 test' })
+      .single<{ short_id: number }>();
+    if (provisioned.error) throw new Error(provisioned.error.message);
+    shortId = provisioned.data.short_id;
+  }, TIMEOUT_MS);
+
+  afterAll(async () => {
+    if (applied) await cleanUp();
+    await writer?.auth.signOut({ scope: 'local' });
+  }, TIMEOUT_MS);
+
+  it('accepts the current code and one slot either side, naming only the vehicle, route and plate', async () => {
+    if (!applied) return;
+    await awayFromBoundary();
+    for (const offset of [0, -1, 1]) {
+      expect(await verify(code(offset))).toEqual({ vehicle_id: BEACON_VEHICLE, route_id: ROUTE, plate: 'TEST 098', status: 'ok' });
+    }
+  }, TIMEOUT_MS);
+
+  it('rejects a code two slots old or ahead (PRD S7), a forged one, and an unknown vehicle', async () => {
+    if (!applied) return;
+    await awayFromBoundary();
+    expect((await verify(code(-2))).status).toBe('beacon_expired');
+    expect((await verify(code(2))).status).toBe('beacon_expired');
+    const forged = code(0).slice(0, -8) + '00000000';
+    expect(await verify(forged)).toEqual({ vehicle_id: null, route_id: null, plate: null, status: 'beacon_invalid' });
+    expect((await verify(payloadToHex(encodeBeacon({ shortId: 65534, slot: slotOf(Date.now()) }, SECRET)))).status).toBe('unknown_vehicle');
+    expect((await verify('not hex')).status).toBe('beacon_invalid');
+  }, TIMEOUT_MS);
+
+  it('is not open to signed-out callers', async () => {
+    if (!applied) return;
+    const anonymous = createClient(env.EXPO_PUBLIC_SUPABASE_URL!, env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, options);
+    expect((await anonymous.rpc('verify_beacon', { payload_hex: code(0) })).error).not.toBeNull();
+    expect((await writer.rpc('beacon_check', { payload_hex: code(0) })).error).not.toBeNull();
+  }, TIMEOUT_MS);
+
+  it('a relay with the code records whether it checked out, and takes the vehicle from it', async () => {
+    if (!applied) return;
+    await awayFromBoundary();
+    const post = async (beacon: string, vehicle: string | null) =>
+      writer.rpc('post_report', { route: ROUTE, phrase: null, seat_tier: 'green', vehicle, with_gps: false, stop: null, beacon, request_key: `dr8-${randomBytes(6).toString('hex')}` });
+    const good = await post(code(0), null);
+    expect(good.error).toBeNull();
+    const bad = await post(code(-2), null);
+    expect(bad.error).toBeNull();
+    const rows = await admin.from('feed_posts').select('id, vehicle_id, beacon_ok').in('id', [good.data, bad.data]).order('id');
+    expect(rows.data).toEqual([
+      { id: good.data, vehicle_id: BEACON_VEHICLE, beacon_ok: true },
+      { id: bad.data, vehicle_id: null, beacon_ok: false },
+    ]);
+    // Clients never read beacon_ok
+    expect((await writer.from('feed_posts').select('beacon_ok').eq('id', good.data)).error).not.toBeNull();
   }, TIMEOUT_MS);
 });
 

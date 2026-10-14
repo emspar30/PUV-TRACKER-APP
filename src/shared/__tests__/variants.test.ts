@@ -42,6 +42,8 @@ const DRIVER_SIDE_ONLY = [
   'android.permission.BLUETOOTH_ADVERTISE',
   'android.permission.CAMERA',
 ];
+const BLUETOOTH_SCAN = 'android.permission.BLUETOOTH_SCAN';
+const { addPermissions: addCommuterBle } = jest.requireActual<{ addPermissions: (manifest: object) => object }>(path.join(ROOT, 'plugins', 'withCommuterBle.js'));
 const pluginNames = (config: ExpoConfig) => config.plugins.map((plugin) => (Array.isArray(plugin) ? plugin[0] : plugin));
 
 describe('app variants (DR1)', () => {
@@ -49,16 +51,42 @@ describe('app variants (DR1)', () => {
     expect(configFor(undefined).extra.appVariant).toBe('commuter');
   });
 
-  it('keeps the commuter app as app.json, apart from the variant tag and the blocked driver-side permissions', () => {
+  it('keeps the commuter app as app.json, apart from the variant tag, the blocked driver-side permissions and its Bluetooth scan plugin', () => {
     const commuter = configFor('commuter');
     const { blockedPermissions, ...android } = commuter.android;
     const { blockedPermissions: baseBlocked, ...baseAndroid } = base.android;
     const { appVariant, ...extra } = commuter.extra;
 
     expect(appVariant).toBe('commuter');
-    expect({ ...commuter, android, extra }).toEqual({ ...base, android: baseAndroid });
+    expect({ ...commuter, android, extra, plugins: base.plugins }).toEqual({ ...base, android: baseAndroid });
+    // DR8: the scan permissions come from the commuter's own plugin, added after the shared ones
+    expect(pluginNames(commuter)).toEqual([...pluginNames(base), './plugins/withCommuterBle']);
     expect(blockedPermissions).toEqual(expect.arrayContaining([...(baseBlocked ?? []), ...DRIVER_SIDE_ONLY]));
+    expect(blockedPermissions).not.toContain(BLUETOOTH_SCAN);
     expect(commuter.extra.router?.root).toBeUndefined();
+  });
+
+  it.each(['driver', 'gateway'])('blocks Bluetooth scanning in the %s app (DR8: only commuters scan)', (variant) => {
+    expect(configFor(variant).android.blockedPermissions).toContain(BLUETOOTH_SCAN);
+  });
+
+  it('DR8: the commuter plugin adds Nearby devices without neverForLocation, and the old Bluetooth permissions up to Android 11', () => {
+    type Entry = { $: Record<string, string> };
+    const manifest: { 'uses-permission': Entry[] } = {
+      'uses-permission': [
+        { $: { 'android:name': 'android.permission.INTERNET' } },
+        // As a library might add it: the flag would filter beacons out of the results
+        { $: { 'android:name': BLUETOOTH_SCAN, 'android:usesPermissionFlags': 'neverForLocation' } },
+      ],
+    };
+    addCommuterBle(manifest);
+    addCommuterBle(manifest);
+    expect(manifest['uses-permission'].map((entry) => entry.$)).toEqual([
+      { 'android:name': 'android.permission.INTERNET' },
+      { 'android:name': 'android.permission.BLUETOOTH', 'android:maxSdkVersion': '30' },
+      { 'android:name': 'android.permission.BLUETOOTH_ADMIN', 'android:maxSdkVersion': '30' },
+      { 'android:name': BLUETOOTH_SCAN },
+    ]);
   });
 
   it.each([

@@ -41,6 +41,11 @@ export function isActive(checkIn: LocalCheckIn | null, nowMs: number): checkIn i
   return checkIn !== null && remainingMs(checkIn, nowMs) > 0;
 }
 
+// DR8, PRD 7.5 auto-cancel: a verified boarding on one of the check-in's routes ends the check-in
+export function boardingEndsCheckIn(checkIn: LocalCheckIn | null, boardedRoute: string, nowMs: number): boolean {
+  return isActive(checkIn, nowMs) && checkIn.routeCodes.includes(boardedRoute);
+}
+
 // "14:59". Whole seconds are rounded up, so the display reads 00:00 only at the very end.
 export function formatCountdown(ms: number): string {
   const totalS = Math.ceil(Math.max(0, ms) / MS_PER_S);

@@ -954,6 +954,17 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 
 **Accept.** DR8-M1, M2 and M5 pass; M3 and M4 recorded.
 
+**As built (2026-10-14):**
+- **`verify_beacon` answers a status instead of raising.** It returns one row: `vehicle_id, route_id, plate, status`, where status is `ok`, `beacon_invalid`, `beacon_expired`, `unknown_vehicle` or `too_many_checks`. An exception would roll back the call counter with it, so failed codes would never count towards the 30-a-minute limit. The counter is one row per user in the server-only `beacon_verify_calls`, removed with the account.
+- **The check itself is the internal `beacon_check`** (no client may call it), shared by `verify_beacon` and the new eight-argument `post_report`. The beacon argument has no default, so PostgREST never has two versions to choose between; the app sends it only with a code, so a server without the migration still takes every other relay. A relay posts either way; `beacon_ok` (null, true or false) is server-only for now. A valid code fills in the vehicle when the relay names none.
+- **pgcrypto:** `create extension if not exists pgcrypto with schema extensions` (hosted projects have it there already).
+- **Scanning only while the Relay panel is open and the app is in front**, at `BEACON_SCAN_MODE` (`low_latency`), stopped after `ARMED_SCAN_MIN`. `BeaconScanner` also takes `balanced` and `low_power`, but nothing arms a scan outside the panel yet: auto-cancel therefore happens when the rider opens Relay, as in DR8-M4. Arming at check-in (PRD 8.1) and the boarding notification wait for V1.
+- **Location:** without `neverForLocation`, Android hands scan results only to an app with the location permission and with location on, also on Android 12+. The panel checks the G0 consent and permission (`mayUseLocation`) and the location setting before it asks for Nearby devices, and says which is missing. Device test DR8-M1 confirms the assumption (backlog 116).
+- **Tracks are per short id**, not per code, so a beacon stays one track when its code rotates. A verified multicab stays chosen while the panel is open (it is not dropped at a terminal when another multicab comes close); its newest code goes with the relay. A failed check shows its reason above the manual pickers and is retried with the next slot's code.
+- **The session is plain TypeScript** (`features/report/bleSession.ts`, scanner and check passed in), so `useBleVehicle.test.ts` tests it without React or native code; the hook only wires it up.
+- **Demo data:** no scan and no check (its multicabs are made up).
+- **Permissions:** the commuter app gains `BLUETOOTH_SCAN`, `BLUETOOTH` and `BLUETOOTH_ADMIN` (both to API 30); the driver and gateway apps block `BLUETOOTH_SCAN`. Checked by introspection on a clean copy (the `android/` folder on disk holds a driver prebuild, which skews introspection in place).
+
 **Approvals.**
 - `npx supabase db push` for `20261014000000_beacon_verify.sql`.
 - A commuter development build (new permissions; this is the R1b rebuild named in the master plan §5).

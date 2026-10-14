@@ -1,5 +1,5 @@
 import { CHECKIN_LIFETIME_S, CHECKIN_REMINDER_MIN } from '../config';
-import { formatCountdown, isActive, parseStoredCheckIn, reminderAtMs, remainingMs, startCheckIn } from '../checkin/localCheckin';
+import { boardingEndsCheckIn, formatCountdown, isActive, parseStoredCheckIn, reminderAtMs, remainingMs, startCheckIn } from '../checkin/localCheckin';
 import { mergeWaiting } from '../checkin/waiting';
 import { verifyCheckIn } from '../verification/verifyCheckIn';
 
@@ -85,5 +85,21 @@ describe('B3: reminder and merged waiting counts', () => {
     const merged = mergeWaiting([new Map([['RCA', 2], ['JCA', 1]]), null, new Map([['RCA', 3]])]);
     expect(merged && [...merged.entries()].sort()).toEqual([['JCA', 1], ['RCA', 3]]);
     expect(mergeWaiting([null, null])).toBeNull();
+  });
+});
+
+describe('DR8: a verified boarding ends the check-in (PRD 7.5 auto-cancel)', () => {
+  const NOW = 1_700_000_000_000;
+  const shared = startCheckIn(['R4', 'R6'], 'SMB', NOW);
+
+  it('ends it on any of its routes', () => {
+    expect(boardingEndsCheckIn(shared, 'R4', NOW + 1000)).toBe(true);
+    expect(boardingEndsCheckIn(shared, 'R6', NOW + 1000)).toBe(true);
+  });
+
+  it('leaves it on another route, once expired, or with no check-in', () => {
+    expect(boardingEndsCheckIn(shared, 'R1', NOW + 1000)).toBe(false);
+    expect(boardingEndsCheckIn(shared, 'R4', shared.expiresAtMs)).toBe(false);
+    expect(boardingEndsCheckIn(null, 'R4', NOW)).toBe(false);
   });
 });

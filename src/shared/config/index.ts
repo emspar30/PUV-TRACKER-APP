@@ -396,6 +396,10 @@ export const BEACON_SLOT_TOLERANCE = 1;
 // Advertising settings passed to the native module (PRD 9.2: balanced, about 250 ms; power tuned in E1)
 export const BEACON_ADVERTISE_MODE = 'balanced';
 export const BEACON_TX_POWER = 'medium';
+// DR8: the commuter app scans at low latency while the Relay panel is open (the user is waiting on it)
+export const BEACON_SCAN_MODE = 'low_latency';
+// DR8: verify_beacon calls a user may make a minute (the migration repeats it; a test checks they agree)
+export const BEACON_VERIFY_PER_MIN = 30;
 
 // --- SMS protocol v2 (PRD 12.3)
 export const SMS_MAX_AGE_MIN = 30;

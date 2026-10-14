@@ -35,7 +35,7 @@ export const supabaseCrowdPort: CrowdPort = {
   },
 
   async postReport(input, requestKey) {
-    const { data, error } = await getSupabase().rpc('post_report', {
+    const args = {
       route: input.routeCode,
       phrase: input.phrase,
       seat_tier: input.seatTier,
@@ -43,7 +43,9 @@ export const supabaseCrowdPort: CrowdPort = {
       with_gps: input.withGps,
       stop: input.stopCode,
       request_key: requestKey,
-    });
+    };
+    // DR8: the eight-argument version only with a beacon code, so a server without it still takes the rest
+    const { data, error } = await getSupabase().rpc('post_report', input.beaconHex ? { ...args, beacon: input.beaconHex } : args);
     return error ? failureOf(error) : { postId: String(data) };
   },
 

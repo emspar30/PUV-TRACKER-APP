@@ -35,6 +35,22 @@ export type BeaconOptions = {
   notificationText: string;
 };
 
+// DR8: the commuter app's scan. mode: low_latency, balanced or low_power; it stops by itself after durationMs
+export type ScanOptions = {
+  serviceUuid: string;
+  mode: string;
+  durationMs: number;
+};
+
+// "scanning", or why not. not_available: this build has no beacon module (or one from before DR8)
+export type ScanStart = 'scanning' | 'no_permission' | 'bluetooth_off' | 'not_supported' | 'not_available';
+
+// One scan result: the beacon's 9-byte code as hex, its signal and when it was heard (ms since 1970)
+export type BeaconReading = { payloadHex: string; rssi: number; atMs: number };
+
+// Why a scan ended by itself: timeout, or failed_<Android error code>
+export type ScanStopped = { reason: string };
+
 // What the native module returns; a build from before DR5's fix has no `running`
 type NativeStatus = Omit<BeaconStatus, 'running'> & { running?: boolean };
 
@@ -47,7 +63,12 @@ type NativeBeacon = {
   startAdvertising(options: BeaconOptions): Promise<void>;
   stopAdvertising(): Promise<void>;
   getStatus(): NativeStatus;
+  // DR8; absent in builds from before it
+  startScan?(options: ScanOptions): Promise<Exclude<ScanStart, 'not_available'>>;
+  stopScan?(): Promise<boolean>;
   addListener(event: 'onStatus', listener: (status: NativeStatus) => void): EventSubscription;
+  addListener(event: 'onBeacon', listener: (reading: BeaconReading) => void): EventSubscription;
+  addListener(event: 'onScanStopped', listener: (event: ScanStopped) => void): EventSubscription;
 };
 
 const native = requireOptionalNativeModule<NativeBeacon>('TuntonBeacon');
@@ -93,4 +114,25 @@ export const stopAdvertising = () => required().stopAdvertising();
 
 export function addStatusListener(listener: (status: BeaconStatus) => void): EventSubscription | null {
   return native?.addListener('onStatus', (status) => listener({ ...status, running: status.running ?? status.enabled })) ?? null;
+}
+
+// DR8: whether this build can scan (a build from before DR8 has the module without the scanner)
+export const isScanAvailable = (): boolean => Boolean(native?.startScan);
+
+// DR8: the scan never throws for a missing module; it answers not_available
+export async function startScan(options: ScanOptions): Promise<ScanStart> {
+  if (!native?.startScan) return 'not_available';
+  return native.startScan(options);
+}
+
+export async function stopScan(): Promise<void> {
+  await native?.stopScan?.();
+}
+
+export function addBeaconListener(listener: (reading: BeaconReading) => void): EventSubscription | null {
+  return native?.startScan ? native.addListener('onBeacon', listener) : null;
+}
+
+export function addScanStoppedListener(listener: (event: ScanStopped) => void): EventSubscription | null {
+  return native?.startScan ? native.addListener('onScanStopped', listener) : null;
 }

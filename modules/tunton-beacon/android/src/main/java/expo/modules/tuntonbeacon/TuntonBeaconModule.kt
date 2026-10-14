@@ -19,24 +19,37 @@ class BeaconOptions : Record {
   @Field val notificationText: String = ""
 }
 
+class ScanOptions : Record {
+  @Field val serviceUuid: String = ""
+  @Field val mode: String = "balanced"
+  @Field val durationMs: Double = 0.0
+}
+
 class InvalidInputException(message: String) : CodedException("ERR_TUNTON_BEACON_INPUT", message, null)
 
 // JavaScript side of the driver beacon (DR4): set up the phone's secrets, start and stop the beacon
 // service, read its status. The beacon secret can be written but never read back; the SMS key can be
 // read back, because the heatmap is validated in TypeScript (DR5).
+// DR8: the commuter app's scan for beacons (BeaconScanner): startScan, stopScan, and the events
+// onBeacon (one per result) and onScanStopped (timeout or failure).
 class TuntonBeaconModule : Module() {
   private val context: Context
     get() = appContext.reactContext?.applicationContext ?: throw Exceptions.ReactContextLost()
 
   private val statusListener: () -> Unit = { sendEvent(STATUS_EVENT, status()) }
 
+  private var scanner: BeaconScanner? = null
+
   override fun definition() = ModuleDefinition {
     Name("TuntonBeacon")
 
-    Events(STATUS_EVENT)
+    Events(STATUS_EVENT, BEACON_EVENT, SCAN_STOPPED_EVENT)
 
-    OnStartObserving { BeaconState.addListener(statusListener) }
-    OnStopObserving { BeaconState.removeListener(statusListener) }
+    OnStartObserving(STATUS_EVENT) { BeaconState.addListener(statusListener) }
+    OnStopObserving(STATUS_EVENT) { BeaconState.removeListener(statusListener) }
+
+    // The app is closing: never leave a scan running
+    OnDestroy { scanner?.stop() }
 
     Function("getSupport") {
       val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
@@ -94,6 +107,26 @@ class TuntonBeaconModule : Module() {
     }
 
     Function("getStatus") { status() }
+
+    AsyncFunction("startScan") { options: ScanOptions ->
+      if (!UUID_RE.matches(options.serviceUuid)) throw InvalidInputException("serviceUuid is not a UUID")
+      if (options.durationMs < 1) throw InvalidInputException("durationMs must be positive")
+      val active = scanner ?: BeaconScanner(
+        context,
+        onBeacon = { payloadHex, rssi, atMs ->
+          sendEvent(BEACON_EVENT, mapOf("payloadHex" to payloadHex, "rssi" to rssi, "atMs" to atMs.toDouble()))
+        },
+        onStopped = { reason -> sendEvent(SCAN_STOPPED_EVENT, mapOf("reason" to reason)) },
+      ).also { scanner = it }
+      active.start(options.serviceUuid, options.mode, options.durationMs.toLong())
+    }
+
+    // False when no scan was ever started
+    AsyncFunction("stopScan") {
+      val active = scanner ?: return@AsyncFunction false
+      active.stop()
+      true
+    }
   }
 
   private fun status(): Map<String, Any?> {
@@ -113,6 +146,8 @@ class TuntonBeaconModule : Module() {
 
   companion object {
     private const val STATUS_EVENT = "onStatus"
+    private const val BEACON_EVENT = "onBeacon"
+    private const val SCAN_STOPPED_EVENT = "onScanStopped"
     private val HEX64 = Regex("^[0-9a-fA-F]{64}$")
     private val UUID_RE = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
   }

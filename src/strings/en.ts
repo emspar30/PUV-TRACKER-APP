@@ -143,6 +143,33 @@ export const en = {
     bleTitle: 'Found by Bluetooth',
     bleBody: 'Route and multicab filled in',
     bleLabel: (code: string, plate: string) => `Found by Bluetooth: ${code}, ${plate}`,
+    // DR8: the Nearby devices explainer (PRD 4.2) and the Bluetooth card's other states. Every state
+    // but "found" leaves the manual pickers below it.
+    nearby: {
+      title: 'Find your multicab by Bluetooth',
+      body: "Inside a multicab, Tunton can hear its signal and fill in the route and plate for you. It listens only for multicab signals, and only while this panel is open. Nothing is stored.",
+      continue: 'Continue',
+      notNow: 'Not now',
+      useBluetooth: 'Find my multicab by Bluetooth',
+      blocked: 'Nearby devices is off for Tunton. Allow it in Settings to find your multicab by Bluetooth.',
+      openSettings: 'Open settings',
+      needsLocation: 'To find your multicab by Bluetooth, allow location first (Locate me on the map).',
+      locationOff: "Turn on your phone's location to find your multicab by Bluetooth.",
+    },
+    ble: {
+      searching: 'Looking for your multicab… Or pick the route below.',
+      ambiguous: 'Two multicabs nearby. Pick yours below.',
+      bluetooth_off: 'Bluetooth is off. Turn it on to find your multicab, or pick the route below.',
+      no_permission: 'Nearby devices is off for Tunton. Pick the route below.',
+      not_supported: 'This phone cannot look for multicabs. Pick the route below.',
+      stopped: 'Stopped looking for your multicab. Close and open Relay to look again.',
+      beacon_invalid: "This multicab's signal did not check out. Pick the route below.",
+      beacon_expired: "This multicab's signal is out of date. Pick the route below.",
+      unknown_vehicle: 'This multicab is not registered yet. Pick the route below.',
+      too_many_checks: 'Too many checks for now. Pick the route below.',
+      network: 'Could not check the multicab (no connection). Pick the route below.',
+      sign_in: 'Sign in to find your multicab by Bluetooth.',
+    },
     sharingTitle: 'Sharing your location',
     sharingDetail: (code: string, stop: string) => `${code} · until ${stop}`,
     stopSharing: 'Stop',
@@ -458,6 +485,9 @@ export const en = {
 
   // Check-in: a local countdown in UX2; the cloud check-in, geofence and reminder arrive in G1
   checkin: {
+    // DR8: Bluetooth found the multicab on the check-in's route (PRD 7.5 auto-cancel)
+    boardedTitle: (code: string, plate: string) => `Boarded ${code} · ${plate}`,
+    boardedBody: 'Your check-in has ended. Enjoy the ride!',
     pickStation: 'Pick a station',
     // RR1: R3 and R5 have no stations yet
     noStations: 'No stations on this route yet',

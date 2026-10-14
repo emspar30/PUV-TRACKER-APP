@@ -48,6 +48,8 @@ export type ReportInput = {
   // B6: the stop nearest to the phone when it was sent (sent even without GPS; no coordinates)
   stopCode: string | null;
   withGps: boolean;
+  // DR8: the newest code of the multicab's beacon, when Bluetooth found it; the server checks it
+  beaconHex?: string | null;
 };
 
 // postId: the new post's id, so the feed can mark the user's own posts "You" (EQ-7)

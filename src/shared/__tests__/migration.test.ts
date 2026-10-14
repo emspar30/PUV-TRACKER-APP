@@ -4,7 +4,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { SMS_SEQ_MODULUS } from '../config';
+import { BEACON_PAYLOAD_VERSION, BEACON_SLOT_S, BEACON_SLOT_TOLERANCE, BEACON_VERIFY_PER_MIN, SMS_SEQ_MODULUS } from '../config';
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const MIGRATIONS = path.join(ROOT, 'supabase', 'migrations');
@@ -358,5 +358,57 @@ describe('migration: driver side (DR3)', () => {
   it('counts waiting commuters by the same rule as checkin_counts', () => {
     const body = bodies.find((b) => b.includes('from public.checkins c') && b.includes('count(*)::bigint') && b.includes('group by c.route_id'));
     expect(body).toContain('c.expires_at > now()');
+  });
+});
+
+describe('migration: boarding detection (DR8)', () => {
+  const beaconSql = read(['20261014000000_beacon_verify.sql']);
+  const body = (fn: string) => {
+    const start = beaconSql.indexOf(`create function public.${fn}(`);
+    const rest = beaconSql.slice(start);
+    return rest.slice(0, rest.indexOf('$$;', rest.indexOf('as $$')));
+  };
+
+  it('verify_beacon is for signed-in users only: one grant, to authenticated', () => {
+    expect(statements).toContain('revoke execute on function public.verify_beacon(text) from public, anon');
+    expect(statements.filter((s) => s.startsWith('grant execute on function public.verify_beacon'))).toEqual(['grant execute on function public.verify_beacon(text) to authenticated']);
+    expect(body('verify_beacon')).toContain('public.may_participate()');
+  });
+
+  it('the check that reads the secrets is internal: no client may call beacon_check', () => {
+    expect(statements).toContain('revoke execute on function public.beacon_check(text) from public, anon, authenticated');
+    expect(statements.some((s) => s.startsWith('grant execute on function public.beacon_check'))).toBe(false);
+    expect(body('beacon_check')).toContain('vault.decrypted_secrets');
+    // Only the vehicle, its route and plate (and a status) ever leave it
+    expect(beaconSql).toContain('returns table (vehicle_id text, route_id text, plate text, status text)');
+  });
+
+  it('checks codes by the shared rule: version, 60 s slots, one slot either side', () => {
+    const check = body('beacon_check');
+    expect(check).toContain(`code_version <> ${BEACON_PAYLOAD_VERSION}`);
+    expect(check).toContain(`extract(epoch from now()) / ${BEACON_SLOT_S}`);
+    expect(check).toContain(`for slot_offset in -${BEACON_SLOT_TOLERANCE}..${BEACON_SLOT_TOLERANCE} loop`);
+    expect(check).toContain("extensions.hmac(");
+    expect(check).toContain("'sha256'");
+  });
+
+  it(`limits a user to ${BEACON_VERIFY_PER_MIN} checks a minute, counted in a server-only table`, () => {
+    expect(body('verify_beacon')).toContain(`used > ${BEACON_VERIFY_PER_MIN}`);
+    expect(clientGrantsOn('public.beacon_verify_calls')).toEqual([]);
+    expect(policiesOn('public.beacon_verify_calls')).toEqual([]);
+    expect(beaconSql).toContain('user_id       uuid primary key references auth.users (id) on delete cascade');
+  });
+
+  it('answers a bad code with a status, never an exception, so failed checks still count', () => {
+    expect(body('verify_beacon')).not.toMatch(/raise exception '%'/);
+    expect(body('beacon_check')).not.toContain('raise');
+  });
+
+  it('a relay may carry the code: an eight-argument post_report, the beacon without a default; beacon_ok stays server-only', () => {
+    expect(statements).toContain('grant execute on function public.post_report(text, text, text, text, boolean, text, text, text) to authenticated');
+    expect(beaconSql).toContain('stop text, beacon text, request_key text)');
+    expect(beaconSql).not.toMatch(/beacon text default/);
+    expect(statements).toContain('alter table public.feed_posts add column beacon_ok boolean');
+    expect(statements.some((s) => s.startsWith('grant') && s.includes('beacon_ok'))).toBe(false);
   });
 });

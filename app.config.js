@@ -23,6 +23,9 @@ const DRIVER_SIDE_ONLY = [
   'android.permission.CAMERA',
 ];
 
+// DR8: only the commuter app scans for the multicab's beacon (plugins/withCommuterBle.js)
+const COMMUTER_ONLY = ['android.permission.BLUETOOTH_SCAN'];
+
 // No app records audio: expo-camera (QR scanning in the driver and gateway apps) is configured
 // without it in app.json, and this blocks it in case a library adds it anyway
 const NEVER = ['android.permission.RECORD_AUDIO'];
@@ -33,11 +36,13 @@ const DRIVER_SMS_BLOCKED = ['android.permission.SEND_SMS', 'android.permission.R
 const GATEWAY_SMS_BLOCKED = ['android.permission.RECEIVE_SMS', 'android.permission.READ_SMS'];
 
 // The commuter app is exactly app.json (com.tunton.app, src/app), except that the driver-side
-// permissions are blocked as well as background location. The driver and gateway apps have no
-// location at all: the system tracks vehicles, not drivers (PRD 3.2, 9.1), and the gateway only texts.
+// permissions are blocked as well as background location, and DR8's Bluetooth scan plugin. The
+// driver and gateway apps have no location at all: the system tracks vehicles, not drivers (PRD 3.2,
+// 9.1), and the gateway only texts. Neither scans.
 const SETTINGS = {
   commuter: {
     blocked: ['android.permission.ACCESS_BACKGROUND_LOCATION', ...DRIVER_SIDE_ONLY, ...NEVER],
+    plugin: './plugins/withCommuterBle',
   },
   driver: {
     name: 'Tunton Driver',
@@ -45,7 +50,7 @@ const SETTINGS = {
     scheme: 'tunton-driver',
     routerRoot: 'src/driver/app',
     permissions: ['android.permission.POST_NOTIFICATIONS'],
-    blocked: [...LOCATION, ...DRIVER_SMS_BLOCKED, ...NEVER],
+    blocked: [...LOCATION, ...DRIVER_SMS_BLOCKED, ...COMMUTER_ONLY, ...NEVER],
     plugin: './plugins/withDriverAndroid',
   },
   gateway: {
@@ -54,7 +59,7 @@ const SETTINGS = {
     scheme: 'tunton-gateway',
     routerRoot: 'src/gateway/app',
     permissions: ['android.permission.POST_NOTIFICATIONS'],
-    blocked: [...LOCATION, ...GATEWAY_SMS_BLOCKED, ...NEVER],
+    blocked: [...LOCATION, ...GATEWAY_SMS_BLOCKED, ...COMMUTER_ONLY, ...NEVER],
     plugin: './plugins/withGatewayAndroid',
   },
 };
