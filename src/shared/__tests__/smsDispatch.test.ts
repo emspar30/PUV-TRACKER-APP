@@ -33,6 +33,20 @@ describe('SMS dispatch rule (PRD 9.6; DR2)', () => {
     expect(dispatchDecision(last, { ZAM: 1 }, manila(8, 1))).toEqual({ send: true, reason: 'change' });
   });
 
+  // Owner, 2026-10-15 (backlog 113): a lone commuter at an empty stop is sent at once, not after up
+  // to 5 minutes (the DR6 run saw 3.5 min)
+  it('sends at once when a stop the driver last saw empty gets someone', () => {
+    const afterCleared = sent({ SMB: 0, ZAM: 0 }, manila(8));
+    expect(dispatchDecision(afterCleared, { SMB: 1, ZAM: 0 }, manila(8, 1))).toEqual({ send: true, reason: 'new_stop' });
+    // A stop missing from the last counts was empty too
+    expect(dispatchDecision(sent({ ZAM: 2 }, manila(8)), { ZAM: 2, CSU: 1 }, manila(8, 1))).toEqual({ send: true, reason: 'new_stop' });
+    // The second commuter at a stop the driver already sees waits for a change of 2 or the interval
+    const one = sent({ SMB: 1, ZAM: 0 }, manila(8, 1));
+    expect(dispatchDecision(one, { SMB: 2, ZAM: 0 }, manila(8, 2))).toEqual({ send: false });
+    // From 0 to 2 or more it is still a change
+    expect(dispatchDecision(afterCleared, { SMB: 2, ZAM: 0 }, manila(8, 1))).toEqual({ send: true, reason: 'change' });
+  });
+
   it('sends every 5 minutes while anyone is waiting', () => {
     const last = sent({ SMB: 3 }, manila(8));
     expect(dispatchDecision(last, { SMB: 3 }, manila(8) + 5 * MIN - 1)).toEqual({ send: false });

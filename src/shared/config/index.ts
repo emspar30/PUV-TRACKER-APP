@@ -415,8 +415,8 @@ export const DATA_SMS_MAX_BYTES = 133;
 export const DATA_SMS_PORT = 8901;
 
 // --- Heatmap dispatch (PRD 9.6; the SMS worker, DR6). Per route, the worker sends when a stop's
-// count changes by DISPATCH_MIN_CHANGE or more, or every DISPATCH_INTERVAL_MIN while any count is
-// above zero, and only between the operating hours (minutes after midnight, Asia/Manila; Q6: 05:00 to 21:00).
+// count changes by DISPATCH_MIN_CHANGE or more, when an empty stop gets someone (owner, 2026-10-15),
+// or every DISPATCH_INTERVAL_MIN while any count is above zero, and only between the operating hours (minutes after midnight, Asia/Manila; Q6: 05:00 to 21:00).
 export const SMS_DISPATCH_MIN_CHANGE = 2;
 export const SMS_DISPATCH_INTERVAL_MIN = 5;
 export const SMS_OPERATING_START_MIN = 300;

@@ -541,7 +541,7 @@ An admin provisions each driver device once, in person:
 ### 9.6 SMS gateway
 
 - **Gateway app:** a small custom Kotlin app on a dedicated phone on mains power, with a UPS or power bank for outages. It pulls queued messages from the Node.js worker over HTTPS and sends them by SMS.
-- **Dispatch policy:** send only when a terminal's count changes by 2 or more, or every 5 minutes while any count is above zero. This limits volume.
+- **Dispatch policy:** send only when a terminal's count changes by 2 or more, when a terminal that had nobody waiting gets someone, or every 5 minutes while any count is above zero. This limits volume while a lone commuter at an empty terminal still reaches the driver within a minute (owner decision, 2026-10-15).
 - **Volume planning:** at one message per 5 minutes over 14 operating hours, a vehicle receives about 170 messages a day. A 10-vehicle pilot is then about 1,700 messages a day, which the SMS plan must be confirmed to allow.
 - **Telco terms:** consumer "unlimited SMS" promos usually have fair-use rules. The project must either confirm written allowance, use several SIMs, or move to a licensed SMS provider before the pilot. This is a key risk (section 16).
 - **Health monitoring:** the worker tracks send success, delivery latency and battery of the gateway phone and alerts the admin.

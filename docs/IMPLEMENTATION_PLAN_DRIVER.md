@@ -319,11 +319,12 @@ Per route, evaluated every `WORKER_CYCLE_S`:
 | --- | --- |
 | `first` | No message has been sent today for this route and any count is above zero |
 | `change` | Any stop's count differs by `SMS_DISPATCH_MIN_CHANGE` (2) or more from the last sent value |
+| `new_stop` | A stop the last sent message showed at zero now has someone (owner, 2026-10-15, backlog 113: without it a lone commuter waited up to 5 minutes) |
 | `interval` | `SMS_DISPATCH_INTERVAL_MIN` (5) minutes since the last send while any count is above zero |
 | `cleared` | All counts are now zero and the last sent message had a non-zero count (sent once, so drivers do not see an old queue for 15 minutes) |
 | *(never)* | Outside the operating hours (Q6) |
 
-**Volume:** at most 12 messages an hour per phone (×2 for a split route) over 16 operating hours is ≤ 192 a day per phone, so about **1,900 a day for 10 vehicles** (PRD 9.6 estimates 1,700 for 14 hours). Android's own outgoing-SMS limiter (by default about 30 messages per 30 minutes per app) must be raised on the gateway phone (DR7 task 9).
+**Volume:** about 12 messages an hour per phone from `interval`, more when counts move (`change`, `new_stop`), never more than one per route per `WORKER_CYCLE_S`. At 12 an hour (×2 for a split route) over 16 operating hours, that is about 192 a day per phone, so about **1,900 a day for 10 vehicles** (PRD 9.6 estimates 1,700 for 14 hours); busy terminals add to it. The pilot's SMS plan must allow for more than this baseline (PRD 16, risk 3). Android's own outgoing-SMS limiter (by default about 30 messages per 30 minutes per app) must be raised on the gateway phone (DR7 task 9).
 
 ### 6.3 Provisioning QR (PRD 9.5)
 
