@@ -829,6 +829,7 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 - **Fake gateway:** registers a development gateway `GW-99` with a token held in memory only, checks each message's signature with that phone's key (service role, as the worker), and `--fail N` / `--retire`. Ctrl+C leaves GW-99 on, so DR6-M3's heartbeat alert can fire.
 - **`scripts/dev-checkin.ts`** replaces the commuter emulator in DR6-M1, M2 and M4 (this PC has no emulator): a check-in as the team test account through the app's own functions.
 - `esbuild` comes through `tsx` (0.28.2) for now; the direct dev dependency waits for approval (backlog 105).
+- **Live run (2026-10-14):** DR6-M1 to M5 pass, no full number in the logs (`device-tests.md`). Queued texts expire at the next pull (`worker_claim`), not on the clock. Any active gateway that has never been seen (GW-01 until the gateway phone runs) raises the hour's heartbeat alert, so a second gateway's gap is recorded only in the next hour. DR7-M2's trials are spaced 5 minutes apart because of the dispatch rule (backlog 113).
 
 **Approvals.**
 - `npm install --save-dev esbuild` (dev only).
