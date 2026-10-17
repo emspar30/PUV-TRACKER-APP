@@ -19,7 +19,7 @@ Put them in `services/sms-worker/.env` (git-ignored, never committed). Missing v
 | --- | --- |
 | `SUPABASE_URL` | The project URL (`https://….supabase.co`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | The service role key. **Secret:** it bypasses every database rule. Only on the team PC |
-| `SMS_PRIMARY_ENCODING` | `data` or `text`. Chosen with the carrier test (DR5-M5). Until then, `data` (it reached a Smart/TNT phone in DR5-M1) |
+| `SMS_PRIMARY_ENCODING` | **`data`** (owner, 2026-10-18, after the DR5-M5 carrier test: data SMS stay out of the driver's Messages app). `text` remains possible |
 | `PORT` | Optional; 8787 by default |
 
 The worker refuses to start if one is missing, and never prints a value.
