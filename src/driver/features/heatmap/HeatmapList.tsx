@@ -9,7 +9,8 @@ import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme'
 // Look (Stitch design, 2026-10-12): one white outlined card per stop: its number in riding order,
 // the name, the exact count large and bold, and the band as a pill chip. Where only the band may be
 // shown (Q5, Q11: at night), the chip takes the count's place and size; the home screen's heading
-// says so (Stitch 3.4).
+// says so (Stitch 3.4). An exact 0 shows no "0" chip beside it (backlog 120: "0" twice); an empty
+// space of the chip's width keeps the counts in one column.
 
 const ROW_MIN_HEIGHT = 56;
 const CHIP_MIN_WIDTH = 56;
@@ -44,6 +45,7 @@ export function HeatmapList({ rows, stale }: Props) {
         const exact = known ? known.exact : null;
         // No number beside it (night, or no count yet): the chip is the big element
         const bigChip = exact === null;
+        const noChip = exact === 0;
         return (
           <View
             key={row.code}
@@ -56,11 +58,15 @@ export function HeatmapList({ rows, stale }: Props) {
               {row.name}
             </Text>
             {exact !== null ? <Text style={[COUNT_STYLE, { color: colors.textPrimary }]}>{exact}</Text> : null}
-            <View style={[styles.chip, bigChip && styles.bigChip, { backgroundColor: fill }]}>
-              <Text style={[bigChip ? BIG_CHIP_TEXT : CHIP_TEXT, styles.chipText, { color: ink }]}>
-                {known ? text.bands[known.band] : text.unknown}
-              </Text>
-            </View>
+            {noChip ? (
+              <View style={styles.chip} />
+            ) : (
+              <View style={[styles.chip, bigChip && styles.bigChip, { backgroundColor: fill }]}>
+                <Text style={[bigChip ? BIG_CHIP_TEXT : CHIP_TEXT, styles.chipText, { color: ink }]}>
+                  {known ? text.bands[known.band] : text.unknown}
+                </Text>
+              </View>
+            )}
           </View>
         );
       })}

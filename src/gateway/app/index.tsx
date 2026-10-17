@@ -12,7 +12,7 @@ import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
 import { carrierTestEnabled } from '../carrierTest';
-import { canStartGateway, describeGateway, gatewaySettings, useGatewayStatus, type Tone } from '../features/service';
+import { canStartGateway, describeGateway, gatewaySettings, shouldRestartGateway, useGatewayStatus, type Tone } from '../features/service';
 import { useGatewayStore } from '../state/gatewayStore';
 import {
   canSendSms,
@@ -55,23 +55,38 @@ export default function GatewayHome() {
   const [wrong, setWrong] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [inFront, setInFront] = useState(AppState.currentState === 'active');
+  const [restartFailed, setRestartFailed] = useState(false);
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const text = strings.gateway.home;
+  const sms = isSmsAvailable() && canSendSms();
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
+      setInFront(state === 'active');
       if (state === 'active') setUnrestricted(isIgnoringBatteryOptimizations());
     });
     return () => subscription.remove();
   }, []);
 
+  // Backlog 119: the system killed the service while it was meant to send. Start it again once each
+  // time it is found down with the app in front (again after the app comes back to the front)
+  const restart = shouldRestartGateway(status, sms, inFront);
+  useEffect(() => {
+    if (!restart) return;
+    gatewayStart(gatewaySettings()).then(
+      () => setRestartFailed(false),
+      () => setRestartFailed(true),
+    );
+  }, [restart]);
+
   if (!setup) return <Redirect href="/setup" />;
 
-  const summary = describeGateway(status, now);
+  // SMS off: the service cannot be started again, and the warning below says why
+  const summary = describeGateway(status, now, restartFailed || !sms);
   const tone = (value: Tone) => (value === 'ok' ? colors.success : value === 'warn' ? colors.warning : colors.danger);
   const charging = batteryState === BatteryState.CHARGING || batteryState === BatteryState.FULL;
-  const sms = isSmsAvailable() && canSendSms();
   const chosenSim = listSims().find((info) => info.subscriptionId === status.subscriptionId);
 
   const unlock = () => {
@@ -83,6 +98,7 @@ export default function GatewayHome() {
 
   const toggle = async () => {
     setBusy(true);
+    setRestartFailed(false);
     try {
       if (status.enabled) await gatewayStop();
       else await gatewayStart(gatewaySettings());

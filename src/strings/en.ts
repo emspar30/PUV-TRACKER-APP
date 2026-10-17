@@ -252,7 +252,7 @@ export const en = {
       // Beside No data for a signed-in account not on the team list (live vehicles are team-only in v0)
       teamOnly: 'Team accounts only for now',
     },
-    noData: 'No data from riders right now',
+    noData: 'No data from commuters right now',
     // Age of the freshest position on a Stale route, in whole minutes
     age: (seconds: number) => `${Math.max(1, Math.floor(seconds / SECONDS_PER_MINUTE))} min`,
     route: (code: string) => `Route ${code}`,
@@ -369,7 +369,7 @@ export const en = {
       { heading: 'What is used', body: "Your phone's position and how precise it is, only while the app is open. Never in the background." },
       {
         heading: 'Why',
-        body: 'To show you on the map, start a trip from where you are, confirm you are at a stop when you check in, and mark a report as "with GPS".',
+        body: 'To show you on the map, start a trip from where you are, confirm you are at a stop when you check in, mark a report as "with GPS", and find the multicab you are in by its Bluetooth signal when you relay (Android lets apps search for Bluetooth signals only with location).',
       },
       {
         heading: 'What leaves your phone',
@@ -945,7 +945,8 @@ export const en = {
         allowed: 'Allowed',
         blocked: 'Open Settings',
       },
-      nearby: { title: 'Nearby multicab detection', body: 'Finds the multicab you board', status: 'Coming later' },
+      // DR8: Nearby devices is asked when Relay first looks for the multicab, not here
+      nearby: { title: 'Nearby multicab detection', body: 'Finds the multicab you board, by Bluetooth', status: 'In Relay' },
       alerts: { title: 'Arrival alerts', body: 'Tells you before your stop', status: 'Coming later' },
     },
     permissionsNote: 'Your location is never shared with your identity.',
@@ -1042,7 +1043,7 @@ export const en = {
     },
     notification: {
       title: 'Tunton beacon on',
-      text: 'Riders can tell this multicab is theirs.',
+      text: 'Commuters can tell this multicab is theirs.',
     },
     provision: {
       title: 'Set up this phone',
@@ -1065,7 +1066,7 @@ export const en = {
       scanAgain: 'Scan again',
       permissionsTitle: 'Two permissions',
       nearbyTitle: 'Nearby devices',
-      nearbyBody: 'Lets riders’ phones find this multicab.',
+      nearbyBody: 'Lets commuters’ phones find this multicab.',
       notificationsTitle: 'Notifications',
       notificationsBody: 'Shows that the beacon is on.',
       allow: 'Continue',
@@ -1078,9 +1079,10 @@ export const en = {
       // allowed in the app's settings (Stitch 3.9: the fix as three steps)
       smsDeniedTitle: 'Text messages were not allowed.',
       smsRestricted: 'If Android says this is a restricted setting:',
+      // Backlog 118: most phones have the ⋮ menu; HONOR (MagicOS) shows a banner on App info instead
       smsSteps: {
         open: 'Tap Open settings.',
-        allow: 'Tap ⋮ (top right), then “Allow restricted settings”.',
+        allow: 'Tap ⋮ (top right), then “Allow restricted settings”. No ⋮? Tap “Remove restriction” on the banner, then enter the screen lock.',
         back: 'Come back here and tap Try again.',
       },
       smsSkip: 'Skip for now',
@@ -1137,7 +1139,8 @@ export const en = {
     status: {
       notSetUp: 'Not set up',
       stopped: 'Stopped',
-      starting: 'Starting…',
+      restarting: 'Restarting…',
+      restartFailed: 'Stopped by the phone. Could not restart it: unlock Admin, stop and start sending.',
       connecting: 'Connecting to the worker…',
       running: 'Running',
       unauthorized: 'The worker refused this phone. Set it up again.',

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 
 import { verifyBeaconCode } from '@/services/beacon';
 
-import { addBeaconListener, addScanStoppedListener, isScanAvailable, startScan, stopScan } from '../../../modules/tunton-beacon';
+import { addBeaconListener, addScanStoppedListener, getSupport, isScanAvailable, startScan, stopScan } from '../../../modules/tunton-beacon';
 import { createBleSession, type BleScanner, type BleView } from './bleSession';
-import { useNearbyPermission, type NearbyPermission } from './nearbyPermission';
+import { SETTINGS_RECHECK_MS, useNearbyPermission, type NearbyPermission } from './nearbyPermission';
 
 export type { BleVehicle } from '@/services/beacon';
 export type { BleView } from './bleSession';
@@ -36,6 +36,21 @@ function useForeground(): boolean {
   return foreground;
 }
 
+const readBluetoothOn = () => getSupport().bluetoothOn;
+
+// Backlog 118: whether Bluetooth is on, read again every SETTINGS_RECHECK_MS while watched
+function useBluetoothOn(watch: boolean): boolean {
+  const subscribe = useCallback(
+    (changed: () => void) => {
+      if (!watch) return () => undefined;
+      const timer = setInterval(changed, SETTINGS_RECHECK_MS);
+      return () => clearInterval(timer);
+    },
+    [watch],
+  );
+  return useSyncExternalStore(subscribe, readBluetoothOn);
+}
+
 // wanted: false with demo data (its multicabs are made up), so nothing is scanned or checked. A build
 // without the scanner asks for nothing either: its manifest lacks Nearby devices, which Android
 // would then report as refused for good
@@ -44,6 +59,9 @@ export function useBleVehicle(wanted: boolean): BleState {
   const foreground = useForeground();
   const scan = nearby.status === 'granted' && foreground;
   const [view, setView] = useState<BleView | null>(null);
+  // Bluetooth turned on or off starts a new session: a scan refused for Bluetooth off never starts
+  // by itself, and Android ends a running scan when Bluetooth goes off
+  const bluetoothOn = useBluetoothOn(scan);
 
   useEffect(() => {
     if (!scan) return undefined;
@@ -54,7 +72,7 @@ export function useBleVehicle(wanted: boolean): BleState {
       // A later scan starts from nothing, not from this one's multicab
       setView(null);
     };
-  }, [scan]);
+  }, [scan, bluetoothOn]);
 
   return { nearby, view: scan ? view : null };
 }

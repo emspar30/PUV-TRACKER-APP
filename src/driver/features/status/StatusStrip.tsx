@@ -15,6 +15,8 @@ import type { BeaconStatus } from '../../../../modules/tunton-beacon';
 // Look (Stitch design, 2026-10-12): a white floating bar like the commuter app's top bar, holding one
 // status pill per item, tinted by its tone, as the commuter app's StatusPill. A fixed 2 x 2 grid
 // (beacon, update / clock, battery), so no pill moves when another's text changes length.
+// Backlog 120: a label too long for its half (a 360 dp screen such as the HONOR X8c cut "Updated just
+// now") wraps to a second line rather than losing its end.
 
 const ICON = 16;
 const DOT = spacing.sm;
@@ -60,7 +62,7 @@ function StatusItem({ icon: Icon, tone, label }: { icon: LucideIcon; tone: Tone;
     <View style={[styles.pill, { backgroundColor: fill }]}>
       <Icon color={text} size={ICON} />
       <View style={[styles.dot, { backgroundColor: text }]} />
-      <Text style={[styles.label, { color: text }]} numberOfLines={1}>
+      <Text style={[styles.label, { color: text }]} numberOfLines={2}>
         {label}
       </Text>
     </View>
@@ -82,7 +84,7 @@ const useStyles = makeStyles(({ colors, elevation, typography }) => ({
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  // Each pill takes half the row, whatever its text; a long label ends with "…"
+  // Each pill takes half the row, whatever its text; a long label takes two lines
   pill: {
     flex: 1,
     minWidth: 0,

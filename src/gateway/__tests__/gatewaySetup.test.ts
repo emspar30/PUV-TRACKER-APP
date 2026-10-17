@@ -14,7 +14,7 @@ import {
 import type { GatewayProvisioning } from '@/shared/driver/provisioning';
 import { strings } from '@/strings';
 
-import { canStartGateway, describeGateway, gatewaySettings } from '../features/service';
+import { canStartGateway, describeGateway, gatewaySettings, shouldRestartGateway } from '../features/service';
 import { GATEWAY_NOT_AVAILABLE, gatewayStatus, gatewayStart, type GatewayStatus } from '../../../modules/tunton-sms';
 
 const mockSaved = new Map<string, string>();
@@ -50,7 +50,7 @@ describe('gateway status in words (DR7)', () => {
   it.each([
     ['not set up', { setUp: false }, 'bad', text.notSetUp],
     ['stopped', { enabled: false }, 'warn', text.stopped],
-    ['starting', { running: false }, 'warn', text.starting],
+    ['restarting when the system killed the service', { running: false }, 'warn', text.restarting],
     ['refused by the worker', { lastError: 'unauthorized' }, 'bad', text.unauthorized],
     ['unreachable', { workerReachable: false, lastError: 'worker_unreachable' }, 'bad', text.unreachable],
     ['not connected yet', { workerReachable: null, lastPullMs: null }, 'warn', text.connecting],
@@ -60,6 +60,31 @@ describe('gateway status in words (DR7)', () => {
 
   it('says how long it has been quiet after 5 minutes without a pull', () => {
     expect(describeGateway({ ...running, lastPullMs: NOW - 6 * MIN }, NOW)).toEqual({ tone: 'bad', label: text.quiet(6) });
+  });
+
+  it('says it could not restart the service (backlog 119)', () => {
+    expect(describeGateway({ ...running, running: false }, NOW, true)).toEqual({ tone: 'bad', label: text.restartFailed });
+    // Only a service that should be running and is not
+    expect(describeGateway(running, NOW, true)).toEqual({ tone: 'ok', label: text.running });
+    expect(describeGateway({ ...running, enabled: false, running: false }, NOW, true)).toEqual({ tone: 'warn', label: text.stopped });
+  });
+});
+
+describe('gateway service restart (backlog 119)', () => {
+  const killed = { setUp: true, enabled: true, running: false };
+
+  it('restarts a service the system killed, with the app in front', () => {
+    expect(shouldRestartGateway(killed, true, true)).toBe(true);
+  });
+
+  it.each([
+    ['in the background (Android refuses)', killed, true, false],
+    ['without SMS permission', killed, false, true],
+    ['when the admin stopped it', { ...killed, enabled: false }, true, true],
+    ['while it runs', { ...killed, running: true }, true, true],
+    ['when not set up', { ...killed, setUp: false }, true, true],
+  ] as const)('does not restart %s', (_name, status, canSend, inFront) => {
+    expect(shouldRestartGateway(status, canSend, inFront)).toBe(false);
   });
 });
 

@@ -50,12 +50,14 @@ export function useGatewayStatus(): GatewayStatus {
 
 export type Tone = 'ok' | 'warn' | 'bad';
 
-// The gateway's state in one line, for the top of its screen
-export function describeGateway(status: GatewayStatus, nowMs: number): { tone: Tone; label: string } {
+// The gateway's state in one line, for the top of its screen. Enabled but not running means the
+// system killed the service; the home starts it again (shouldRestartGateway), and says so when it
+// cannot.
+export function describeGateway(status: GatewayStatus, nowMs: number, restartFailed = false): { tone: Tone; label: string } {
   const text = strings.gateway.status;
   if (!status.setUp) return { tone: 'bad', label: text.notSetUp };
   if (!status.enabled) return { tone: 'warn', label: text.stopped };
-  if (!status.running) return { tone: 'warn', label: text.starting };
+  if (!status.running) return restartFailed ? { tone: 'bad', label: text.restartFailed } : { tone: 'warn', label: text.restarting };
   if (status.lastError === 'unauthorized') return { tone: 'bad', label: text.unauthorized };
   if (status.workerReachable === false) return { tone: 'bad', label: text.unreachable };
   const quietMs = status.lastPullMs === null ? null : nowMs - status.lastPullMs;
@@ -66,3 +68,9 @@ export function describeGateway(status: GatewayStatus, nowMs: number): { tone: T
 
 // Whether the service may start: set up, and allowed to send SMS (the module refuses otherwise)
 export const canStartGateway = (status: Pick<GatewayStatus, 'setUp'>, canSend: boolean) => status.setUp && canSend;
+
+// Backlog 119: the admin left it on but the service is not running (Android or the phone maker
+// killed it). Start it again, only with the app in front: Android refuses to start a foreground
+// service from the background. A second start while one is under way is ignored by the service.
+export const shouldRestartGateway = (status: Pick<GatewayStatus, 'setUp' | 'enabled' | 'running'>, canSend: boolean, inFront: boolean) =>
+  inFront && status.enabled && !status.running && canStartGateway(status, canSend);

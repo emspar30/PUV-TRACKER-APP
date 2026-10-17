@@ -30,6 +30,10 @@ export type NearbyPermission = {
 };
 
 const ANDROID_12 = 31;
+// Backlog 118: while the panel is open, the location setting and the permission are read again this
+// often, so turning location on (or off, or allowing Nearby devices in Settings) takes effect
+// without closing the panel
+export const SETTINGS_RECHECK_MS = 2000;
 
 // The answer is kept while the app runs, so the panel does not ask again each time it opens
 const useNearbyAnswer = create<{ answer: 'declined' | 'blocked' | null; setAnswer: (answer: 'declined' | 'blocked' | null) => void }>((set) => ({
@@ -47,6 +51,13 @@ export function useNearbyPermission(wanted: boolean): NearbyPermission {
   const answer = useNearbyAnswer((state) => state.answer);
   const setAnswer = useNearbyAnswer((state) => state.setAnswer);
   const [system, setSystem] = useState<'checking' | 'location_off' | 'granted' | 'not_granted'>('checking');
+  const [recheck, setRecheck] = useState(0);
+
+  useEffect(() => {
+    if (!wanted || !locationOk) return undefined;
+    const timer = setInterval(() => setRecheck((count) => count + 1), SETTINGS_RECHECK_MS);
+    return () => clearInterval(timer);
+  }, [wanted, locationOk]);
 
   useEffect(() => {
     if (!wanted || !locationOk) return undefined;
@@ -59,7 +70,7 @@ export function useNearbyPermission(wanted: boolean): NearbyPermission {
     return () => {
       current = false;
     };
-  }, [wanted, locationOk]);
+  }, [wanted, locationOk, recheck]);
 
   const status: NearbyStatus = !wanted
     ? 'off'

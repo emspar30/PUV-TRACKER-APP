@@ -22,7 +22,7 @@ import type { HeatmapRow } from '@/shared/driver/heatmapView';
 import { northCenterCap, type Bounds } from '@/shared/geo/bounds';
 import { fitCamera, latAboveCenter, zoomAbout, type Size } from '@/shared/geo/fit';
 import { strings } from '@/strings';
-import { makeStyles, spacing, useTheme } from '@/theme';
+import { MIN_TOUCH_TARGET, makeStyles, spacing, useTheme } from '@/theme';
 
 import type { DriverRoute } from './routeStops';
 
@@ -65,6 +65,11 @@ const FRAME_MARGIN = spacing.lg;
 const SIDE_MARGIN = spacing.xl * 2;
 // The column of round buttons on the right, kept clear when the route is framed
 const BUTTONS_WIDTH = spacing.md + spacing.xl + spacing.md;
+const BUTTON_GAP = spacing.sm + spacing.xs;
+// Backlog 120: the buttons stay in the strip of map between the panels, this far from each. Where one
+// column is too tall for it (a short screen, such as the HONOR X8c), they stand in two: zoom on the
+// right, the default view and the names toggle on the left
+const BUTTONS_MARGIN = spacing.sm;
 // A zoom this close to its aim counts as reached
 const ZOOM_EPSILON = 0.01;
 // A new camera limit (maxBounds) stops any camera animation when it reaches the map, and a camera
@@ -125,7 +130,10 @@ export function HeatmapMap({ route, rows, stale, topInset, bottomInset }: Props)
   // Text on the map needs the installed glyphs; without them the nodes still show, unnamed
   const named = tiles.status === 'ready' && tiles.glyphsUrl !== null;
 
-  const stripRight = Math.max(SIDE_MARGIN, BUTTONS_WIDTH + FRAME_MARGIN);
+  const buttonCount = named ? 4 : 3;
+  const columnHeight = buttonCount * MIN_TOUCH_TARGET + (buttonCount - 1) * BUTTON_GAP;
+  const twoColumns = size !== null && size.height - topInset - bottomInset - 2 * BUTTONS_MARGIN < columnHeight;
+  const stripRight = Math.max(SIDE_MARGIN, BUTTONS_WIDTH + (twoColumns ? MIN_TOUCH_TARGET + BUTTON_GAP : 0) + FRAME_MARGIN);
   // The default view: the route in the space the panels and the buttons leave
   const fit = useMemo(
     () =>
@@ -342,17 +350,21 @@ export function HeatmapMap({ route, rows, stale, topInset, bottomInset }: Props)
         </Map>
       ) : null}
       <Text style={[typography.caption, styles.credit, { bottom: bottomInset + spacing.sm }]}>{strings.common.attribution}</Text>
-      <View style={[styles.buttons, { bottom: bottomInset + spacing.sm }]}>
-        <RoundButton icon={Plus} label={strings.driver.heatmap.zoomIn} onPress={() => zoomBy(DRIVER_MAP_ZOOM_STEP)} />
-        <RoundButton icon={Minus} label={strings.driver.heatmap.zoomOut} onPress={() => zoomBy(-DRIVER_MAP_ZOOM_STEP)} />
-        <RoundButton icon={Maximize} label={strings.driver.heatmap.defaultView} onPress={showDefaultView} />
-        {named ? (
-          <RoundButton
-            icon={namesHidden ? Captions : CaptionsOff}
-            label={namesHidden ? strings.driver.heatmap.showNames : strings.driver.heatmap.hideNames}
-            onPress={() => setNamesHidden((hidden) => !hidden)}
-          />
-        ) : null}
+      <View style={[styles.buttons, twoColumns ? styles.twoColumns : null, { bottom: bottomInset + BUTTONS_MARGIN }]}>
+        <View style={styles.column}>
+          <RoundButton icon={Plus} label={strings.driver.heatmap.zoomIn} onPress={() => zoomBy(DRIVER_MAP_ZOOM_STEP)} />
+          <RoundButton icon={Minus} label={strings.driver.heatmap.zoomOut} onPress={() => zoomBy(-DRIVER_MAP_ZOOM_STEP)} />
+        </View>
+        <View style={styles.column}>
+          <RoundButton icon={Maximize} label={strings.driver.heatmap.defaultView} onPress={showDefaultView} />
+          {named ? (
+            <RoundButton
+              icon={namesHidden ? Captions : CaptionsOff}
+              label={namesHidden ? strings.driver.heatmap.showNames : strings.driver.heatmap.hideNames}
+              onPress={() => setNamesHidden((hidden) => !hidden)}
+            />
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -378,6 +390,14 @@ const useStyles = makeStyles(({ colors }) => ({
   buttons: {
     position: 'absolute',
     right: spacing.md,
-    gap: spacing.sm + spacing.xs,
+    gap: BUTTON_GAP,
+  },
+  // The first column (zoom) on the right
+  twoColumns: {
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
+  },
+  column: {
+    gap: BUTTON_GAP,
   },
 }));
