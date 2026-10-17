@@ -11,7 +11,7 @@ import { bearingDeg, headingGapDeg } from '../telemetry/liveRow';
 const M_PER_KM = 1000;
 
 // The line's direction of travel at a distance along it
-function directionAtKm(coordinates: LineCoordinates, chainageKm: number): number {
+export function directionAtKm(coordinates: LineCoordinates, chainageKm: number): number {
   const probeKm = LIVE_HEADING_PROBE_M / M_PER_KM;
   return bearingDeg(pointAtChainage(coordinates, Math.max(0, chainageKm - probeKm)), pointAtChainage(coordinates, chainageKm + probeKm));
 }

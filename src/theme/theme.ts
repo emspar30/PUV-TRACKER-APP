@@ -154,6 +154,8 @@ export const MAP_GEOMETRY = {
     coneHalfAngleDeg: 28,
     coneOpacity: 0.35,
     staleOpacity: 0.5,
+    // CF1: an Estimated (dead-reckoned) marker, fainter than a Stale one at its last fix
+    ghostOpacity: 0.4,
     badgeTextSize: 11,
     badgeOffsetEm: 1.6,
     // The tapped vehicle (restyle)

@@ -10,6 +10,7 @@ import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { ActiveRouteCard } from '@/features/live/ActiveRouteCard';
+import { CoverageNudge } from '@/features/live/CoverageNudge';
 import { ExploreCard } from '@/features/live/ExploreCard';
 import { RouteSelector, type RouteOption, type VehicleFilter } from '@/features/live/RouteSelector';
 import { VehicleCard } from '@/features/live/VehicleCard';
@@ -31,6 +32,7 @@ import { TourTarget } from '@/features/tour/TourTarget';
 import { TrackingBar } from '@/features/tracking/TrackingBar';
 import { TrackingPanel } from '@/features/tracking/TrackingPanel';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
+import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
 import { useVehicles } from '@/features/vehicles/useVehicles';
 import { useTourStore } from '@/state/tourStore';
 import { promptSignIn, useIsGuest } from '@/features/auth/guestGate';
@@ -50,6 +52,7 @@ import {
   TOUR_START_DELAY_MS,
 } from '@/shared/config';
 import { canReportWithGps } from '@/shared/checkin/geofence';
+import { bestAlternative, overlappingRoutes } from '@/shared/routing/alternatives';
 import { nearestStop } from '@/shared/routing/describe';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { haversineMeters } from '@/shared/geo/haversine';
@@ -58,6 +61,7 @@ import { withReturnLegs } from '@/shared/routing/loop';
 import type { RouteDirection } from '@/shared/routing/types';
 import { isNight } from '@/shared/backend/rules';
 import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
+import { displayPosition, isGhostAge } from '@/shared/telemetry/deadReckoning';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import { isStopped } from '@/shared/telemetry/stopped';
@@ -153,6 +157,11 @@ export default function MapScreen() {
   const live = useVehicles(repos.vehicles, focused ? selectedRoute : null);
   // B2: each route with one stored leg also has its stand-in other leg, so ETAs follow a vehicle round
   const loopLines = useMemo(() => withReturnLegs(lines), [lines]);
+  // CF1: each vehicle's line by its id (return legs included), so an Estimated marker moves along it
+  const lineOf = useMemo(() => {
+    const byId = new Map(loopLines.map((line) => [line.id, line.coordinates]));
+    return (lineId: string) => byId.get(lineId);
+  }, [loopLines]);
   // The tracked multicab's own feed, kept running on another route and on other tabs, so its alerts
   // still come; on its own route with Map in front, the route's feed already has it
   const onTrackedRoute = trackedRoute !== null && trackedRoute === selectedRoute;
@@ -177,6 +186,25 @@ export default function MapScreen() {
   const gpsAvailable = canReportWithGps(placeOf(commuter, fix, live.nowMs));
   // B4: a relay sent with GPS shares the location until the rider reaches their destination
   const relay = useRelayBroadcast(commuter);
+
+  // L1: at night the server shows only stopped multicabs (PRD 10.4), so an empty live route says
+  // Night Mode rather than No data. The server decides; this only labels it.
+  const night = repos.vehicles.source === 'live' && isNight(live.nowMs);
+  // Live vehicles are for team accounts only in v0; a signed-in account off the list is told why
+  const offTeam = repos.vehicles.source === 'live' && teamAccount === false;
+  // CF1 coverage nudge: the picked route has no Live multicab (whatever the seat filter), by day,
+  // for anyone who could see one. Overlapping routes are then watched for an alternative nearby.
+  const routeLive = routeCoverage(live.vehicles.map((item) => ageSeconds(item.lastPacketMs, live.nowMs))).coverage === 'live';
+  const nudgeOn = focused && selectedRoute !== null && live.nowMs > 0 && !routeLive && !night && !offTeam;
+  const overlapping = useMemo(() => (selectedRoute ? overlappingRoutes(stops, selectedRoute) : []), [stops, selectedRoute]);
+  const others = useRoutesVehicles(repos.vehicles, overlapping, !nudgeOn);
+  const alternative = useMemo(
+    () =>
+      nudgeOn && selectedRoute
+        ? bestAlternative({ routeCode: selectedRoute, lines, stops, vehicles: others.vehicles, nowMs: others.nowMs, anchor: commuter })
+        : null,
+    [nudgeOn, selectedRoute, lines, stops, others.vehicles, others.nowMs, commuter],
+  );
   const stopRelay = useRelayStore((store) => store.stop);
   const relayStopsOf = useCallback(
     (code: string) =>
@@ -420,11 +448,7 @@ export default function MapScreen() {
     );
   }
 
-  // L1: at night the server shows only stopped multicabs (PRD 10.4), so an empty live route says
-  // Night Mode rather than No data. The server decides; this only labels it.
-  const night = repos.vehicles.source === 'live' && isNight(live.nowMs);
-  // Live vehicles are for team accounts only in v0; a signed-in account off the list is told why
-  const teamOnly = repos.vehicles.source === 'live' && teamAccount === false && coverage.coverage === 'none';
+  const teamOnly = offTeam && coverage.coverage === 'none';
   const status: { label: string; tone: StatusTone } =
     coverage.coverage === 'live'
       ? { label: strings.live.active.count(vehicles.length), tone: 'success' }
@@ -464,6 +488,7 @@ export default function MapScreen() {
             labels={state.tiles.glyphsUrl !== null}
             selectedId={onTrackedRoute ? trackedId : selectedVehicle}
             othersOpacity={onTrackedRoute ? TRACK_OTHERS_OPACITY : 1}
+            lineOf={lineOf}
             onPressVehicle={(id) => {
               if (onTrackedRoute) return;
               setSelectedVehicle(id);
@@ -475,7 +500,7 @@ export default function MapScreen() {
           <TrackingLayers
             commuter={commuter}
             showPin={commuter.source !== 'gps'}
-            vehicle={onTrackedRoute ? tracked : null}
+            vehicle={onTrackedRoute && tracked ? displayPosition(tracked, lineOf(tracked.lineId), trackSource.nowMs) : null}
             line={onTrackedRoute && tracked ? (loopLines.find((line) => line.id === tracked.lineId) ?? null) : null}
             labels={state.tiles.glyphsUrl !== null}
           />
@@ -506,6 +531,15 @@ export default function MapScreen() {
                   : null
             }
             onClose={hideRoute}
+          />
+        ) : null}
+        {nudgeOn && selectedOption ? (
+          <CoverageNudge
+            code={selectedOption.code}
+            alternative={alternative ? { ...alternative, color: colorOfRoute(alternative.routeCode) } : null}
+            locked={guest}
+            onShare={() => (guest ? promptSignIn() : setReportOpen(true))}
+            onAlternative={(code) => showRoute(code, 'all')}
           />
         ) : null}
       </View>
@@ -586,6 +620,7 @@ export default function MapScreen() {
             distanceKm={vehicleKm}
             onTrack={() => void startTracking(vehicle.id)}
             locked={guest}
+            estimated={isGhostAge(ageSeconds(vehicle.lastPacketMs, live.nowMs))}
             onClose={() => setSelectedVehicle(null)}
           />
         ) : stop ? (

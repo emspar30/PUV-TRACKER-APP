@@ -1,17 +1,30 @@
 // Map features for vehicle markers (AF3): one point per vehicle and a heading cone in front of it.
 // The cone is sized in screen pixels for the current zoom, so it looks the same at every zoom.
-// Vehicles with No data are not drawn. Pure: no React Native or Expo imports.
+// Vehicles with No data are not drawn. CF1: an Estimated vehicle (silent 90 s to 5 minutes) is drawn
+// at its dead-reckoned position along its line and flagged ghost. Pure: no React Native or Expo imports.
 
 import type { Feature, FeatureCollection, Point, Polygon, Position } from 'geojson';
 
+import type { LineCoordinates } from '../geo/line';
 import { ageSeconds, coverageOf } from './coverage';
+import { displayPosition } from './deadReckoning';
 import { seatTier, type SeatTier } from './occupancy';
 import { isStopped } from './stopped';
 import type { VehicleSnapshot } from './vehicle';
 
 // label: the plate shown beside the marker ("DEMO 01" for demo vehicles)
 // heading: degrees clockwise from north, which the vehicle icon is rotated to
-export type MarkerProps = { id: string; label: string; tier: SeatTier; stale: boolean; stopped: boolean; demo: boolean; heading: number };
+// ghost: CF1, drawn at an estimated position (faded, labelled Estimated, no ETA)
+export type MarkerProps = {
+  id: string;
+  label: string;
+  tier: SeatTier;
+  stale: boolean;
+  ghost: boolean;
+  stopped: boolean;
+  demo: boolean;
+  heading: number;
+};
 
 const EARTH_CIRCUMFERENCE_M = 40075016.686;
 const TILE_SIZE_PX = 512;
@@ -43,28 +56,32 @@ export function vehicleMarkerFeatures(
   vehicles: readonly VehicleSnapshot[],
   nowMs: number,
   cone: { lengthPx: number; halfAngleDeg: number; zoom: number },
+  // The coordinates of a vehicle's line by its id, for Estimated positions; without it they stay at the last fix
+  lineOf: (lineId: string) => LineCoordinates | undefined = () => undefined,
 ): MarkerFeatures {
   const points: Feature<Point, MarkerProps>[] = [];
   const cones: Feature<Polygon, MarkerProps>[] = [];
   for (const vehicle of vehicles) {
     const coverage = coverageOf(ageSeconds(vehicle.lastPacketMs, nowMs));
     if (coverage === 'none' || vehicle.hidden) continue;
+    const at = displayPosition(vehicle, lineOf(vehicle.lineId), nowMs);
     const properties: MarkerProps = {
       id: vehicle.id,
       label: vehicle.label,
       tier: seatTier(vehicle.seatsTaken),
       stale: coverage === 'stale',
+      ghost: at.ghost,
       stopped: vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs),
       demo: vehicle.demo,
-      heading: vehicle.headingDeg,
+      heading: at.headingDeg,
     };
-    points.push({ type: 'Feature', id: vehicle.id, properties, geometry: { type: 'Point', coordinates: [vehicle.lon, vehicle.lat] } });
-    const lengthM = cone.lengthPx * metersPerPixel(vehicle.lat, cone.zoom);
+    points.push({ type: 'Feature', id: vehicle.id, properties, geometry: { type: 'Point', coordinates: [at.lon, at.lat] } });
+    const lengthM = cone.lengthPx * metersPerPixel(at.lat, cone.zoom);
     cones.push({
       type: 'Feature',
       id: vehicle.id,
       properties,
-      geometry: { type: 'Polygon', coordinates: [headingCone(vehicle.lat, vehicle.lon, vehicle.headingDeg, lengthM, cone.halfAngleDeg)] },
+      geometry: { type: 'Polygon', coordinates: [headingCone(at.lat, at.lon, at.headingDeg, lengthM, cone.halfAngleDeg)] },
     });
   }
   return { points: { type: 'FeatureCollection', features: points }, cones: { type: 'FeatureCollection', features: cones } };

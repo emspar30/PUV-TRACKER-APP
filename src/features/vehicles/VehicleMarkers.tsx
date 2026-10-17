@@ -2,9 +2,13 @@ import { GeoJSONSource, Images, Layer } from '@maplibre/maplibre-react-native';
 import { useMemo } from 'react';
 
 import { GLYPH_FONT_MEDIUM } from '@/data/map/glyphset';
+import type { LineCoordinates } from '@/shared/geo/line';
 import { vehicleMarkerFeatures } from '@/shared/telemetry/markers';
 import type { VehicleSnapshot } from '@/shared/telemetry/vehicle';
+import { strings } from '@/strings';
 import { MAP_GEOMETRY, spacing, useTheme } from '@/theme';
+
+import { useGhostClock } from './useGhostClock';
 
 const POINTS = 'vehicles';
 const ICON = 'puv';
@@ -24,6 +28,8 @@ type VehicleMarkersProps = {
   onPressVehicle?: (id: string) => void;
   // While one vehicle is tracked (L2) the others fade to this opacity
   othersOpacity?: number;
+  // CF1: a vehicle's line by its id, so an Estimated marker moves along it
+  lineOf?: (lineId: string) => LineCoordinates | undefined;
 };
 
 // Touch area around a marker, in dp
@@ -33,23 +39,26 @@ const HITBOX = { top: spacing.lg, right: spacing.lg, bottom: spacing.lg, left: s
 // way it is going reads at a glance. Its dark body with a white edge stands apart from the route
 // line. Behind it, a soft halo in the seat-tier colour; greyed while Stale; the plate beside it
 // ("DEMO 01" on simulated vehicles). Tapping one selects it; the selected one has a route-colour halo.
+// CF1: a vehicle silent for 90 s to 5 minutes moves along its line at its recent speed, fainter,
+// with "Estimated" after its plate; positions are worked out every second while one shows.
 // The source keeps its id, so each refresh only replaces its data; the layers are never remounted.
-export function VehicleMarkers({ vehicles, nowMs, color, labels, selectedId = null, onPressVehicle, othersOpacity = 1 }: VehicleMarkersProps) {
+export function VehicleMarkers({ vehicles, nowMs, color, labels, selectedId = null, onPressVehicle, othersOpacity = 1, lineOf }: VehicleMarkersProps) {
   const { mapPaint, colors, baseMap } = useTheme();
   const g = MAP_GEOMETRY.vehicle;
+  const clockMs = useGhostClock(vehicles, nowMs);
   // Points only: they do not depend on the zoom, so zooming never re-sends the vehicles to the map
   const points = useMemo(
-    () => vehicleMarkerFeatures(vehicles, nowMs, { lengthPx: g.coneLengthPx, halfAngleDeg: g.coneHalfAngleDeg, zoom: 0 }).points,
-    [vehicles, nowMs, g.coneLengthPx, g.coneHalfAngleDeg],
+    () => vehicleMarkerFeatures(vehicles, clockMs, { lengthPx: g.coneLengthPx, halfAngleDeg: g.coneHalfAngleDeg, zoom: 0 }, lineOf).points,
+    [vehicles, clockMs, g.coneLengthPx, g.coneHalfAngleDeg, lineOf],
   );
 
   // Paints are built once per theme and colour, so a refresh does not touch them
   const paints = useMemo(() => {
     const tier = ['case', ['get', 'stale'], mapPaint.stale, ['match', ['get', 'tier'], 'green', mapPaint.occupancyGreen, 'amber', mapPaint.occupancyAmber, mapPaint.occupancyRed]];
-    // Stale vehicles are greyed; while one is tracked, the others fade too
+    // Stale vehicles are greyed, Estimated ones fainter still; while one is tracked, the others fade too
     const fade = [
       '*',
-      ['case', ['get', 'stale'], g.staleOpacity, 1],
+      ['case', ['get', 'ghost'], g.ghostOpacity, ['get', 'stale'], g.staleOpacity, 1],
       ['case', ['==', ['get', 'id'], selectedId ?? ''], 1, othersOpacity],
     ];
     return {
@@ -74,7 +83,7 @@ export function VehicleMarkers({ vehicles, nowMs, color, labels, selectedId = nu
       },
       badge: {
         layout: {
-          'text-field': ['get', 'label'],
+          'text-field': ['case', ['get', 'ghost'], ['concat', ['get', 'label'], strings.live.vehicle.estimatedSuffix], ['get', 'label']],
           'text-font': [GLYPH_FONT_MEDIUM],
           'text-size': g.badgeTextSize,
           'text-offset': [g.badgeOffsetEm, 0],

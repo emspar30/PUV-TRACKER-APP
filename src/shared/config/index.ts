@@ -29,6 +29,23 @@ export const COVERAGE_LIVE_MAX_AGE_S = 90;
 export const COVERAGE_STALE_MAX_AGE_S = 600;
 export const LIVE_UI_REFRESH_INTERVAL_S = 5;
 
+// --- CF1 coverage fallbacks (PRD 7.3 as amended 2026-10-17)
+// Estimated markers: a vehicle silent from COVERAGE_LIVE_MAX_AGE_S up to this age is drawn where it
+// probably is, moved along its line at its recent speed (dead reckoning), faded, labelled
+// "Estimated" and without an ETA. Older Stale vehicles stay greyed at their last fix.
+export const GHOST_MAX_AGE_S = 300;
+// The speed it is moved at: the median of its speeds over ETA_SAMPLE_WINDOW_S before its last
+// packet, capped here; it is not moved when stopped or under STATIONARY_SPEED_KMH
+export const GHOST_MAX_SPEED_KMH = 40;
+// It is never moved further than this along its line, and never past the line's end
+export const GHOST_MAX_DISTANCE_KM = 2;
+// While an Estimated marker shows, positions are worked out this often (the live feed ticks every
+// LIVE_UI_REFRESH_INTERVAL_S), so the marker glides instead of jumping
+export const GHOST_TICK_MS = 1000;
+// Smart alternatives: a route sharing a stop with the empty one, passing within MAX_WALK_PER_LEG_M
+// of the commuter, with a Live vehicle within this distance of them (or of a shared stop)
+export const ALTERNATIVE_NEARBY_M = 2000;
+
 // --- Username (PRD 19 D7; the same rule as set_username in the migration)
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 20;
@@ -224,6 +241,8 @@ export const DEMO_SEAT_CHANGE_MAX = 4;
 // One vehicle per route sends for this long, then is silent for this long (Live, Stale, No data), then repeats
 export const DEMO_SILENT_SEND_S = 60;
 export const DEMO_SILENT_GAP_S = 660;
+// CF1: routes with no demo vehicles, so the coverage nudge and the alternative chip can be seen
+export const DEMO_EMPTY_ROUTES: readonly string[] = ['R14'];
 // At the end of a leg a vehicle drives on to the route's next leg when it starts within this
 // distance; otherwise it lays over (shown as Stopped), then starts its trip again from the first leg
 export const DEMO_LEG_JOIN_M = 300;

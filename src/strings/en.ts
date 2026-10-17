@@ -226,6 +226,16 @@ export const en = {
       teamOnly: 'Team accounts only for now',
     },
     noData: 'No data from riders right now',
+    // CF1: on a route with no Live vehicle (not at night, not for accounts off the team list)
+    nudge: {
+      title: (code: string) => `No live data for ${code}`,
+      body: 'Riding this route? Share your seats to help others!',
+      share: 'Share your seats',
+      // Another route that shares a stop with this one has a Live multicab nearby; tapping shows it
+      alternative: (code: string, distanceM: number) =>
+        `${code} is running nearby · ${distanceM < METERS_PER_KM ? `${distanceM} m` : km(distanceM / METERS_PER_KM)}`,
+      alternativeLabel: (code: string) => `Show ${code}, which has a live multicab nearby`,
+    },
     // Age of the freshest position on a Stale route, in whole minutes
     age: (seconds: number) => `${Math.max(1, Math.floor(seconds / SECONDS_PER_MINUTE))} min`,
     route: (code: string) => `Route ${code}`,
@@ -272,6 +282,9 @@ export const en = {
       fromYou: (distanceKm: number) => `${km(distanceKm)} from you`,
       // PRD 0.7 plug-in point 4: live reports while verification is off
       unverified: 'Prototype data, unverified',
+      // CF1: a vehicle silent 90 s to 5 minutes, drawn where it probably is (no ETA)
+      estimatedSuffix: ' · Estimated',
+      estimated: 'Estimated position, moved at its last speed',
       demo: (age: string) => `Demo · ${age}`,
       stopped: 'Stopped',
       close: 'Close multicab details',

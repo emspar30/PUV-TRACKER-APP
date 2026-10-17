@@ -2,7 +2,7 @@
 // DEMO_TICK_MS. It imports no service and sends nothing; everything is computed on the phone.
 // Pure: no React Native or Expo imports, so it runs in plain Node tests.
 
-import { DEMO_STRESS_MARKERS, DEMO_TICK_MS } from '../../shared/config';
+import { DEMO_EMPTY_ROUTES, DEMO_STRESS_MARKERS, DEMO_TICK_MS } from '../../shared/config';
 import { demoFleetConfig, demoSnapshot, planDemoFleet, type DemoVehiclePlan } from '../../shared/demo/simulate';
 import { withReturnLegs } from '../../shared/routing/loop';
 import type { DirectedLine, RouteStop } from '../../shared/routing/types';
@@ -41,7 +41,11 @@ export function createDemoVehicles(
   const plansFor = (routeCode: string) => {
     let planned = plans.get(routeCode);
     if (!planned) {
-      planned = planDemoFleet(looped, stops, config, { routeCodes: [routeCode], perRoute: stress ? DEMO_STRESS_MARKERS : undefined });
+      // CF1: a route in DEMO_EMPTY_ROUTES has none, so the coverage nudge can be seen (not in the stress setting)
+      planned =
+        !stress && DEMO_EMPTY_ROUTES.includes(routeCode)
+          ? []
+          : planDemoFleet(looped, stops, config, { routeCodes: [routeCode], perRoute: stress ? DEMO_STRESS_MARKERS : undefined });
       plans.set(routeCode, planned);
     }
     return planned;

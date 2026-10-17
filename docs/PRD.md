@@ -77,6 +77,8 @@ All values are starting hypotheses (section 17). The agent exposes them from one
 | Vehicle capacity | 16 seats | 7.3 |
 | Occupancy bands (seats taken) | 0 to 6, 7 to 12, 13 or more | 7.3 |
 | Coverage states | Live under 90 s, Stale to 10 minutes, then No data | 7.3 |
+| Estimated markers (CF1) | 90 s to 5 minutes of silence; median recent speed capped at 40 km/h; at most 2 km along the line; redrawn every 1 s | 7.3 |
+| Alternative route nearby (CF1) | Shares a stop; Live vehicle within 2 km of the commuter | 7.3 |
 | Fare | ₱15.00 for 4 km, ₱2.00 per km, multiplier 0.8 | 12.4 |
 | Fare rounding | nearest ₱0.25 (assumed) | 7.2 |
 | SMS maximum age and stale heatmap | 30 minutes, 15 minutes | 12.3 |
@@ -410,6 +412,9 @@ The commuter app has five modules. Routing, fares and self-tracking work fully o
 - **Occupancy states** are defined by **seats taken** out of a configurable vehicle capacity (default 16): **Green "Seats available"** 0 to 6 taken, **Amber "Filling up"** 7 to 12 taken, **Red "Full"** 13 or more taken.
 - **Stationary bubble:** when the server reports speed under 2 km/h across packets spanning at least 45 s, the marker shows *Stopped: loading or traffic*.
 - **Coverage states, per route:** *Live* (at least one broadcaster in the last 90 s), *Stale* (last marker 90 s to 10 min old, shown greyed with age), and *No data* (nothing in 10 min). The app never says "no vehicles"; it says "No data from riders right now".
+- **Estimated markers (CF1, 2026-10-17):** for the first part of the Stale state, from 90 s to 5 minutes without a packet, the marker is not left at its last fix. It is moved along its own route line from that fix at its recent speed (dead reckoning: the median of its speeds over the 90 s before its last packet, capped at 40 km/h), at most 2 km and never past the line's end. A vehicle that was stopped is not moved. The marker is drawn fainter than a Stale one and labelled *Estimated*; it shows no ETA, and arrival and distance alerts keep to the last real fix. From 5 to 10 minutes the marker is greyed at its last fix as above. Demo vehicles follow the same rule.
+- **Coverage nudge (CF1):** when the picked route has no Live vehicle, a banner says *No live data for R4. Riding this route? Share your seats to help others!* with a button that opens Relay (a guest is asked to sign in). Not shown in Night Mode, or to accounts that cannot see live vehicles.
+- **Alternative route (CF1):** under the nudge, a chip suggests one other route that shares a stop with the picked route, passes within the walking limit of the commuter, and has a Live vehicle within 2 km of them (without a position: within 2 km of a stop of the picked route); the nearest such vehicle wins. Tapping it shows that route.
 - **Energy:** opening live view costs 1 Energy per 30 minute viewing session. The pilot has a free-viewing period (section 11.1).
 - **Night view:** after the night cutoff the map shows only static node updates and is free (section 10.4).
 
@@ -1049,7 +1054,7 @@ Added at Emjay's request. **Where this section disagrees with an earlier section
 | 5.1 What is in the pilot | The pseudonymous community feed moves from Phase 3 into the pilot (D2, D12). |
 | 6.1 Responsibilities | The commuter app also holds onboarding, landmarks, badges and the feed view; Supabase also holds the Energy ledger, feed posts and flags. |
 | 7.1 Onboarding and profile | Avatars are assigned automatically from the optional gender answer (D3); a username (D7), badges (D8) and account deletion (D10) are added. The avatar stays visible only in the user's own profile; feed posts use a neutral badge instead (D2). |
-| 7.3 Live tracker map | Viewing is free; only tracking one PUV costs Energy (D1). Tracking adds a guide line, an ETA and faded other vehicles. |
+| 7.3 Live tracker map | Viewing is free; only tracking one PUV costs Energy (D1). Tracking adds a guide line, an ETA and faded other vehicles. CF1 (2026-10-17): a Stale marker is moved along its line by dead reckoning from 90 s to 5 minutes and labelled Estimated; a route with no Live vehicle shows the coverage nudge and, when one fits, an alternative route. |
 | 7.4 Freshness and ETA | A simple ETA moves from Phase 2 into the prototype (D9). |
 | 7.5 Station check-in | Route-first selection with route-coloured station dots (D13). |
 | 8.1 Relay session lifecycle | Reports can be sent without GPS (newsfeed, +0.5 Energy); the prototype uses a manual vehicle picker (D5). |
@@ -1067,6 +1072,7 @@ Sections 3.4 and 5.5, named in the request, do not exist in this document; the n
 | Frequent destinations | At most 3. |
 | Profile | The avatar button opens Profile, which also holds the settings rows (fare type, theme, About, Replay intro). |
 | ETA limits | Hidden below 5 km/h, after 90 s without data, with fewer than 2 samples, or beyond 10 km. Config constants; starting hypotheses. |
+| Estimated markers (2026-10-17) | Approved by Emjay: 90 s to 5 minutes, along the route line, faint, labelled Estimated, no ETA; also on demo data. The coverage nudge's button opens Relay. See 7.3. |
 
 ## Changes after audit
 
@@ -1079,3 +1085,4 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 5. **Section 7.1:** sign-in for Prototype v0 changed to email and password for team accounts. Google sign-in or email magic link follows after v0.
 6. **Section 19 (Oct 3, 2026):** added "User flow v2": the new onboarding, greeting, tracking with Energy and ETA, newsfeed, reports and Profile, with decisions D1 to D14 and the earlier sections they override.
 7. **Section 19 (Oct 3, 2026, flow decisions):** D1, D2, D3, D7 and D8 updated with Emjay's answers (neutral feed badge, fixed-field feed, 60-minute posts, avatar pick once, no ranking); added 19.4.
+8. **Sections 0.3, 7.3 and 19 (Oct 17, 2026, CF1):** Estimated markers (dead reckoning along the line from 90 s to 5 minutes of silence, no ETA), the coverage nudge and the alternative route chip added to 7.3, with their constants in 0.3 and the override in 19.3 and 19.4 (Emjay approved).
