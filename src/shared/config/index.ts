@@ -281,8 +281,9 @@ export const GPS_ACCURACY_GATE_RELAY_M = 30;
 export const GPS_ACCURACY_GATE_CHECKIN_M = 25;
 // G0: a fix older than this is stale and refused wherever the gates apply (PRD 10.3)
 export const LOCATION_FIX_MAX_AGE_S = 30;
-// G0: the version of the location consent notice; a new notice asks again (PRD 7.1, 15.1)
-export const LOCATION_CONSENT_VERSION = 1;
+// G0: the version of the location consent notice; a new notice asks again (PRD 7.1, 15.1).
+// 2 (owner, 2026-10-18, backlog 118): the notice names the Bluetooth search in Relay
+export const LOCATION_CONSENT_VERSION = 2;
 // G0: the development fake location source (emulator only): accuracies either side of both gates,
 // and how old a "stale" fix is
 export const FAKE_FIX_ACCURACY_OPTIONS_M = [10, 25, 28, 40] as const;
