@@ -33,6 +33,8 @@ Start with **`STATUS.md`**.
 | `MERGE_RESULT.md` | What the partner merge kept; R1a build steps; tests after the rebuild. Becomes history after ST1. |
 | `AUDIT_3.md` | Latest full audit (2026-10-04) |
 | `APP_FEEL_PLAN.md` | Demo mode and the clean-UI steps AF1 to AF10; approved 2026-10-04 with Emjay's answers |
+| `APP_CAPABILITIES.md` | What the app can do today, screen by screen, with status and evidence; shareable (2026-10-17) |
+| `PROPOSAL_TRACEABILITY.md` | Each thesis proposal commitment mapped to the build, with differences, reasons and defense risk; shareable (2026-10-17) |
 
 ## 3. History (`docs/history/`)
 

@@ -1,5 +1,7 @@
 # Project status
 
+> **Out of date since 2026-10-08 (noted 2026-10-17).** The nine commits after RR3 (`4af1ac3` to `900f3c8`, ST2 part 1 to ST2-D2) are not in the tables below. Corrections: **39 stations** (route data version 7), not 35; Energy is **visible and charged** in the demo wallet (1 per 30-minute tracking session), and migration `20261012000000_energy_on.sql` (live switch-on) is written but not recorded as applied; ST2 is under way (EQ findings fixed in `4af1ac3`; launch, introduction, My Rides, search, tips tour and guest locks added), with no device record for the 2026-10-09 changes; tests are **72 suites, 954 passed** (2026-10-17). For a current, verified summary see `APP_CAPABILITIES.md`.
+
 ## Where we are in plain words
 
 | Works with real data | Works with demo or test data only | Not built |
