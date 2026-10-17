@@ -5,7 +5,7 @@ The worker turns live commuter check-ins into the waiting-count texts that drive
 Every 30 s (`WORKER_CYCLE_S`) it:
 
 1. reads the live waiting counts per route and stop;
-2. for each route with an active driver phone, lists every stop of the route in riding order with its count (zeros included) and applies the dispatch rule (first of the day, a change of 2 or more, an empty stop that gets someone, every 5 minutes while anyone waits, one "cleared" message; only 05:00 to 21:00 Manila);
+2. for each route with an active driver phone, lists every stop of the route in riding order with its count (zeros included) and applies the dispatch rule (first of the day, a change of 2 or more, an empty stop that gets someone, every 5 minutes while anyone waits, one "cleared" message; at any hour since 2026-10-18, owner; it was 05:00 to 21:00 Manila);
 3. for each phone on the route, reserves its sequence numbers, signs the messages with that phone's own key, encodes them as data or text SMS, and queues them (they expire after 10 minutes unsent);
 4. checks the gateway's health and records alerts in `ops_alerts` (read in the dashboard; nobody is notified).
 
