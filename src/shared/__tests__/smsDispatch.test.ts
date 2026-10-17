@@ -7,13 +7,19 @@ const MIN = 60_000;
 const sent = (counts: Record<string, number>, sentAtMs: number): DispatchState => ({ counts, sentAtMs });
 
 describe('SMS dispatch rule (PRD 9.6; DR2)', () => {
-  it('sends only from 05:00 to before 21:00 Manila (Q6)', () => {
-    expect(inOperatingHours(manila(4, 59, 59))).toBe(false);
-    expect(inOperatingHours(manila(5))).toBe(true);
-    expect(inOperatingHours(manila(20, 59, 59))).toBe(true);
-    expect(inOperatingHours(manila(21))).toBe(false);
-    expect(dispatchDecision(null, { SMB: 3 }, manila(4, 59))).toEqual({ send: false });
-    expect(dispatchDecision(null, { SMB: 3 }, manila(21, 5))).toEqual({ send: false });
+  // Owner, 2026-10-18: all day (Q6 was 05:00 to 21:00)
+  it('sends at any hour of the Manila day', () => {
+    for (const hour of [0, 3, 4, 5, 12, 20, 21, 23]) expect(inOperatingHours(manila(hour, 59, 59))).toBe(true);
+    expect(dispatchDecision(null, { SMB: 3 }, manila(4, 59))).toEqual({ send: true, reason: 'first' });
+    expect(dispatchDecision(null, { SMB: 3 }, manila(21, 5))).toEqual({ send: true, reason: 'first' });
+  });
+
+  it('keeps a narrower window when one is set (the old Q6 hours, 05:00 to before 21:00)', () => {
+    const inQ6 = (atMs: number) => inOperatingHours(atMs, 300, 1260);
+    expect(inQ6(manila(4, 59, 59))).toBe(false);
+    expect(inQ6(manila(5))).toBe(true);
+    expect(inQ6(manila(20, 59, 59))).toBe(true);
+    expect(inQ6(manila(21))).toBe(false);
   });
 
   it('sends the first message of the day once anyone is waiting', () => {

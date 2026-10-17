@@ -417,11 +417,12 @@ export const DATA_SMS_PORT = 8901;
 
 // --- Heatmap dispatch (PRD 9.6; the SMS worker, DR6). Per route, the worker sends when a stop's
 // count changes by DISPATCH_MIN_CHANGE or more, when an empty stop gets someone (owner, 2026-10-15),
-// or every DISPATCH_INTERVAL_MIN while any count is above zero, and only between the operating hours (minutes after midnight, Asia/Manila; Q6: 05:00 to 21:00).
+// or every DISPATCH_INTERVAL_MIN while any count is above zero, and only between the operating hours (minutes after midnight, Asia/Manila).
+// Owner, 2026-10-18: all day, so the app can be tested at any hour (Q6 was 05:00 to 21:00: 300 and 1260)
 export const SMS_DISPATCH_MIN_CHANGE = 2;
 export const SMS_DISPATCH_INTERVAL_MIN = 5;
-export const SMS_OPERATING_START_MIN = 300;
-export const SMS_OPERATING_END_MIN = 1260;
+export const SMS_OPERATING_START_MIN = 0;
+export const SMS_OPERATING_END_MIN = 1440;
 // The gateway waits this long between two sends (PRD 16 risk 3: carrier spam filters). DR5's
 // carrier test uses it; the gateway service in DR7 too.
 export const GATEWAY_SEND_GAP_MS = 1500;
@@ -448,7 +449,7 @@ export const GATEWAY_SENT_TIMEOUT_S = 30;
 // stays at the last), and keeps this many recent events for its log screen
 export const GATEWAY_BACKOFF_S = [10, 30, 60, 120] as const;
 export const GATEWAY_EVENTS_MAX = 100;
-// Health alerts (Q9: dashboard only), checked during the operating hours, at most one per kind per
+// Health alerts (Q9: dashboard only), checked during the operating hours (now all day), at most one per kind per
 // OPS_ALERT_QUIET_MIN: no gateway heartbeat for GATEWAY_HEARTBEAT_ALERT_MIN; more than
 // GATEWAY_FAIL_ALERT_RATIO of the last hour's messages failed (once at least
 // GATEWAY_FAIL_ALERT_MIN_MESSAGES were tried); 90 % of messages took more than SMS_LATENCY_P90_TARGET_S

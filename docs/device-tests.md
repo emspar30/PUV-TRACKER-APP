@@ -356,7 +356,7 @@ Set-up: on the PC, `npx tsx scripts/dev-driver-qr.ts --route R4 --gateway-number
 
 ## DR6 SMS worker with a fake gateway (2026-10-13)
 
-No phones: the worker and a stand-in gateway run on the PC, against the live project. **Between 05:00 and 21:00 Manila only** (outside those hours the worker sends nothing, by design). Needs: `.env` with `SUPABASE_SERVICE_ROLE_KEY` and the `TEST_*` accounts; `services/sms-worker/.env` with `SMS_PRIMARY_ENCODING=data`; an active R4 driver phone in the database (DRV-0001 from DR4, or set one up with `provision-driver.ts`). Three terminals:
+No phones: the worker and a stand-in gateway run on the PC, against the live project. ~~Between 05:00 and 21:00 Manila only~~: since 2026-10-18 (owner) the worker sends at any hour. Needs: `.env` with `SUPABASE_SERVICE_ROLE_KEY` and the `TEST_*` accounts; `services/sms-worker/.env` with `SMS_PRIMARY_ENCODING=data`; an active R4 driver phone in the database (DRV-0001 from DR4, or set one up with `provision-driver.ts`). Three terminals:
 
 1. `npm run worker:dev`
 2. `npx tsx scripts/fake-gateway.ts`
@@ -378,7 +378,7 @@ Needs: a `development-gateway` build made after DR7; the worker running on the l
 | ID | Script | Expected |
 | --- | --- | --- |
 | DR7-M1 | Gateway app: scan, confirm, permissions, background, SIM, "Send test" to a team number, Start | The test shows Sent ✓ then Delivered ✓; the home screen says Running, and "Last check … s ago" stays under 10 s |
-| DR7-M2 | **End to end:** `npx tsx scripts/dev-checkin.ts --route R4 --station SMB` (05:00 to 21:00) | Within about 40 s the gateway log shows `pull`, then `sent` and `delivered`; the driver app shows SMB with 1 waiting. Record the time from the check-in command to the driver update, 20 times; **p90 ≤ 60 s** (PRD 13). PRD 13 measures the gateway's delivery latency (`sms_outbox` `created_at` to `delivered_at`): record that too. Since 2026-10-15 a check-in at a stop the driver last saw empty is sent at the next cycle (`new_stop`), so a trial can start once the previous `--end` has sent its `cleared` text; before that rule, a lone check-in waited up to 5 minutes (DR6 run, 2026-10-14) |
+| DR7-M2 | **End to end:** `npx tsx scripts/dev-checkin.ts --route R4 --station SMB` (any hour since 2026-10-18) | Within about 40 s the gateway log shows `pull`, then `sent` and `delivered`; the driver app shows SMB with 1 waiting. Record the time from the check-in command to the driver update, 20 times; **p90 ≤ 60 s** (PRD 13). PRD 13 measures the gateway's delivery latency (`sms_outbox` `created_at` to `delivered_at`): record that too. Since 2026-10-15 a check-in at a stop the driver last saw empty is sent at the next cycle (`new_stop`), so a trial can start once the previous `--end` has sent its `cleared` text; before that rule, a lone check-in waited up to 5 minutes (DR6 run, 2026-10-14) |
 | DR7-M3 | 80 messages in 10 minutes (alternate a check-in and `--end` every 15 s on R4) | All sent, no Android "allow sending many messages?" prompt. If it appears, the limiter setting did not take (runbook 11.3 step 4): record the phone |
 | DR7-M4 | Gateway screen off for 8 h on the charger | `gateways.last_heartbeat_at` keeps moving; no `gateway_heartbeat` alert |
 | DR7-M5 | Airplane mode on the gateway for 10 min while someone is checked in | An alert after 5 min; the queued texts expire after 10 min; after reconnecting only fresh ones are sent |

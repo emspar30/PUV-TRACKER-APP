@@ -52,7 +52,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run-worker.ps1
 1. **Node 22 or 24 LTS.** Check with `node --version`.
 2. **Settings:** `services/sms-worker/.env` as above.
 3. **Start at sign-in:** Task Scheduler, Create Task: trigger "At log on"; action `powershell.exe` with arguments `-ExecutionPolicy Bypass -File "<repo>\scripts\run-worker.ps1"`, start in `<repo>`; "Run whether user is logged on or not" off (it needs the signed-in session's files).
-4. **No sleep during SMS hours:** Settings, System, Power: screen may turn off, but "Sleep" must be **Never** while plugged in (05:00 to 21:00 at least).
+4. **No sleep during SMS hours:** Settings, System, Power: screen may turn off, but "Sleep" must be **Never** while plugged in. SMS hours are all day since 2026-10-18 (owner; they were 05:00 to 21:00).
 5. **Reaching it from the gateway phone:**
    - development, over USB: `adb reverse tcp:8787 tcp:8787`, and the gateway's setup code uses `http://localhost:8787`;
    - the pilot: a **Cloudflare Tunnel** (`cloudflared`, installed on the PC only) gives the worker an `https://` address; the gateway's setup code uses that address. Release builds of the gateway accept HTTPS only.

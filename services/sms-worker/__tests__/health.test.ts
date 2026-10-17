@@ -39,7 +39,7 @@ describe('gateway health (DR6)', () => {
     expect(evaluateHealth({ ...healthy, latenciesS: [...latencies, 61] }, NOON_MS).map((alert) => alert.kind)).toEqual(['latency_p90']);
   });
 
-  it('records each kind once per quiet window, and nothing at night', async () => {
+  it('records each kind once per quiet window, at night too (all day since 2026-10-18)', async () => {
     const fake = fakeDeps(NOON_MS);
     fake.stats = { ...healthy, gateways: [{ gatewayId: 'GW-01', lastHeartbeatMs: null }] };
     expect(await runHealth(fake)).toEqual(['gateway_heartbeat']);
@@ -49,7 +49,7 @@ describe('gateway health (DR6)', () => {
 
     const night = fakeDeps(Date.UTC(2026, 9, 13, 14, 0));
     night.stats = fake.stats;
-    expect(await runHealth(night)).toEqual([]);
+    expect(await runHealth(night)).toEqual(['gateway_heartbeat']);
   });
 });
 

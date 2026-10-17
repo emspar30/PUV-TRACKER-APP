@@ -126,7 +126,7 @@ All twelve are answered. The rest of this plan follows these answers.
 | Q3 | Where the SMS worker runs | **The team PC**, for development and the pilot. The gateway reaches it over USB (`adb reverse`) during development and through a **Cloudflare Tunnel** (HTTPS, free) during the pilot. The PC must be on and online during SMS hours (05:00–21:00); runbook 11.7. | DR6, DR7, DR9 |
 | Q4 | Gateway carrier and SMS plan | **Smart/TNT** prepaid SIM. **Written confirmation** of automated-SMS terms is still required (PRD 9.6, 15.3; DR0). Driver SIMs on Smart/TNT where possible, so texts stay on-net. A backup SIM on another network is optional. | DR0, DR5, DR7 |
 | Q5 | Exact counts or bands for drivers | **Bands on the map, exact numbers in the list below it** (`DRIVER_SHOW_EXACT_COUNTS` = true). | DR5 |
-| Q6 | SMS operating hours | **05:00 to 21:00** Asia/Manila. | DR6 |
+| Q6 | SMS operating hours | ~~05:00 to 21:00 Asia/Manila~~. **Owner, 2026-10-18: all day (24/7)**, so the app can be tested at any hour; the window stays in `shared/config` (0 to 1440), so the pilot can narrow it again (backlog 122). Night messages still show bands only on the driver phone (Q11). | DR6 |
 | Q7 | First route and vehicles | **R4 (De Oro); 2 test vehicles now, about 10 for the pilot.** | DR0, DR3 |
 | Q8 | Dependencies | **All five approved:** `expo-camera`, `expo-keep-awake`, `expo-battery`; dev-only `qrcode-terminal` and `esbuild`. Each is still installed in its own step with the command in section 14. | DR3, DR4, DR6 |
 | Q9 | How the worker alerts the team | **Dashboard only:** a row in `ops_alerts`, checked in the Supabase dashboard (runbook 11.3). No webhook. | DR6 |
@@ -322,7 +322,7 @@ Per route, evaluated every `WORKER_CYCLE_S`:
 | `new_stop` | A stop the last sent message showed at zero now has someone (owner, 2026-10-15, backlog 113: without it a lone commuter waited up to 5 minutes) |
 | `interval` | `SMS_DISPATCH_INTERVAL_MIN` (5) minutes since the last send while any count is above zero |
 | `cleared` | All counts are now zero and the last sent message had a non-zero count (sent once, so drivers do not see an old queue for 15 minutes) |
-| *(never)* | Outside the operating hours (Q6) |
+| *(never)* | Outside the operating hours (Q6; all day since 2026-10-18, so this applies only if the window is narrowed again) |
 
 **Volume:** about 12 messages an hour per phone from `interval`, more when counts move (`change`, `new_stop`), never more than one per route per `WORKER_CYCLE_S`. At 12 an hour (×2 for a split route) over 16 operating hours, that is about 192 a day per phone, so about **1,900 a day for 10 vehicles** (PRD 9.6 estimates 1,700 for 14 hours); busy terminals add to it. The pilot's SMS plan must allow for more than this baseline (PRD 16, risk 3). Android's own outgoing-SMS limiter (by default about 30 messages per 30 minutes per app) must be raised on the gateway phone (DR7 task 9).
 
@@ -385,7 +385,7 @@ All go in `src/shared/config/index.ts` (no magic numbers in `src/shared`). Value
 | `DATA_SMS_PORT` | chosen in DR2 (not a well-known port) | driver, gateway | 9.3 |
 | `SMS_DISPATCH_MIN_CHANGE` | 2 | worker | 9.6 |
 | `SMS_DISPATCH_INTERVAL_MIN` | 5 | worker | 9.6 |
-| `SMS_OPERATING_START_MIN`, `SMS_OPERATING_END_MIN` | 300, 1260 (05:00 and 21:00 as minutes after midnight, Manila; Q6) | worker | 9.6 |
+| `SMS_OPERATING_START_MIN`, `SMS_OPERATING_END_MIN` | 0, 1440 (all day; owner 2026-10-18; Q6 was 300, 1260: 05:00 and 21:00 as minutes after midnight, Manila) | worker | 9.6 |
 | `SMS_OUTBOX_TTL_MIN` | 10 (a stale count is worse than none; must stay under `SMS_MAX_AGE_MIN`) | worker | 12.3 |
 | `SMS_CLAIM_LEASE_S` | 120 | worker | — |
 | `SMS_SEND_MAX_ATTEMPTS` | 3 | worker | 14 |
@@ -531,7 +531,7 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 | `smsGsm.test.ts` | `\|` counts 2; ASCII letters and digits count 1; `€` counts 2; a non-GSM character gives null |
 | `smsPack.test.ts` | R2's 18 stops with 1-digit counts → one message ≤ 160 septets; with 3-digit counts → two messages with consecutive sequence numbers, together covering every stop once; each output passes `validateHeatmap`; the sequence wraps 9999 → 0 |
 | `smsBinary.test.ts` | Round trip to the identical text; 18 stops → 120 bytes ≤ 133; a truncated buffer or a bad magic byte → null; the decoded text's MAC still validates |
-| `smsDispatch.test.ts` | `first`; a change of 1 → no send; a change of 2 → `change`; 4 min 59 s with counts → no send; 5 min → `interval`; all zero after non-zero → `cleared` once, then nothing; 21:00 and 04:59 → nothing (Q6); a midnight crossing |
+| `smsDispatch.test.ts` | `first`; a change of 1 → no send; a change of 2 → `change`; 4 min 59 s with counts → no send; 5 min → `interval`; all zero after non-zero → `cleared` once, then nothing; 21:00 and 04:59 → nothing (Q6; since 2026-10-18 they send, and the 05:00 to 21:00 window is tested by passing it in); a midnight crossing |
 | `driverHeatmap.test.ts` | Merge keeps unlisted stops; a split pair applies fully; bands at 0, 1, 4, 5, 9, 10; stale at 15:00.0 min, not at 14:59.9; `unknown` before any message; bands-only at 21:00 when `DRIVER_NIGHT_BANDS_ONLY` |
 | `driverDrift.test.ts` | +95 s → `warn`; +85 s → `ok`; a delayed message does not raise a false warning; no samples → `unknown` |
 | `driverPhone.test.ts` | `09171234567`, `639171234567` and `+639171234567` → `+639171234567`; landline or short codes → null |
@@ -824,7 +824,7 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 **As built (2026-10-13):**
 - **No new migration.** The health figures (gateway heartbeats, the last hour's outcomes and latencies) are read from `gateways` and `sms_outbox` with the service role; the DR3 functions cover everything else.
 - **Every stop in every message.** The snapshot lists only stops where someone waits, so the worker takes each route's stops from the bundled route data (`src/data/seed`, ordered with `inRouteOrder` as in the driver app) and sends them all, zeros included. A check-in at a stop the route data does not list is ignored.
-- **Health runs only during SMS hours**, so a gateway quiet at night raises nothing. A failure ratio needs at least 20 tried messages in the hour (`GATEWAY_FAIL_ALERT_MIN_MESSAGES`), so one failure in three is no alert. A gateway never seen counts as a heartbeat gap.
+- **Health runs only during SMS hours**, so a gateway quiet at night raises nothing (all day since 2026-10-18, so a gateway left off at night now raises its hourly `gateway_heartbeat` alert). A failure ratio needs at least 20 tried messages in the hour (`GATEWAY_FAIL_ALERT_MIN_MESSAGES`), so one failure in three is no alert. A gateway never seen counts as a heartbeat gap.
 - `/v1/result` answers `409` when the message is not the gateway's to report (the plan said `204` only).
 - **Settings:** the environment, then `services/sms-worker/.env`, then the repository `.env` (`EXPO_PUBLIC_SUPABASE_URL` stands in for `SUPABASE_URL`), so development needs no copy of the key. `SMS_PRIMARY_ENCODING` is required; `PORT` defaults to 8787.
 - **Fake gateway:** registers a development gateway `GW-99` with a token held in memory only, checks each message's signature with that phone's key (service role, as the worker), and `--fail N` / `--retire`. Ctrl+C leaves GW-99 on, so DR6-M3's heartbeat alert can fire.

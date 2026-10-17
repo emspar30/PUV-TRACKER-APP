@@ -1,5 +1,6 @@
 // DR6: is the SMS path healthy (PRD 13, 14; plan risks R1, R3)? Checked each cycle during the
-// operating hours only (a quiet gateway at night is normal). Each problem becomes an ops_alerts row,
+// operating hours only (all day since 2026-10-18, owner; a narrower window would make a quiet gateway
+// outside it normal). Each problem becomes an ops_alerts row,
 // at most one per kind per OPS_ALERT_QUIET_MIN; Q9: they are read in the dashboard, nobody is notified.
 //   gateway_heartbeat  an active gateway sent no heartbeat for GATEWAY_HEARTBEAT_ALERT_MIN (or never)
 //   gateway_failures   over GATEWAY_FAIL_ALERT_RATIO of the last hour's messages failed

@@ -99,12 +99,12 @@ describe('worker cycle (DR6)', () => {
     expect(fake.lastSeq.get('DRV-0001')).toBe(43);
   });
 
-  it('sends nothing outside the operating hours', async () => {
+  it('sends at night too (owner, 2026-10-18: all day)', async () => {
     // 22:00 Asia/Manila
     const fake = withDevices(fakeDeps(Date.UTC(2026, 9, 13, 14, 0)));
     fake.snapshot = [{ routeId: 'R4', stationCode: 'SMB', waiting: 9 }];
     await runCycle(fake, { encoding: 'text', stopsOf });
-    expect(fake.queue).toHaveLength(0);
+    expect(fake.queue.length).toBeGreaterThan(0);
   });
 
   it('encodes data SMS that decode back to the signed text', async () => {

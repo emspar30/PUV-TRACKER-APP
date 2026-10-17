@@ -9,7 +9,8 @@ import { manilaMinuteOfDay } from './protocol';
 //   new_stop  a stop the last message showed empty now has someone (owner, 2026-10-15: a lone
 //             commuter at an empty stop reaches the driver at once, not after up to 5 minutes)
 //   interval  SMS_DISPATCH_INTERVAL_MIN since the last message while anyone is waiting
-// Nothing outside the operating hours (Q6: 05:00 to 21:00 Asia/Manila).
+// Nothing outside the operating hours: all day since 2026-10-18 (owner; Q6 was 05:00 to 21:00 Asia/Manila).
+// The window stays, so the pilot can narrow it again in shared/config.
 
 const MS_PER_MIN = 60_000;
 
@@ -26,9 +27,9 @@ export type DispatchDecision = { send: false } | { send: true; reason: DispatchR
 
 const anyWaiting = (counts: StopCounts) => Object.values(counts).some((count) => count > 0);
 
-export function inOperatingHours(nowMs: number): boolean {
+export function inOperatingHours(nowMs: number, startMin = SMS_OPERATING_START_MIN, endMin = SMS_OPERATING_END_MIN): boolean {
   const minute = manilaMinuteOfDay(new Date(nowMs));
-  return minute >= SMS_OPERATING_START_MIN && minute < SMS_OPERATING_END_MIN;
+  return minute >= startMin && minute < endMin;
 }
 
 function largestChange(previous: StopCounts, current: StopCounts): number {
