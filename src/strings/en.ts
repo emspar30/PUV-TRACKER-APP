@@ -1030,7 +1030,6 @@ export const en = {
     bluetoothOff: 'Bluetooth is off',
     battery: (percent: number) => `${percent}%`,
     charging: 'Charging',
-    notCharging: 'Not charging',
     holdForAdmin: 'Hold here 3 s for admin',
     resetNeeded: 'This phone must be set up again.',
     beaconError: {

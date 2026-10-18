@@ -1,5 +1,5 @@
 import { Redirect, router } from 'expo-router';
-import { MessageSquareOff, Smartphone, TriangleAlert } from 'lucide-react-native';
+import { Clock, MessageSquareOff, Smartphone, TriangleAlert } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -94,6 +94,7 @@ export default function DriverHome() {
   if (!setup || !route) return <Redirect href="/provision" />;
 
   const update = describeUpdate(view);
+  const clock = describeClock(driftStatus(driftSamples));
   const stale = view.freshness === 'stale';
   const text = strings.driver.heatmap;
 
@@ -109,7 +110,7 @@ export default function DriverHome() {
           pointerEvents="box-none"
           onLayout={({ nativeEvent: { layout } }: LayoutChangeEvent) => setTopEnd(layout.y + layout.height)}
         >
-          <StatusStrip status={status} update={update} clock={describeClock(driftStatus(driftSamples))} onAdminHold={() => router.push('/admin')} />
+          <StatusStrip status={status} onAdminHold={() => router.push('/admin')} />
           <View style={[styles.card, styles.floating, styles.vehicle, compact && styles.vehicleCompact]}>
             <View style={styles.plate}>
               <Text style={[typography.labelSm, styles.caps]}>{strings.driver.vehiclePlate}</Text>
@@ -129,6 +130,9 @@ export default function DriverHome() {
           </View>
           {lostSecrets ? <Notice tone="warning" icon={Smartphone} title={strings.driver.resetNeeded} body={strings.driver.askAdmin} strongBody /> : null}
           {smsOff ? <Notice tone="warning" icon={MessageSquareOff} title={strings.driver.smsMissing} body={strings.driver.askAdmin} strongBody /> : null}
+          {/* Owner, 2026-10-18: no clock pill in the strip; the warning still shows when the clock is off
+              by more than CLOCK_DRIFT_WARN_S (PRD 8.2, 14) */}
+          {clock.tone === 'bad' ? <Notice tone="warning" icon={Clock} title={clock.label} body={strings.driver.askAdmin} strongBody /> : null}
         </View>
         {/* The map shows through here, and takes the driver's drags and pinches */}
         <View style={styles.grow} pointerEvents="none" />

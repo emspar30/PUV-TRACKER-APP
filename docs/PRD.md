@@ -527,7 +527,7 @@ On Android, any app with SMS permission can read an incoming text, but only the 
 - Static map of the assigned route with terminal icons.
 - Glowing node over each terminal, sized by waiting count (0, 1 to 4, 5 to 9, 10 or more).
 - Large text and 48 dp or larger touch targets, readable in sunlight and in a moving vehicle.
-- Status strip showing Bluetooth on, last SMS received, clock drift and battery.
+- Status strip showing the beacon (Bluetooth on) and the battery, with "Charging" only while charging (owner decision, 2026-10-18). The time of the last SMS shows above the list and in the stale notice; clock drift shows as a warning only when the clock is off (section 8.2).
 
 ### 9.5 Provisioning
 
