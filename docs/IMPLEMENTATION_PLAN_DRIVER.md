@@ -124,7 +124,7 @@ All twelve are answered. The rest of this plan follows these answers.
 | Q1 | Step codes DR0–DR9 (not D0–D8, which collides with PRD decisions D1–D14)? | **Yes, DR.** | Commits, STATUS |
 | Q2 | How each variant gets its own screens | **Settled by the DR1 spike (2026-10-12): the per-variant `root` works.** Each exported bundle holds only its own screens. Originally: try the Expo Router `root` option per variant (`src/driver/app`, `src/gateway/app`); **fall back to one route tree** with `/driver` and `/gateway` paths and a redirect by variant if the DR1 spike fails. (The Expo v57 docs list `root` but advise against it "unless you have a specific need", which three apps in one repo is.) | DR1 |
 | Q3 | Where the SMS worker runs | **The team PC**, for development and the pilot. The gateway reaches it over USB (`adb reverse`) during development and through a **Cloudflare Tunnel** (HTTPS, free) during the pilot. The PC must be on and online during SMS hours (05:00–21:00); runbook 11.7. | DR6, DR7, DR9 |
-| Q4 | Gateway carrier and SMS plan | **Smart/TNT** prepaid SIM. **Written confirmation** of automated-SMS terms is still required (PRD 9.6, 15.3; DR0). Driver SIMs on Smart/TNT where possible, so texts stay on-net. A backup SIM on another network is optional. | DR0, DR5, DR7 |
+| Q4 | Gateway carrier and SMS plan | ~~Smart/TNT prepaid SIM~~. **Owner, 2026-10-17/18: a Globe prepaid SIM on an All-Net text plan** (texts any network), in the gateway phone already in use; no paid SMS services (capstone budget). **Data SMS** stays the primary path (texts in the driver's Messages app would annoy drivers). Tested Globe → TNT (DR5-M5, 2026-10-18: 8 data and 5 text SMS, all delivered and intact, 2 to 3 s); other networks are not tested, by the owner's decision. For now the SIM is the owner's **personal** SIM: keep test SMS few and spaced. **Written confirmation** of automated-SMS terms is still required before pilot volume (PRD 9.6, 15.3; DR0). A backup SIM on another network is optional. | DR0, DR5, DR7 |
 | Q5 | Exact counts or bands for drivers | **Bands on the map, exact numbers in the list below it** (`DRIVER_SHOW_EXACT_COUNTS` = true). | DR5 |
 | Q6 | SMS operating hours | ~~05:00 to 21:00 Asia/Manila~~. **Owner, 2026-10-18: all day (24/7)**, so the app can be tested at any hour; the window stays in `shared/config` (0 to 1440), so the pilot can narrow it again (backlog 122). Night messages still show bands only on the driver phone (Q11). | DR6 |
 | Q7 | First route and vehicles | **R4 (De Oro); 2 test vehicles now, about 10 for the pilot.** | DR0, DR3 |
@@ -138,7 +138,7 @@ All twelve are answered. The rest of this plan follows these answers.
 
 - **Q3 (team PC):** the worker's uptime is the PC's uptime. DR9's 7-day SMS trial (E7) needs the PC on for those 7 days during SMS hours. If that proves impractical, the same one-file bundle runs unchanged on any Node host later.
 - **Q9 (dashboard only):** nobody is notified automatically. The two-minute daily check (runbook 11.3) is the only way to find out about problems, so it has to happen every pilot day.
-- **Q4 (Smart/TNT):** DR5's carrier spike tests data SMS on Smart/TNT first. Cross-network tests run only if some driver SIMs end up on another network.
+- **Q4 (Globe, All-Net; owner 2026-10-17/18):** DR5-M5 tested data and text SMS from the Globe gateway to a TNT driver phone, cross-network, and both arrived; data SMS stays primary. No further networks will be tested. Dual-SIM routing is not needed.
 
 ---
 
@@ -158,7 +158,7 @@ DR0 is not code. It starts now and runs beside DR1 to DR3, because SIMs, phones 
 ### 4.2 SIMs
 
 - **Every SIM must be registered** under the SIM Registration Act (RA 11934) before it works. Register the gateway SIM to the project (a team member, recorded in the pilot file).
-- **Gateway SIM:** Smart/TNT prepaid (Q4), on an SMS plan whose terms allow automated sending at the planned volume (section 6.2.6), confirmed **in writing** (PRD 15.3). Keep the SIM loaded so it does not expire.
+- **Gateway SIM:** Globe prepaid on an All-Net text plan (Q4, owner 2026-10-17/18), whose terms must allow automated sending at the planned volume (section 6.2.6), confirmed **in writing** (PRD 15.3). Keep the SIM loaded so it does not expire. Until a project SIM exists it is the owner's personal SIM, so tests send as few texts as they need.
 - **Driver SIMs:** receive-only, but still loaded enough to stay active. Record each number; it goes into the provisioning QR (DR3).
 
 ### 4.3 Paperwork
@@ -717,7 +717,7 @@ Already present and reused: `RSSI_SMOOTHING_ALPHA`, `RSSI_PRESENCE_THRESHOLD_DBM
 2. **Carrier spike (E7-lite).** From the gateway development build's spike screen, send to the driver phone on the pilot carrier:
    1. 20 data SMS to `DATA_SMS_PORT`;
    2. 20 text SMS;
-   3. 5 data SMS to a SIM on another network, only if some driver SIMs end up off Smart/TNT.
+   3. 5 data SMS to a SIM on another network, only if some driver SIMs end up off Smart/TNT. **As run (2026-10-18, owner):** 8 data and 5 text SMS from the Globe gateway to a TNT driver phone (itself cross-network), one a minute; the size limit and other networks were not run.
 
    Record: received or not, latency (sent to receivedMs), whether anything appears in the driver phone's inbox or notifications, and the largest data payload that arrives (to confirm `DATA_SMS_MAX_BYTES`). **The result chooses the primary path for DR6 (`SMS_PRIMARY_ENCODING`).**
 3. The inbox hook, stores and validation as listed.

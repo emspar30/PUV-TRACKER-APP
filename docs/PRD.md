@@ -514,7 +514,7 @@ On Android, any app with SMS permission can read an incoming text, but only the 
 
 | Path | How it works | Trade-offs |
 | --- | --- | --- |
-| Primary: data SMS | The gateway app sends a binary message to a private port with `sendDataMessage`. The driver app receives it through the `DATA_SMS_RECEIVED` broadcast. These messages do not appear in the inbox. | Needs carrier support for port-addressed SMS; must be tested on the pilot network |
+| Primary: data SMS | The gateway app sends a binary message to a private port with `sendDataMessage`. The driver app receives it through the `DATA_SMS_RECEIVED` broadcast. These messages do not appear in the inbox. | Needs carrier support for port-addressed SMS; must be tested on the pilot network (tested 2026-10-18: Globe gateway to a TNT phone, all delivered) |
 | Fallback: text SMS | Plain text signed message read through `SMS_RECEIVED`. | The default messaging app may still show a notification; the driver device should have notifications disabled for that app |
 
 - **Distribution:** SMS permissions are heavily restricted on Google Play, so the driver app is distributed as a signed APK by the cooperative and the research team, not through the Play Store.
