@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, Text, View, useWindowDimensions, type LayoutCha
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LineBadge } from '@/components/Pills';
+import { DRIVER_COMPACT_HEIGHT_DP } from '@/shared/config';
 import { driftStatus } from '@/shared/driver/drift';
 import { busiestStop, heatmapView } from '@/shared/driver/heatmapView';
 import { strings } from '@/strings';
@@ -66,6 +67,8 @@ export default function DriverHome() {
   const [topEnd, setTopEnd] = useState<number | null>(null);
   const [bottomStart, setBottomStart] = useState<number | null>(null);
   const { colors, typography, routeColor } = useTheme();
+  // A short screen (backlog 125): the list's stale notice and the plate card give up their extra room
+  const compact = windowHeight < DRIVER_COMPACT_HEIGHT_DP;
   // The setup is saved but the phone lost its secrets (a restored backup, a reset lock screen)
   const lostSecrets = setup !== null && isBeaconAvailable() && !isProvisioned();
   const smsOff = setup !== null && isSmsAvailable() && !canReceiveSms();
@@ -107,7 +110,7 @@ export default function DriverHome() {
           onLayout={({ nativeEvent: { layout } }: LayoutChangeEvent) => setTopEnd(layout.y + layout.height)}
         >
           <StatusStrip status={status} update={update} clock={describeClock(driftStatus(driftSamples))} onAdminHold={() => router.push('/admin')} />
-          <View style={[styles.card, styles.floating, styles.vehicle]}>
+          <View style={[styles.card, styles.floating, styles.vehicle, compact && styles.vehicleCompact]}>
             <View style={styles.plate}>
               <Text style={[typography.labelSm, styles.caps]}>{strings.driver.vehiclePlate}</Text>
               <Text style={[typography.headlineLg, styles.plateText]} numberOfLines={1} adjustsFontSizeToFit>
@@ -136,7 +139,9 @@ export default function DriverHome() {
         >
           <HeatmapLegend />
           <View style={[styles.panel, styles.floating, { height: windowHeight * LIST_SHARE }]}>
-            {stale ? <Notice tone="danger" icon={TriangleAlert} title={update.label} body={text.staleBody} /> : null}
+            {/* On a short screen only "No update for N min": the line under it took most of the list
+                (HONOR X8c, 2026-10-18); the strip says the same and the list is greyed */}
+            {stale ? <Notice tone="danger" icon={TriangleAlert} title={update.label} body={compact ? undefined : text.staleBody} /> : null}
             <View style={styles.listHeader}>
               <View style={styles.heading}>
                 <Text style={typography.headlineSm}>{text.title}</Text>
@@ -192,6 +197,9 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
     borderWidth: 1,
     borderColor: colors.outline,
     backgroundColor: colors.card,
+  },
+  vehicleCompact: {
+    paddingVertical: spacing.sm + spacing.xs,
   },
   vehicle: {
     flexDirection: 'row',

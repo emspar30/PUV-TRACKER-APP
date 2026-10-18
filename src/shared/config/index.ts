@@ -467,6 +467,10 @@ export const HEATMAP_BAND_EDGES = [1, 5, 10] as const;
 // Q5: exact numbers in the list (the map shows bands). Q11: bands only during Night Mode.
 export const DRIVER_SHOW_EXACT_COUNTS = true;
 export const DRIVER_NIGHT_BANDS_ONLY = true;
+// Backlog 125: the driver home on a short phone (the HONOR X8c is 360 x 804 dp, the Xiaomi
+// 2311DRK48G 406 x 904). Below this height the stale notice shows its title only and the plate card is
+// tighter, so the stop list and the map keep their room
+export const DRIVER_COMPACT_HEIGHT_DP = 860;
 // The driver phone warns when its clock is off by more than this (PRD 8.2, 14)
 export const CLOCK_DRIFT_WARN_S = 90;
 // The clock estimate looks at the last few heatmap messages' carrier timestamps

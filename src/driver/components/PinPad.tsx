@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { strings } from '@/strings';
-import { makeStyles, radii, spacing, useTheme } from '@/theme';
+import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
 type PinPadProps = {
   length: number;
@@ -126,13 +126,18 @@ const useStyles = makeStyles(({ colors }) => ({
     justifyContent: 'flex-end',
     gap: KEY_GAP,
   },
+  // Backlog 125: the PIN screen does not scroll, so a key row is KEY_HEIGHT where it fits and shrinks
+  // (never under the touch minimum) where it does not, keeping Unlock on a short screen or with
+  // large text
   row: {
     flexDirection: 'row',
     gap: KEY_GAP,
+    height: KEY_HEIGHT,
+    flexShrink: 1,
+    minHeight: MIN_TOUCH_TARGET,
   },
   key: {
     flex: 1,
-    height: KEY_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radii.card,
