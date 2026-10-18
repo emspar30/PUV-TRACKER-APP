@@ -52,6 +52,14 @@ const SETTINGS = {
     permissions: ['android.permission.POST_NOTIFICATIONS'],
     blocked: [...LOCATION, ...DRIVER_SMS_BLOCKED, ...COMMUTER_ONLY, ...NEVER],
     plugin: './plugins/withDriverAndroid',
+    // Owner, 2026-10-18: the commuter icon with its colours reversed (light square, dark bus)
+    icon: './assets/driver-icon.png',
+    adaptiveIcon: {
+      backgroundColor: '#eef1f8',
+      foregroundImage: './assets/driver-adaptive-foreground.png',
+      backgroundImage: './assets/driver-adaptive-background.png',
+      monochromeImage: './assets/tunton-adaptive-monochrome.png',
+    },
   },
   gateway: {
     name: 'Tunton Gateway',
@@ -61,6 +69,14 @@ const SETTINGS = {
     permissions: ['android.permission.POST_NOTIFICATIONS'],
     blocked: [...LOCATION, ...GATEWAY_SMS_BLOCKED, ...COMMUTER_ONLY, ...NEVER],
     plugin: './plugins/withGatewayAndroid',
+    // Owner, 2026-10-18: a "G" (Inter Bold, SIL OFL) in the commuter icon's dark style
+    icon: './assets/gateway-icon.png',
+    adaptiveIcon: {
+      backgroundColor: '#14191e',
+      foregroundImage: './assets/gateway-adaptive-foreground.png',
+      backgroundImage: './assets/tunton-adaptive-background.png',
+      monochromeImage: './assets/gateway-adaptive-monochrome.png',
+    },
   },
 };
 
@@ -82,9 +98,11 @@ module.exports = ({ config }) => {
     ...config,
     name: settings.name ?? config.name,
     scheme: settings.scheme ?? config.scheme,
+    icon: settings.icon ?? config.icon,
     android: {
       ...android,
       package: settings.package ?? android.package,
+      adaptiveIcon: settings.adaptiveIcon ?? android.adaptiveIcon,
       permissions: settings.permissions ?? android.permissions,
       blockedPermissions: settings.blocked,
     },

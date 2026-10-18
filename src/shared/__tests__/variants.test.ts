@@ -9,8 +9,14 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 type ExpoConfig = {
   name: string;
   scheme: string;
+  icon: string;
   plugins: (string | [string, unknown])[];
-  android: { package: string; permissions: string[]; blockedPermissions?: string[] };
+  android: {
+    package: string;
+    permissions: string[];
+    blockedPermissions?: string[];
+    adaptiveIcon?: { backgroundColor?: string; foregroundImage?: string; backgroundImage?: string; monochromeImage?: string };
+  };
   extra: { appVariant?: string; router?: { root?: string } };
 };
 
@@ -121,5 +127,20 @@ describe('app variants (DR1)', () => {
 
   it('refuses an unknown variant', () => {
     expect(() => configFor('drivers')).toThrow(/Unknown APP_VARIANT/);
+  });
+
+  // Owner, 2026-10-18: the three apps are told apart on the phone (DR9 release task 2): the driver
+  // icon is the commuter icon in reversed colours, the gateway's a "G"
+  it('gives each app its own icon, and every icon file exists', () => {
+    const icons = ['commuter', 'driver', 'gateway'].map((variant) => {
+      const config = configFor(variant);
+      const adaptive = config.android.adaptiveIcon;
+      const files = [config.icon, adaptive?.foregroundImage, adaptive?.backgroundImage, adaptive?.monochromeImage];
+      for (const file of files) expect(fs.existsSync(path.join(ROOT, file as string))).toBe(true);
+      return { icon: config.icon, foreground: adaptive?.foregroundImage };
+    });
+    expect(new Set(icons.map((icon) => icon.icon)).size).toBe(3);
+    expect(new Set(icons.map((icon) => icon.foreground)).size).toBe(3);
+    expect(icons[0]).toEqual({ icon: base.icon, foreground: base.android.adaptiveIcon?.foregroundImage });
   });
 });
