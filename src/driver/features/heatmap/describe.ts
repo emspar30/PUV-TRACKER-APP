@@ -8,13 +8,14 @@ export type Tone = 'ok' | 'warn' | 'bad';
 export type Described = { tone: Tone; label: string };
 
 const S_PER_MIN = 60;
+const MIN_PER_HOUR = 60;
 // Below this the clock offset is shown in seconds
 const SECONDS_UP_TO = 120;
 
 export function describeUpdate(view: Pick<HeatmapView, 'freshness' | 'ageMin'>): Described {
   const text = strings.driver.heatmap;
   if (view.freshness === 'never' || view.ageMin === null) return { tone: 'warn', label: text.never };
-  if (view.freshness === 'stale') return { tone: 'bad', label: text.stale(view.ageMin) };
+  if (view.freshness === 'stale') return { tone: 'bad', label: text.stale(Math.floor(view.ageMin / MIN_PER_HOUR), view.ageMin % MIN_PER_HOUR) };
   return { tone: 'ok', label: view.ageMin === 0 ? text.justNow : text.updated(view.ageMin) };
 }
 
