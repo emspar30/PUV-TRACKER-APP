@@ -1,5 +1,5 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, RadioTower, X, Zap } from 'lucide-react-native';
+import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, MessageCircleQuestionMark, RadioTower, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, Vibration, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -560,6 +560,10 @@ export default function MapScreen() {
           </TourTarget>
           <TourTarget id="routes">
             <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
+          </TourTarget>
+          {/* CA1: Ask Tunton, the offline assistant; open to guests (nothing leaves the phone) */}
+          <TourTarget id="ask">
+            <RoundButton icon={MessageCircleQuestionMark} label={strings.assistant.open} onPress={() => router.push('/assistant')} />
           </TourTarget>
           <TourTarget id="locate">
             <RoundButton

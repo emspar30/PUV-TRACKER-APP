@@ -619,6 +619,7 @@ export const en = {
     open: 'Open menu',
     profile: 'Profile',
     settings: 'Settings & preferences',
+    assistant: 'Ask Tunton',
     demo: 'Demo & simulation',
     about: 'About Tunton',
     replayIntro: 'Replay introduction',
@@ -789,6 +790,70 @@ export const en = {
     locked: (feature: string) => `${feature}, needs an account`,
   },
 
+  // CA1: the offline assistant (PRD 19.5). It understands English and Bisaya questions and replies
+  // in English; everything is worked out on the phone
+  assistant: {
+    title: 'Ask Tunton',
+    open: 'Ask Tunton',
+    placeholder: 'Ask about a trip, a fare, a route or a stop',
+    send: 'Send',
+    offline: 'Works offline. Nothing you type leaves your phone.',
+    you: 'You',
+    // The user's own position, as the answers name it
+    yourLocation: 'your location',
+    yourPin: 'your pin',
+    youAt: (code: string) => `you at ${code}`,
+    starters: [
+      'How do I get to SM City Butuan?',
+      'Is R4 running?',
+      'Nearest stop',
+      'Pila plete gikan Libertad paingon CSU?',
+    ],
+    help: [
+      "Hi! I'm Tunton. Ask me in English or Bisaya, for example:",
+      '"from Libertad to CSU", "pila plete paingon Ampayon", "naa bay R4?", "asa ang pinakaduol nga sakayan?"',
+    ],
+    tripRoute: (code: string, name: string) => `Ride ${code}, ${name}.`,
+    tripFare: (fare: string, fareType: string) => `Fare ${fare} (${fareType}).`,
+    tripEnds: (from: string, to: string, distance: string) => `From ${from} to ${to}, ${distance} on the multicab.`,
+    tripWalks: (toRoute: string, fromRoute: string) => `Walk ${toRoute} to the route and ${fromRoute} at the end.`,
+    tripOthers: (codes: string) => `${codes} also go there.`,
+    tripFail: {
+      origin_too_far: (place: string, distance: string) => `${place} is ${distance} from the nearest route, too far to walk.`,
+      destination_too_far: (place: string, distance: string) => `${place} is ${distance} from the nearest route, too far to walk.`,
+      destination_not_ahead: (from: string, to: string) => `No single route goes from ${from} to ${to}.`,
+      no_routes: (from: string, to: string) => `No route goes from ${from} to ${to}.`,
+      same_place: (from: string, to: string) => `${from} and ${to} are the same place.`,
+    } satisfies Record<PlanFailure | 'same_place', (a: string, b: string) => string>,
+    choose: (text: string) => `Which place do you mean${text ? ` by "${text}"` : ''}?`,
+    notFound: (text: string) => `I could not find "${text}". Try a stop, a building or a barangay.`,
+    needPosition: 'I need to know where you are. Turn on location, or long-press the Map to drop a pin, then ask again.',
+    needPositionFrom: 'Or name where you start: "from Libertad to CSU".',
+    needDestination: 'Where are you going? For example "to SM City Butuan".',
+    whichRoute: 'Which route? Tap one:',
+    unknownRoute: (code: string, routes: string) => `There is no ${code} here. The routes are ${routes}.`,
+    statusLive: (code: string, count: number) => `${code} is running: ${count} live multicab${count === 1 ? '' : 's'} now.`,
+    statusNoLive: (code: string) => `No live multicab on ${code} right now.`,
+    statusEstimated: (count: number) => `${count} more ${count === 1 ? 'was' : 'were'} seen in the last 5 minutes (Estimated).`,
+    statusStale: (count: number, age: string) => `${count} older position${count === 1 ? '' : 's'}, the newest ${age} ago (Stale).`,
+    statusNoData: 'No data from riders on it at the moment.',
+    statusNight: 'Night Mode: moving multicabs are hidden.',
+    statusAlternative: (code: string, distance: string) => `${code} is running nearby (${distance}) and shares stops with it.`,
+    statusHidden: 'Live multicabs are for team accounts only for now.',
+    statusLoading: (code: string) => `Checking ${code}…`,
+    nearest: (code: string, name: string, distance: string, from: string) => `The nearest stop to ${from} is ${name} (${code}), ${distance} away.`,
+    nearestRoutes: (codes: string) => `Routes there: ${codes}.`,
+    and: (items: readonly string[]) =>
+      items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`,
+    chips: {
+      openTrip: 'Open in My Rides',
+      viewRoute: (code: string) => `View ${code} on the map`,
+      status: (code: string) => `Is ${code} running?`,
+      openMap: 'Open the Map',
+      choice: (title: string, near: string | undefined) => (near ? `${title}, ${near}` : title),
+    },
+  },
+
   // ST2-D: the tips tour, one bubble per control on the Map tab
   tour: {
     steps: {
@@ -796,6 +861,7 @@ export const en = {
       menu: { title: 'Menu', body: 'Settings, your places, and this tour again.' },
       relay: { title: 'Relay a multicab', body: 'On a multicab? Tell others if it has seats, is full or stuck in traffic.' },
       routes: { title: 'Routes', body: 'Pick a route to see its line, stops and multicabs.' },
+      ask: { title: 'Ask Tunton', body: 'Ask for a trip, a fare, a route or the nearest stop, in English or Bisaya. Works offline.' },
       locate: { title: 'Where you are', body: 'Puts the map on you.' },
       search: { title: 'Plan a trip', body: 'Type where you are going for the best route and the fare.' },
       checkin: { title: 'Check in', body: 'Waiting at a stop? Check in so drivers know someone is there.' },

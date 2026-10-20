@@ -32,7 +32,7 @@ describe('tips tour placement (ST2-D)', () => {
   });
 
   it('has nine steps, each once', () => {
-    expect(TOUR_STEPS).toHaveLength(9);
+    expect(TOUR_STEPS).toHaveLength(10);
     expect(new Set(TOUR_STEPS).size).toBe(TOUR_STEPS.length);
   });
 });

@@ -110,8 +110,10 @@ live('S4 backend, live project', () => {
   it(
     'T1: ingest takes a batch of buffered positions, older ones as history and the newest as the marker',
     async () => {
-      const nowS = Math.floor(Date.now() / 1000);
-      const sent = [packet({ ts: nowS - 600, seats: 3 }), packet({ ts: nowS - 300, seats: 3 }), packet({ ts: nowS - 1, seats: 11 })];
+      // The newest point must beat the position the tests before stored at "now"; a second ahead is
+      // well inside the server's future tolerance (PACKET_MAX_FUTURE_S)
+      const nowS = Math.ceil(Date.now() / 1000) + 1;
+      const sent = [packet({ ts: nowS - 600, seats: 3 }), packet({ ts: nowS - 300, seats: 3 }), packet({ ts: nowS, seats: 11 })];
       const result = await ingest(writer, encodeBatch(VEHICLE, sent));
       expect(result.status).toBe(200);
       expect(result.body).toMatchObject({ status: 'batch', latest: 'accepted' });

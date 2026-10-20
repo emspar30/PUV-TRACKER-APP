@@ -1,7 +1,7 @@
 // ST2-D: the tips tour. Which controls it points at, in order, and where its speech bubble goes
 // beside the one it points at. Pure: no React Native or Expo imports.
 
-export const TOUR_STEPS = ['profile', 'menu', 'relay', 'routes', 'locate', 'search', 'checkin', 'ride', 'crowdsource'] as const;
+export const TOUR_STEPS = ['profile', 'menu', 'relay', 'routes', 'ask', 'locate', 'search', 'checkin', 'ride', 'crowdsource'] as const;
 export type TourStepId = (typeof TOUR_STEPS)[number];
 
 export type Rect = { x: number; y: number; width: number; height: number };

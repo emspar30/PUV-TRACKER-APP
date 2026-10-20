@@ -86,6 +86,7 @@ All values are starting hypotheses (section 17). The agent exposes them from one
 | Telemetry timestamp limits | reject packets older than 120 s or more than 30 s in the future | 8.4 |
 | Store-and-forward batch (T1) | at most 60 positions and 4 KB per request; positions up to 30 minutes old kept as history; retry after 5 s, doubling to 60 s | 8.4 |
 | Relay seats sent (T1) | Seats available 3, Filling up 9, Full 14 | 8.4 |
+| Offline assistant (CA1) | at most 3 "Did you mean" places; 8 places looked at per name; questions up to 120 characters; trip ends under 50 m apart are the same place | 19.5 |
 
 ### 0.4 Environment and device testing
 
@@ -114,6 +115,7 @@ These stay in the PRD but must not be built yet:
 - ETA, the community feed, other routes and the multi-route transfer graph.
 - The web admin console. The prototype uses the Supabase dashboard and seed scripts instead, which overrides the admin console line in section 5.1.
 - Play Integrity checks, Play Store submission and Cebuano strings. Keep the code ready for them (string files, an integrity check hook), but do not implement them.
+  - Exception (CA1, 2026-10-21): the offline assistant understands common Bisaya (Cebuano) question words (19.5). Its replies, like every other string, stay in English.
 - Night Mode static view. Build the server-side window setting, but the full static node view comes after S9.
 
 ### 0.7 Prototype v0: first build slice (verification deferred)
@@ -1085,6 +1087,17 @@ Sections 3.4 and 5.5, named in the request, do not exist in this document; the n
 | Relay broadcast (T1, 2026-10-21) | Approved by Emjay: foreground only, manual vehicle picker (unverified), store and forward with a batch form of ingest, team accounts only. See 8.4. |
 | Estimated markers (2026-10-17) | Approved by Emjay: 90 s to 5 minutes, along the route line, faint, labelled Estimated, no ETA; also on demo data. The coverage nudge's button opens Relay. See 7.3. |
 
+### 19.5 Offline assistant: Ask Tunton (CA1, 2026-10-21)
+
+Approved by Emjay. A chat screen that answers commuter questions from the data already on the phone.
+
+- **Offline and deterministic.** No language model and no network call. A question is parsed by fixed word rules (`src/shared/assistant/`) into one intent; the same words always give the same answer. Nothing typed is sent or stored: the conversation ends when the screen closes.
+- **Intents, tried in order.** Route status ("Is R4 running?", "naa bay R4?"); nearest stop ("nearest stop", "asa ang pinakaduol nga sakayan?", "nearest stop to SM City"); trip and fare ("from X to Y", "to Y", "pila plete gikan X paingon Y", "unsay sakyan paingon Y"); help. Any other text is taken as a destination.
+- **Bisaya.** Common question words are understood, including Butuan contractions: gikan (from); paingon, padulong, padung, ngadto, adto, muadto, hangtod (to), and a short "pa" only at the start or after a ride or fare word, since "pa" also means "still"; pila, pilay, pila'y, plete, pasahe, pamasahe (fare); unsay sakyan, masakyan, kasakyan, sakay (what to ride); naa bay, naa pa bay, naay, gadagan, nagdagan, byahe, gabyahe (is it running); asa (where); sakayan, hulatanan, hunonganan, nauganan, paradahan (stop); pinakaduol, duol (nearest); diri (here). Replies are in English (0.6 exception).
+- **Places.** Names are found with My Rides' search over the stops, the user's saved places and the offline map's named places. A clear match is used; a name that fits several places equally well gets "Did you mean" with up to 3 choices. With no start named, the trip starts from the commuter's position (GPS, simulated stop or pin); without one, the assistant asks for it.
+- **Answers.** Trip: the best route by the offline planner (7.2), the walks, the ride distance and the fare for the commuter's fare type, other routes that serve the trip, and chips to open the trip in My Rides or the route on the Map. Status: Live, Estimated and Stale counts (7.3), Night Mode, and the CF1 alternative route when the route has no Live vehicle; live data only for team accounts (0.7), the demo for everyone. Nearest stop: its name, code, distance and routes.
+- **Where it is.** An Ask button on the Map tab above Locate, a Menu row, and a tenth bubble in the tips tour. Starter chips let a question be tapped instead of typed. Open to guests.
+
 ## Changes after audit
 
 Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan approval. Nothing else in this document was changed.
@@ -1098,3 +1111,4 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 7. **Section 19 (Oct 3, 2026, flow decisions):** D1, D2, D3, D7 and D8 updated with Emjay's answers (neutral feed badge, fixed-field feed, 60-minute posts, avatar pick once, no ranking); added 19.4.
 8. **Sections 0.3, 7.3 and 19 (Oct 17, 2026, CF1):** Estimated markers (dead reckoning along the line from 90 s to 5 minutes of silence, no ETA), the coverage nudge and the alternative route chip added to 7.3, with their constants in 0.3 and the override in 19.3 and 19.4 (Emjay approved).
 9. **Sections 0.3, 8.4 and 19 (Oct 21, 2026, T1):** the prototype relay broadcast added to 8.4 (foreground only, manual vehicle picker, store and forward with a batch form of the ingest endpoint), with its constants in 0.3 and the answer in 19.4 (Emjay approved).
+10. **Sections 0.3, 0.6 and 19 (Oct 21, 2026, CA1):** the offline assistant Ask Tunton added as 19.5 (rule-based, no network, English and Bisaya questions with English replies, trip and fare, route status, nearest stop, starter chips); its constants in 0.3; the Bisaya question words as a scoped exception to the Cebuano strings item in 0.6.

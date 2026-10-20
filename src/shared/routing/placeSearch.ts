@@ -59,19 +59,26 @@ function rankOf(query: string, place: SearchablePlace): number | null {
   return null;
 }
 
-// The best matches, at most `limit`, by rank, then kind (KIND_ORDER), then name
-export function searchPlaces(query: string, places: readonly SearchablePlace[], limit: number): SearchablePlace[] {
+export type RankedPlace = { place: SearchablePlace; rank: number };
+
+// The best matches with their rank (lower is closer), at most `limit`, by rank, then kind
+// (KIND_ORDER), then name. CA1: the assistant reads the ranks to tell a clear match from a guess.
+export function rankPlaces(query: string, places: readonly SearchablePlace[], limit: number): RankedPlace[] {
   const needle = normalizeSearch(query);
   if (needle.length === 0) return [];
   return places
     .map((place) => ({ place, rank: rankOf(needle, place) }))
-    .filter((item): item is { place: SearchablePlace; rank: number } => item.rank !== null)
+    .filter((item): item is RankedPlace => item.rank !== null)
     .sort(
       (a, b) =>
         a.rank - b.rank ||
         KIND_ORDER.indexOf(a.place.kind) - KIND_ORDER.indexOf(b.place.kind) ||
         a.place.title.localeCompare(b.place.title),
     )
-    .slice(0, limit)
-    .map((item) => item.place);
+    .slice(0, limit);
+}
+
+// The best matches, at most `limit`, in the order of rankPlaces
+export function searchPlaces(query: string, places: readonly SearchablePlace[], limit: number): SearchablePlace[] {
+  return rankPlaces(query, places, limit).map((item) => item.place);
 }

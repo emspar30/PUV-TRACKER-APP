@@ -65,6 +65,13 @@ function routeCards(lines: DirectedLine[]): RouteCard[] {
   });
 }
 
+// CA1: a point passed in the route's parameters, or null when any part is missing or not a number
+function pointParam(lat: string | undefined, lon: string | undefined, title: string | undefined): PickedPoint | null {
+  const point = { lat: Number(lat), lon: Number(lon) };
+  if (lat === undefined || lon === undefined || !title || !Number.isFinite(point.lat) || !Number.isFinite(point.lon)) return null;
+  return { ...point, label: title };
+}
+
 // My Rides (restyle): From and To, the distance and fare, the best-matching route with ways on to
 // the Map and Check-in tabs, the other routes that serve the trip, and recent rides. ST2-C: From and
 // To are pinned under the top bar, the map fills the rest of the screen, and the results sit in a
@@ -124,14 +131,40 @@ export default function MyRidesScreen() {
     setFocus((current) => ({ ...next, key: (current?.key ?? 0) + 1 }));
   }, []);
 
-  // A frequent-destination chip elsewhere opens this tab with that destination as To. Each tap
-  // carries a new time stamp; it is applied once, while rendering, with no effect.
-  const params = useLocalSearchParams<{ to?: string; at?: string }>();
+  // A frequent-destination chip elsewhere opens this tab with that destination as To. CA1: Ask
+  // Tunton opens it with a whole trip instead: To (and From, unless it is the user's own position)
+  // as coordinates with a title, and the route it answered with. Each tap carries a new time stamp;
+  // it is applied once, while rendering, with no effect.
+  const params = useLocalSearchParams<{
+    to?: string;
+    at?: string;
+    toLat?: string;
+    toLon?: string;
+    toTitle?: string;
+    fromLat?: string;
+    fromLon?: string;
+    fromTitle?: string;
+    route?: string;
+  }>();
   const [appliedRequest, setAppliedRequest] = useState<string | undefined>(undefined);
   if (params.at !== undefined && params.at !== appliedRequest) {
     setAppliedRequest(params.at);
     const target = destinations.find((item) => item.id === params.to);
-    if (target) {
+    const askedTo = pointParam(params.toLat, params.toLon, params.toTitle);
+    if (askedTo) {
+      const start = pointParam(params.fromLat, params.fromLon, params.fromTitle) ?? origin ?? myPosition;
+      setDestination(askedTo);
+      setOrigin(start);
+      setChosenRoute(params.route ?? null);
+      setSearching(null);
+      setQuery('');
+      setActive(start ? 'destination' : 'origin');
+      const bounds = start ? boundsOfLines([[[start.lon, start.lat], [askedTo.lon, askedTo.lat]]]) : null;
+      setFocus((current) => ({
+        key: (current?.key ?? 0) + 1,
+        ...(bounds ? { kind: 'bounds' as const, bounds: withMinimumSpan(bounds, mapRoute.minFocusSpanDeg) } : { kind: 'center' as const, center: askedTo }),
+      }));
+    } else if (target) {
       setDestination({ lat: target.lat, lon: target.lon, label: target.label });
       if (!origin) setActive('origin');
       setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: target }));

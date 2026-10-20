@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { FlaskConical, Info, LogIn, LogOut, PlayCircle, Settings, UserRound } from 'lucide-react-native';
+import { FlaskConical, Info, LogIn, LogOut, MessageCircleQuestionMark, PlayCircle, Settings, UserRound } from 'lucide-react-native';
 import { Text, View } from 'react-native';
 
 import { Logo, Screen, SettingsGroup, SettingsRow } from '@/components';
@@ -11,7 +11,7 @@ import { makeStyles, spacing, useTheme } from '@/theme';
 
 const LOGO_SIZE = spacing.xl + spacing.sm;
 
-// The burger menu (restyle, B1): the account, then Profile, Settings, Demo & simulation, About, and
+// The burger menu (restyle, B1): the account, then Profile, Settings, Ask Tunton (CA1), Demo & simulation, About, and
 // sign in or out. A full page that slides in from the right, with no dimmed backdrop; Back from an
 // item returns here.
 export default function MenuScreen() {
@@ -21,7 +21,7 @@ export default function MenuScreen() {
   const email = useSessionStore((state) => state.email);
   const username = useUsernameStore((state) => state.username);
 
-  const go = (path: '/profile' | '/settings' | '/demo-settings' | '/about' | '/onboarding' | '/sign-in') => router.push(path);
+  const go = (path: '/profile' | '/settings' | '/assistant' | '/demo-settings' | '/about' | '/onboarding' | '/sign-in') => router.push(path);
 
   return (
     <Screen title={strings.menu.title}>
@@ -39,6 +39,7 @@ export default function MenuScreen() {
       <SettingsGroup>
         <SettingsRow first icon={UserRound} title={strings.menu.profile} onPress={() => go('/profile')} />
         <SettingsRow icon={Settings} title={strings.menu.settings} onPress={() => go('/settings')} />
+        <SettingsRow icon={MessageCircleQuestionMark} title={strings.menu.assistant} onPress={() => go('/assistant')} />
         <SettingsRow icon={FlaskConical} tone="warning" title={strings.menu.demo} onPress={() => go('/demo-settings')} />
       </SettingsGroup>
       <SettingsGroup>
