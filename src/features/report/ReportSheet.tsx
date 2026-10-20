@@ -22,6 +22,7 @@ import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
 import { useBleVehicle } from './useBleVehicle';
+import { useVehicleChoices } from './useVehicleChoices';
 
 const ICON_SIZE = spacing.md + spacing.xs;
 const PANEL_MAX_HEIGHT = '80%';
@@ -31,8 +32,9 @@ const SEAT_TIERS: readonly SeatTier[] = ['green', 'amber', 'red'];
 type ReportSheetProps = {
   routes: readonly { code: string; color: string }[];
   initialRoute: string | null;
-  // The manual vehicle picker (D5): only in development builds, and only database vehicles
-  vehicles: readonly { id: string; label: string }[];
+  // T1: the manual vehicle picker (D5, unverified): team accounts on live data pick the multicab,
+  // whose marker their location then moves
+  vehiclePicker: boolean;
   // The stops of a route, in route order: the destinations to pick from
   stopsOf: (routeCode: string) => readonly RouteStop[];
   // Where the rider is, to leave out the stop they are at; null when unknown
@@ -49,7 +51,7 @@ type ReportSheetProps = {
 // switch. Fixed fields only (D2). Sent with GPS, the rider's location is shared on the live map
 // until they reach the destination, which ends it. Earns Energy (with GPS 1.0, without 0.5; each
 // once a Manila day). Unverified until Bluetooth (D5).
-export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position, gpsAvailable, checkGps, onClose }: ReportSheetProps) {
+export function ReportSheet({ routes, initialRoute, vehiclePicker, stopsOf, position, gpsAvailable, checkGps, onClose }: ReportSheetProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const ble = useBleVehicle();
@@ -75,7 +77,9 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
 
   // Bluetooth, when it hears the multicab, decides the route and the vehicle
   const route = ble?.routeCode ?? pickedRoute;
-  const vehicleId = ble?.vehicleId ?? pickedVehicle;
+  const vehicles = useVehicleChoices(ble ? null : route, vehiclePicker);
+  // A multicab picked on another route does not count
+  const vehicleId = ble?.vehicleId ?? (vehicles.some((vehicle) => vehicle.id === pickedVehicle) ? pickedVehicle : null);
   const destinations = useMemo(() => (route ? destinationOptions(stopsOf(route), position) : []), [route, stopsOf, position]);
   const destination = destinations.find((stop) => stop.code === destinationCode) ?? null;
   const chooseDestination = (place: SearchablePlace) => {
@@ -116,6 +120,7 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
           startBroadcast({
             routeCode: route,
             vehicleId,
+            seatTier,
             destination: { code: destination.code, name: destination.name, lat: destination.lat, lon: destination.lon },
             startedMs: Date.now(),
           });
@@ -188,9 +193,10 @@ export function ReportSheet({ routes, initialRoute, vehicles, stopsOf, position,
                   />
                 ))}
               </View>
-              {__DEV__ && vehicles.length > 0 ? (
+              {vehicles.length > 0 ? (
                 <>
-                  <Text style={typography.labelLg}>{strings.report.vehicleDev}</Text>
+                  <Text style={typography.labelLg}>{strings.report.vehicle}</Text>
+                  <Text style={typography.bodySm}>{strings.report.vehicleHint}</Text>
                   <View style={styles.chips}>
                     {vehicles.map((vehicle) => (
                       <Chip

@@ -9,7 +9,7 @@ import { parseEnv } from 'node:util';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { isNight } from '../../src/shared/backend/rules';
-import { encodePacket, type TelemetryPacket } from '../../src/shared/telemetry/packet';
+import { encodeBatch, encodePacket, type TelemetryPacket } from '../../src/shared/telemetry/packet';
 
 const ENV_FILE = path.join(__dirname, '..', '..', '.env');
 // Read .env directly: Expo's Babel preset swaps process.env for a copy taken before this file runs
@@ -103,6 +103,25 @@ live('S4 backend, live project', () => {
       expect(error).toBeNull();
       expect(data).toMatchObject({ seats_taken: 7, verified: false, verification_reasons: ['verification_disabled'] });
       expect(Object.keys(data ?? {})).not.toContain('user_id');
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'T1: ingest takes a batch of buffered positions, older ones as history and the newest as the marker',
+    async () => {
+      const nowS = Math.floor(Date.now() / 1000);
+      const sent = [packet({ ts: nowS - 600, seats: 3 }), packet({ ts: nowS - 300, seats: 3 }), packet({ ts: nowS - 1, seats: 11 })];
+      const result = await ingest(writer, encodeBatch(VEHICLE, sent));
+      expect(result.status).toBe(200);
+      expect(result.body).toMatchObject({ status: 'batch', latest: 'accepted' });
+
+      const { data } = await writer.from('telemetry_latest').select('seats_taken').eq('vehicle_id', VEHICLE).single();
+      expect(data).toMatchObject({ seats_taken: 11 });
+      // Sent again (a lost answer): nothing is stored twice and the marker stays
+      const again = await ingest(writer, encodeBatch(VEHICLE, sent));
+      expect(again.body).toMatchObject({ status: 'batch', stored: 0, latest: 'not_newer' });
+      expect((await ingest(outsider, encodeBatch(VEHICLE, sent))).status).toBe(403);
     },
     TIMEOUT_MS,
   );

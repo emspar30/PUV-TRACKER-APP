@@ -39,6 +39,11 @@ const OPEN_OPTIONS = { useNewConnection: true } as const;
 const globalHolder = globalThis as { __tuntonRouteDb?: Holder<OpenDb> };
 const dbHolder: Holder<OpenDb> = (globalHolder.__tuntonRouteDb ??= { current: null });
 
+// T1: the open database, for the telemetry buffer; null until the route data has loaded
+export function getLocalDb(): Db | null {
+  return dbHolder.current;
+}
+
 async function openRouteData(): Promise<RouteData> {
   const seed = getSeedRouteData();
   const stored = await withRetry(

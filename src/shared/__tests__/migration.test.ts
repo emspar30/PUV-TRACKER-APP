@@ -122,9 +122,15 @@ describe('migration: tables', () => {
   });
 
   it('stores no rider category, avatar, name, email or phone in any table', () => {
-    for (const word of ['classification', 'avatar', 'full_name', 'email', 'phone', 'discount']) {
+    for (const word of ['classification', 'avatar', 'full_name', 'email', 'discount']) {
       expect(sql).not.toContain(word);
     }
+    // The driver side (20261013000000_driver_side) keeps the numbers of driver phones and SMS
+    // gateways, never a rider's: only those two tables have a phone column
+    const withPhone = [...sql.matchAll(/create table (public\.\w+) \(([\s\S]*?)\);/g)]
+      .filter((match) => match[2].includes('phone'))
+      .map((match) => match[1]);
+    expect(withPhone).toEqual(['public.driver_devices', 'public.gateways']);
   });
 
   it('keeps the user id out of telemetry_latest, so rider identity cannot reach the map', () => {

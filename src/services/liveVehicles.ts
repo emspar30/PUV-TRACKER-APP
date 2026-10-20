@@ -38,3 +38,15 @@ export const supabaseVehiclesPort: LiveVehiclesPort = {
     };
   },
 };
+
+// T1: the route's active multicabs, for the relay's vehicle picker (read by team accounts only)
+export async function fetchRouteVehicles(routeCode: string): Promise<{ id: string; label: string }[]> {
+  const { data, error } = await getSupabase()
+    .from('vehicles')
+    .select('vehicle_id, plate')
+    .eq('route_id', routeCode)
+    .eq('active', true)
+    .order('vehicle_id');
+  if (error) throw new Error(error.message);
+  return data.map((vehicle) => ({ id: vehicle.vehicle_id as string, label: vehicle.plate as string }));
+}

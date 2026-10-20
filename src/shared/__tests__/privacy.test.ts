@@ -84,11 +84,15 @@ describe('no cloud payload contains classification', () => {
     expect(store).not.toMatch(/AsyncStorage|services|supabase|fetch/);
     expect(store.match(/partialize: .*/g)).toEqual(['partialize: ({ consent }) => ({ consent }) }),']);
 
+    // T1: the one exception is the relay broadcast, which sends the fix only as a telemetry packet
+    // (vehicle, position, speed, heading, seats, time; PRD 8.4), with no rider identity
     const backend = sources
       .filter((file) => /from '[^']*(services\/(supabase|auth|telemetry)|@supabase)/.test(fs.readFileSync(file, 'utf8')))
       .filter((file) => /locationStore|services\/location'/.test(fs.readFileSync(file, 'utf8')))
       .map(rel);
-    expect(backend).toEqual([]);
+    expect(backend).toEqual(['src/features/report/useGpsBroadcast.ts']);
+    const broadcast = fs.readFileSync(path.join(ROOT, 'src', 'features', 'report', 'useGpsBroadcast.ts'), 'utf8');
+    expect([...broadcast.matchAll(/from '([^']*services[^']*)'/g)].map((match) => match[1])).toEqual(['@/services/telemetry']);
   });
 
   it('demo mode (AF2, AF3) imports no service and sends nothing', () => {

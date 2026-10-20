@@ -146,11 +146,21 @@ export const en = {
     sharingTitle: 'Sharing your location',
     sharingDetail: (code: string, stop: string) => `${code} · until ${stop}`,
     stopSharing: 'Stop',
+    // T1: what the relay bar says about the marker
+    uplink: {
+      noVehicle: 'No multicab picked, so no live marker',
+      offTeam: 'Live markers are for team accounts for now',
+      waiting: 'Waiting for a precise location…',
+      live: (seconds: number) => `On the live map · sent ${seconds} s ago`,
+      saved: (count: number) => `${count} ${count === 1 ? 'position' : 'positions'} saved · sending when online`,
+    },
     arrivedTitle: (stop: string) => `You reached ${stop}`,
     arrivedBody: 'Location sharing stopped. Thanks for the relay!',
     expiredTitle: 'Location sharing ended',
     expiredBody: 'It stops by itself after a while. Relay again if you are still riding.',
-    vehicleDev: 'Vehicle (development builds)',
+    // T1: the manual vehicle picker (team accounts), until Bluetooth finds it (D5)
+    vehicle: 'Multicab you are riding (optional)',
+    vehicleHint: 'Pick it to move its marker on the live map. Unverified for now.',
     withGps: 'Share with GPS',
     gpsEarns: (gps: number, noGps: number) => `Earns +${gps.toFixed(1)} Energy with GPS, +${noGps.toFixed(1)} without (once a day each)`,
     gpsUnavailable: (noGps: number) => `No precise location right now. Sent without GPS: +${noGps.toFixed(1)} Energy (once a day).`,

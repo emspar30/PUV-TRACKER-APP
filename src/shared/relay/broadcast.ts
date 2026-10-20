@@ -5,12 +5,16 @@ import { FEED_STOP_NEAR_M, RELAY_BROADCAST_MAX_MIN, RELAY_DESTINATION_ARRIVED_M 
 import { haversineMeters, type LatLon } from '../geo/haversine';
 import { lineEndKm, projectOntoLine, type LineCoordinates } from '../geo/line';
 import type { RouteStop } from '../routing/types';
+import type { SeatTier } from '../telemetry/occupancy';
 
 const MS_PER_MIN = 60_000;
 
 export type RelayBroadcast = {
   routeCode: string;
+  // T1: the multicab picked by hand; without one the location moves no marker
   vehicleId: string | null;
+  // T1: the seats answer, sent with every position
+  seatTier: SeatTier;
   destination: Pick<RouteStop, 'code' | 'name' | 'lat' | 'lon'>;
   startedMs: number;
 };

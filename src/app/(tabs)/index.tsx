@@ -20,6 +20,7 @@ import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { OriginPin } from '@/features/map/OriginPin';
 import { RelayBar } from '@/features/report/RelayBar';
 import { ReportSheet } from '@/features/report/ReportSheet';
+import { useGpsBroadcast } from '@/features/report/useGpsBroadcast';
 import { useRelayBroadcast } from '@/features/report/useRelayBroadcast';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
@@ -186,6 +187,8 @@ export default function MapScreen() {
   const gpsAvailable = canReportWithGps(placeOf(commuter, fix, live.nowMs));
   // B4: a relay sent with GPS shares the location until the rider reaches their destination
   const relay = useRelayBroadcast(commuter);
+  // T1: a team account's relay moves the picked multicab's marker; buffered through dead zones
+  const uplink = useGpsBroadcast(relay, repos.vehicles.source === 'live' && teamAccount === true);
 
   // L1: at night the server shows only stopped multicabs (PRD 10.4), so an empty live route says
   // Night Mode rather than No data. The server decides; this only labels it.
@@ -578,7 +581,7 @@ export default function MapScreen() {
             </Pressable>
           </View>
         ) : null}
-        {relay ? <RelayBar routeCode={relay.routeCode} destination={relay.destination.name} onStop={stopRelay} /> : null}
+        {relay ? <RelayBar routeCode={relay.routeCode} destination={relay.destination.name} uplink={uplink} onStop={stopRelay} /> : null}
         {trackedId && trackedRoute && !onTrackedRoute ? (
           <TrackingBar
             label={tracked?.label ?? null}
@@ -660,7 +663,7 @@ export default function MapScreen() {
         <ReportSheet
           routes={routeOptions}
           initialRoute={selectedRoute}
-          vehicles={repos.vehicles.source === 'live' ? live.vehicles.map((item) => ({ id: item.id, label: item.label })) : []}
+          vehiclePicker={repos.vehicles.source === 'live' && teamAccount === true}
           stopsOf={relayStopsOf}
           position={commuter}
           gpsAvailable={gpsAvailable}

@@ -55,15 +55,27 @@ const deps: IngestDeps = {
       .from('telemetry_latest')
       .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: 'vehicle_id' });
     if (error) throw error;
-    // SB1: every accepted position is kept server-side for speed samples (retention: supabase/cron)
-    const history = await admin.from('telemetry_raw').insert({
-      vehicle_id: row.vehicle_id,
-      lat: row.lat,
-      lon: row.lon,
-      speed_kmh: row.speed_kmh,
-      packet_ts: row.packet_ts,
-    });
-    if (history.error) console.error('telemetry history insert failed', history.error.message);
+  },
+
+  getHistoryNewest: async (vehicleId) => {
+    const { data, error } = await admin
+      .from('telemetry_raw')
+      .select('packet_ts')
+      .eq('vehicle_id', vehicleId)
+      .order('packet_ts', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.packet_ts ?? null;
+  },
+
+  // SB1: accepted positions are kept server-side for speed samples (retention: supabase/cron)
+  insertHistory: async (rows) => {
+    const { error } = await admin.from('telemetry_raw').insert(rows);
+    if (error) {
+      console.error('telemetry history insert failed', error.message);
+      throw error;
+    }
   },
 
   // The audit trail must never fail a request, so its errors are only reported

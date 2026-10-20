@@ -5,9 +5,10 @@ import {
   handleIngest,
   type IngestDeps,
   type IngestLogEntry,
+  type TelemetryHistoryRow,
   type TelemetryLatestRow,
 } from '../../../supabase/functions/_shared/ingestCore';
-import { encodePacket, type TelemetryPacket } from '../telemetry/packet';
+import { encodeBatch, encodePacket, type TelemetryPacket } from '../telemetry/packet';
 
 const NOW_MS = 1_790_000_000_000;
 const NOW_S = NOW_MS / 1000;
@@ -28,6 +29,8 @@ const PACKET: TelemetryPacket = {
 function fakeBackend() {
   const latest = new Map<string, TelemetryLatestRow>();
   const log: IngestLogEntry[] = [];
+  const history: TelemetryHistoryRow[] = [];
+  let historyFails = false;
   const vehicles = new Map([
     ['R4-TEST-01', { active: true }],
     ['R4-TEST-OFF', { active: false }],
@@ -42,11 +45,29 @@ function fakeBackend() {
     upsertLatest: async (row) => {
       latest.set(row.vehicle_id, row);
     },
+    getHistoryNewest: async (id) =>
+      history
+        .filter((row) => row.vehicle_id === id)
+        .map((row) => row.packet_ts)
+        .sort()
+        .at(-1) ?? null,
+    insertHistory: async (rows) => {
+      if (historyFails) throw new Error('insert failed');
+      history.push(...rows);
+    },
     log: async (entry) => {
       log.push(entry);
     },
   };
-  return { deps, latest, log };
+  return {
+    deps,
+    latest,
+    log,
+    history,
+    failHistory: () => {
+      historyFails = true;
+    },
+  };
 }
 
 const post = (body: string, token: string | null = WRITER.token) => ({
@@ -204,5 +225,116 @@ describe('ingest tracks when a vehicle stopped', () => {
     expect(backend.latest.get('R4-TEST-01')?.stopped_since).toBeNull();
     await send(backend, { ts: NOW_S - 30, speed: 0 });
     expect(backend.latest.get('R4-TEST-01')?.stopped_since).toBe(iso(30));
+  });
+});
+
+describe('ingest keeps the history of a single packet', () => {
+  it('adds an accepted position to the history and still moves the marker when that insert fails', async () => {
+    const backend = fakeBackend();
+    await send(backend, { ts: NOW_S - 9 });
+    expect(backend.history).toEqual([
+      { vehicle_id: 'R4-TEST-01', lat: 8.947459, lon: 125.541426, speed_kmh: 23.5, packet_ts: new Date((NOW_S - 9) * 1000).toISOString() },
+    ]);
+    backend.failHistory();
+    expect(await send(backend, { ts: NOW_S - 5 })).toMatchObject({ status: 200, body: { status: 'accepted' } });
+    expect(backend.latest.get('R4-TEST-01')?.packet_ts).toBe(new Date((NOW_S - 5) * 1000).toISOString());
+  });
+});
+
+describe('ingest accepts a batch of buffered positions (T1)', () => {
+  const at = (secondsAgo: number, extra: Partial<TelemetryPacket> = {}): TelemetryPacket => ({ ...PACKET, ts: NOW_S - secondsAgo, ...extra });
+  const sendBatch = (backend: ReturnType<typeof fakeBackend>, points: TelemetryPacket[], token = WRITER.token) =>
+    handleIngest(post(encodeBatch('R4-TEST-01', points), token), backend.deps);
+
+  it('stores every position as history and the newest as the marker', async () => {
+    const backend = fakeBackend();
+    const response = await sendBatch(backend, [at(600), at(300, { seats: 3 }), at(10, { seats: 9 })]);
+    expect(response).toEqual({ status: 200, body: { status: 'batch', stored: 3, skipped: 0, latest: 'accepted' } });
+    expect(backend.history.map((row) => row.packet_ts)).toEqual([600, 300, 10].map((s) => new Date((NOW_S - s) * 1000).toISOString()));
+    expect(backend.latest.get('R4-TEST-01')).toMatchObject({ seats_taken: 9, verified: false });
+    expect(backend.log).toEqual([{ user_id: WRITER.userId, vehicle_id: 'R4-TEST-01', accepted: true, reason: 'batch_accepted' }]);
+  });
+
+  it('keeps a dead-zone backlog as history but leaves the marker when the newest is over 120 s old', async () => {
+    const backend = fakeBackend();
+    const response = await sendBatch(backend, [at(900), at(600), at(121)]);
+    expect(response.body).toEqual({ status: 'batch', stored: 3, skipped: 0, latest: 'too_old' });
+    expect(backend.latest.size).toBe(0);
+  });
+
+  it('leaves out positions over 30 minutes old and counts them', async () => {
+    const backend = fakeBackend();
+    const response = await sendBatch(backend, [at(1801), at(1700), at(5)]);
+    expect(response.body).toEqual({ status: 'batch', stored: 2, skipped: 1, latest: 'accepted' });
+  });
+
+  it('does not store a batch twice when it is sent again', async () => {
+    const backend = fakeBackend();
+    await sendBatch(backend, [at(60), at(30)]);
+    const again = await sendBatch(backend, [at(60), at(30), at(5)]);
+    expect(again.body).toEqual({ status: 'batch', stored: 1, skipped: 2, latest: 'accepted' });
+    expect(backend.history).toHaveLength(3);
+    expect(await sendBatch(backend, [at(60), at(30), at(5)])).toMatchObject({ body: { stored: 0, latest: 'not_newer' } });
+  });
+
+  it('sorts positions sent out of order and keeps one per timestamp', async () => {
+    const backend = fakeBackend();
+    await sendBatch(backend, [at(5, { seats: 9 }), at(50), at(50)]);
+    expect(backend.history.map((row) => row.packet_ts)).toEqual([50, 5].map((s) => new Date((NOW_S - s) * 1000).toISOString()));
+    expect(backend.latest.get('R4-TEST-01')?.seats_taken).toBe(9);
+  });
+
+  it('carries the stopped run through the batch', async () => {
+    const backend = fakeBackend();
+    await send(backend, { ts: NOW_S - 100, speed: 0 });
+    await sendBatch(backend, [at(70, { speed: 0 }), at(40, { speed: 1 }), at(10, { speed: 0 })]);
+    expect(backend.latest.get('R4-TEST-01')?.stopped_since).toBe(new Date((NOW_S - 100) * 1000).toISOString());
+    await sendBatch(backend, [at(8, { speed: 30 }), at(4, { speed: 0 })]);
+    expect(backend.latest.get('R4-TEST-01')?.stopped_since).toBe(new Date((NOW_S - 4) * 1000).toISOString());
+  });
+
+  it('fails without moving the marker when the history cannot be stored, so the phone sends it again', async () => {
+    const backend = fakeBackend();
+    backend.failHistory();
+    await expect(sendBatch(backend, [at(10)])).rejects.toThrow('insert failed');
+    expect(backend.latest.size).toBe(0);
+  });
+
+  it('applies the same writer rules as a single packet', async () => {
+    const backend = fakeBackend();
+    expect(await sendBatch(backend, [at(5)], OUTSIDER.token)).toEqual({ status: 403, body: { error: 'forbidden' } });
+    const inactive = await handleIngest(post(encodeBatch('R4-TEST-OFF', [at(5)])), backend.deps);
+    expect(inactive).toEqual({ status: 404, body: { error: 'unknown_vehicle' } });
+  });
+
+  it('accepts a full buffer of 60 positions within the batch size limit', async () => {
+    const backend = fakeBackend();
+    const points = Array.from({ length: 60 }, (_, i) => at(1790 - i * 30, { lat: 8.9474591, lon: 125.5414261, speed: 123.4, heading: 359 }));
+    const body = encodeBatch('R4-TEST-01', points);
+    expect(new TextEncoder().encode(body).length).toBeLessThan(4096);
+    expect((await handleIngest(post(body), backend.deps)).body).toMatchObject({ stored: 60 });
+  });
+
+  const bad: [string, unknown, string, string | null][] = [
+    ['an empty batch', { v: 'R4-TEST-01', p: [] }, 'bad_points', null],
+    ['more than 60 positions', { v: 'R4-TEST-01', p: Array.from({ length: 61 }, () => [NOW_S, 8.9, 125.5, 0, 0, 0]) }, 'bad_points', null],
+    ['a position of the wrong length', { v: 'R4-TEST-01', p: [[NOW_S, 8.9, 125.5]] }, 'bad_points', 'p.0'],
+    ['a bad position', { v: 'R4-TEST-01', p: [[NOW_S, 8.9, 125.5, 0, 0, 0], [NOW_S, 95, 125.5, 0, 0, 0]] }, 'bad_lat', 'p.1'],
+    ['a position in the future', { v: 'R4-TEST-01', p: [[NOW_S + 31, 8.9, 125.5, 0, 0, 0]] }, 'in_future', 'p.0'],
+    ['an extra field', { v: 'R4-TEST-01', p: [[NOW_S, 8.9, 125.5, 0, 0, 0]], user: 'x' }, 'unknown_field', 'user'],
+    ['no vehicle', { p: [[NOW_S, 8.9, 125.5, 0, 0, 0]] }, 'missing_field', 'v'],
+  ];
+
+  it.each(bad)('rejects %s', async (_label, body, error, field) => {
+    const backend = fakeBackend();
+    const response = await handleIngest(post(JSON.stringify(body)), backend.deps);
+    expect(response).toEqual({ status: 400, body: field ? { error, field } : { error } });
+    expect(backend.history).toEqual([]);
+  });
+
+  it('rejects a body over the batch size limit', async () => {
+    const backend = fakeBackend();
+    const response = await handleIngest(post(JSON.stringify({ v: 'R4-TEST-01', p: [], pad: 'x'.repeat(4100) })), backend.deps);
+    expect(response).toEqual({ status: 413, body: { error: 'packet_too_large' } });
   });
 });

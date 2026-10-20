@@ -1,26 +1,26 @@
-import { encodePacket, type TelemetryPacket } from '@/shared/telemetry/packet';
+import { FunctionsHttpError } from '@supabase/supabase-js';
+
+import { encodeBatch, type TelemetryPacket } from '@/shared/telemetry/packet';
 
 import { getSupabase } from './supabase';
 
 const INGEST_FUNCTION = 'ingest';
 
-export type SendResult =
-  | { ok: true; status: 'accepted' | 'ignored' }
-  | { ok: false; error: string };
-
-// Sends one position to the ingest Edge Function, the only writer of the live-map table.
-// The Supabase client adds the publishable key (`apikey`) and the signed-in user's access
-// token (`Authorization`). The server refuses accounts that are not on the team allowlist.
-export async function sendTelemetry(packet: TelemetryPacket): Promise<SendResult> {
+// T1: sends a vehicle's buffered positions, oldest first, to the ingest Edge Function, the only
+// writer of the live-map table. The Supabase client adds the publishable key (`apikey`) and the
+// signed-in user's access token (`Authorization`); the server refuses accounts that are not on the
+// team allowlist. Returns the HTTP status, or null when the server could not be reached.
+export async function sendTelemetryBatch(vehicleId: string, points: readonly TelemetryPacket[]): Promise<number | null> {
   try {
-    const { data, error } = await getSupabase().functions.invoke<{ status?: 'accepted' | 'ignored'; error?: string }>(
-      INGEST_FUNCTION,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: encodePacket(packet) },
-    );
-    if (error) return { ok: false, error: error.message };
-    if (!data?.status) return { ok: false, error: data?.error ?? 'unexpected_response' };
-    return { ok: true, status: data.status };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    const { error, response } = await getSupabase().functions.invoke(INGEST_FUNCTION, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: encodeBatch(vehicleId, points),
+    });
+    if (!error) return response?.status ?? 200;
+    if (error instanceof FunctionsHttpError) return (error.context as Response).status;
+    return null;
+  } catch {
+    return null;
   }
 }

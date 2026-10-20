@@ -5,14 +5,19 @@
 // (which can only load files from its own folder), and re-exported here:
 //   ENABLE_VERIFICATION (PRD 0.7; read in one place only: verifyReport), STATIONARY_SPEED_KMH (7.3),
 //   PACKET_MAX_AGE_S and PACKET_MAX_FUTURE_S (0.3), VEHICLE_CAPACITY_SEATS (7.3),
-//   PACKET_MAX_BYTES (8.4), INGEST_LOG_RETENTION_DAYS.
+//   PACKET_MAX_BYTES (8.4), INGEST_LOG_RETENTION_DAYS, PACKET_MAX_SPEED_KMH, and the T1 batch limits
+//   TELEMETRY_BATCH_MAX_POINTS, TELEMETRY_BATCH_MAX_BYTES and PACKET_BACKLOG_MAX_AGE_S.
 export {
   ENABLE_VERIFICATION,
   INGEST_LOG_RETENTION_DAYS,
+  PACKET_BACKLOG_MAX_AGE_S,
   PACKET_MAX_AGE_S,
   PACKET_MAX_BYTES,
   PACKET_MAX_FUTURE_S,
+  PACKET_MAX_SPEED_KMH,
   STATIONARY_SPEED_KMH,
+  TELEMETRY_BATCH_MAX_BYTES,
+  TELEMETRY_BATCH_MAX_POINTS,
   VEHICLE_CAPACITY_SEATS,
 } from '../../../supabase/functions/_shared/serverConfig.ts';
 
@@ -105,8 +110,14 @@ export const LIVE_RELOAD_INTERVAL_S = 30;
 // Development simulator (scripts/sim-ingest.ts): one packet per vehicle this often
 export const SIM_INGEST_INTERVAL_S = 5;
 
-// --- Offline buffer (PRD 8.4). Defined now, used later.
+// --- Offline buffer (PRD 8.4, T1). A broadcasting phone keeps its newest OFFLINE_BUFFER_SIZE positions
+// on the phone until the server has them (at most TELEMETRY_BATCH_MAX_POINTS, all sent as one batch).
+// A failed send is tried again after TELEMETRY_RETRY_MIN_S, doubling up to TELEMETRY_RETRY_MAX_S.
 export const OFFLINE_BUFFER_SIZE = 60;
+export const TELEMETRY_RETRY_MIN_S = 5;
+export const TELEMETRY_RETRY_MAX_S = 60;
+// The seats taken a relay's seat answer is sent as: the middle of each occupancy band below
+export const RELAY_SEATS_BY_TIER = { green: 3, amber: 9, red: 14 } as const;
 
 // --- Occupancy, by seats taken (PRD 7.3). The capacity is one of the server values above.
 export const OCCUPANCY_GREEN_MAX_TAKEN = 6;

@@ -84,6 +84,8 @@ All values are starting hypotheses (section 17). The agent exposes them from one
 | SMS maximum age and stale heatmap | 30 minutes, 15 minutes | 12.3 |
 | SMS sequence wrap-around window | a number is newer if it is 1 to 5,000 ahead of the last one, modulo 10,000 | 12.3 |
 | Telemetry timestamp limits | reject packets older than 120 s or more than 30 s in the future | 8.4 |
+| Store-and-forward batch (T1) | at most 60 positions and 4 KB per request; positions up to 30 minutes old kept as history; retry after 5 s, doubling to 60 s | 8.4 |
+| Relay seats sent (T1) | Seats available 3, Filling up 9, Full 14 | 8.4 |
 
 ### 0.4 Environment and device testing
 
@@ -485,6 +487,14 @@ The v1.0 "150 m AND 10 s" rule is replaced because it produced updates about eve
 | Hard cap | 3 hours per session, with a prompt to continue | Prevents forgotten sessions |
 
 GPS fixes with accuracy worse than 30 m are discarded before the rules apply. The 150 m / 10 s and 10-minute rules from v1.0 are retired.
+
+**Prototype relay broadcast (T1, 2026-10-21).** Until the Primary Broadcaster and the foreground service (8.5) are built, a team account's relay sent with GPS is the broadcaster:
+
+- **Foreground only.** Positions are made only while the app is open; nothing is sent from the background.
+- **Manual vehicle picker.** The rider picks the multicab in the Relay panel (unverified, D5). Without a picked multicab the location moves no marker.
+- **Store and forward.** Every position that passes the send rule above goes into the offline buffer first and is sent from there. The whole buffer, oldest first, goes as one request: `{"v":"R4-TEST-01","p":[[ts,lat,lon,kmh,heading,seats],...]}`, about 60 bytes for one position and about 40 bytes for each further one (coordinates to 5 decimals). A request that gets no answer, or a passing error (401, 408, 429, 5xx), keeps the buffer and is tried again later. Any other refusal drops the batch.
+- **On the server.** Every position up to 30 minutes old goes into the server's position history once (a batch sent again is not stored twice). The newest position moves the marker only if it is within the 120 s timestamp limit and newer than the marker. The single-packet form stays for the simulator.
+- **Team accounts only.** Writers stay on the team allowlist (0.7). Seats are sent as the middle of the band the rider picked.
 
 ### 8.5 Android background reliability
 
@@ -1072,6 +1082,7 @@ Sections 3.4 and 5.5, named in the request, do not exist in this document; the n
 | Frequent destinations | At most 3. |
 | Profile | The avatar button opens Profile, which also holds the settings rows (fare type, theme, About, Replay intro). |
 | ETA limits | Hidden below 5 km/h, after 90 s without data, with fewer than 2 samples, or beyond 10 km. Config constants; starting hypotheses. |
+| Relay broadcast (T1, 2026-10-21) | Approved by Emjay: foreground only, manual vehicle picker (unverified), store and forward with a batch form of ingest, team accounts only. See 8.4. |
 | Estimated markers (2026-10-17) | Approved by Emjay: 90 s to 5 minutes, along the route line, faint, labelled Estimated, no ETA; also on demo data. The coverage nudge's button opens Relay. See 7.3. |
 
 ## Changes after audit
@@ -1086,3 +1097,4 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 6. **Section 19 (Oct 3, 2026):** added "User flow v2": the new onboarding, greeting, tracking with Energy and ETA, newsfeed, reports and Profile, with decisions D1 to D14 and the earlier sections they override.
 7. **Section 19 (Oct 3, 2026, flow decisions):** D1, D2, D3, D7 and D8 updated with Emjay's answers (neutral feed badge, fixed-field feed, 60-minute posts, avatar pick once, no ranking); added 19.4.
 8. **Sections 0.3, 7.3 and 19 (Oct 17, 2026, CF1):** Estimated markers (dead reckoning along the line from 90 s to 5 minutes of silence, no ETA), the coverage nudge and the alternative route chip added to 7.3, with their constants in 0.3 and the override in 19.3 and 19.4 (Emjay approved).
+9. **Sections 0.3, 8.4 and 19 (Oct 21, 2026, T1):** the prototype relay broadcast added to 8.4 (foreground only, manual vehicle picker, store and forward with a batch form of the ingest endpoint), with its constants in 0.3 and the answer in 19.4 (Emjay approved).
