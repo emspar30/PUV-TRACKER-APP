@@ -81,8 +81,9 @@ const TYPE_ICONS: Record<Classification, LucideIcon> = {
 
 // The introduction (PRD 19, D3, D4, D7; restyle 2026-10-05): a welcome with sign-in, an avatar and
 // username, the commuter type, frequent places, and what the app will ask for later. Every answer but
-// the handle stays on the phone; the handle is sent when the user signs in. Skip works on every step,
-// and it can be replayed from Settings. It never asks for a permission itself.
+// the handle stays on the phone; the handle is sent when the user signs in. AU1: the welcome moves on
+// only once someone is signed in; Skip works on every later step, and it can be replayed from
+// Settings. It never asks for a permission itself.
 export default function OnboardingScreen() {
   const styles = useStyles();
   const insets = useSafeAreaInsets();
@@ -183,7 +184,8 @@ export default function OnboardingScreen() {
 function Welcome({ onSignIn, onContinue }: { onSignIn: () => void; onContinue: () => void }) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
-  // Sign-in is offered only when the app has the Supabase values and no one is signed in yet
+  // AU1: an account is needed, so there is no way on without one. Continue is offered only when
+  // someone is already signed in (the introduction replayed) or the build has no backend (development)
   const status = useSessionStore((state) => state.status);
   const canSignIn = status === 'signed-out' || status === 'loading';
   const features: { icon: LucideIcon; tone: 'primary' | 'warning' | 'success'; text: string }[] = [
@@ -206,13 +208,11 @@ function Welcome({ onSignIn, onContinue }: { onSignIn: () => void; onContinue: (
         ))}
       </ScrollView>
       <View style={styles.actions}>
-        {canSignIn ? <Button label={strings.onboarding.signIn} leadingIcon={Mail} onPress={onSignIn} /> : null}
-        <Button
-          label={strings.onboarding.withoutAccount}
-          variant={canSignIn ? 'secondary' : 'primary'}
-          icon={canSignIn ? undefined : ArrowRight}
-          onPress={onContinue}
-        />
+        {canSignIn ? (
+          <Button label={strings.onboarding.signIn} leadingIcon={Mail} onPress={onSignIn} />
+        ) : (
+          <Button label={strings.onboarding.continue} icon={ArrowRight} onPress={onContinue} />
+        )}
         <View style={styles.note}>
           <Lock color={colors.textSecondary} size={ICON_SIZE} />
           <Text style={typography.bodySm}>{strings.onboarding.welcomeNote}</Text>

@@ -1,4 +1,4 @@
-import { Bus, Crosshair, Lock, MapPin, Navigation, Radio, ShieldAlert, Users, X } from 'lucide-react-native';
+import { Bus, Crosshair, MapPin, Navigation, Radio, ShieldAlert, Users, X } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
 import { Button, IconTile, StatusPill } from '@/components';
@@ -20,8 +20,6 @@ type VehicleCardProps = {
   // How far the vehicle is from the commuter (PRD 7.4), or null without a position
   distanceKm: number | null;
   onTrack: () => void;
-  // ST2-D: a guest sees Track with a lock; it asks them to sign in
-  locked?: boolean;
   // CF1: drawn at an estimated position (silent 90 s to 5 minutes); there is no ETA then
   estimated?: boolean;
   onClose: () => void;
@@ -34,7 +32,7 @@ const SMALL_ICON = spacing.md;
 // and how far from the commuter (PRD 7.4, "Seen 40 s ago, 1.4 km from you"). With an ETA to the
 // commuter's stop it shows that too, and Track opens the tracking panel (L2). A live vehicle the
 // server has not verified says "Prototype data, unverified" (PRD 0.7).
-export function VehicleCard({ vehicle, nowMs, nextStop, stopped, eta, distanceKm, onTrack, locked = false, estimated = false, onClose }: VehicleCardProps) {
+export function VehicleCard({ vehicle, nowMs, nextStop, stopped, eta, distanceKm, onTrack, estimated = false, onClose }: VehicleCardProps) {
   const styles = useStyles();
   const { colors, typography, mapPaint, elevation } = useTheme();
   const free = Math.max(0, VEHICLE_CAPACITY_SEATS - vehicle.seatsTaken);
@@ -90,7 +88,7 @@ export function VehicleCard({ vehicle, nowMs, nextStop, stopped, eta, distanceKm
         ) : null}
       </View>
       <View style={styles.track}>
-        <Button label={strings.live.vehicle.track} leadingIcon={locked ? Lock : Crosshair} variant={locked ? 'secondary' : undefined} onPress={onTrack} />
+        <Button label={strings.live.vehicle.track} leadingIcon={Crosshair} onPress={onTrack} />
       </View>
     </View>
   );

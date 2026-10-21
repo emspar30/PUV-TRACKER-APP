@@ -1,15 +1,12 @@
 import type { EnergyLedgerRow, EnergyPort } from '@/data/live/liveEnergy';
 import { ENERGY_PASSIVE_INTERVAL_H } from '@/shared/config';
 
-import { getSupabase } from './supabase';
+import { getSupabase, hasSession } from './supabase';
 
 // The Supabase side of the Energy repository (SB2). Row Level Security returns only the caller's
 // ledger rows; every write goes through the SB1 functions.
 export const supabaseEnergyPort: EnergyPort = {
-  async signedIn() {
-    const { data } = await getSupabase().auth.getSession();
-    return Boolean(data.session);
-  },
+  signedIn: hasSession,
 
   async refill() {
     const { error } = await getSupabase().rpc('energy_passive_refill');

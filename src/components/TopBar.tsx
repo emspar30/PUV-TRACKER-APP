@@ -7,7 +7,6 @@ import { useRefillCountdown } from '@/features/energy/useRefillCountdown';
 import { TrustedAvatar } from '@/features/profile/TrustedAvatar';
 import { TourTarget } from '@/features/tour/TourTarget';
 import type { TourStepId } from '@/shared/ui/tourPlacement';
-import { useIsGuest } from '@/features/auth/guestGate';
 import { ENERGY_UI_VISIBLE, ENERGY_WALLET_CAP } from '@/shared/config';
 import { useConnectionStore } from '@/state/connectionStore';
 import { useEnergyStore } from '@/state/energyStore';
@@ -43,8 +42,6 @@ export function TopBar({ tour = false }: { tour?: boolean }) {
   const username = useUsernameStore((state) => state.username);
   const [fareType] = useFareType();
   const energy = useEnergyStore((state) => state.snapshot);
-  // ST2-D: the Energy pill for signed-in commuters only; a guest has no wallet
-  const guest = useIsGuest();
   const refillIn = useRefillCountdown();
   const offline = useConnectionStore((state) => state.online === false);
   return (
@@ -64,7 +61,7 @@ export function TopBar({ tour = false }: { tour?: boolean }) {
           </Pressable>
         </Tour>
         <View style={styles.grow} />
-        {ENERGY_UI_VISIBLE && energy && !guest ? (
+        {ENERGY_UI_VISIBLE && energy ? (
           <Pressable
             style={styles.energy}
             onPress={() => router.push('/profile')}

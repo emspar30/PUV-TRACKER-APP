@@ -36,7 +36,7 @@ import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
 import { useVehicles } from '@/features/vehicles/useVehicles';
 import { useTourStore } from '@/state/tourStore';
-import { promptSignIn, useIsGuest } from '@/features/auth/guestGate';
+import { promptSignIn } from '@/features/auth/promptSignIn';
 import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
 import {
   ENERGY_TRACKING_COST,
@@ -142,8 +142,6 @@ export default function MapScreen() {
 
   // Tabs stay mounted; vehicles refresh only while Map is the tab in front
   const focused = useIsFocused();
-  // ST2-D: a guest cannot relay or track; those controls show a lock and ask them to sign in
-  const guest = useIsGuest();
 
   // ST2-D: the tips tour starts by itself once, the first time the Map tab shows after the
   // introduction, when its controls are laid out
@@ -322,17 +320,16 @@ export default function MapScreen() {
     frame(code);
   };
 
-  // SB2: tracking one PUV is paid with Energy (free while Energy is off); signing in comes first
-  // on live data (D6)
+  // SB2: tracking one PUV is paid with Energy (free while Energy is off). AU1: everyone here is
+  // signed in; the server can still answer that the session is gone
   const startTracking = async (id: string) => {
-    if (guest) return promptSignIn();
     const routeCode = live.vehicles.find((candidate) => candidate.id === id)?.routeCode ?? selectedRoute;
     if (startingTrack.current || !routeCode) return;
     startingTrack.current = true;
     const session = await startTrackingSession();
     startingTrack.current = false;
     if (!session.ok) {
-      if (session.reason === 'sign_in') router.push('/sign-in');
+      if (session.reason === 'sign_in') promptSignIn();
       else if (session.reason === 'not_enough_energy')
         // The crowdsourcing loop: a report earns the Energy that tracking spends
         showDialog({
@@ -540,8 +537,7 @@ export default function MapScreen() {
           <CoverageNudge
             code={selectedOption.code}
             alternative={alternative ? { ...alternative, color: colorOfRoute(alternative.routeCode) } : null}
-            locked={guest}
-            onShare={() => (guest ? promptSignIn() : setReportOpen(true))}
+            onShare={() => setReportOpen(true)}
             onAlternative={(code) => showRoute(code, 'all')}
           />
         ) : null}
@@ -551,17 +547,12 @@ export default function MapScreen() {
         <View style={styles.buttons} pointerEvents="box-none" onLayout={(event) => setButtonsHeight(event.nativeEvent.layout.height)}>
           {trackedId ? <RoundButton icon={Crosshair} label={strings.live.tracking.jumpTo} onPress={jumpToTracked} active /> : null}
           <TourTarget id="relay">
-            <RoundButton
-              icon={RadioTower}
-              label={guest ? strings.guest.locked(strings.report.title) : strings.report.title}
-              onPress={() => (guest ? promptSignIn() : setReportOpen(true))}
-              locked={guest}
-            />
+            <RoundButton icon={RadioTower} label={strings.report.title} onPress={() => setReportOpen(true)} />
           </TourTarget>
           <TourTarget id="routes">
             <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
           </TourTarget>
-          {/* CA1: Ask Tunton, the offline assistant; open to guests (nothing leaves the phone) */}
+          {/* CA1: Ask Tunton, the offline assistant (nothing leaves the phone) */}
           <TourTarget id="ask">
             <RoundButton icon={MessageCircleQuestionMark} label={strings.assistant.open} onPress={() => router.push('/assistant')} />
           </TourTarget>
@@ -626,7 +617,6 @@ export default function MapScreen() {
             eta={vehicleEta?.kind === 'approaching' ? strings.live.tracking.minutes(vehicleEta.etaS) : null}
             distanceKm={vehicleKm}
             onTrack={() => void startTracking(vehicle.id)}
-            locked={guest}
             estimated={isGhostAge(ageSeconds(vehicle.lastPacketMs, live.nowMs))}
             onClose={() => setSelectedVehicle(null)}
           />

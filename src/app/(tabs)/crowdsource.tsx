@@ -1,4 +1,4 @@
-import { router, useIsFocused } from 'expo-router';
+import { useIsFocused } from 'expo-router';
 import { Clock, Flag, MapPin, MessagesSquare, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card, Chip, LineBadge, SkeletonCard, StatusPill, TopBar } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
+import { promptSignIn } from '@/features/auth/promptSignIn';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { DEMO_SEED, FEED_FLAG_HIDE_COUNT, SKELETON_LONG_MS } from '@/shared/config';
 import { demoFeed, type FeedPost } from '@/shared/demo/feed';
@@ -167,7 +168,7 @@ function confirmFlag(post: FeedPost) {
         onPress: () => {
           void flagPost(post.id, post.demo).then((result) => {
             if (result.ok) showDialog({ tone: 'success', title: strings.crowdsource.flaggedTitle, body: strings.crowdsource.flaggedBody });
-            else if (result.reason === 'sign_in') router.push('/sign-in');
+            else if (result.reason === 'sign_in') promptSignIn();
             else showDialog({ tone: 'danger', title: strings.crowdsource.flagFailedTitle, body: result.message ?? strings.crowdsource.flagFailedBody });
           });
         },

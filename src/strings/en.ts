@@ -781,13 +781,18 @@ export const en = {
     cancel: 'Cancel',
   },
 
-  // ST2-D: what a guest sees on a control that needs an account
-  guest: {
-    title: 'Account needed',
-    body: 'Please sign in or create an account to use this feature.',
+  // AU1: a release build without the backend keys (an account is needed and none can be made)
+  noBackend: {
+    title: 'Backend not configured',
+    body: 'This build of Tunton cannot sign anyone in. Please install a build made with the backend settings.',
+  },
+
+  // AU1: the server answered that the session is gone
+  signInAgain: {
+    title: 'Please sign in again',
+    body: 'Your session has ended. Sign in to keep using this feature.',
     signIn: 'Sign in',
     notNow: 'Not now',
-    locked: (feature: string) => `${feature}, needs an account`,
   },
 
   // CA1: the offline assistant (PRD 19.5). It understands English and Bisaya questions and replies
@@ -959,8 +964,9 @@ export const en = {
       privacy: 'Private and battery-friendly',
     },
     signIn: 'Sign in or create account',
-    withoutAccount: 'Continue without an account',
-    welcomeNote: 'No phone number needed · You can sign in later',
+    // AU1: the introduction replayed while signed in, or a development build with no backend
+    continue: 'Continue',
+    welcomeNote: 'No phone number needed · Works offline once you are signed in',
     profileStep: 'Profile',
     profileTitle: 'Choose your profile',
     profileBody: 'Pick an avatar and a username.',

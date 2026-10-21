@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Eye, EyeOff, LogIn, Mail, UserPlus } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -17,9 +17,12 @@ type Mode = 'signIn' | 'signUp';
 
 // Sign in, or create an account with an email and a password (open sign-up, 2026-10-05). ST2-A: no
 // notes above the form, the password can be shown, a new password is typed twice, and a reset link
-// can be sent.
+// can be sent. AU1: opened by the account gate (gate=1) it has no way back, and signing in opens the
+// app; opened from the introduction it returns there.
 export default function SignInScreen() {
   const styles = useStyles();
+  const gated = useLocalSearchParams<{ gate?: string }>().gate === '1';
+  const done = () => (gated ? router.replace('/') : router.back());
   const { colors, typography } = useTheme();
   const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
@@ -50,13 +53,13 @@ export default function SignInScreen() {
         return setNotice(strings.signIn.checkEmail);
       }
       await syncUsername();
-      return router.back();
+      return done();
     }
     const result = await signInWithPassword(email, password);
     setBusy(false);
     if (!result.ok) return setError(result.message);
     await syncUsername();
-    router.back();
+    done();
   };
 
   const forgot = async () => {
@@ -73,7 +76,7 @@ export default function SignInScreen() {
   const field = { ...typography.bodyLg, color: colors.textPrimary };
 
   return (
-    <Screen title={mode === 'signIn' ? strings.signIn.title : strings.signIn.createTitle}>
+    <Screen title={mode === 'signIn' ? strings.signIn.title : strings.signIn.createTitle} noBack={gated}>
       <View style={styles.form}>
         <View style={styles.input}>
           <Mail color={colors.textSecondary} size={ICON_SIZE} />

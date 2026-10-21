@@ -7,6 +7,7 @@ import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 import { Button, Chip, IconTile, LineBadge, RouteChip } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
 import type { FeedPhrase } from '@/shared/backend/rules';
+import { promptSignIn } from '@/features/auth/promptSignIn';
 import { PlaceResults } from '@/features/search/PlaceResults';
 import { usePlaceMatches, useSearchablePlaces } from '@/features/search/useSearchablePlaces';
 import { ENERGY_GPS_REPORT, ENERGY_NO_GPS_REPORT, ENERGY_UI_VISIBLE, FEED_LIFETIME_MIN, FEED_PHRASES, MAX_WALK_PER_LEG_M } from '@/shared/config';
@@ -132,7 +133,7 @@ export function ReportSheet({ routes, initialRoute, vehiclePicker, stopsOf, posi
         });
       } else if (result.reason === 'sign_in') {
         onClose();
-        router.push('/sign-in');
+        promptSignIn();
       } else if (result.reason === 'no_username') {
         showDialog({
           tone: 'warning',

@@ -1,17 +1,14 @@
 import type { CrowdPort, FeedRow } from '@/data/live/liveCrowd';
 import { FEED_READ_LIMIT } from '@/shared/config';
 
-import { getSupabase } from './supabase';
+import { getSupabase, hasSession } from './supabase';
 
 const failureOf = (error: { code?: string; message: string }) => ({ code: error.code ?? null, message: error.message });
 
 // The Supabase side of check-ins and reports (C1, RP1). Every write goes through the SB1 functions;
 // feed_posts is read through its policy (live, visible posts; never the author's user id).
 export const supabaseCrowdPort: CrowdPort = {
-  async signedIn() {
-    const { data } = await getSupabase().auth.getSession();
-    return Boolean(data.session);
-  },
+  signedIn: hasSession,
 
   async checkIn(routeCodes, stationCode, requestKey) {
     const [only] = routeCodes;

@@ -31,7 +31,6 @@ import { placeIdOf } from '@/shared/routing/suggest';
 import type { SearchablePlace } from '@/shared/routing/placeSearch';
 import { PlaceResults } from '@/features/search/PlaceResults';
 import { usePlaceMatches, useSearchablePlaces } from '@/features/search/useSearchablePlaces';
-import { promptSignIn, useIsGuest } from '@/features/auth/guestGate';
 import { explainFailure, type FailureExplanation } from '@/shared/routing/explainFailure';
 import { fareForItinerary, planOptions, planTrip } from '@/shared/routing/plan';
 import { rankRouteOptions } from '@/shared/routing/rankOptions';
@@ -119,8 +118,6 @@ export default function MyRidesScreen() {
   const [collapsed, setCollapsed] = useState(false);
   const [cardHeight, setCardHeight] = useState(0);
   // ST2-C3: the stop dots can be hidden to move round the map freely; remembered
-  // ST2-D: a guest cannot open Check-in from the suggested route either
-  const guest = useIsGuest();
   const showStops = useSettingsStore((state) => state.rideStops);
   const setShowStops = useSettingsStore((state) => state.setRideStops);
   const [focus, setFocus] = useState<MapFocus | null>(null);
@@ -461,7 +458,7 @@ export default function MyRidesScreen() {
                 boardAt={nearestCode(ride.from)}
                 getOffAt={nearestCode(ride.to)}
                 onViewOnMap={() => router.navigate({ pathname: '/', params: { route: ride.routeCode, at: String(Date.now()) } })}
-                onCheckin={() => (guest ? promptSignIn() : router.navigate('/checkin'))}
+                onCheckin={() => router.navigate('/checkin')}
               />
             </>
           ) : null}

@@ -1,4 +1,4 @@
-import { ArrowRight, Lock, RadioTower } from 'lucide-react-native';
+import { ArrowRight, RadioTower } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
 import { strings } from '@/strings';
@@ -8,8 +8,6 @@ type CoverageNudgeProps = {
   code: string;
   // A route that shares a stop with this one and has a Live multicab nearby, or null
   alternative: { routeCode: string; distanceM: number; color: string } | null;
-  // ST2-D: a guest sees the button with a lock; it asks them to sign in
-  locked: boolean;
   onShare: () => void;
   onAlternative: (code: string) => void;
 };
@@ -19,7 +17,7 @@ const SMALL_ICON = spacing.md;
 
 // CF1 coverage nudge, under the picked route's card when it has no Live multicab: asks riders on it
 // to share their seats (opens Relay) and, when an overlapping route has one nearby, offers that route.
-export function CoverageNudge({ code, alternative, locked, onShare, onAlternative }: CoverageNudgeProps) {
+export function CoverageNudge({ code, alternative, onShare, onAlternative }: CoverageNudgeProps) {
   const styles = useStyles();
   const { colors, typography, routeBadgeText, elevation } = useTheme();
   return (
@@ -30,7 +28,7 @@ export function CoverageNudge({ code, alternative, locked, onShare, onAlternativ
       </View>
       <View style={styles.actions}>
         <Pressable style={styles.share} onPress={onShare} accessibilityRole="button" accessibilityLabel={strings.live.nudge.share}>
-          {locked ? <Lock color={colors.onPrimary} size={SMALL_ICON} /> : <RadioTower color={colors.onPrimary} size={SMALL_ICON} />}
+          <RadioTower color={colors.onPrimary} size={SMALL_ICON} />
           <Text style={[typography.labelMd, { color: colors.onPrimary }]}>{strings.live.nudge.share}</Text>
         </Pressable>
         {alternative ? (

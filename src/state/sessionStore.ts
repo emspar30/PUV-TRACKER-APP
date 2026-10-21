@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 
-import { getSupabase, isSupabaseConfigured } from '@/services/supabase';
+import { getSupabase, isSupabaseConfigured, readStoredSession } from '@/services/supabase';
+import { isSignedIn, type SessionStatus } from '@/shared/auth/gate';
 
 import { syncUsername } from './usernameStore';
 
 // The backend sign-in state. It holds only what the screens show: whether someone is signed in
 // and their email. Nothing from the profile store (which stays on the device) is kept here.
 
-export type SessionStatus = 'unconfigured' | 'loading' | 'signed-out' | 'signed-in';
+export type { SessionStatus };
 
 type SessionState = {
   status: SessionStatus;
@@ -35,33 +36,43 @@ let started = false;
 
 // Reads the saved session and follows sign-in and sign-out. Call once when the app starts.
 // Never throws: without backend keys, or without a network, the offline features keep working.
+// AU1: a session saved on the phone counts as signed in at once, before the library has read it,
+// and still counts when the library reports none because the phone is offline (PRD 7.1).
 export function startSessionTracking(): void {
   if (started || !isSupabaseConfigured()) return;
   started = true;
 
-  try {
-    const { auth } = getSupabase();
-    const apply = (email: string | null | undefined, signedIn: boolean) => {
-      useSessionStore.setState({ status: signedIn ? 'signed-in' : 'signed-out', email: email ?? null, error: null, teamAccount: null });
-      // SB2: the handle follows the account
-      if (signedIn) {
-        void syncUsername();
-        void syncTeamAccount().catch(() => undefined);
-      }
-    };
+  const apply = (event: string | null, session: { user: { email?: string | null } } | null) => {
+    const stored = session ? null : readStoredSession();
+    const signedIn = isSignedIn({ event, session: Boolean(session), stored: stored !== null });
+    const status = signedIn ? 'signed-in' : 'signed-out';
+    const email = signedIn ? (session?.user.email ?? stored?.email ?? null) : null;
+    // The same account reported again (the first read, a token refresh) keeps its team answer
+    const before = useSessionStore.getState();
+    const same = before.status === status && before.email === email;
+    useSessionStore.setState({ status, email, error: null, ...(same ? {} : { teamAccount: null }) });
+    // SB2: the handle follows the account
+    if (signedIn) {
+      void syncUsername().catch(() => undefined);
+      void syncTeamAccount().catch(() => undefined);
+    }
+  };
 
+  try {
+    if (readStoredSession()) apply(null, null);
+
+    const { auth } = getSupabase();
     auth
       .getSession()
-      .then(({ data }) => apply(data.session?.user.email, Boolean(data.session)))
-      .catch((error: unknown) =>
-        useSessionStore.setState({
-          status: 'signed-out',
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
+      .then(({ data }) => apply(null, data.session))
+      .catch((error: unknown) => {
+        apply(null, null);
+        useSessionStore.setState({ error: error instanceof Error ? error.message : String(error) });
+      });
 
-    auth.onAuthStateChange((_event, session) => apply(session?.user.email, Boolean(session)));
+    auth.onAuthStateChange((event, session) => apply(event, session));
   } catch (error) {
-    useSessionStore.setState({ status: 'signed-out', error: error instanceof Error ? error.message : String(error) });
+    apply(null, null);
+    useSessionStore.setState({ error: error instanceof Error ? error.message : String(error) });
   }
 }

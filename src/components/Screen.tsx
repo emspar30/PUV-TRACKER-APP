@@ -12,19 +12,21 @@ type ScreenProps = {
   children?: ReactNode;
   // Shown on the right of the title row, such as a menu button
   action?: ReactNode;
+  // AU1: no arrow on a page that must not be left (sign-in when an account is needed)
+  noBack?: boolean;
 };
 
 const ICON_SIZE = spacing.lg;
 
 // A full page with a back arrow and its title (restyle: every page can be left without the system
 // Back button). On the first screen of the app there is nothing to go back to, so no arrow.
-export function Screen({ title, children, action }: ScreenProps) {
+export function Screen({ title, children, action, noBack = false }: ScreenProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
       <View style={styles.bar}>
-        {router.canGoBack() ? (
+        {!noBack && router.canGoBack() ? (
           <Pressable style={styles.back} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={strings.common.back}>
             <ArrowLeft color={colors.textPrimary} size={ICON_SIZE} />
           </Pressable>

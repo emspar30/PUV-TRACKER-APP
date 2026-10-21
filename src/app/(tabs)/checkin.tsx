@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { Bus, ChevronDown, Clock, LocateFixed, LocateOff, MapPinOff, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -8,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chip, Hint, LineBadge, Logo, RoundButton, RouteChip, SkeletonCard, TopBar } from '@/components';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
+import { promptSignIn } from '@/features/auth/promptSignIn';
 import { CompactBar, FarewellCard, RoutePing, StationCard } from '@/features/checkin/CheckInParts';
 import { LocationExplainer } from '@/features/map/LocationExplainer';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
@@ -243,7 +243,7 @@ export default function CheckInScreen() {
       const routes = filter && pinged.includes(filter) ? [filter, ...pinged.filter((value) => value !== filter)] : [...pinged];
       const result = await cloudCheckIn(routes, code);
       if (!result.ok) {
-        if (result.reason === 'sign_in') router.push('/sign-in');
+        if (result.reason === 'sign_in') promptSignIn();
         else showDialog({ tone: 'danger', title: strings.checkin.failedTitle, body: result.message ?? strings.checkin.failedBody });
         return;
       }
