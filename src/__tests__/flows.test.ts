@@ -6,6 +6,7 @@
 //   CA1  a Bisaya question to an answer, then "Open in My Rides" plans the same trip
 //   CF1  a silent multicab drawn Estimated; R14 empty in the demo, so the nudge shows
 //   T1   positions kept through a dead zone, then sent in order once the network is back
+//   CA1.1 plain-English questions, partial names and typos answered at once; the conversation kept
 
 import { DatabaseSync } from 'node:sqlite';
 
@@ -54,6 +55,15 @@ jest.mock('@/services/supabase', () => ({
     },
     rpc: () => Promise.reject(new Error('Network request failed')),
   }),
+}));
+const mockSaved = new Map<string, string>();
+jest.mock('expo-sqlite/kv-store', () => ({
+  __esModule: true,
+  default: {
+    getItemSync: (key: string) => mockSaved.get(key) ?? null,
+    setItemSync: (key: string, value: string) => mockSaved.set(key, value),
+    removeItemSync: (key: string) => mockSaved.delete(key),
+  },
 }));
 jest.mock('@/state/usernameStore', () => ({ syncUsername: () => Promise.reject(new Error('Network request failed')) }));
 
@@ -142,9 +152,10 @@ const context = (overrides: Partial<AssistantContext> = {}): AssistantContext =>
 
 describe('CA1 flow: ask, answer, open in My Rides', () => {
   it('a Bisaya fare question becomes a trip that My Rides plans the same way', () => {
-    const reply = answer(parseQuery('Pila plete gikan Libertad paingon CSU?'), context());
+    const intent = parseQuery('Pila plete gikan Libertad paingon CSU?');
+    const reply = answer(intent, context());
     if (reply.kind !== 'trip') throw new Error(`expected a trip, got ${reply.kind}`);
-    const words = replyOf(reply, 'regular');
+    const words = replyOf(reply, intent, 'regular');
     // Fare first, as asked
     expect(words.lines[0]).toContain(`₱`);
     const chip = words.chips.find((candidate) => candidate.action.kind === 'openTrip');
@@ -166,9 +177,10 @@ describe('CA1 flow: ask, answer, open in My Rides', () => {
   });
 
   it('no start named: My Rides keeps the user position (no from parameters)', () => {
-    const reply = answer(parseQuery('pilay plete padung CSU'), context());
+    const intent = parseQuery('pilay plete padung CSU');
+    const reply = answer(intent, context());
     if (reply.kind !== 'trip') throw new Error(`expected a trip, got ${reply.kind}`);
-    const chip = replyOf(reply, 'regular').chips.find((candidate) => candidate.action.kind === 'openTrip');
+    const chip = replyOf(reply, intent, 'regular').chips.find((candidate) => candidate.action.kind === 'openTrip');
     if (!chip || chip.action.kind !== 'openTrip') throw new Error('no chip');
     const params = tripParams(chip.action, NOW);
     expect(params.fromLat).toBeUndefined();
@@ -178,7 +190,8 @@ describe('CA1 flow: ask, answer, open in My Rides', () => {
   it('"naay R4 gadagan?" against the demo multicabs says how many are Live', () => {
     const vehicles = demoVehicles('R4', NOW);
     expect(vehicles.length).toBeGreaterThan(0);
-    const reply = answer(parseQuery('naay R4 gadagan?'), context({ live: { access: 'open', night: false, vehicles, nowMs: NOW } }));
+    const intent = parseQuery('naay R4 gadagan?');
+    const reply = answer(intent, context({ live: { access: 'open', night: false, vehicles, nowMs: NOW } }));
     expect(reply).toMatchObject({ kind: 'status', routeCode: 'R4' });
     if (reply.kind !== 'status') throw new Error('no status');
     // One demo multicab per route goes quiet on purpose (so Estimated can be seen); Live is by age
@@ -186,7 +199,67 @@ describe('CA1 flow: ask, answer, open in My Rides', () => {
     expect(reply.live).toBe(visible.filter((vehicle) => ageSeconds(vehicle.lastPacketMs, NOW) < COVERAGE_LIVE_MAX_AGE_S).length);
     expect(reply.live + reply.estimated + reply.stale).toBeLessThanOrEqual(visible.length);
     expect(reply.live).toBeGreaterThan(0);
-    expect(replyOf(reply, 'regular').chips[0]?.action).toEqual({ kind: 'openMap', route: 'R4' });
+    expect(replyOf(reply, intent, 'regular').chips[0]?.action).toEqual({ kind: 'openMap', route: 'R4' });
+  });
+
+  it('CA1.1: a plain-English question with a partial name answers at once and says which place', () => {
+    const intent = parseQuery('what route should I board for robinsons?');
+    const reply = answer(intent, context());
+    if (reply.kind !== 'trip') throw new Error(`expected a trip, got ${reply.kind}`);
+    const words = replyOf(reply, intent, 'regular');
+    expect(words.lines[0]).toBe(`Showing results for ${reply.to.title}:`);
+    expect(words.lines[1]).toMatch(/^Ride R\d+/);
+    expect(words.chips.some((chip) => chip.action.kind === 'openTrip')).toBe(true);
+    // The other Robinsons places that fit as well, as "Did you mean" chips that ask again
+    const runnerUp = words.chips.find((chip) => chip.label.startsWith('Did you mean'));
+    if (!runnerUp || runnerUp.action.kind !== 'ask') throw new Error('no runner-up chip');
+    const again = answer(runnerUp.action.intent, context());
+    expect(['trip', 'tripFail']).toContain(again.kind);
+    if (again.kind === 'trip' || again.kind === 'tripFail') {
+      expect(again.to.title).toBe(runnerUp.action.question);
+      expect(replyOf(again, runnerUp.action.intent, 'regular').lines[0]).not.toMatch(/^Showing results/);
+    }
+  });
+
+  it('CA1.1: a typo is corrected and said so', () => {
+    const intent = parseQuery('pila plete paingon ampayun');
+    const reply = answer(intent, context());
+    if (reply.kind !== 'trip') throw new Error(`expected a trip, got ${reply.kind}`);
+    expect(replyOf(reply, intent, 'regular').lines[0]).toBe('Did you mean Ampayon? Showing results for it ("ampayun" not found):');
+  });
+});
+
+// --- CA1.1: the conversation survives closing the screen and a restart -------------------------------
+
+describe('CA1.1 flow: the conversation is kept for an hour', () => {
+  it('kept across a restart, gone after an hour, gone after Reset app', () => {
+    const load = () => {
+      let store: typeof import('@/state/assistantStore').useAssistantStore | undefined;
+      jest.isolateModules(() => {
+        store = (jest.requireActual('@/state/assistantStore') as typeof import('@/state/assistantStore')).useAssistantStore;
+      });
+      if (!store) throw new Error('not loaded');
+      return store;
+    };
+    const first = load();
+    first.setState({ entries: [] });
+    first.getState().ask('what route should I board for robinsons?', parseQuery('what route should I board for robinsons?'), NOW);
+    first.getState().setSnap('expanded');
+    // Closing the sheet, going to My Rides and back, or restarting the app: the same questions
+    const again = load();
+    expect(again.getState().entries.map((entry) => entry.question)).toEqual(['what route should I board for robinsons?']);
+    expect(again.getState().entries[0].intent).toEqual(parseQuery('what route should I board for robinsons?'));
+    expect(again.getState().snap).toBe('expanded');
+    // Still there 59 minutes later, gone after an hour
+    again.getState().prune(NOW + 59 * 60_000);
+    expect(again.getState().entries).toHaveLength(1);
+    again.getState().prune(NOW + 61 * 60_000);
+    expect(again.getState().entries).toEqual([]);
+    expect(load().getState().entries).toEqual([]);
+    // Reset app (and Delete account, which runs it) clears it too
+    again.getState().ask('Is R4 running?', parseQuery('Is R4 running?'), NOW);
+    again.setState(again.getInitialState(), true);
+    expect(load().getState().entries).toEqual([]);
   });
 });
 

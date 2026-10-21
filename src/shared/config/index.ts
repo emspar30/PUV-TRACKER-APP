@@ -51,8 +51,8 @@ export const GHOST_TICK_MS = 1000;
 // of the commuter, with a Live vehicle within this distance of them (or of a shared stop)
 export const ALTERNATIVE_NEARBY_M = 2000;
 
-// --- CA1 offline assistant (PRD 19.5): no network, no model; rules over the data on the phone
-// "Did you mean": at most this many places when a name in a question matches more than one
+// --- CA1 assistant (PRD 19.5): no model; rules over the data on the phone (CA1.1: online only)
+// The best match is answered at once; "Did you mean" chips offer at most this many places in all
 export const ASSISTANT_CHOICES_MAX = 3;
 // Places looked at when matching a name in a question
 export const ASSISTANT_SEARCH_LIMIT = 8;
@@ -60,6 +60,16 @@ export const ASSISTANT_SEARCH_LIMIT = 8;
 export const ASSISTANT_INPUT_MAX_CHARS = 120;
 // A trip's two ends closer than this are the same place: there is nothing to ride
 export const ASSISTANT_SAME_PLACE_M = 50;
+// CA1.1 typo matching, used only when no name starts with what was typed: a typed word of at least
+// ASSISTANT_FUZZY_MIN_CHARS letters may differ from a word of the name by this many letters
+// (inserted, removed or changed); words up to ASSISTANT_FUZZY_SHORT_CHARS letters by one only
+export const ASSISTANT_FUZZY_MAX_EDITS = 2;
+export const ASSISTANT_FUZZY_SHORT_CHARS = 5;
+export const ASSISTANT_FUZZY_MIN_CHARS = 4;
+// CA1.1 conversation kept on the phone: the newest questions (each with its answer), none older
+// than this; there is no manual clear (Emjay, 2026-10-22)
+export const ASSISTANT_HISTORY_MAX = 50;
+export const ASSISTANT_HISTORY_MAX_AGE_MIN = 60;
 
 // --- Username (PRD 19 D7; the same rule as set_username in the migration)
 export const USERNAME_MIN_LENGTH = 3;

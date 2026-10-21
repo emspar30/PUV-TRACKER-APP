@@ -3,6 +3,8 @@
 // streets. No network. Case, accents and punctuation are ignored, and a word may be typed in part
 // ("doc" finds Butuan Doctors' Hospital).
 
+import { ASSISTANT_FUZZY_MAX_EDITS, ASSISTANT_FUZZY_MIN_CHARS, ASSISTANT_FUZZY_SHORT_CHARS } from '../config';
+
 export type SearchablePlace = {
   id: string;
   title: string;
@@ -81,4 +83,66 @@ export function rankPlaces(query: string, places: readonly SearchablePlace[], li
 // The best matches, at most `limit`, in the order of rankPlaces
 export function searchPlaces(query: string, places: readonly SearchablePlace[], limit: number): SearchablePlace[] {
   return rankPlaces(query, places, limit).map((item) => item.place);
+}
+
+// CA1.1: the number of letters to insert, remove or change to turn one word into the other
+export function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  let previous = Array.from({ length: b.length + 1 }, (_v, j) => j);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      const change = previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1);
+      current.push(Math.min(previous[j] + 1, current[j - 1] + 1, change));
+    }
+    previous = current;
+  }
+  return previous[b.length];
+}
+
+// "robinsons" and "robinson" are the same word to a commuter
+const PLURAL_MIN_CHARS = 4;
+const singular = (word: string) => (word.length >= PLURAL_MIN_CHARS && word.endsWith('s') ? word.slice(0, word.length - 1) : word);
+
+// The fewest edits that turn a typed word into a word of the name, or into its start ("robnso" for
+// "robinsons"); null when it is too far. A short typed word must start a word of the name exactly.
+function wordEdits(typed: string, words: readonly string[]): number | null {
+  const allowed = typed.length < ASSISTANT_FUZZY_MIN_CHARS ? 0 : typed.length <= ASSISTANT_FUZZY_SHORT_CHARS ? 1 : ASSISTANT_FUZZY_MAX_EDITS;
+  let best: number | null = null;
+  for (const word of words) {
+    if (word.startsWith(typed)) return 0;
+    if (allowed === 0) continue;
+    const edits = Math.min(editDistance(singular(typed), singular(word)), editDistance(typed, word.slice(0, typed.length)));
+    if (edits <= allowed && (best === null || edits < best)) best = edits;
+  }
+  return best;
+}
+
+export type FuzzyPlace = { place: SearchablePlace; edits: number };
+
+// CA1.1: places whose name holds every typed word, each within a few typing mistakes ("ampayun",
+// "robnson"), fewest edits first, then kind (KIND_ORDER), then name. For when rankPlaces finds none.
+export function fuzzyPlaces(query: string, places: readonly SearchablePlace[], limit: number): FuzzyPlace[] {
+  const typed = normalizeSearch(query).split(' ').filter(Boolean);
+  if (typed.length === 0) return [];
+  const found: FuzzyPlace[] = [];
+  for (const place of places) {
+    const words = normalizeSearch(place.title).split(' ');
+    let edits: number | null = 0;
+    for (const part of typed) {
+      const partEdits = wordEdits(part, words);
+      edits = partEdits === null ? null : edits + partEdits;
+      if (edits === null) break;
+    }
+    // A name every typed word starts is rankPlaces' own; only names that needed a correction here
+    if (edits !== null && edits > 0) found.push({ place, edits });
+  }
+  return found
+    .sort(
+      (a, b) =>
+        a.edits - b.edits ||
+        KIND_ORDER.indexOf(a.place.kind) - KIND_ORDER.indexOf(b.place.kind) ||
+        a.place.title.localeCompare(b.place.title),
+    )
+    .slice(0, limit);
 }

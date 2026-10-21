@@ -18,6 +18,7 @@ import {
   SHORT_TO_MARKER,
   STOP_WORDS,
   TO_MARKERS,
+  WEAK_TO_MARKERS,
   WHERE_WORDS,
 } from './lexicon';
 
@@ -66,7 +67,7 @@ const has = (words: readonly string[], phrases: readonly string[]) => findPhrase
 const singleWords = (lists: readonly (readonly string[])[]) => new Set(lists.flatMap((list) => list.flatMap((phrase) => phrase.split(' '))));
 
 // Taken off either end of a place: fillers and the question's own keywords, never a word inside a name
-const EDGE_WORDS = singleWords([FILLER_WORDS, FARE_WORDS, RIDE_WORDS, RUNNING_WORDS, WHERE_WORDS, TO_MARKERS, FROM_MARKERS]);
+const EDGE_WORDS = singleWords([FILLER_WORDS, FARE_WORDS, RIDE_WORDS, RUNNING_WORDS, WHERE_WORDS, TO_MARKERS, WEAK_TO_MARKERS, FROM_MARKERS]);
 // Taken out anywhere in a nearest-stop question, leaving the place it is about
 const NEAREST_NOISE = singleWords([NEAREST_WORDS, STOP_WORDS, WHERE_WORDS]);
 const GREETING_WORDS = singleWords([GREETINGS]);
@@ -103,8 +104,16 @@ function shortToMarker(words: readonly string[]): Hit | null {
   return null;
 }
 
+// The words after the last "for" in a run, so "what is the fare for SM" (before "to") starts at SM
+function afterWeakMarker(words: readonly string[]): readonly string[] {
+  for (let i = words.length - 1; i >= 0; i -= 1) {
+    if (WEAK_TO_MARKERS.includes(words[i])) return words.slice(i + 1);
+  }
+  return words;
+}
+
 function tripOf(words: readonly string[]): TripIntent | null {
-  const toHit = findPhrase(words, TO_MARKERS) ?? shortToMarker(words);
+  const toHit = findPhrase(words, TO_MARKERS) ?? shortToMarker(words) ?? findPhrase(words, WEAK_TO_MARKERS);
   const fromHit = findPhrase(words, FROM_MARKERS);
   if (!toHit && !fromHit) return null;
   const focus = has(words, FARE_WORDS) ? 'fare' : 'route';
@@ -119,7 +128,7 @@ function tripOf(words: readonly string[]): TripIntent | null {
     from = slotOf(words.slice(fromHit.at + fromHit.length, end));
   } else if (toHit) {
     // "SM to Libertad": what comes before "to" is the start, once the question words are taken off
-    from = slotOf(words.slice(0, toHit.at));
+    from = slotOf(afterWeakMarker(words.slice(0, toHit.at)));
   }
   return { kind: 'trip', from, to, focus };
 }

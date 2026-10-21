@@ -8,7 +8,7 @@ import { parseQuery, type Intent } from '../assistant/intent';
 import { resolvePlace } from '../assistant/resolve';
 import { ASSISTANT_CHOICES_MAX, COVERAGE_LIVE_MAX_AGE_S, FARE_REGULAR_MULTIPLIER, GHOST_MAX_AGE_S } from '../config';
 import { discountMultiplier } from '../fare/fare';
-import type { SearchablePlace } from '../routing/placeSearch';
+import { editDistance, fuzzyPlaces, type SearchablePlace } from '../routing/placeSearch';
 import type { VehicleSnapshot } from '../telemetry/vehicle';
 
 const data = getSeedRouteData();
@@ -108,11 +108,42 @@ describe('finding places', () => {
     expect(resolvePlace(text('sm city'), PLACES)).toMatchObject({ kind: 'found', place: { code: 'SMB' } });
   });
 
-  it('offers a few places when a name fits several, and says so when none', () => {
+  it('takes the best of several at once, with the others that fit as well, and says so when none', () => {
     const result = resolvePlace(text('gaisano'), PLACES);
-    expect(result.kind).toBe('choose');
-    if (result.kind === 'choose') expect(result.options.length).toBeLessThanOrEqual(ASSISTANT_CHOICES_MAX);
+    expect(result).toMatchObject({ kind: 'found', how: 'partial' });
+    if (result.kind !== 'found') return;
+    expect(result.others.length).toBeGreaterThan(0);
+    expect(result.others.length).toBeLessThanOrEqual(ASSISTANT_CHOICES_MAX - 1);
+    expect(new Set([result.place.title, ...result.others.map((place) => place.title)]).size).toBe(result.others.length + 1);
     expect(resolvePlace(text('qwxzz'), PLACES)).toEqual({ kind: 'none', text: 'qwxzz' });
+  });
+
+  it('CA1.1: a name as typed is exact, with nothing else offered', () => {
+    expect(resolvePlace(text('ampayon'), PLACES)).toMatchObject({ kind: 'found', how: 'exact', others: [], place: { code: 'AMP' } });
+    expect(resolvePlace(text('csu'), PLACES)).toMatchObject({ how: 'exact', others: [] });
+  });
+
+  it('CA1.1: singular, plural and part of a name find Robinsons', () => {
+    for (const typed of ['robinsons', 'robinson', 'robinso']) {
+      expect(resolvePlace(text(typed), PLACES)).toMatchObject({ kind: 'found', how: 'partial', place: { code: 'ROB' } });
+    }
+  });
+
+  it('CA1.1: typing mistakes are corrected when no name starts with what was typed', () => {
+    expect(resolvePlace(text('ampayun'), PLACES)).toMatchObject({ kind: 'found', how: 'corrected', place: { title: 'Ampayon' } });
+    expect(resolvePlace(text('robnson'), PLACES)).toMatchObject({ kind: 'found', how: 'corrected', place: { code: 'ROB' } });
+    expect(resolvePlace(text('libertat'), PLACES)).toMatchObject({ kind: 'found', how: 'corrected', place: { code: 'LIB' } });
+    // A short word must be typed right; three mistakes are too many
+    expect(resolvePlace(text('smx'), PLACES)).toMatchObject({ kind: 'none' });
+    expect(resolvePlace(text('ampxxxn'), PLACES)).toMatchObject({ kind: 'none' });
+  });
+
+  it('CA1.1: the edit distance counts inserted, removed and changed letters', () => {
+    expect(editDistance('ampayun', 'ampayon')).toBe(1);
+    expect(editDistance('robnson', 'robinson')).toBe(1);
+    expect(editDistance('kitten', 'sitting')).toBe(3);
+    expect(editDistance('', 'abc')).toBe(3);
+    expect(fuzzyPlaces('ampayon', PLACES, 3).every((item) => item.edits > 0)).toBe(true);
   });
 });
 
@@ -145,12 +176,49 @@ describe('trip answers', () => {
     expect(answer(parseQuery('pila plete?'), context())).toEqual({ kind: 'needDestination' });
     expect(answer(parseQuery('to qwxzz'), context())).toEqual({ kind: 'notFound', text: 'qwxzz' });
     expect(answer(parseQuery('from Libertad to Libertad'), context())).toMatchObject({ kind: 'tripFail', reason: 'same_place' });
-    const choose = answer(parseQuery('to gaisano'), context());
-    expect(choose.kind).toBe('choose');
-    if (choose.kind !== 'choose') return;
-    const picked = answer(withChoice(choose.intent, choose.slot, choose.options[0]), context());
+    // CA1.1: a name that fits several is answered for the best at once; a runner-up asks again
+    const intent = parseQuery('to gaisano');
+    const best = answer(intent, context());
+    expect(['trip', 'tripFail']).toContain(best.kind);
+    if (best.kind !== 'trip' && best.kind !== 'tripFail') return;
+    const [match] = best.matches;
+    expect(match).toMatchObject({ slot: 'to', typed: 'gaisano', how: 'partial', title: best.to.title });
+    const picked = answer(withChoice(intent, match.slot, match.others[0]), context());
     expect(['trip', 'tripFail']).toContain(picked.kind);
-    if (picked.kind === 'trip' || picked.kind === 'tripFail') expect(picked.to.title).toBe(choose.options[0].title);
+    if (picked.kind === 'trip' || picked.kind === 'tripFail') {
+      expect(picked.to.title).toBe(match.others[0].title);
+      // Picked from a chip: exact, nothing more to say about the name
+      expect(picked.matches).toEqual([]);
+    }
+  });
+
+  it('CA1.1: "what route should I board for robinsons?" answers the route to Robinsons at once', () => {
+    expect(parseQuery('what route should I board for robinsons?')).toEqual({ kind: 'trip', from: null, to: text('robinsons'), focus: 'route' });
+    const reply = answer(parseQuery('what route should I board for robinsons?'), context());
+    expect(reply).toMatchObject({ kind: 'trip', to: { title: stop('ROB').name }, from: { mine: true } });
+    if (reply.kind !== 'trip') return;
+    expect(reply.matches).toEqual([expect.objectContaining({ slot: 'to', typed: 'robinsons', how: 'partial', title: stop('ROB').name })]);
+  });
+
+  it('CA1.1: other plain-English phrasings and typos give the same trip', () => {
+    const toRobinsons = { kind: 'trip', to: { title: stop('ROB').name } };
+    for (const question of [
+      'robinson',
+      'robinso',
+      'which multicab should we take towards robinsons',
+      'what jeep do i ride for robinsons',
+      'how do i get to robinson',
+      'robnson',
+    ]) {
+      expect(answer(parseQuery(question), context())).toMatchObject(toRobinsons);
+    }
+    const corrected = answer(parseQuery('how much is the fare to ampayun'), context());
+    expect(corrected).toMatchObject({ kind: 'trip', focus: 'fare', to: { title: 'Ampayon' } });
+    if (corrected.kind === 'trip') expect(corrected.matches[0]).toMatchObject({ how: 'corrected', typed: 'ampayun' });
+  });
+
+  it('CA1.1: "for" gives way to a stronger to-marker', () => {
+    expect(parseQuery("what's the fare for SM to Ampayon?")).toEqual({ kind: 'trip', from: text('sm'), to: text('ampayon'), focus: 'fare' });
   });
 });
 

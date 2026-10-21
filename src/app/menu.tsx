@@ -21,7 +21,7 @@ export default function MenuScreen() {
   const email = useSessionStore((state) => state.email);
   const username = useUsernameStore((state) => state.username);
 
-  const go = (path: '/profile' | '/settings' | '/assistant' | '/demo-settings' | '/about' | '/onboarding' | '/sign-in') => router.push(path);
+  const go = (path: '/profile' | '/settings' | '/demo-settings' | '/about' | '/onboarding' | '/sign-in') => router.push(path);
 
   return (
     <Screen title={strings.menu.title}>
@@ -39,7 +39,8 @@ export default function MenuScreen() {
       <SettingsGroup>
         <SettingsRow first icon={UserRound} title={strings.menu.profile} onPress={() => go('/profile')} />
         <SettingsRow icon={Settings} title={strings.menu.settings} onPress={() => go('/settings')} />
-        <SettingsRow icon={MessageCircleQuestionMark} title={strings.menu.assistant} onPress={() => go('/assistant')} />
+        {/* CA1.1: in place of the menu, so the sheet opens over the Map */}
+        <SettingsRow icon={MessageCircleQuestionMark} title={strings.menu.assistant} onPress={() => router.replace('/assistant')} />
         <SettingsRow icon={FlaskConical} tone="warning" title={strings.menu.demo} onPress={() => go('/demo-settings')} />
       </SettingsGroup>
       <SettingsGroup>

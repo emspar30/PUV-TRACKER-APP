@@ -825,14 +825,17 @@ export const en = {
     notNow: 'Not now',
   },
 
-  // CA1: the offline assistant (PRD 19.5). It understands English and Bisaya questions and replies
-  // in English; everything is worked out on the phone
+  // CA1: the assistant (PRD 19.5). It understands English and Bisaya questions and replies in
+  // English; the answers are worked out on the phone. CA1.1: open only while online
   assistant: {
     title: 'Ask Tunton',
     open: 'Ask Tunton',
     placeholder: 'Ask about a trip, a fare, a route or a stop',
     send: 'Send',
-    offline: 'Works offline. Nothing you type leaves your phone.',
+    // CA1.1: the close button and the online-only notice
+    close: 'Close Ask Tunton',
+    needsInternet: 'Ask Tunton needs an internet connection. Connect, then ask again.',
+    checkingConnection: 'Checking your connection…',
     you: 'You',
     // The user's own position, as the answers name it
     yourLocation: 'your location',
@@ -860,7 +863,9 @@ export const en = {
       no_routes: (from: string, to: string) => `No route goes from ${from} to ${to}.`,
       same_place: (from: string, to: string) => `${from} and ${to} are the same place.`,
     } satisfies Record<PlanFailure | 'same_place', (a: string, b: string) => string>,
-    choose: (text: string) => `Which place do you mean${text ? ` by "${text}"` : ''}?`,
+    // CA1.1: a name typed in part, or with a typo, is answered for the place it was taken as
+    showingFor: (title: string) => `Showing results for ${title}:`,
+    correctedFor: (title: string, typed: string) => `Did you mean ${title}? Showing results for it ("${typed}" not found):`,
     notFound: (text: string) => `I could not find "${text}". Try a stop, a building or a barangay.`,
     needPosition: 'I need to know where you are. Turn on location, or long-press the Map to drop a pin, then ask again.',
     needPositionFrom: 'Or name where you start: "from Libertad to CSU".',
@@ -885,7 +890,8 @@ export const en = {
       viewRoute: (code: string) => `View ${code} on the map`,
       status: (code: string) => `Is ${code} running?`,
       openMap: 'Open the Map',
-      choice: (title: string, near: string | undefined) => (near ? `${title}, ${near}` : title),
+      // CA1.1: another place that fits the name as well
+      didYouMean: (title: string, near: string | undefined) => `Did you mean ${near ? `${title}, ${near}` : title}?`,
     },
   },
 
@@ -896,7 +902,7 @@ export const en = {
       menu: { title: 'Menu', body: 'Settings, your places, and this tour again.' },
       relay: { title: 'Relay a multicab', body: 'On a multicab? Tell others if it has seats, is full or stuck in traffic.' },
       routes: { title: 'Routes', body: 'Pick a route to see its line, stops and multicabs.' },
-      ask: { title: 'Ask Tunton', body: 'Ask for a trip, a fare, a route or the nearest stop, in English or Bisaya. Works offline.' },
+      ask: { title: 'Ask Tunton', body: 'Ask for a trip, a fare, a route or the nearest stop, in English or Bisaya.' },
       locate: { title: 'Where you are', body: 'Puts the map on you.' },
       search: { title: 'Plan a trip', body: 'Type where you are going for the best route and the fare.' },
       checkin: { title: 'Check in', body: 'Waiting at a stop? Check in so drivers know someone is there.' },

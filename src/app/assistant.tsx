@@ -1,13 +1,13 @@
 import { router, useIsFocused } from 'expo-router';
-import { ArrowLeft, SendHorizontal } from 'lucide-react-native';
-import { useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SendHorizontal, WifiOff, X } from 'lucide-react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { KeyboardAvoidingView, Pressable, Text, TextInput, View } from 'react-native';
 
-import { Chip } from '@/components';
+import { BottomSheet, Chip, type SheetRequest } from '@/components';
 import { useRepositories } from '@/data/live/useRepositories';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { replyOf, STARTER_CHIPS, type ChipAction, type Reply } from '@/features/assistant/reply';
+import { useAssistantAccess } from '@/features/assistant/useAssistantAccess';
 import { useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useSearchablePlaces } from '@/features/search/useSearchablePlaces';
 import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
@@ -17,6 +17,7 @@ import { parseQuery, type Intent } from '@/shared/assistant/intent';
 import { isNight } from '@/shared/backend/rules';
 import { ASSISTANT_INPUT_MAX_CHARS } from '@/shared/config';
 import { discountMultiplier } from '@/shared/fare/fare';
+import { useAssistantStore } from '@/state/assistantStore';
 import { useFareType } from '@/state/fareType';
 import { useSessionStore } from '@/state/sessionStore';
 import { strings } from '@/strings';
@@ -25,11 +26,9 @@ import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme'
 const ICON_SIZE = spacing.lg;
 const DISABLED_OPACITY = 0.5;
 
-type Entry = { id: number; question: string; intent: Intent };
-
 // A chip that leaves the conversation: the Map tab (with a route) or My Rides (with the trip). Each
-// tap carries a new time stamp, so the tab applies it once.
-function open(action: Exclude<ChipAction, { kind: 'ask' }>) {
+// tap carries a new time stamp, so the tab applies it once. The conversation is kept (CA1.1).
+function leave(action: Exclude<ChipAction, { kind: 'ask' }>) {
   if (action.kind === 'openMap') {
     router.navigate(action.route ? { pathname: '/', params: { route: action.route, at: String(Date.now()) } } : '/');
     return;
@@ -37,11 +36,17 @@ function open(action: Exclude<ChipAction, { kind: 'ask' }>) {
   router.navigate({ pathname: '/ride', params: tripParams(action, Date.now()) });
 }
 
-// CA1: Ask Tunton, the offline assistant (PRD 19.5). A question is typed or tapped as a chip, parsed
-// by fixed rules (shared/assistant) and answered from the data on the phone: the planner and fare
-// as My Rides, the coverage states as the Map tab, the nearest stop. Nothing is sent anywhere and
-// nothing is kept: the conversation ends when the screen closes. Answers about routes follow the
-// live (or demo) multicabs while the screen is open.
+// CA1.1: a question kept in the conversation, with the time it was asked
+function remember(question: string, intent: Intent) {
+  useAssistantStore.getState().ask(question, intent, Date.now());
+}
+
+// CA1: Ask Tunton (PRD 19.5). A question is typed or tapped as a chip, parsed by fixed rules
+// (shared/assistant) and answered from the data on the phone: the planner and fare as My Rides, the
+// coverage states as the Map tab, the nearest stop. Answers about routes follow the live (or demo)
+// multicabs while the screen is open. CA1.1: My Rides' draggable sheet over the Map (collapsed, half
+// or open, by its handle; remembered), a chat with the message box at the bottom and the newest
+// message last; the questions are kept on the phone for an hour (assistantStore); online only.
 export default function AssistantScreen() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
@@ -52,10 +57,16 @@ export default function AssistantScreen() {
   const repos = useRepositories();
   const teamAccount = useSessionStore((state) => state.teamAccount);
   const focused = useIsFocused();
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const entries = useAssistantStore((state) => state.entries);
+  const snap = useAssistantStore((state) => state.snap);
+  // Typing opens the sheet fully, so the answers show above the keyboard
+  const [sheetRequest, setSheetRequest] = useState<SheetRequest | null>(null);
+  const access = useAssistantAccess();
+  const online = access === 'open';
   const [draft, setDraft] = useState('');
-  const nextId = useRef(0);
-  const scroll = useRef<ScrollView>(null);
+
+  // Questions older than a day are let go when the screen opens
+  useEffect(() => useAssistantStore.getState().prune(Date.now()), []);
 
   // Live multicabs only for the routes asked about (and those sharing their stops, for an alternative)
   const watched = useMemo(() => routesToWatch(entries.map((entry) => entry.intent), stops), [entries, stops]);
@@ -87,24 +98,24 @@ export default function AssistantScreen() {
   }, [lines, stops, places, commuter, fareType, repos.vehicles.source, teamAccount, supply]);
 
   const replies = useMemo<Reply[]>(
-    () => entries.map((entry) => replyOf(answer(entry.intent, context), fareType)),
+    () => entries.map((entry) => replyOf(answer(entry.intent, context), entry.intent, fareType)),
     [entries, context, fareType],
   );
 
+  // CA1.1: nothing is asked while offline
   const ask = (question: string, intent: Intent) => {
-    const id = nextId.current;
-    nextId.current += 1;
-    setEntries((current) => [...current, { id, question, intent }]);
+    if (online) remember(question, intent);
   };
 
   const send = () => {
     const question = draft.trim();
-    if (!question) return;
+    if (!question || !online) return;
     setDraft('');
     ask(question, parseQuery(question));
   };
 
-  const act = (action: ChipAction) => (action.kind === 'ask' ? ask(action.question, action.intent) : open(action));
+  const act = (action: ChipAction) => (action.kind === 'ask' ? ask(action.question, action.intent) : leave(action));
+  const canSend = online && draft.trim().length > 0;
 
   const bubble = (reply: Reply, key: string) => (
     <View key={key} style={styles.answer}>
@@ -117,86 +128,123 @@ export default function AssistantScreen() {
       </View>
       {reply.chips.length > 0 ? (
         <View style={styles.chips}>
-          {reply.chips.map((chip) => (
-            <Chip key={chip.label} label={chip.label} onPress={() => act(chip.action)} />
-          ))}
+          {reply.chips.map((chip) => {
+            // Offline, a chip that asks a question is dimmed and does nothing; one that opens a tab works
+            const locked = !online && chip.action.kind === 'ask';
+            return (
+              <View key={chip.label} style={locked && styles.disabled}>
+                <Chip label={chip.label} onPress={locked ? undefined : () => act(chip.action)} />
+              </View>
+            );
+          })}
         </View>
       ) : null}
     </View>
   );
 
-  return (
-    <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
+  const header = (
+    <View style={styles.headerContent}>
       <View style={styles.bar}>
-        <Pressable style={styles.back} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={strings.common.back}>
-          <ArrowLeft color={colors.textPrimary} size={ICON_SIZE} />
-        </Pressable>
         <Text style={[typography.headlineSm, styles.title]} accessibilityRole="header" numberOfLines={1}>
           {strings.assistant.title}
         </Text>
+        <Pressable style={styles.iconButton} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={strings.assistant.close}>
+          <X color={colors.textPrimary} size={ICON_SIZE} />
+        </Pressable>
       </View>
-      <KeyboardAvoidingView style={styles.grow} behavior="padding">
-        <ScrollView
-          ref={scroll}
-          style={styles.grow}
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
-        >
-          <Text style={[typography.bodySm, styles.note]}>{strings.assistant.offline}</Text>
-          {bubble({ lines: [...strings.assistant.help], chips: [...STARTER_CHIPS] }, 'welcome')}
-          {entries.map((entry, index) => (
-            <View key={entry.id} style={styles.turn}>
-              <View style={styles.user}>
-                <Text style={[typography.bodyMd, styles.userText]}>{entry.question}</Text>
-              </View>
-              {bubble(replies[index], `reply-${entry.id}`)}
-            </View>
-          ))}
-        </ScrollView>
-        <View style={styles.inputRow}>
-          <TextInput
-            style={[typography.bodyMd, styles.input]}
-            value={draft}
-            onChangeText={setDraft}
-            placeholder={strings.assistant.placeholder}
-            placeholderTextColor={colors.textTertiary}
-            maxLength={ASSISTANT_INPUT_MAX_CHARS}
-            returnKeyType="send"
-            submitBehavior="submit"
-            onSubmitEditing={send}
-            accessibilityLabel={strings.assistant.placeholder}
-          />
-          <Pressable
-            style={[styles.send, !draft.trim() && styles.sendOff]}
-            onPress={send}
-            disabled={!draft.trim()}
-            accessibilityRole="button"
-            accessibilityLabel={strings.assistant.send}
-          >
-            <SendHorizontal color={colors.onPrimary} size={ICON_SIZE} />
-          </Pressable>
+      {online ? null : (
+        <View style={styles.notice} accessibilityLiveRegion="polite">
+          <WifiOff color={colors.textSecondary} size={ICON_SIZE} />
+          <Text style={[typography.bodySm, styles.grow]}>
+            {access === 'checking' ? strings.assistant.checkingConnection : strings.assistant.needsInternet}
+          </Text>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      )}
+    </View>
+  );
+
+  const messageBox = (
+    <View style={styles.inputRow}>
+      <TextInput
+        style={[typography.bodyMd, styles.input, !online && styles.disabled]}
+        value={draft}
+        onChangeText={setDraft}
+        onFocus={() => setSheetRequest((current) => ({ key: (current?.key ?? 0) + 1, snap: 'expanded' }))}
+        placeholder={online ? strings.assistant.placeholder : strings.assistant.needsInternet}
+        placeholderTextColor={colors.textTertiary}
+        maxLength={ASSISTANT_INPUT_MAX_CHARS}
+        editable={online}
+        returnKeyType="send"
+        submitBehavior="submit"
+        onSubmitEditing={send}
+        accessibilityLabel={strings.assistant.placeholder}
+      />
+      <Pressable
+        style={[styles.send, !canSend && styles.disabled]}
+        onPress={send}
+        disabled={!canSend}
+        accessibilityRole="button"
+        accessibilityLabel={strings.assistant.send}
+        accessibilityState={{ disabled: !canSend }}
+      >
+        <SendHorizontal color={colors.onPrimary} size={ICON_SIZE} />
+      </Pressable>
+    </View>
+  );
+
+  return (
+    // The sheet's room shrinks with the keyboard, so the message box stays just above it
+    <KeyboardAvoidingView style={styles.overlay} behavior="padding">
+      {/* Above the sheet: a tap closes Ask Tunton and goes back to the Map */}
+      <Pressable style={styles.outside} onPress={() => router.back()} accessibilityLabel={strings.assistant.close} />
+      <BottomSheet
+        id="assistant"
+        defaultSnap={snap}
+        request={sheetRequest}
+        onSnapChange={(settled) => useAssistantStore.getState().setSnap(settled)}
+        header={header}
+        footer={messageBox}
+        chat
+        chevron={false}
+      >
+        {bubble({ lines: [...strings.assistant.help], chips: [...STARTER_CHIPS] }, 'welcome')}
+        {entries.map((entry, index) => (
+          <View key={entry.id} style={styles.turn}>
+            <View style={styles.user}>
+              <Text style={[typography.bodyMd, styles.userText]}>{entry.question}</Text>
+            </View>
+            {bubble(replies[index], `reply-${entry.id}`)}
+          </View>
+        ))}
+      </BottomSheet>
+    </KeyboardAvoidingView>
   );
 }
 
 const useStyles = makeStyles(({ colors }) => ({
-  root: {
+  overlay: {
     flex: 1,
-    backgroundColor: colors.canvas,
+  },
+  outside: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  headerContent: {
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   grow: {
     flex: 1,
   },
   bar: {
-    minHeight: MIN_TOUCH_TARGET + spacing.sm,
+    minHeight: MIN_TOUCH_TARGET,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.xs,
   },
-  back: {
+  iconButton: {
     width: MIN_TOUCH_TARGET,
     height: MIN_TOUCH_TARGET,
     alignItems: 'center',
@@ -204,14 +252,14 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   title: {
     flex: 1,
-    paddingHorizontal: spacing.sm + spacing.xs,
   },
-  content: {
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  note: {
-    textAlign: 'center',
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.sm + spacing.xs,
+    borderRadius: radii.card,
+    backgroundColor: colors.card,
   },
   turn: {
     gap: spacing.md,
@@ -248,11 +296,6 @@ const useStyles = makeStyles(({ colors }) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.card,
-    borderTopWidth: 1,
-    borderTopColor: colors.outline,
   },
   input: {
     flex: 1,
@@ -270,7 +313,7 @@ const useStyles = makeStyles(({ colors }) => ({
     justifyContent: 'center',
     backgroundColor: colors.primary,
   },
-  sendOff: {
+  disabled: {
     opacity: DISABLED_OPACITY,
   },
 }));

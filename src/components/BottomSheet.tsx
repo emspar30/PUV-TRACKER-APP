@@ -47,12 +47,31 @@ type BottomSheetProps = {
   // Controls that float just above the sheet's top edge, such as a status pill or a map button.
   // They follow the edge while dragging and hide when the sheet is fully open.
   floating?: ReactNode;
+  // CA1.1: a bar kept at the bottom of the visible part of the sheet, such as a chat's message box.
+  // It fades out towards the collapsed height, where only the header shows.
+  footer?: ReactNode;
+  // CA1.1: a chat. The body is sized to the visible part (between the header and the footer),
+  // scrolls at every height and stays at its end, newest last; only the handle and header drag.
+  chat?: boolean;
+  // The button that steps between the snap points; the handle still drags (default shown)
+  chevron?: boolean;
 };
 
 // A sheet over a full-screen map that the user drags between three snap points: peek, half and
 // expanded (docs/DESIGN.md). The map stays usable above it. Built only on the gesture and animation
 // libraries already compiled into the app.
-export function BottomSheet({ id, defaultSnap = 'peek', request, onSnapChange, header, children, floating }: BottomSheetProps) {
+export function BottomSheet({
+  id,
+  defaultSnap = 'peek',
+  request,
+  onSnapChange,
+  header,
+  children,
+  floating,
+  footer,
+  chat = false,
+  chevron = true,
+}: BottomSheetProps) {
   const styles = useStyles();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -79,11 +98,17 @@ export function BottomSheet({ id, defaultSnap = 'peek', request, onSnapChange, h
   // Speed of the finger at release, so the spring continues the flick
   const releaseSpeed = useSharedValue(0);
 
-  // Below the open position the body cannot scroll, so it always shows its top
+  // Below the open position the body cannot scroll, so it always shows its top. A chat scrolls at
+  // every height and is kept at its end instead.
   const scroll = useRef<ScrollView>(null);
   useEffect(() => {
-    if (snap !== 'expanded') scroll.current?.scrollTo({ y: 0, animated: false });
-  }, [snap]);
+    if (chat) scroll.current?.scrollToEnd({ animated: false });
+    else if (snap !== 'expanded') scroll.current?.scrollTo({ y: 0, animated: false });
+  }, [snap, chat]);
+
+  // CA1.1: the measured heights of the dragging top (handle and header) and of the footer
+  const topHeight = useSharedValue(0);
+  const footerHeight = useSharedValue(0);
 
   const moveTo = useCallback((target: SnapName) => {
     setPosition((current) => ({ snap: target, seq: current.seq + 1 }));
@@ -137,9 +162,9 @@ export function BottomSheet({ id, defaultSnap = 'peek', request, onSnapChange, h
     [heights, height, startHeight, startTime, releaseSpeed, moveTo],
   );
 
-  // The handle and the header always drag. The body drags only while it cannot scroll.
+  // The handle and the header always drag. The body drags only while it cannot scroll (never in a chat).
   const handlePan = useMemo(() => makePan(true), [makePan]);
-  const bodyPan = useMemo(() => makePan(snap !== 'expanded'), [makePan, snap]);
+  const bodyPan = useMemo(() => makePan(!chat && snap !== 'expanded'), [makePan, snap, chat]);
 
   const expandedHeight = heights?.expanded ?? 0;
   const sheetStyle = useAnimatedStyle(() => ({
@@ -154,6 +179,20 @@ export function BottomSheet({ id, defaultSnap = 'peek', request, onSnapChange, h
       opacity: interpolate(height.get(), [half, fadeEnd], [1, 0], Extrapolation.CLAMP),
     };
   });
+
+  // The sheet's bottom is below the screen by (expanded - visible); the footer is lifted by as much
+  const footerStyle = useAnimatedStyle(() => {
+    const peek = heights?.peek ?? 0;
+    const half = heights?.half ?? 1;
+    return {
+      transform: [{ translateY: height.get() - expandedHeight }],
+      opacity: interpolate(height.get(), [peek, half], [0, 1], Extrapolation.CLAMP),
+    };
+  });
+  // A chat's body fills what shows between the top and the footer
+  const chatBodyStyle = useAnimatedStyle(() => ({
+    height: Math.max(0, height.get() - topHeight.get() - footerHeight.get()),
+  }));
 
   const onAccessibilityAction = (event: AccessibilityActionEvent) => {
     if (event.nativeEvent.actionName === 'increment') moveTo(stepSnap(snap, 'up'));
@@ -180,7 +219,7 @@ export function BottomSheet({ id, defaultSnap = 'peek', request, onSnapChange, h
       {heights ? (
         <Animated.View style={[styles.sheet, sheetStyle]}>
           <GestureDetector gesture={handlePan}>
-            <View>
+            <View onLayout={(event: LayoutChangeEvent) => topHeight.set(event.nativeEvent.layout.height)}>
               <View
                 style={styles.handleRow}
                 accessible
@@ -195,32 +234,58 @@ export function BottomSheet({ id, defaultSnap = 'peek', request, onSnapChange, h
               >
                 <View style={styles.handle} />
               </View>
-              <Pressable
-                style={styles.chevron}
-                onPress={() => moveTo(nextSnap(snap))}
-                accessibilityRole="button"
-                accessibilityLabel={strings.sheet.next}
-                accessibilityValue={{ text: strings.sheet.position[snap] }}
-                hitSlop={spacing.xs}
-              >
-                <ChevronIcon color={colors.textSecondary} size={ICON_SIZE} />
-              </Pressable>
-              <View style={styles.header}>{header}</View>
+              {chevron ? (
+                <Pressable
+                  style={styles.chevron}
+                  onPress={() => moveTo(nextSnap(snap))}
+                  accessibilityRole="button"
+                  accessibilityLabel={strings.sheet.next}
+                  accessibilityValue={{ text: strings.sheet.position[snap] }}
+                  hitSlop={spacing.xs}
+                >
+                  <ChevronIcon color={colors.textSecondary} size={ICON_SIZE} />
+                </Pressable>
+              ) : null}
+              <View style={[styles.header, !chevron && styles.headerNoChevron]}>{header}</View>
             </View>
           </GestureDetector>
 
-          <GestureDetector gesture={bodyPan}>
-            <ScrollView
-              ref={scroll}
-              style={styles.body}
-              contentContainerStyle={[styles.bodyContent, { paddingBottom: insets.bottom + spacing.lg }]}
-              scrollEnabled={snap === 'expanded'}
-              showsVerticalScrollIndicator={snap === 'expanded'}
-              keyboardShouldPersistTaps="handled"
+          {chat ? (
+            <Animated.View style={chatBodyStyle}>
+              <ScrollView
+                ref={scroll}
+                style={styles.body}
+                contentContainerStyle={[styles.bodyContent, { paddingBottom: spacing.md }]}
+                keyboardShouldPersistTaps="handled"
+                onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
+                onLayout={() => scroll.current?.scrollToEnd({ animated: false })}
+              >
+                {children}
+              </ScrollView>
+            </Animated.View>
+          ) : (
+            <GestureDetector gesture={bodyPan}>
+              <ScrollView
+                ref={scroll}
+                style={styles.body}
+                contentContainerStyle={[styles.bodyContent, { paddingBottom: insets.bottom + spacing.lg }]}
+                scrollEnabled={snap === 'expanded'}
+                showsVerticalScrollIndicator={snap === 'expanded'}
+                keyboardShouldPersistTaps="handled"
+              >
+                {children}
+              </ScrollView>
+            </GestureDetector>
+          )}
+          {footer ? (
+            <Animated.View
+              style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }, footerStyle]}
+              pointerEvents={snap === 'peek' ? 'none' : 'auto'}
+              onLayout={(event: LayoutChangeEvent) => footerHeight.set(event.nativeEvent.layout.height)}
             >
-              {children}
-            </ScrollView>
-          </GestureDetector>
+              {footer}
+            </Animated.View>
+          ) : null}
         </Animated.View>
       ) : null}
     </View>
@@ -281,6 +346,18 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
     paddingHorizontal: spacing.md,
     paddingRight: MIN_TOUCH_TARGET + spacing.sm,
     justifyContent: 'center',
+  },
+  headerNoChevron: {
+    paddingRight: spacing.md,
+  },
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.sheet,
   },
   body: {
     flex: 1,

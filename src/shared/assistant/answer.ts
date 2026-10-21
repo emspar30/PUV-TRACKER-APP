@@ -1,4 +1,4 @@
-// CA1: the offline assistant's answers, worked out from what is already on the phone: the planner
+// CA1: the assistant's answers, worked out from what is already on the phone: the planner
 // and fare for a trip (as My Rides), the coverage states and CF1's alternative for a route (as the
 // Map tab), the nearest stop. The answer is data; the screen words it (strings) and adds the chips.
 // Pure: no React Native or Expo imports.
@@ -15,10 +15,16 @@ import { isGhostAge } from '../telemetry/deadReckoning';
 import type { VehicleSnapshot } from '../telemetry/vehicle';
 
 import type { Intent, PlaceSlot, TripIntent } from './intent';
-import { resolvePlace } from './resolve';
+import { resolvePlace, type MatchHow } from './resolve';
 
 // A point in an answer: a place by its name, or the user's own position
 export type AnswerPoint = LatLon & { title: string; mine: boolean };
+
+export type PlaceSlotName = 'from' | 'to' | 'near';
+
+// CA1.1: a name in the question taken as a place it did not spell out exactly ("robinso" as
+// Robinsons Transport Terminal), with the places that fit as well, offered as "Did you mean" chips
+export type PlaceMatch = { slot: PlaceSlotName; typed: string; title: string; how: Exclude<MatchHow, 'exact'>; others: SearchablePlace[] };
 
 export type AssistantContext = {
   lines: DirectedLine[];
@@ -60,6 +66,7 @@ export type Answer =
       fare: number;
       // The other routes that serve the trip, best first
       others: string[];
+      matches: PlaceMatch[];
     }
   | {
       kind: 'tripFail';
@@ -68,9 +75,8 @@ export type Answer =
       to: AnswerPoint;
       originDistanceM: number | null;
       destinationDistanceM: number | null;
+      matches: PlaceMatch[];
     }
-  // A name fits several places: the intent to ask again with one of them in that slot
-  | { kind: 'choose'; slot: 'from' | 'to' | 'near'; options: SearchablePlace[]; intent: Intent }
   | { kind: 'notFound'; text: string }
   | { kind: 'needPosition'; topic: 'trip' | 'nearest' }
   | { kind: 'needDestination' }
@@ -79,7 +85,7 @@ export type Answer =
   | { kind: 'statusLoading'; routeCode: string }
   | { kind: 'unknownRoute'; routeCode: string; routes: string[] }
   | { kind: 'whichRoute'; routes: string[] }
-  | { kind: 'nearest'; from: AnswerPoint; stop: RouteStop; distanceM: number; routes: string[] }
+  | { kind: 'nearest'; from: AnswerPoint; stop: RouteStop; distanceM: number; routes: string[]; matches: PlaceMatch[] }
   | { kind: 'help' };
 
 export function routeCodes(lines: readonly DirectedLine[]): string[] {
@@ -107,19 +113,21 @@ export function routeStatus(vehicles: readonly VehicleSnapshot[], routeCode: str
   return status;
 }
 
-type Point = { kind: 'point'; point: AnswerPoint } | { kind: 'answer'; answer: Answer };
+type Point = { kind: 'point'; point: AnswerPoint; match: PlaceMatch | null } | { kind: 'answer'; answer: Answer };
 
-function pointOf(slot: PlaceSlot | null, which: 'from' | 'to' | 'near', intent: Intent, context: AssistantContext): Point {
+function pointOf(slot: PlaceSlot | null, which: PlaceSlotName, intent: Intent, context: AssistantContext): Point {
   if (!slot) {
     if (!context.position) return { kind: 'answer', answer: { kind: 'needPosition', topic: intent.kind === 'nearest' ? 'nearest' : 'trip' } };
-    return { kind: 'point', point: { ...context.position, mine: true } };
+    return { kind: 'point', point: { ...context.position, mine: true }, match: null };
   }
   const resolved = resolvePlace(slot, context.places);
   if (resolved.kind === 'none') return { kind: 'answer', answer: { kind: 'notFound', text: resolved.text } };
-  if (resolved.kind === 'choose') return { kind: 'answer', answer: { kind: 'choose', slot: which, options: resolved.options, intent } };
-  const { place } = resolved;
-  return { kind: 'point', point: { lat: place.lat, lon: place.lon, title: place.title, mine: false } };
+  const { place, how, others } = resolved;
+  const match = how === 'exact' || !('text' in slot) ? null : { slot: which, typed: slot.text, title: place.title, how, others };
+  return { kind: 'point', point: { lat: place.lat, lon: place.lon, title: place.title, mine: false }, match };
 }
+
+const matchesOf = (...points: { match: PlaceMatch | null }[]) => points.flatMap((point) => (point.match ? [point.match] : []));
 
 function tripAnswer(intent: TripIntent, context: AssistantContext): Answer {
   if (!intent.to) return { kind: 'needDestination' };
@@ -129,16 +137,17 @@ function tripAnswer(intent: TripIntent, context: AssistantContext): Answer {
   const from = pointOf(intent.from, 'from', intent, context);
   if (from.kind === 'answer') return from.answer;
   const ends = { from: from.point, to: to.point };
+  const matches = matchesOf(from, to);
   if (haversineMeters(ends.from, ends.to) < ASSISTANT_SAME_PLACE_M) {
-    return { kind: 'tripFail', reason: 'same_place', ...ends, originDistanceM: null, destinationDistanceM: null };
+    return { kind: 'tripFail', reason: 'same_place', ...ends, originDistanceM: null, destinationDistanceM: null, matches };
   }
   const options = planOptions(context.lines, ends.from, ends.to);
   const best = options[0];
   if (!best) {
     const plan = planTrip(context.lines, ends.from, ends.to);
     return plan.ok
-      ? { kind: 'tripFail', reason: 'no_routes', ...ends, originDistanceM: null, destinationDistanceM: null }
-      : { kind: 'tripFail', reason: plan.reason, ...ends, originDistanceM: plan.originDistanceM, destinationDistanceM: plan.destinationDistanceM };
+      ? { kind: 'tripFail', reason: 'no_routes', ...ends, originDistanceM: null, destinationDistanceM: null, matches }
+      : { kind: 'tripFail', reason: plan.reason, ...ends, originDistanceM: plan.originDistanceM, destinationDistanceM: plan.destinationDistanceM, matches };
   }
   const ride = best.legs[1];
   return {
@@ -152,6 +161,7 @@ function tripAnswer(intent: TripIntent, context: AssistantContext): Answer {
     rideKm: best.rideKm,
     fare: fareForItinerary(context.lines, best, context.fareMultiplier).rounded,
     others: options.slice(1).map((option) => option.legs[1].routeCode),
+    matches,
   };
 }
 
@@ -189,6 +199,7 @@ function nearestAnswer(near: PlaceSlot | null, intent: Intent, context: Assistan
     stop: found.stop,
     distanceM: Math.round(found.distanceM),
     routes: [...(found.stop.routeCodes ?? [])],
+    matches: matchesOf(from),
   };
 }
 
@@ -206,7 +217,7 @@ export function answer(intent: Intent, context: AssistantContext): Answer {
 }
 
 // The intent asked again with a place picked from "Did you mean"
-export function withChoice(intent: Intent, slot: 'from' | 'to' | 'near', place: SearchablePlace): Intent {
+export function withChoice(intent: Intent, slot: PlaceSlotName, place: SearchablePlace): Intent {
   const picked: PlaceSlot = { placeId: place.id, title: place.title };
   if (intent.kind === 'trip' && slot !== 'near') return { ...intent, [slot]: picked };
   if (intent.kind === 'nearest' && slot === 'near') return { ...intent, near: picked };

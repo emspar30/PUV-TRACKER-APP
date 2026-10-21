@@ -1,4 +1,4 @@
-import type { Answer } from '@/shared/assistant/answer';
+import type { Answer, PlaceMatch } from '@/shared/assistant/answer';
 import { withChoice } from '@/shared/assistant/answer';
 import { parseQuery, type Intent } from '@/shared/assistant/intent';
 import type { Classification } from '@/shared/config';
@@ -26,14 +26,30 @@ export const STARTER_CHIPS: readonly Chip[] = strings.assistant.starters.map(ask
 const distance = (meters: number) =>
   meters < METERS_PER_KM ? strings.format.meters(meters) : strings.format.km(meters / METERS_PER_KM);
 
-// CA1: an answer in words, with the chips that act on it
-export function replyOf(answer: Answer, fareType: Classification): Reply {
+// CA1.1: which place a name was taken as, said first, and the places that fit as well as chips that
+// ask the same question again with that place
+function matchLines(matches: readonly PlaceMatch[]): string[] {
+  const a = strings.assistant;
+  return matches.map((match) => (match.how === 'corrected' ? a.correctedFor(match.title, match.typed) : a.showingFor(match.title)));
+}
+
+function matchChips(matches: readonly PlaceMatch[], intent: Intent): Chip[] {
+  return matches.flatMap((match) =>
+    match.others.map((place) => ({
+      label: strings.assistant.chips.didYouMean(place.title, place.near),
+      action: { kind: 'ask' as const, question: place.title, intent: withChoice(intent, match.slot, place) },
+    })),
+  );
+}
+
+// CA1: an answer in words, with the chips that act on it. The intent is the question it answers.
+export function replyOf(answer: Answer, intent: Intent, fareType: Classification): Reply {
   const a = strings.assistant;
   switch (answer.kind) {
     case 'trip': {
       const route = a.tripRoute(answer.routeCode, answer.routeName);
       const fare = a.tripFare(strings.format.peso(answer.fare), strings.classification.short[fareType]);
-      const lines = answer.focus === 'fare' ? [fare, route] : [route, fare];
+      const lines = [...matchLines(answer.matches), ...(answer.focus === 'fare' ? [fare, route] : [route, fare])];
       lines.push(a.tripEnds(answer.from.title, answer.to.title, strings.format.km(answer.rideKm)));
       lines.push(a.tripWalks(strings.format.meters(answer.walkToM), strings.format.meters(answer.walkFromM)));
       if (answer.others.length > 0) lines.push(a.tripOthers(a.and(answer.others)));
@@ -43,6 +59,7 @@ export function replyOf(answer: Answer, fareType: Classification): Reply {
         chips: [
           { label: a.chips.openTrip, action: { kind: 'openTrip', from, to: answer.to, route: answer.routeCode } },
           viewRoute(answer.routeCode),
+          ...matchChips(answer.matches, intent),
         ],
       };
     }
@@ -54,18 +71,7 @@ export function replyOf(answer: Answer, fareType: Classification): Reply {
           : answer.reason === 'destination_too_far'
             ? a.tripFail.destination_too_far(to.title, distance(answer.destinationDistanceM ?? 0))
             : a.tripFail[answer.reason](from.title, to.title);
-      return { lines: [line], chips: [] };
-    }
-    case 'choose': {
-      const slot = answer.intent.kind === 'trip' ? answer.intent[answer.slot === 'from' ? 'from' : 'to'] : answer.intent.kind === 'nearest' ? answer.intent.near : null;
-      const text = slot && 'text' in slot ? slot.text : '';
-      return {
-        lines: [a.choose(text)],
-        chips: answer.options.map((place) => ({
-          label: a.chips.choice(place.title, place.near),
-          action: { kind: 'ask', question: place.title, intent: withChoice(answer.intent, answer.slot, place) },
-        })),
-      };
+      return { lines: [...matchLines(answer.matches), line], chips: matchChips(answer.matches, intent) };
     }
     case 'notFound':
       return { lines: [a.notFound(answer.text)], chips: [...STARTER_CHIPS] };
@@ -104,10 +110,11 @@ export function replyOf(answer: Answer, fareType: Classification): Reply {
     case 'nearest':
       return {
         lines: [
+          ...matchLines(answer.matches),
           a.nearest(answer.stop.code, answer.stop.name, distance(answer.distanceM), answer.from.title),
           ...(answer.routes.length > 0 ? [a.nearestRoutes(a.and(answer.routes))] : []),
         ],
-        chips: answer.routes.map(statusChip),
+        chips: [...answer.routes.map(statusChip), ...matchChips(answer.matches, intent)],
       };
     case 'help':
       return { lines: [...a.help], chips: [...STARTER_CHIPS] };

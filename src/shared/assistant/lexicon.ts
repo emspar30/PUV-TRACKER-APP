@@ -22,7 +22,14 @@ export const TO_MARKERS: readonly string[] = [
   'adto',
   'muadto sa',
   'muadto',
+  // CA1.1
+  'towards',
+  'toward',
 ];
+
+// CA1.1: "for Y" ("what route should I board for Robinsons?"), a destination only when the question
+// has no other to-marker, so "the fare for SM to Ampayon" still ends at Ampayon
+export const WEAK_TO_MARKERS: readonly string[] = ['for'];
 
 // The short "pa SM": a to-marker only at the start of a question or right after a ride or fare word
 // ("sakay pa SM"), because "pa" also means "still" ("naa pa bay R4?")
@@ -155,4 +162,13 @@ export const FILLER_WORDS: readonly string[] = [
   'karon',
   'now',
   'today',
+  // CA1.1: the words round a destination in a plain English question ("which multicab should we take")
+  'route',
+  'routes',
+  'we',
+  'board',
+  'on',
+  'need',
+  'want',
+  'you',
 ];
