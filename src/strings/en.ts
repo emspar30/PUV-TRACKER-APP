@@ -80,6 +80,7 @@ export const en = {
     checkin: 'Check-in',
     // B3: the tab while a check-in runs (the red dot)
     checkinActive: 'Check-in, you are checked in',
+    mapNear: 'Map, your tracked multicab is near',
     ride: 'My Rides',
     crowdsource: 'Crowdsource',
   },
@@ -173,6 +174,19 @@ export const en = {
     sharingTitle: 'Sharing your location',
     sharingDetail: (code: string, stop: string) => `${code} · until ${stop}`,
     stopSharing: 'Stop',
+    // CA1.1: the relay's details, opened from the bar
+    info: {
+      show: 'Show relay details',
+      hide: 'Hide relay details',
+      left: (distance: string, stop: string) => `${distance} to ${stop}`,
+      doneLabel: 'Ride done so far',
+      toGo: (distance: string, byRoad: boolean, minutes: number | null) =>
+        `${distance} ${byRoad ? 'by road ' : ''}to go${minutes !== null ? `, about ${minutes} min at this speed` : ''}.`,
+      noPosition: 'Waiting for your location to measure how far is left.',
+      route: (code: string, stop: string) => `${code}, getting off at ${stop}.`,
+      multicab: (vehicle: string | null, seats: string) => `${vehicle ? `Multicab ${vehicle}` : 'No multicab picked'} · ${seats}.`,
+      shared: (minutes: number, endsIn: number) => `Shared for ${minutes} min; it ends by itself in ${endsIn} min, or at your stop.`,
+    },
     // T1: what the relay bar says about the marker
     uplink: {
       noVehicle: 'No multicab picked, so no live marker',
@@ -189,8 +203,9 @@ export const en = {
     vehicle: 'Multicab you are riding (optional)',
     vehicleHint: 'Pick it to move its marker on the live map. Unverified for now.',
     withGps: 'Share with GPS',
-    gpsEarns: (gps: number, noGps: number) => `Earns +${gps.toFixed(1)} Energy with GPS, +${noGps.toFixed(1)} without (once a day each)`,
-    gpsUnavailable: (noGps: number) => `No precise location right now. Sent without GPS: +${noGps.toFixed(1)} Energy (once a day).`,
+    // CA1.1: only a relay with GPS (the verified kind) earns Energy
+    gpsEarns: (gps: number) => `Earns +${gps.toFixed(1)} Energy with GPS (once a day); none without`,
+    gpsUnavailable: 'No precise location right now. Sent without GPS, which earns no Energy.',
     // D1: while Energy is hidden (tracking is free), the same lines without the rewards
     gpsShares: 'Shows your multicab on the live map until your stop',
     gpsUnavailableFree: 'No precise location right now. Sent without GPS.',
@@ -263,6 +278,9 @@ export const en = {
       teamOnly: 'Team accounts only for now',
     },
     noData: 'No data from commuters right now',
+    // CA1.1: the Map's zoom buttons
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
     // CF1: on a route with no Live vehicle (not at night, not for accounts off the team list)
     nudge: {
       title: (code: string) => `No live data for ${code}`,
@@ -304,6 +322,9 @@ export const en = {
       show: (code: string) => `Show ${code} on map`,
       close: 'Close route list',
       open: 'Choose a route',
+      // CA1.1: the first choice, the default
+      allRoutes: 'All routes',
+      allRoutesBody: 'Every running multicab on the map',
     },
     active: {
       count: (count: number) => `${count} active`,
@@ -362,7 +383,7 @@ export const en = {
       lost: 'No recent position',
       // SB2: paying for a session
       noEnergyTitle: 'Not enough Energy',
-      noEnergyBody: (cost: number, minutes: number) => `Tracking costs ${cost} Energy for ${minutes} minutes. Earn Energy with check-ins and relays.`,
+      noEnergyBody: (cost: number, minutes: number) => `Tracking costs ${cost} Energy for ${minutes} minutes. Energy refills over time, or relay an update with GPS.`,
       earnByReporting: 'Relay an update',
       failedTitle: 'Tracking could not start',
     },
@@ -371,6 +392,9 @@ export const en = {
   // Location on the Live tab (from the partner's GPS work, b21b0c1). Foreground only.
   location: {
     locateMe: 'Locate me',
+    // CA1.1: Locate with a GPS position outside the offline map of Butuan
+    outsideMapTitle: 'You are outside the Butuan map',
+    outsideMapBody: 'Your location is not on the map, so the whole map is shown. In Demo & simulation, a simulated stop works anywhere.',
     following: 'Following your location',
     // AF1: at most 12 words in the explainer, at most 8 words in any notice
     explainerTitle: 'Show your location?',
@@ -529,7 +553,12 @@ export const en = {
     farewellBody: (routes: string) => `Enjoy your ride on ${routes}. Your check-in has ended.`,
     farewellDone: 'Done',
     reminderTitle: (code: string) => `Still waiting at ${code}?`,
-    reminderBody: (left: string) => `You are still checked in, ${left} left. Open Check-in to see it.`,
+    // CA1.1: the reminder asks whether they boarded, as does a multicab standing at the stop
+    reminderBody: (left: string) => `Did you board? Your check-in has ${left} left.`,
+    boardQuestion: (code: string, label: string) => `Did you board ${code} · ${label}?`,
+    boardStopped: (code: string, label: string, stop: string) => `${code} · ${label} has stopped at ${stop}.`,
+    boardedYes: 'Yes, I boarded',
+    notYet: 'Not yet',
     boarded: 'I boarded',
     cancel: 'Cancel',
     countdown: (time: string) => `${time} left`,
@@ -556,6 +585,10 @@ export const en = {
     pingRoutes: 'Ping routes',
     pingAll: 'All',
     pingHint: 'Only the routes you pick are notified',
+    // CA1.1: a check-in costs Energy for each route pinged
+    cost: (cost: number, per: number, left: number) => `Costs ${cost.toFixed(1)} Energy (${per.toFixed(1)} per route) · you have ${left.toFixed(1)}`,
+    noEnergyTitle: 'Not enough Energy',
+    noEnergyBody: (per: number) => `A check-in costs ${per.toFixed(1)} Energy for each route. Energy refills over time, or relay an update with GPS.`,
     pingLabel: (code: string, on: boolean) => `${code}, ${on ? 'pinged' : 'not pinged'}`,
     nearest: 'Nearest to you',
     picked: 'Selected station',
@@ -590,8 +623,6 @@ export const en = {
     appearance: 'Appearance',
     privacy: 'Privacy',
     system: 'System',
-    defaultRoute: 'Default route',
-    defaultRouteNone: 'None',
     seatFilter: 'Seat filter',
     seatFilterBody: 'Show only multicabs with free seats',
     arrivalAlert: 'Arrival alert',
@@ -649,7 +680,7 @@ export const en = {
     open: 'Open menu',
     profile: 'Profile',
     settings: 'Settings & preferences',
-    assistant: 'Ask Tunton',
+    assistant: 'Ask Tunie',
     demo: 'Demo & simulation',
     about: 'About Tunton',
     replayIntro: 'Replay introduction',
@@ -666,9 +697,19 @@ export const en = {
     demoVehicles: 'Simulated multicabs',
     demoVehiclesBody: 'Moving demo multicabs on every route, labelled "Demo"',
     simulatedLocation: 'Simulated location',
-    simulatedLocationBody: 'Stand at a stop instead of using GPS',
+    simulatedLocationBody: 'Stand at a stop or a spot you pin, instead of using GPS',
+    // CA1.1: the spot used while simulated location (or fake GPS) is on
+    standSpot: 'Your simulated spot',
+    standSpotBody: 'Pin it anywhere on the map, or pick a stop below',
     standAt: 'Stand at',
     standAtBody: 'Your position while simulated location or fake GPS is on',
+    // CA1.1: a spot pinned on the map
+    pinOnMap: 'Pin on map',
+    pinnedSpot: 'Pinned spot',
+    pinOnMapLabel: 'Pick any spot on the map to stand at',
+    pinTitle: 'Pick your spot',
+    pinBody: 'Move the map so the pin is where you want to stand.',
+    pinUse: 'Use this spot',
     // G0: the development fake location source
     fakeGps: 'Fake GPS (development)',
     fakeGpsBody: 'GPS fixes at the stop below, through consent and the accuracy gates',
@@ -734,7 +775,8 @@ export const en = {
       checkin: 'Check-in',
       passive: 'Refill',
       tracking: 'Tracked a multicab',
-    } as Record<'gps_report' | 'no_gps_report' | 'checkin' | 'passive' | 'tracking', string>,
+      welcome: 'Welcome Energy',
+    } as Record<'gps_report' | 'no_gps_report' | 'checkin' | 'passive' | 'tracking' | 'welcome', string>,
     energyAmount: (amount: number) => `${amount > 0 ? '+' : '−'}${Math.abs(amount).toFixed(1)}`,
     handleNotSaved: 'Not saved to your account yet',
     handleTaken: 'Someone already has this username. Pick another.',
@@ -828,13 +870,13 @@ export const en = {
   // CA1: the assistant (PRD 19.5). It understands English and Bisaya questions and replies in
   // English; the answers are worked out on the phone. CA1.1: open only while online
   assistant: {
-    title: 'Ask Tunton',
-    open: 'Ask Tunton',
+    title: 'Ask Tunie',
+    open: 'Ask Tunie',
     placeholder: 'Ask about a trip, a fare, a route or a stop',
     send: 'Send',
     // CA1.1: the close button and the online-only notice
-    close: 'Close Ask Tunton',
-    needsInternet: 'Ask Tunton needs an internet connection. Connect, then ask again.',
+    close: 'Close Ask Tunie',
+    needsInternet: 'Ask Tunie needs an internet connection. Connect, then ask again.',
     checkingConnection: 'Checking your connection…',
     you: 'You',
     // The user's own position, as the answers name it
@@ -848,7 +890,7 @@ export const en = {
       'Pila plete gikan Libertad paingon CSU?',
     ],
     help: [
-      "Hi! I'm Tunton. Ask me in English or Bisaya, for example:",
+      "Hi! I'm Tunie. Ask me in English or Bisaya, for example:",
       '"from Libertad to CSU", "pila plete paingon Ampayon", "naa bay R4?", "asa ang pinakaduol nga sakayan?"',
     ],
     tripRoute: (code: string, name: string) => `Ride ${code}, ${name}.`,
@@ -901,12 +943,12 @@ export const en = {
       profile: { title: 'Your profile', body: 'Your avatar, username and fare type. Tap it for your badges.' },
       menu: { title: 'Menu', body: 'Settings, your places, and this tour again.' },
       relay: { title: 'Relay a multicab', body: 'On a multicab? Tell others if it has seats, is full or stuck in traffic.' },
+      zoom: { title: 'Zoom', body: 'Zoom in and out one step at a time.' },
       routes: { title: 'Routes', body: 'Pick a route to see its line, stops and multicabs.' },
-      ask: { title: 'Ask Tunton', body: 'Ask for a trip, a fare, a route or the nearest stop, in English or Bisaya.' },
-      locate: { title: 'Where you are', body: 'Puts the map on you.' },
-      search: { title: 'Plan a trip', body: 'Type where you are going for the best route and the fare.' },
+      ask: { title: 'Ask Tunie', body: 'Ask for a trip, a fare, a route or the nearest stop, in English or Bisaya.' },
+      locate: { title: 'Where you are', body: 'Tap to zoom in on you; tap again to see all of Butuan.' },
       checkin: { title: 'Check in', body: 'Waiting at a stop? Check in so drivers know someone is there.' },
-      ride: { title: 'My Rides', body: 'From, To, the fare and the routes that take you there.' },
+      ride: { title: 'My Rides', body: 'Where are you heading? The fare and the routes that take you there.' },
       crowdsource: { title: 'Crowdsource', body: 'What other commuters reported in the last hour.' },
     } satisfies Record<TourStepId, { title: string; body: string }>,
     count: (step: number, total: number) => `${step}/${total}`,

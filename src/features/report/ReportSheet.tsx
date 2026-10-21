@@ -11,7 +11,7 @@ import type { FeedPhrase } from '@/shared/backend/rules';
 import { promptSignIn } from '@/features/auth/promptSignIn';
 import { PlaceResults } from '@/features/search/PlaceResults';
 import { usePlaceMatches, useSearchablePlaces } from '@/features/search/useSearchablePlaces';
-import { ENERGY_GPS_REPORT, ENERGY_NO_GPS_REPORT, ENERGY_UI_VISIBLE, FEED_LIFETIME_MIN, FEED_PHRASES, MAX_WALK_PER_LEG_M } from '@/shared/config';
+import { ENERGY_GPS_REPORT, ENERGY_UI_VISIBLE, FEED_LIFETIME_MIN, FEED_PHRASES, MAX_WALK_PER_LEG_M } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
 import { destinationOptions, nearestDestination, relayStopCode } from '@/shared/relay/broadcast';
 import type { SearchablePlace } from '@/shared/routing/placeSearch';
@@ -134,6 +134,7 @@ export function ReportSheet({ routes, initialRoute, vehiclePicker, stopsOf, posi
             seatTier,
             destination: { code: destination.code, name: destination.name, lat: destination.lat, lon: destination.lon },
             startedMs: Date.now(),
+            startPoint: position ? { lat: position.lat, lon: position.lon } : null,
           });
         }
         showDialog({
@@ -275,11 +276,11 @@ export function ReportSheet({ routes, initialRoute, vehiclePicker, stopsOf, posi
               <Text style={typography.bodySm}>
                 {!gpsAvailable
                   ? ENERGY_UI_VISIBLE
-                    ? strings.report.gpsUnavailable(ENERGY_NO_GPS_REPORT)
+                    ? strings.report.gpsUnavailable
                     : strings.report.gpsUnavailableFree
                   : destination
                     ? ENERGY_UI_VISIBLE
-                      ? strings.report.gpsEarns(ENERGY_GPS_REPORT, ENERGY_NO_GPS_REPORT)
+                      ? strings.report.gpsEarns(ENERGY_GPS_REPORT)
                       : strings.report.gpsShares
                     : strings.report.gpsNeedsDestination}
               </Text>

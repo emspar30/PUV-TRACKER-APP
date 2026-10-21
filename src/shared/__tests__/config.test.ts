@@ -17,7 +17,7 @@ describe('config exposes every PRD 0.3 default', () => {
     ['VEHICLE_CAPACITY_SEATS', 16],
     ['OCCUPANCY_GREEN_MAX_TAKEN', 6],
     ['OCCUPANCY_AMBER_MAX_TAKEN', 12],
-    ['FARE_BASE_PHP', 15],
+    ['FARE_BASE_PHP', 14],
     ['FARE_BASE_KM', 4],
     ['FARE_PER_KM_PHP', 2],
     ['FARE_DISCOUNT_MULTIPLIER', 0.8],

@@ -40,6 +40,7 @@ Build in this order. Each step must meet its acceptance criteria before the next
 
 - **Fare (regular):** 4.0 km gives ₱15.00; 4.1 km gives ₱17.00; 6.3 km gives ₱21.00; 10.0 km gives ₱27.00.
 - **Fare (discounted):** 6.3 km gives ₱16.80 before rounding, and ₱16.75 with the assumed nearest ₱0.25 rounding.
+- These S1 vectors test the formula with the v1.0 parameters (₱15.00 for 4 km). The app's default since 2026-10-22 is ₱14.00 (0.3); with it, 4.0 km gives ₱14.00, 4.1 km ₱16.00, 6.3 km ₱20.00, 10.0 km ₱26.00, and 6.3 km discounted ₱16.00.
 - **RSSI smoothing:** with alpha 0.3, a first reading of -60 followed by -70 gives -63.0.
 - **Distance:** the Haversine distance between placeholder stops RCA and JCA is about 61 m (within 2 m). A check-in made at JCA for the RCA station with a 60 m radius is therefore refused.
 - **SMS parser:** the example message in section 12.3 returns all three stations (not only the last); a message with a changed character in the signature is rejected; a sequence number that is not newer is rejected; a timestamp more than 30 minutes off is rejected.
@@ -64,6 +65,10 @@ All values are starting hypotheses (section 17). The agent exposes them from one
 | GPS accuracy gate for check-in | 25 m | 7.5 |
 | Check-in radius (default) | 60 m | 7.5 |
 | Check-in lifetime | 15 minutes, reminder at 5 | 7.5 |
+| Boarding prompt (CA1.1) | a Live multicab of a pinged route standing (under 2 km/h) within 60 m of the stop for 10 s | 7.5 |
+| Check-in cost (CA1.1) | 0.3 Energy per route pinged | 11.1 |
+| Welcome Energy (CA1.1) | 5 (the wallet), once per account | 11.1 |
+| Tracked multicab near, Map tab dot (CA1.1) | 1 km | 7.3 |
 | Position send rule | 100 m or 30 s | 8.4 |
 | Stationary speed and duration | under 2 km/h for 45 s | 7.3 |
 | Liveness timeout | 90 s | 8.4 |
@@ -79,13 +84,16 @@ All values are starting hypotheses (section 17). The agent exposes them from one
 | Coverage states | Live under 90 s, Stale to 10 minutes, then No data | 7.3 |
 | Estimated markers (CF1) | 90 s to 5 minutes of silence; median recent speed capped at 40 km/h; at most 2 km along the line; redrawn every 1 s | 7.3 |
 | Alternative route nearby (CF1) | Shares a stop; Live vehicle within 2 km of the commuter | 7.3 |
-| Fare | ₱15.00 for 4 km, ₱2.00 per km, multiplier 0.8 | 12.4 |
+| Fare | ₱14.00 for 4 km, ₱2.00 per km, multiplier 0.8 (the traditional jeepney rate, Emjay 2026-10-22; was ₱15.00) | 12.4 |
 | Fare rounding | nearest ₱0.25 (assumed) | 7.2 |
 | SMS maximum age and stale heatmap | 30 minutes, 15 minutes | 12.3 |
 | SMS sequence wrap-around window | a number is newer if it is 1 to 5,000 ahead of the last one, modulo 10,000 | 12.3 |
 | Telemetry timestamp limits | reject packets older than 120 s or more than 30 s in the future | 8.4 |
 | Store-and-forward batch (T1) | at most 60 positions and 4 KB per request; positions up to 30 minutes old kept as history; retry after 5 s, doubling to 60 s | 8.4 |
 | Relay seats sent (T1) | Seats available 3, Filling up 9, Full 14 | 8.4 |
+| Map zoom buttons (CA1.1) | 1 zoom level a tap; Locate's second tap zooms out to the farthest zoom (11.5) | 7.3 |
+| Relay details (CA1.1) | rider and destination count as on the route line within 100 m | 7.3 |
+| Search results (CA1.1) | placeholder rows shimmer 350 ms after each change of the typed text (3 rows), then the results fade in | 7.2 |
 | Assistant (CA1, CA1.1) | at most 3 places per name (the best and 2 "Did you mean"); 8 places looked at per name; questions up to 120 characters; trip ends under 50 m apart are the same place; typos: 2 letters off for a word of 6 or more letters, 1 for 4 or 5, none under 4; conversation: the newest 50 questions, none older than 1 hour | 19.5 |
 
 ### 0.4 Environment and device testing
@@ -408,7 +416,7 @@ The commuter app has five modules. Routing, fares and self-tracking work fully o
 
 **Boarding and alighting.** Riders may board and alight anywhere along the line, not only at listed stops. The origin and the destination are each snapped to the nearest point on the route, and each must be within the walking limit (500 m per leg). The boarding and alighting nodes used for the fare are these two snapped points.
 
-**Fare.** The fare uses the authorized route slice between boarding and alighting nodes, not the physical path, so a detour does not change the fare. Parameters (₱15.00 base for the first 4 km, ₱2.00 per additional km, 20% discount) come from the v1.0 draft and **must be confirmed against the current fare order** before launch. The formula is in section 12.4. Rounding is a configurable setting, assumed to be nearest ₱0.25 until confirmed. The screen labels the amount as an estimate.
+**Fare.** The fare uses the authorized route slice between boarding and alighting nodes, not the physical path, so a detour does not change the fare. Parameters (₱14.00 base for the first 4 km since 2026-10-22, the traditional jeepney rate under LTFRB guidelines, chosen by Emjay for multicabs; it was ₱15.00; ₱2.00 per additional km, 20% discount) come from the v1.0 draft and **must be confirmed against the current fare order** before launch. The formula is in section 12.4. Rounding is a configurable setting, assumed to be nearest ₱0.25 until confirmed. The screen labels the amount as an estimate.
 
 **Display.** The selected route draws at full opacity in its route color; other routes fade to 8% opacity. The blue dot uses passive GPS and works with no data.
 
@@ -422,6 +430,9 @@ The commuter app has five modules. Routing, fares and self-tracking work fully o
 - **Estimated markers (CF1, 2026-10-17):** for the first part of the Stale state, from 90 s to 5 minutes without a packet, the marker is not left at its last fix. It is moved along its own route line from that fix at its recent speed (dead reckoning: the median of its speeds over the 90 s before its last packet, capped at 40 km/h), at most 2 km and never past the line's end. A vehicle that was stopped is not moved. The marker is drawn fainter than a Stale one and labelled *Estimated*; it shows no ETA, and arrival and distance alerts keep to the last real fix. From 5 to 10 minutes the marker is greyed at its last fix as above. Demo vehicles follow the same rule.
 - **Coverage nudge (CF1):** when the picked route has no Live vehicle, a banner says *No live data for R4. Riding this route? Share your seats to help others!* with a button that opens Relay. Not shown in Night Mode, or to accounts that cannot see live vehicles.
 - **Alternative route (CF1):** under the nudge, a chip suggests one other route that shares a stop with the picked route, passes within the walking limit of the commuter, and has a Live vehicle within 2 km of them (without a position: within 2 km of a stop of the picked route); the nearest such vehicle wins. Tapping it shows that route.
+- **Map controls (CA1.1, 2026-10-22):** a column of round buttons at the right, top to bottom: zoom in (+) and zoom out (-), one level a tap (besides pinching); Locate, which zooms in on the commuter (a simulated stop or a dropped pin directly) and, tapped again before the map is moved, zooms out as far as the map goes, still on the commuter; a GPS position outside the Butuan map shows the whole map with "You are outside the Butuan map"; Relay; Routes (the route list); and Tunie (19.5). There is no card at the bottom while no route is picked; the greeting and "Where are you heading today?" moved to My Rides (19.1).
+- **All running multicabs (CA1.1):** while no route is picked (*All routes*), the Map shows the running multicabs (Live or Stale, not No data) of every route, and the Map always opens there; the route list picks one (Settings' Default route was removed, 2026-10-22). A tap on a multicab picks its route and opens its card. A picked route still shows only its own multicabs. The route list starts with *All routes* (the default, marked with a check), which goes back to every route. While one multicab's card is open, or one is tracked, the others fade so it stands out. Live data stays for team accounts (0.7). The route last picked (or All routes) is kept on the phone, so the Map opens on it again after a restart. While the tracked multicab is within 1 km, the Map tab's icon carries a red dot, seen from every tab, like Check-in's during a check-in.
+- **Relay details (CA1.1):** while a relay shares the rider's location, a tap on its bar on the Map opens the details: the distance left to the destination (by road along the route line when the rider and the destination are on it, else straight), a bar of how much of the ride is done since sharing started, about how many minutes are left at the current speed (hidden under 5 km/h, as the ETA), the route and stop, the multicab and the seats shared, and how long it has been shared and when it ends by itself (90 minutes, or at the stop).
 - **Energy:** opening live view costs 1 Energy per 30 minute viewing session. The pilot has a free-viewing period (section 11.1).
 - **Night view:** after the night cutoff the map shows only static node updates and is free (section 10.4).
 
@@ -435,7 +446,7 @@ The commuter app has five modules. Routing, fares and self-tracking work fully o
 - **Flow:** at a recognized terminal, the user picks a route and taps Check-In.
 - **Geofence:** distance to the station must be within the station's configured radius (default 60 m, adjustable per terminal), and GPS accuracy must be 25 m or better. The v1.0 value of 40 m is too tight for large terminals where GPS error is 10 to 20 m.
 - **Anti-fraud:** one active check-in per user; check-in is refused if activity recognition reports `IN_VEHICLE`.
-- **Lifecycle:** each check-in has an `expires_at` of 15 minutes. A local reminder at 5 minutes asks *Have you boarded yet?*. Heatmap counts only include rows where `expires_at` is in the future, so counts are accurate even if cleanup is delayed. A cron job deletes expired rows every minute.
+- **Lifecycle:** each check-in has an `expires_at` of 15 minutes. A local reminder at 5 minutes asks *Have you boarded yet?*. **Boarding prompt (CA1.1, 2026-10-22):** the app asks *Did you board R4 · DEMO 01?* on any tab as soon as a Live multicab of a pinged route stands at the stop (0.3), each multicab once, and the 5-minute reminder asks the same; *Yes, I boarded* ends the check-in as boarded, *Not yet* keeps waiting. In-app only for now. Heatmap counts only include rows where `expires_at` is in the future, so counts are accurate even if cleanup is delayed. A cron job deletes expired rows every minute.
 - **Auto-cancel:** when a verified boarding on the same route is detected, the check-in is cancelled immediately and the heatmap count drops.
 
 ## 8. Passenger relay engine
@@ -639,6 +650,8 @@ Incentives reward verified contribution and are limited by daily caps so they ca
 | Verified relay, seat updates only | +0.5 | 1 per day | Passes BLE and motion checks |
 | Station check-in | +0.3 | 1 per day | Geofence and accuracy pass; not cancelled by fraud checks |
 
+**Prototype economy (CA1.1, Emjay, 2026-10-22; overrides the table for the app):** every account starts with 5 Energy (the full wallet). A station check-in **costs** 0.3 Energy for each route pinged (pinging drivers may cost SMS money later), so the commuter picks only the routes they would take; the check-in card shows the cost and no more routes can be ticked than the balance pays for. Energy comes back only by waiting (the passive refill, its 12-hour clock started by the welcome Energy) or by a relay with GPS (+1.0, once a day); a relay without GPS earns nothing. Tracking one multicab still costs 1 Energy per 30 minutes. A subscription may come later. The server enforces it (`20261022000000_checkin_points.sql`).
+
 A commuter who relays on the morning ride earns enough to open live view on the evening ride, so the loop is self-funding. Rewards are held in escrow while a session is in the Smart Queue and released on lock. All caps reset at midnight Asia/Manila time.
 
 ### 11.2 Trust and Merit
@@ -681,7 +694,7 @@ CREATE TABLE franchise_routes (
   route_name      TEXT NOT NULL,
   route_color     TEXT NOT NULL,             -- '#00F5D4'
   direction_mode  TEXT NOT NULL CHECK (direction_mode IN ('one_way','two_way','loop')),
-  base_fare       REAL NOT NULL DEFAULT 15.00,
+  base_fare       REAL NOT NULL DEFAULT 14.00,
   base_km         REAL NOT NULL DEFAULT 4.0,
   per_km_rate     REAL NOT NULL DEFAULT 2.00,
   primary_geojson TEXT NOT NULL,             -- GeoJSON Feature (LineString)
@@ -777,7 +790,7 @@ The primary data-SMS path carries the same fields in a compact binary form, whic
 Fare = \left( F_0 + \max\bigl(0,\ \lceil D - D_0 \rceil\bigr) \times r \right) \times M
 ```
 
-With the v1.0 values F0 = 15.00, D0 = 4.0 and r = 2.00 (to be confirmed), a 6.3 km ride is 15 + 3 × 2 = ₱21.00 for a regular fare and ₱16.80 with the discount before rounding.
+With the v1.0 values F0 = 15.00, D0 = 4.0 and r = 2.00, a 6.3 km ride is 15 + 3 × 2 = ₱21.00 for a regular fare and ₱16.80 with the discount before rounding. With the app's values since 2026-10-22 (F0 = 14.00, still to be confirmed against the official order for Butuan multicabs) it is 14 + 3 × 2 = ₱20.00, and ₱16.00 with the discount.
 
 **RSSI smoothing.** An exponential moving average with α = 0.3 reduces flicker from signal bounce.
 
@@ -1037,7 +1050,7 @@ Added at Emjay's request. **Where this section disagrees with an earlier section
 | Greeting | Every time the app opens, one short time-based line from the persona, for example "Where are we going right now?". |
 | Live map | All broadcasting PUVs, browsed for free, with a little essential information. Tracking one PUV shows its position, a guide line and an ETA, and fades the other vehicles. |
 | Station check-in | The commuter picks a route; its stations show as dots in the route colour, other routes fade; they check in at the station where they wait. |
-| My Ride | Origin and destination, the route to board, and the estimated fare. |
+| My Ride | Origin and destination, the route to board, and the estimated fare. CA1.1: until a destination is being picked, it opens with Tunton's greeting and "Where are you heading today?" (moved from the Map), which starts typing the destination. |
 | Crowdsourcing (passenger relay) | The commuter reports the PUV they ride and its seat availability. Bluetooth identifies the vehicle (later); GPS is optional. A report with GPS is broadcast on the live map and earns 1 Energy; without GPS it is posted to the newsfeed and earns 0.5. Reports can be flagged as fake or spam. |
 | Profile | Change the username, delete the account, see badges, change the avatar, settings and preferences. |
 
@@ -1058,7 +1071,7 @@ Added at Emjay's request. **Where this section disagrees with an earlier section
 | D11 | The greeting is one short, time-based line from a small set of variants in the strings file. |
 | D12 | A floating Report button on the Live tab; the newsfeed lives in the expanded Live sheet. No fourth tab. |
 | D13 | Check-in tab: route chips; the chosen route's stations as dots in its colour; other routes faded. Built generally, though only Route 4 exists. Check-in is a cloud table for team accounts. |
-| D14 | Energy is a server-side ledger, built after the backend is live. Numbers as in 11.1: wallet cap 5; passive +1 every 12 hours (at most 2 a day); GPS report +1.0; report without GPS +0.5; check-in +0.3; each earning at most once a day; caps reset at midnight Asia/Manila. |
+| D14 | (CA1.1, 2026-10-22: check-ins cost 0.3 per route pinged, a report without GPS earns nothing, and every account starts with 5; see 11.1.) Energy is a server-side ledger, built after the backend is live. Numbers as in 11.1: wallet cap 5; passive +1 every 12 hours (at most 2 a day); GPS report +1.0; report without GPS +0.5; check-in +0.3; each earning at most once a day; caps reset at midnight Asia/Manila. |
 
 ### 19.3 What this section overrides
 
@@ -1091,19 +1104,19 @@ Sections 3.4 and 5.5, named in the request, do not exist in this document; the n
 | Relay broadcast (T1, 2026-10-21) | Approved by Emjay: foreground only, manual vehicle picker (unverified), store and forward with a batch form of ingest, team accounts only. See 8.4. |
 | Estimated markers (2026-10-17) | Approved by Emjay: 90 s to 5 minutes, along the route line, faint, labelled Estimated, no ETA; also on demo data. The coverage nudge's button opens Relay. See 7.3. |
 
-### 19.5 Assistant: Ask Tunton (CA1, 2026-10-21; CA1.1, 2026-10-22)
+### 19.5 Assistant: Ask Tunie (CA1, 2026-10-21; CA1.1, 2026-10-22)
 
-Approved by Emjay. A chat that answers commuter questions from the data already on the phone.
+Approved by Emjay. A chat that answers commuter questions from the data already on the phone. CA1.1: the assistant is Tunie (the app stays Tunton), with Emjay's avatar (`assets/chatbot avatar`).
 
 - **Deterministic, online only (CA1.1).** No language model. A question is parsed by fixed word rules (`src/shared/assistant/`) into one intent; the same words always give the same answer, and nothing typed is sent anywhere. Ask Tunton can be used only while the server can be reached: it checks on opening, every 30 s and on return to the app. Offline, sending and the chips that ask are locked with "Ask Tunton needs an internet connection"; the chips that open My Rides or the Map still work. (Changed from CA1, which worked offline.) A development build without a backend stays usable.
 - **Kept for an hour (CA1.1).** The questions are kept on the phone (the newest 50, none older than 1 hour), so closing Ask Tunton, going to My Rides and back, or restarting the app keeps the conversation; the answers are worked out again from the current data. There is no manual delete; Reset app and Delete account remove it. (Changed from CA1, which kept nothing.)
-- **A sheet over the Map (CA1.1).** It opens in the same draggable sheet as My Rides, over the Map, dragged by its handle between collapsed, half and open; where it was left is remembered. It reads like a chat: the newest message last, the message box at the bottom of the visible sheet (above the keyboard while typing, which opens the sheet fully), the conversation scrolling at every height. The only button is Close (X); a tap above the sheet also goes back to the Map.
+- **A sheet over the Map (CA1.1).** It opens in the same draggable sheet as My Rides, over the Map: it slides up fully open, so the first message shows whole, and can be dragged by its handle to half; it slides away when closed (Close, a tap above the sheet, or dragged to the bottom). Open, it stops below the Map's top bar. It reads like a chat: the newest message last, the message box at the bottom of the visible sheet (above the keyboard while typing, which opens the sheet fully), the conversation scrolling at every height.
 - **Intents, tried in order.** Route status ("Is R4 running?", "naa bay R4?"); nearest stop ("nearest stop", "asa ang pinakaduol nga sakayan?", "nearest stop to SM City"); trip and fare ("from X to Y", "to Y", "pila plete gikan X paingon Y", "unsay sakyan paingon Y"); help. Any other text is taken as a destination.
 - **Plain English (CA1.1).** "for" marks the destination when no other to-word is used ("what route should I board for Robinsons?"; "the fare for SM to Ampayon" still ends at Ampayon), as do "towards" and "toward"; route, multicab, jeep, should, I, we, board, take, ride, get and on are taken off the ends of a place name.
 - **Bisaya.** Common question words are understood, including Butuan contractions: gikan (from); paingon, padulong, padung, ngadto, adto, muadto, hangtod (to), and a short "pa" only at the start or after a ride or fare word, since "pa" also means "still"; pila, pilay, pila'y, plete, pasahe, pamasahe (fare); unsay sakyan, masakyan, kasakyan, sakay (what to ride); naa bay, naa pa bay, naay, gadagan, nagdagan, byahe, gabyahe (is it running); asa (where); sakayan, hulatanan, hunonganan, nauganan, paradahan (stop); pinakaduol, duol (nearest); diri (here). Replies are in English (0.6 exception).
 - **Places.** Names are found with My Rides' search over the stops, the user's saved places and the offline map's named places. CA1.1: the best match is always answered at once, never only asked about. A name typed in part ("robinson", "robinso") starts the reply with "Showing results for Robinsons Transport Terminal:"; places that fit as well (up to 2) follow as "Did you mean …?" chips that ask again with that place. When no name starts with what was typed, a few typing mistakes are allowed (edit distance: 2 letters for a word of 6 or more letters, 1 for 4 or 5, none for shorter words; "robinsons" and "robinson" count as the same word), and the reply starts "Did you mean Ampayon? Showing results for it ("ampayun" not found):". With no start named, the trip starts from the commuter's position (GPS, simulated stop or pin); without one, the assistant asks for it.
 - **Answers.** Trip: the best route by the offline planner (7.2), the walks, the ride distance and the fare for the commuter's fare type, other routes that serve the trip, and chips to open the trip in My Rides or the route on the Map. Status: Live, Estimated and Stale counts (7.3), Night Mode, and the CF1 alternative route when the route has no Live vehicle; live data only for team accounts (0.7), the demo for everyone. Nearest stop: its name, code, distance and routes.
-- **Where it is.** An Ask button on the Map tab above Locate, a Menu row (it opens over the Map), and a tenth bubble in the tips tour. Starter chips let a question be tapped instead of typed. For any signed-in account, while online.
+- **Where it is.** The last button of the Map's column, Tunie's avatar, larger than the others: "Ask Tunie" with the avatar while no card or bar is shown under the buttons (a multicab, a stop, tracking, a relay, a location notice), the round avatar alone while one is, sliding between the two. Also a Menu row (it opens over the Map) and a bubble in the tips tour. Starter chips let a question be tapped instead of typed. For any signed-in account, while online.
 
 ## Changes after audit
 
@@ -1121,3 +1134,8 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 10. **Sections 0.3, 0.6 and 19 (Oct 21, 2026, CA1):** the offline assistant Ask Tunton added as 19.5 (rule-based, no network, English and Bisaya questions with English replies, trip and fare, route status, nearest stop, starter chips); its constants in 0.3; the Bisaya question words as a scoped exception to the Cebuano strings item in 0.6.
 11. **Sections 7.1, 7.3 and 19 (Oct 21, 2026, AU1):** guest mode removed. An account is needed after the introduction (the welcome offers only sign-in; a signed-out user is sent to sign-in with no way back), so Energy, Trust Points, check-ins and relays always belong to an account, Demo mode included; the ST2-D guest locks are gone. A saved session counts as signed in offline, after the access token expires too. A release build without backend keys shows "Backend not configured"; a development build carries on. D6, 19.1, the CF1 nudge in 7.3 and 19.5 amended (Emjay approved).
 12. **Sections 0.3, 0.6 and 19.5 (Oct 22, 2026, CA1.1):** after Emjay's emulator test. Ask Tunton now answers the best match at once ("Showing results for …", with "Did you mean" chips for places that fit as well) instead of stopping at "Did you mean"; understands "for", "towards" and plain-English filler round a place ("what route should I board for Robinsons?"); corrects typos by edit distance ("ampayun", "robnson"); opens in My Rides' draggable sheet over the Map (collapsed, half or open by its handle; remembered) as a chat with the message box at the bottom and only a Close button; keeps the conversation on the phone for an hour (50 questions, no manual delete); and works only while online (it no longer says it works offline). Constants in 0.3 (Emjay approved).
+13. **Sections 0.3, 7.3, 19.1 and 19.5 (Oct 22, 2026, after Emjay's emulator check):** the assistant is Tunie, with its avatar as the last Map button ("Ask Tunie" until first used); its sheet closes when dragged to the bottom and stops below the top bar. Map controls: zoom in and out buttons, Locate's second tap zooms out, the order zoom, Locate, Relay, Tunie; a slim route bar replaces the Explore card, whose greeting and "Where are you heading today?" moved to My Rides. Relay details from the relay bar: distance left, ride done, minutes left, time shared (Emjay approved).
+14. **Sections 0.3, 7.2, 7.3 and 19.5 (Oct 22, 2026, after Emjay's second emulator check):** Tunie's sheet slides up fully open and slides away when closed; its button is the avatar that slides open to "Ask Tunie" at each start; the route bar became a Routes button in the column (zoom, Locate, Relay, Routes, Tunie); the Map shows every route's running multicabs while no route is picked, filtered by a Settings choice; My Rides' "Where are you going?" hint removed (the heading card asks it); search results shimmer briefly before they fade in; smooth fades and resizes for minimizing, expanding, opening and sliding (Emjay approved).
+15. **Sections 7.3 and 19.5 (Oct 22, 2026, after Emjay's third emulator check):** "Ask Tunie" only while no card is under the Map's buttons; the other multicabs fade while one is picked; All routes first in the route list (the default); Locate centres a simulated stop or pin directly and says when a GPS position is outside the map; My Rides' heading card no longer resizes in an animation (the greeting fades, the field stays put) (Emjay approved).
+16. **Sections 0.2, 0.3, 7.2, 7.3 and 12.4 (Oct 22, 2026):** the multicab fare is the traditional jeepney rate, ₱14.00 for the first 4 km (was ₱15.00), ₱2.00 per km and the 20% discount unchanged, route data version 8 (Emjay chose it from the LTFRB guidelines; still to be confirmed against the official order). Settings' *Multicabs on the map* and *Default route* removed (the Map opens on All routes; its route list picks one). Demo & simulation: the simulated spot can be pinned anywhere on the map. The in-app logo follows the theme (dark tile on the light theme, light tile on the dark one) and the native splash follows the phone's dark mode (Emjay approved).
+17. **Sections 0.3, 7.3, 7.5, 11.1 and D14 (Oct 22, 2026, CA1.1):** check-ins cost 0.3 Energy per route pinged instead of earning 0.3; Energy comes back by waiting or a relay with GPS (+1.0), a relay without GPS earns nothing (was +0.5), and every account starts with 5. During a check-in the app asks *Did you board?* when a multicab of a pinged route stands at the stop, and at 5 minutes. The Map remembers the route last picked, and its tab shows a red dot while the tracked multicab is within 1 km (Emjay approved).

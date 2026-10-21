@@ -60,7 +60,11 @@
         {
           "backgroundColor": "#ffffff",
           "image": "./assets/tunton-icon.png",
-          "imageWidth": 200
+          "imageWidth": 200,
+          "dark": {
+            "backgroundColor": "#0e1116",
+            "image": "./assets/tunton-icon-light.png"
+          }
         }
       ]
     ],

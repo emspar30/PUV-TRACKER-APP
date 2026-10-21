@@ -16,17 +16,20 @@ type RoutePingProps = {
   routes: readonly string[];
   picked: readonly string[];
   onChange: (picked: string[]) => void;
+  // CA1.1: how many routes the Energy balance pays for; the rest cannot be ticked
+  max: number;
 };
 
 // A stop served by two or more routes: ping one, some or all of them. Only the picked routes count
 // the commuter, so drivers of the other routes get no SMS about them. At least one stays picked.
-export function RoutePing({ routes, picked, onChange }: RoutePingProps) {
+export function RoutePing({ routes, picked, onChange, max }: RoutePingProps) {
   const styles = useStyles();
   const { typography } = useTheme();
   const all = routes.every((code) => picked.includes(code));
+  const full = picked.length >= max;
   const toggle = (code: string) => {
     const next = picked.includes(code) ? picked.filter((value) => value !== code) : [...picked, code];
-    if (next.length > 0) onChange(routes.filter((value) => next.includes(value)));
+    if (next.length > 0 && next.length <= max) onChange(routes.filter((value) => next.includes(value)));
   };
   return (
     <View style={styles.ping}>
@@ -35,12 +38,13 @@ export function RoutePing({ routes, picked, onChange }: RoutePingProps) {
         <Text style={typography.bodySm}>{strings.checkin.pingHint}</Text>
       </View>
       <View style={styles.chips}>
-        <Chip label={strings.checkin.pingAll} selected={all} onPress={() => onChange([...routes])} />
+        <Chip label={strings.checkin.pingAll} selected={all} disabled={routes.length > max} onPress={() => onChange([...routes])} />
         {routes.map((code) => (
           <Chip
             key={code}
             label={code}
             selected={picked.includes(code)}
+            disabled={full && !picked.includes(code)}
             onPress={() => toggle(code)}
             accessibilityLabel={strings.checkin.pingLabel(code, picked.includes(code))}
           />

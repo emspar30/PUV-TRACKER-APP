@@ -17,9 +17,12 @@ type TrackingState = {
   routeCode: string | null;
   endsAtMs: number;
   alertOn: boolean;
+  // CA1.1: the tracked multicab is near the commuter (the Map tab's red dot)
+  near: boolean;
   start: (session: TrackingSession) => void;
   stop: () => void;
   setAlertOn: (on: boolean) => void;
+  setNear: (near: boolean) => void;
 };
 
 export const useTrackingStore = create<TrackingState>((set) => ({
@@ -27,7 +30,9 @@ export const useTrackingStore = create<TrackingState>((set) => ({
   routeCode: null,
   endsAtMs: Number.POSITIVE_INFINITY,
   alertOn: false,
-  start: (session) => set(session),
-  stop: () => set({ vehicleId: null, routeCode: null, endsAtMs: Number.POSITIVE_INFINITY, alertOn: false }),
+  near: false,
+  start: (session) => set({ ...session, near: false }),
+  stop: () => set({ vehicleId: null, routeCode: null, endsAtMs: Number.POSITIVE_INFINITY, alertOn: false, near: false }),
   setAlertOn: (alertOn) => set({ alertOn }),
+  setNear: (near) => set({ near }),
 }));

@@ -287,6 +287,21 @@ describe('migration: row level security and grants', () => {
     expect(switches.pop()).toBe('update public.app_config set energy_enabled = true');
   });
 
+  it('CA1.1: check-ins spend 0.3 a route before they count; GPS relays and waiting refill; every account starts full', () => {
+    expect(sql).toMatch(/add column energy_checkin_route_cost numeric\(4, 1\) not null default 0\.3/);
+    expect(sql).toMatch(/add column energy_welcome numeric\(4, 1\) not null default 5/);
+    expect(statements.filter((s) => s.startsWith('update public.app_config set energy_no_gps_report')).pop()).toBe('update public.app_config set energy_no_gps_report = 0');
+    expect(statements).toContain('revoke execute on function public.energy_charge_checkin(int, text) from public, anon, authenticated');
+    expect(statements.some((s) => s.startsWith('grant execute on function public.energy_charge_checkin'))).toBe(false);
+    // The newest check_in and check_in_routes charge before inserting, and no longer earn
+    for (const name of ['public.check_in(', 'public.check_in_routes(']) {
+      const last = [...sql.matchAll(/create (?:or replace )?function ([\w.]+\()[^$]*\$\$([\s\S]*?)\$\$/g)].filter((m) => m[1] === name).pop()![2];
+      expect(last.indexOf('energy_charge_checkin')).toBeGreaterThan(-1);
+      expect(last.indexOf('energy_charge_checkin')).toBeLessThan(last.indexOf('insert into public.checkins'));
+      expect(last).not.toContain("energy_earn('checkin'");
+    }
+  });
+
   it('publishes telemetry_latest, and only it, to Realtime', () => {
     const published = statements.filter((s) => s.startsWith('alter publication supabase_realtime'));
     expect(published).toEqual(['alter publication supabase_realtime add table public.telemetry_latest']);

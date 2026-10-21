@@ -12,6 +12,7 @@ import {
   ENERGY_PASSIVE_INTERVAL_H,
   ENERGY_TRACKING_COST,
   ENERGY_WALLET_CAP,
+  ENERGY_WELCOME,
   TRACKING_SESSION_MIN,
 } from '../config';
 
@@ -20,18 +21,22 @@ const HOUR = 3600000;
 const MIN = 60000;
 
 describe('the demo wallet', () => {
-  it('starts with one refill, and books the next only after the interval', async () => {
+  // CA1.1: a new wallet starts full (the welcome Energy), which also starts the refill clock
+  it('starts with the welcome Energy, and refills only after the interval from it', async () => {
     let now = T0;
-    const energy = createDemoEnergy(() => now, false);
+    const energy = createDemoEnergy(() => now, true);
     expect(energy.source).toBe('demo');
-    expect((await energy.refresh())?.balance).toBe(ENERGY_PASSIVE_AMOUNT);
+    const first = await energy.refresh();
+    expect(first?.balance).toBe(ENERGY_WELCOME);
+    expect(first?.history).toEqual([{ kind: 'welcome', amount: ENERGY_WELCOME, atMs: T0 }]);
+    expect(first?.nextRefillMs).toBeNull();
+    await energy.startTracking('track-aaaaaaaa');
     now += HOUR;
-    expect((await energy.refresh())?.balance).toBe(ENERGY_PASSIVE_AMOUNT);
+    expect((await energy.refresh())?.balance).toBe(ENERGY_WELCOME - ENERGY_TRACKING_COST);
     now = T0 + ENERGY_PASSIVE_INTERVAL_H * HOUR;
     const snapshot = await energy.refresh();
-    expect(snapshot?.balance).toBe(2 * ENERGY_PASSIVE_AMOUNT);
-    expect(snapshot?.history.map((entry) => entry.atMs)).toEqual([now, T0]);
-    expect(snapshot?.nextRefillMs).toBe(now + ENERGY_PASSIVE_INTERVAL_H * HOUR);
+    expect(snapshot?.balance).toBe(ENERGY_WELCOME - ENERGY_TRACKING_COST + ENERGY_PASSIVE_AMOUNT);
+    expect(snapshot?.history.map((entry) => entry.kind)).toEqual(['passive', 'tracking', 'welcome']);
   });
 
   it('is free with Energy switched off (ENERGY_ENABLED_DEMO is on since ST2-D2)', async () => {
@@ -40,13 +45,13 @@ describe('the demo wallet', () => {
     await energy.refresh();
     expect((await energy.startTracking('track-aaaaaaaa')).ok).toBe(true);
     expect((await energy.startTracking('track-bbbbbbbb')).ok).toBe(true);
-    expect((await energy.refresh())?.balance).toBe(1);
+    expect(energy.chargeCheckIn(4, 'checkin-aaaaaaaa')).toBe(true);
+    expect((await energy.refresh())?.balance).toBe(ENERGY_WELCOME);
   });
 
-  it('with Energy switched on for a demonstration, charges for tracking, so a new wallet of 1 pays once', async () => {
+  it('with Energy switched on, tracking is charged until the wallet is empty', async () => {
     const energy = createDemoEnergy(() => T0, true);
-    expect((await energy.refresh())?.balance).toBe(1);
-    expect((await energy.startTracking('track-aaaaaaaa')).ok).toBe(true);
+    for (let i = 0; i < ENERGY_WELCOME / ENERGY_TRACKING_COST; i += 1) expect((await energy.startTracking(`track-${i}-aaaaaaaa`)).ok).toBe(true);
     const snapshot = await energy.refresh();
     expect(snapshot?.balance).toBe(0);
     expect(snapshot?.history[0]).toEqual({ kind: 'tracking', amount: -ENERGY_TRACKING_COST, atMs: T0 });
@@ -62,13 +67,13 @@ describe('the demo wallet', () => {
     expect(snapshot?.history.some((entry) => entry.kind === 'tracking')).toBe(false);
   });
 
-  it('with Energy on, tracking spends once per request key and is refused when the wallet is short', async () => {
+  it('with Energy on, tracking and check-ins spend once per request key', async () => {
     const energy = createDemoEnergy(() => T0, true);
-    await energy.refresh();
     expect((await energy.startTracking('track-aaaaaaaa')).ok).toBe(true);
     expect((await energy.startTracking('track-aaaaaaaa')).ok).toBe(true);
-    expect((await energy.refresh())?.balance).toBe(ENERGY_PASSIVE_AMOUNT - ENERGY_TRACKING_COST);
-    expect(await energy.startTracking('track-bbbbbbbb')).toEqual({ ok: false, reason: 'not_enough_energy' });
+    expect(energy.chargeCheckIn(2, 'checkin-aaaaaaaa')).toBe(true);
+    expect(energy.chargeCheckIn(2, 'checkin-aaaaaaaa')).toBe(true);
+    expect((await energy.refresh())?.balance).toBeCloseTo(ENERGY_WELCOME - ENERGY_TRACKING_COST - 0.6, 9);
   });
 });
 

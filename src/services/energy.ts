@@ -19,7 +19,7 @@ export const supabaseEnergyPort: EnergyPort = {
       supabase.rpc('energy_balance'),
       supabase.from('app_config').select('energy_enabled, energy_passive_interval_h').single(),
       supabase.from('energy_ledger').select('kind, amount, created_at').order('created_at', { ascending: false }).limit(limit),
-      supabase.from('energy_ledger').select('created_at').eq('kind', 'passive').order('created_at', { ascending: false }).limit(1),
+      supabase.from('energy_ledger').select('created_at').in('kind', ['passive', 'welcome']).order('created_at', { ascending: false }).limit(1),
     ]);
     const error = balance.error ?? config.error ?? ledger.error ?? passive.error;
     if (error) throw new Error(error.message);

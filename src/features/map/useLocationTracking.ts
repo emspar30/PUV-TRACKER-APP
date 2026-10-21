@@ -5,6 +5,7 @@ import { useRouteData } from '@/data/RouteDataProvider';
 import { checkLocationPermission, watchFakeLocation, watchLocation } from '@/services/location';
 import { DEMO_COMMUTER_STOP_CODE } from '@/shared/config';
 import { selectLocationAllowed, useLocationStore } from '@/state/locationStore';
+import { simulatedPosition } from '@/shared/demo/simulatedPosition';
 import { useSettingsStore } from '@/state/settingsStore';
 
 // Keeps the location store in step with the system permission and, while location is allowed
@@ -17,10 +18,12 @@ export function useLocationTracking(): void {
   const { stops } = useRouteData();
   const fakeGps = useSettingsStore((state) => __DEV__ && state.fakeGps);
   const fakeStop = useSettingsStore((state) => state.simulatedStop);
+  const fakePinned = useSettingsStore((state) => state.simulatedPoint);
   const fakeAccuracyM = useSettingsStore((state) => state.fakeAccuracyM);
   const fakeMocked = useSettingsStore((state) => state.fakeMocked);
   const fakeStale = useSettingsStore((state) => state.fakeStale);
-  const fakePoint = stops.find((stop) => stop.code === fakeStop) ?? stops.find((stop) => stop.code === DEMO_COMMUTER_STOP_CODE) ?? null;
+  // CA1.1: a pinned spot, else the stop
+  const fakePoint = simulatedPosition(stops, fakeStop, fakePinned, DEMO_COMMUTER_STOP_CODE);
   const fakeLat = fakePoint?.lat;
   const fakeLon = fakePoint?.lon;
 

@@ -17,4 +17,4 @@ export { Screen } from './Screen';
 export { SettingsGroup, SettingsRow } from './SettingsRow';
 export { Skeleton, SkeletonCard, SkeletonHero } from './Skeleton';
 export { StepHeader } from './StepHeader';
-export { TopBar } from './TopBar';
+export { TOP_BAR_HEIGHT, TopBar } from './TopBar';

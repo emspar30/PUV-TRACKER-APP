@@ -4,7 +4,7 @@
 // Pure: no React Native or Expo imports.
 
 import {
-  ENERGY_CHECKIN,
+  ENERGY_CHECKIN_ROUTE_COST,
   ENERGY_GPS_REPORT,
   ENERGY_NO_GPS_REPORT,
   ENERGY_PASSIVE_AMOUNT,
@@ -57,13 +57,14 @@ export function manilaDay(atMs: number): string {
 
 // --- Energy (PRD 19, D1, D14)
 
-export type EnergyKind = 'gps_report' | 'no_gps_report' | 'checkin' | 'passive' | 'tracking';
+// CA1.1: 'checkin' is a spend now, and 'welcome' the Energy every account starts with
+export type EnergyKind = 'gps_report' | 'no_gps_report' | 'checkin' | 'passive' | 'tracking' | 'welcome';
+export type EarnKind = 'gps_report' | 'no_gps_report' | 'passive';
 export type LedgerRow = { kind: EnergyKind; amount: number; atMs: number; requestKey: string };
 
-const EARN: Record<Exclude<EnergyKind, 'tracking'>, number> = {
+const EARN: Record<EarnKind, number> = {
   gps_report: ENERGY_GPS_REPORT,
   no_gps_report: ENERGY_NO_GPS_REPORT,
-  checkin: ENERGY_CHECKIN,
   passive: ENERGY_PASSIVE_AMOUNT,
 };
 
@@ -77,7 +78,7 @@ export function energyBalance(ledger: readonly LedgerRow[]): number {
 
 // What one earning books: once per kind per Manila day (passive up to ENERGY_PASSIVE_DAILY_MAX),
 // never above the wallet cap, and nothing for a request key already booked
-export function energyEarn(ledger: readonly LedgerRow[], kind: Exclude<EnergyKind, 'tracking'>, atMs: number, requestKey: string): number {
+export function energyEarn(ledger: readonly LedgerRow[], kind: EarnKind, atMs: number, requestKey: string): number {
   if (ledger.some((row) => row.requestKey === requestKey)) return 0;
   const day = manilaDay(atMs);
   const usedToday = ledger.filter((row) => row.kind === kind && manilaDay(row.atMs) === day).length;
@@ -86,9 +87,12 @@ export function energyEarn(ledger: readonly LedgerRow[], kind: Exclude<EnergyKin
   return Math.max(0, round1(Math.min(EARN[kind], ENERGY_WALLET_CAP - total)));
 }
 
-// A passive refill is due when ENERGY_PASSIVE_INTERVAL_H have passed since the last one
+// The kinds that start the refill clock: a refill, and (CA1.1) the welcome Energy
+export const REFILL_CLOCK_KINDS: readonly EnergyKind[] = ['passive', 'welcome'];
+
+// A passive refill is due when ENERGY_PASSIVE_INTERVAL_H have passed since the last one (or the welcome)
 export function passiveRefillDue(ledger: readonly LedgerRow[], atMs: number): boolean {
-  const last = Math.max(-Infinity, ...ledger.filter((row) => row.kind === 'passive').map((row) => row.atMs));
+  const last = Math.max(-Infinity, ...ledger.filter((row) => REFILL_CLOCK_KINDS.includes(row.kind)).map((row) => row.atMs));
   return atMs - last >= ENERGY_PASSIVE_INTERVAL_H * MS_PER_HOUR;
 }
 
@@ -113,6 +117,28 @@ export function startTracking(ledger: readonly LedgerRow[], energyEnabled: boole
   if (ledger.some((row) => row.requestKey === requestKey)) return { ok: true, cost: 0 };
   if (energyBalance(ledger) < ENERGY_TRACKING_COST) return { ok: false, reason: 'not_enough_energy' };
   return { ok: true, cost: ENERGY_TRACKING_COST };
+}
+
+// CA1.1: a check-in costs ENERGY_CHECKIN_ROUTE_COST for each route pinged (one decimal)
+export function checkInCost(routeCount: number): number {
+  return round1(routeCount * ENERGY_CHECKIN_ROUTE_COST);
+}
+
+// How many routes the balance pays a check-in for (every route while Energy is off). Counted in
+// tenths, so 0.9 pays for 3 routes and not 2.
+export function affordableRoutes(balance: number, energyEnabled: boolean): number {
+  if (!energyEnabled) return Number.POSITIVE_INFINITY;
+  return Math.floor(Math.round(Math.max(0, balance) * TENTHS) / Math.round(ENERGY_CHECKIN_ROUTE_COST * TENTHS));
+}
+
+// The check-in's charge, like check_in_routes on the server: nothing while Energy is off or for a
+// request key already booked, else the cost when the wallet has it
+export function chargeCheckIn(ledger: readonly LedgerRow[], energyEnabled: boolean, routeCount: number, requestKey: string): TrackingStart {
+  if (!energyEnabled) return { ok: true, cost: 0 };
+  if (ledger.some((row) => row.requestKey === requestKey)) return { ok: true, cost: 0 };
+  const cost = checkInCost(routeCount);
+  if (energyBalance(ledger) < cost) return { ok: false, reason: 'not_enough_energy' };
+  return { ok: true, cost };
 }
 
 // --- Feed (PRD 19, D2)

@@ -39,6 +39,10 @@ export type CrowdPort = {
 const NOT_SIGNED_IN = '28000';
 // post_report raises this when the account has no username yet
 const NO_USERNAME = 'P0001';
+// ...and check_in when the wallet cannot pay (CA1.1). P0001 is also the code of any raise without
+// one, so the message is matched too.
+const NOT_ENOUGH_ENERGY = 'P0001';
+const NOT_ENOUGH_ENERGY_MESSAGE = 'not enough energy';
 
 const failure = (result: PortFailure): CloudFailure =>
   result.code === NOT_SIGNED_IN ? { ok: false, reason: 'sign_in' } : { ok: false, reason: 'error', message: result.message };
@@ -79,7 +83,9 @@ export function createLiveCrowd(port: CrowdPort): CrowdRepositories {
         if (!(await port.signedIn())) return { ok: false, reason: 'sign_in' };
         try {
           const result = await port.checkIn(routeCodes, stationCode, requestKey);
-          return 'expiresAt' in result ? { ok: true, expiresAtMs: Date.parse(result.expiresAt) } : failure(result);
+          if ('expiresAt' in result) return { ok: true, expiresAtMs: Date.parse(result.expiresAt) };
+          // CA1.1: check_in and check_in_routes raise this when the wallet cannot pay
+          return result.code === NOT_ENOUGH_ENERGY && result.message.includes(NOT_ENOUGH_ENERGY_MESSAGE) ? { ok: false, reason: 'not_enough_energy' } : failure(result);
         } catch (error) {
           return { ok: false, reason: 'error', message: messageOf(error) };
         }

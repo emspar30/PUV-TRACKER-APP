@@ -1,8 +1,31 @@
 import { FARE_BASE_KM, FARE_BASE_PHP, FARE_DISCOUNT_MULTIPLIER, FARE_PER_KM_PHP } from '../config';
 import { computeFare, discountMultiplier, type FareParams } from '../fare/fare';
 
-const PARAMS: FareParams = { baseFare: FARE_BASE_PHP, baseKm: FARE_BASE_KM, perKmRate: FARE_PER_KM_PHP };
+// The PRD's S1 acceptance vectors (0.2) were written for ₱15.00 for 4 km and ₱2.00 a km; they test
+// the formula with those parameters. The app's current defaults are tested below them.
+const PARAMS: FareParams = { baseFare: 15, baseKm: 4, perKmRate: 2 };
+const CURRENT: FareParams = { baseFare: FARE_BASE_PHP, baseKm: FARE_BASE_KM, perKmRate: FARE_PER_KM_PHP };
 const REGULAR = discountMultiplier('regular');
+
+describe('fare, the current Butuan default (traditional jeepney rate, Emjay 2026-10-22)', () => {
+  it('is ₱14.00 for the first 4 km and ₱2.00 a km after', () => {
+    expect(CURRENT).toEqual({ baseFare: 14, baseKm: 4, perKmRate: 2 });
+  });
+
+  it.each([
+    [1.2, 14.0],
+    [4.0, 14.0],
+    [4.1, 16.0],
+    [6.3, 20.0],
+    [10.0, 26.0],
+  ])('%p km gives %p', (km, expected) => {
+    expect(computeFare(km, CURRENT, REGULAR).rounded).toBe(expected);
+  });
+
+  it('6.3 km discounted gives 16.00', () => {
+    expect(computeFare(6.3, CURRENT, FARE_DISCOUNT_MULTIPLIER).rounded).toBe(16);
+  });
+});
 
 describe('fare, regular', () => {
   it.each([

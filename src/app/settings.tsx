@@ -1,13 +1,11 @@
 import { router } from 'expo-router';
-import { Armchair, BellRing, FileDown, FileText, Languages, Lightbulb, Mail, Map as MapIcon, Moon, Navigation, Route, ShieldCheck, Trash2, Type } from 'lucide-react-native';
+import { Armchair, BellRing, FileDown, FileText, Languages, Lightbulb, Mail, Map as MapIcon, Moon, Navigation, ShieldCheck, Trash2, Type } from 'lucide-react-native';
 import { Linking } from 'react-native';
 
 import { Screen, SettingsGroup, SettingsRow } from '@/components';
-import { useRouteData } from '@/data/RouteDataProvider';
 import { confirmDeleteAccount } from '@/features/account/deleteAccount';
 import { PRIVACY_CONTACT_EMAIL } from '@/shared/config';
 import { consentStatus } from '@/shared/location/consent';
-import { routeCodesOf } from '@/shared/ui/routeVisibility';
 import { showDialog } from '@/state/dialogStore';
 import { useLocationStore } from '@/state/locationStore';
 import { useSessionStore } from '@/state/sessionStore';
@@ -19,8 +17,6 @@ import { strings } from '@/strings';
 // only and never sent anywhere. Privacy also holds the contact point, data requests and Delete
 // account (PRD 15.1, D10).
 export default function SettingsScreen() {
-  const { lines } = useRouteData();
-  const routes = routeCodesOf(lines);
   const s = useSettingsStore();
   const consent = useLocationStore((state) => consentStatus(state.consent));
   const permission = useLocationStore((state) => state.permission);
@@ -61,23 +57,12 @@ export default function SettingsScreen() {
     });
   };
 
-  // Tapping the default route steps through None and each route
-  const nextRoute = () => {
-    const steps: (string | null)[] = [null, ...routes];
-    s.setDefaultRoute(steps[(steps.indexOf(s.defaultRoute) + 1) % steps.length]);
-  };
-
   return (
     <Screen title={strings.settings.title}>
       <SettingsGroup title={strings.settings.transit}>
+        {/* CA1.1: Default route removed; the Map opens on All routes and its route list picks one */}
         <SettingsRow
           first
-          icon={Route}
-          title={strings.settings.defaultRoute}
-          detail={s.defaultRoute ? strings.live.vehicle.route(s.defaultRoute) : strings.settings.defaultRouteNone}
-          onPress={nextRoute}
-        />
-        <SettingsRow
           icon={Armchair}
           tone="success"
           title={strings.settings.seatFilter}

@@ -1,5 +1,5 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, MessageCircleQuestionMark, RadioTower, X, Zap } from 'lucide-react-native';
+import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, Minus, Plus, RadioTower, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, Vibration, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -11,7 +11,7 @@ import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { ActiveRouteCard } from '@/features/live/ActiveRouteCard';
 import { CoverageNudge } from '@/features/live/CoverageNudge';
-import { ExploreCard } from '@/features/live/ExploreCard';
+import { TunieButton } from '@/features/assistant/TunieButton';
 import { RouteSelector, type RouteOption, type VehicleFilter } from '@/features/live/RouteSelector';
 import { VehicleCard } from '@/features/live/VehicleCard';
 import { BlueDot } from '@/features/map/BlueDot';
@@ -41,12 +41,16 @@ import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
 import {
   ENERGY_TRACKING_COST,
   MAP_FOLLOW_ZOOM,
+  MAP_MIN_ZOOM,
+  MAP_OVERZOOM_LEVELS,
+  MAP_ZOOM_STEP,
   MAX_WALK_PER_LEG_M,
   ROUTE_STOP_MAX_DISTANCE_M,
   TRACK_ALERT_ETA_S,
   TRACK_ARRIVED_M,
   TRACK_ARRIVED_PASS_M,
   TRACK_DISTANCE_ALERTS_M,
+  TRACK_NEAR_BADGE_M,
   TRACK_OTHERS_OPACITY,
   TRACKING_SESSION_MIN,
   SKELETON_MIN_MS,
@@ -56,12 +60,12 @@ import { canReportWithGps } from '@/shared/checkin/geofence';
 import { bestAlternative, overlappingRoutes } from '@/shared/routing/alternatives';
 import { nearestStop } from '@/shared/routing/describe';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
-import { haversineMeters } from '@/shared/geo/haversine';
+import { haversineMeters, type LatLon } from '@/shared/geo/haversine';
 import { projectOntoLine } from '@/shared/geo/line';
 import { withReturnLegs } from '@/shared/routing/loop';
 import type { RouteDirection } from '@/shared/routing/types';
 import { isNight } from '@/shared/backend/rules';
-import { ageSeconds, nudgeShown, routeCoverage } from '@/shared/telemetry/coverage';
+import { ageSeconds, coverageOf, nudgeShown, routeCoverage } from '@/shared/telemetry/coverage';
 import { displayPosition, isGhostAge } from '@/shared/telemetry/deadReckoning';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
@@ -82,6 +86,9 @@ import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
 const LOGO_SIZE = spacing.xl * 3;
+const KMH_PER_MPS = 3.6;
+// CA1.1: a camera report within this many zoom levels of where the zoom buttons sent it has arrived
+const ZOOM_SETTLED = 0.01;
 const ICON_SIZE = spacing.md + spacing.xs;
 // The route list shows each route's first, middle and last stop
 const LIST_STOPS = 3;
@@ -103,15 +110,23 @@ export default function MapScreen() {
   const loadingCard = useSkeleton(SKELETON_MIN_MS);
 
   const [focus, setFocus] = useState<MapFocus | null>(null);
+  // CA1.1: where the camera is (from the map's reports), and where the zoom buttons last sent it, so
+  // quick taps add up before the camera reports back
+  const view = useRef<{ center: LatLon; zoom: number } | null>(null);
+  const aim = useRef<{ center: LatLon; zoom: number } | null>(null);
+  // CA1.1: Locate zoomed in on the commuter and the map has not been moved since: the next tap zooms out
+  const zoomedIn = useRef(false);
   const [bottomHeight, setBottomHeight] = useState(0);
   const [topHeight, setTopHeight] = useState(0);
   // B8: the round buttons sit at the right, above the card: they do not take map height
   const [buttonsHeight, setButtonsHeight] = useState(0);
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
+  // CA1.1: the Map opens on the route last picked (kept on the phone), else All routes
+  const [selectedRoute, setSelectedRoute] = useState<string | null>(() => useSettingsStore.getState().mapRoute);
+  const setMapRoute = useSettingsStore((store) => store.setMapRoute);
+  useEffect(() => setMapRoute(selectedRoute), [selectedRoute, setMapRoute]);
   const seatFilter = useSettingsStore((store) => store.seatFilter);
   const arrivalAlert = useSettingsStore((store) => store.arrivalAlert);
-  const defaultRoute = useSettingsStore((store) => store.defaultRoute);
   const [filter, setFilter] = useState<VehicleFilter>(seatFilter ? 'seats' : 'all');
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedStop, setSelectedStop] = useState<string | null>(null);
@@ -154,8 +169,26 @@ export default function MapScreen() {
     return () => clearTimeout(timer);
   }, [tourDone, tourRunning, focused, startTour]);
   const live = useVehicles(repos.vehicles, focused ? selectedRoute : null);
+  // CA1.1: with no route picked (All routes), the running multicabs of every route; a tap on one picks
+  // its route
+  const overviewRoutes = useMemo(() => routeCodesOf(lines), [lines]);
+  const overview = useRoutesVehicles(repos.vehicles, overviewRoutes, !focused || selectedRoute !== null);
+  const overviewVehicles = useMemo(
+    () =>
+      overview.vehicles.filter(
+        (vehicle) =>
+          coverageOf(ageSeconds(vehicle.lastPacketMs, overview.nowMs)) !== 'none' && (filter === 'all' || seatTier(vehicle.seatsTaken) === 'green'),
+      ),
+    [overview.vehicles, overview.nowMs, filter],
+  );
   // B2: each route with one stored leg also has its stand-in other leg, so ETAs follow a vehicle round
   const loopLines = useMemo(() => withReturnLegs(lines), [lines]);
+  // CA1.1 relay details: the lines of the route being relayed, both directions
+  const relayRoute = useRelayStore((store) => store.session?.routeCode ?? null);
+  const relayLines = useMemo(
+    () => loopLines.filter((line) => line.routeCode === relayRoute).map((line) => line.coordinates),
+    [loopLines, relayRoute],
+  );
   // CF1: each vehicle's line by its id (return legs included), so an Estimated marker moves along it
   const lineOf = useMemo(() => {
     const byId = new Map(loopLines.map((line) => [line.id, line.coordinates]));
@@ -251,6 +284,10 @@ export default function MapScreen() {
   // boarding point (or went by between readings), tracking ends by itself, alert on or off.
   // The measured distance to the commuter, also while the ETA is hidden (slow, too far; PRD 19.4)
   const trackedKm = etaDistanceKm(etaToMe);
+  // CA1.1: the Map tab's red dot, seen from every tab, while the tracked multicab is near
+  const trackedNear = trackedKm !== null && trackedKm * METERS_PER_KM <= TRACK_NEAR_BADGE_M;
+  const setTrackedNear = useTrackingStore((store) => store.setNear);
+  useEffect(() => setTrackedNear(trackedNear), [trackedNear, setTrackedNear]);
   const trackedLabel = tracked?.label ?? null;
   useEffect(() => {
     const previous = previousKm.current;
@@ -278,6 +315,8 @@ export default function MapScreen() {
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
+  // A remembered route that newer route data no longer has: back to All routes
+  if (selectedRoute && lines.length > 0 && !lines.some((line) => line.routeCode === selectedRoute)) setSelectedRoute(null);
   const colorOfRoute = useCallback(
     (code: string) => {
       const line = lines.find((candidate) => candidate.routeCode === code);
@@ -319,6 +358,16 @@ export default function MapScreen() {
     setSelectorOpen(false);
     dismissHint('live');
     frame(code);
+  };
+
+  // CA1.1: "All routes" in the selector: no route picked, every shown route's multicabs on the map
+  const showAllRoutes = () => {
+    setSelectedRoute(null);
+    setSelectedVehicle(null);
+    setSelectedStop(null);
+    setSelectorOpen(false);
+    dismissHint('live');
+    setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds: initialBounds }));
   };
 
   // SB2: tracking one PUV is paid with Energy (free while Energy is off). AU1: everyone here is
@@ -371,20 +420,42 @@ export default function MapScreen() {
 
   // The simulated position (Demo settings) is centred directly; otherwise the GPS flow of G0:
   // the explainer and permission prompt the first time, then follow the fix
+  // CA1.1: a second tap (with the map not moved since) zooms out as far as it goes, still on the
+  // commuter. A simulated stop or a dropped pin is centred directly. A GPS position outside the Butuan
+  // map (an emulator's default location is in California) cannot be shown: the commuter is told so,
+  // and the map shows all of Butuan instead of doing nothing.
   const locate = () => {
-    if (commuter?.source === 'simulated') {
+    if (zoomedIn.current && commuter) {
+      zoomedIn.current = false;
+      location.stopFollowing();
+      setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: commuter, zoom: MAP_MIN_ZOOM }));
+      return;
+    }
+    // A simulated position (Demo & simulation) or a dropped pin comes before the GPS
+    if (commuter && commuter.source !== 'gps') {
+      zoomedIn.current = true;
       setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: commuter, zoom: MAP_FOLLOW_ZOOM }));
       return;
     }
+    if (location.locationAllowed && location.fix && !location.fixOnMap) {
+      zoomedIn.current = false;
+      showToast({ icon: LocateFixed, title: strings.location.outsideMapTitle, body: strings.location.outsideMapBody });
+      setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'bounds', bounds: initialBounds }));
+      return;
+    }
+    zoomedIn.current = commuter !== null;
     location.locateMe();
   };
 
-  // Settings, Default route: picked once when the Map first opens
-  const [defaultApplied, setDefaultApplied] = useState(false);
-  if (!defaultApplied && defaultRoute && lines.some((line) => line.routeCode === defaultRoute)) {
-    setDefaultApplied(true);
-    setSelectedRoute(defaultRoute);
-  }
+  // CA1.1: + and - zoom one step about the middle of the map
+  const zoomBy = (levels: number) => {
+    const from = aim.current ?? view.current;
+    if (!from) return;
+    const zoom = Math.min(Math.max(from.zoom + levels, MAP_MIN_ZOOM), TILESET.maxZoom + MAP_OVERZOOM_LEVELS);
+    aim.current = { center: from.center, zoom };
+    zoomedIn.current = false;
+    setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: from.center, zoom }));
+  };
 
   const hideRoute = () => {
     setSelectedRoute(null);
@@ -421,12 +492,12 @@ export default function MapScreen() {
     [stops],
   );
 
-  // Once the map is ready and the bottom card measured, frame all routes above it
+  // Once the map is ready and the bottom card measured, frame the remembered route, or all routes, above it
   const handleStatusChange = useCallback(() => {
     if (fittedOnce.current) return;
     fittedOnce.current = true;
-    frame(null);
-  }, [frame]);
+    frame(selectedRoute);
+  }, [frame, selectedRoute]);
 
   if (state.status === 'preparing') {
     return (
@@ -462,6 +533,17 @@ export default function MapScreen() {
   const vehicleEta = vehicle && commuter ? etaNow(etaTo(vehicle, loopLines, commuter, MAX_WALK_PER_LEG_M), ageSeconds(vehicle.lastPacketMs, live.nowMs)) : null;
   const vehicleKm = vehicle && commuter ? (etaDistanceKm(vehicleEta) ?? haversineMeters(vehicle, commuter) / METERS_PER_KM) : null;
   const stop = stops.find((candidate) => candidate.code === selectedStop) ?? null;
+  // CA1.1: a card or bar under the buttons (a multicab, a stop, tracking, a relay, a location notice):
+  // Tunie stays round then, so the column takes less room; with none it shows "Ask Tunie"
+  const infoCardShown =
+    loadingCard ||
+    vehicle !== null ||
+    stop !== null ||
+    (onTrackedRoute && trackedId !== null) ||
+    relay !== null ||
+    (trackedId !== null && trackedRoute !== null && !onTrackedRoute) ||
+    location.showExplainer ||
+    location.reducedMode;
   const selectedOption = routeOptions.find((option) => option.code === selectedRoute) ?? null;
 
   return (
@@ -477,10 +559,34 @@ export default function MapScreen() {
         attributionTop={insets.top + spacing.sm + topHeight + spacing.sm}
         onStatusChange={handleStatusChange}
         onLongPress={location.setManualOrigin}
-        onUserMove={location.stopFollowing}
+        onUserMove={() => {
+          zoomedIn.current = false;
+          aim.current = null;
+          location.stopFollowing();
+        }}
+        onViewChange={(event) => {
+          view.current = { center: { lon: event.center[0], lat: event.center[1] }, zoom: event.zoom };
+          if (aim.current && Math.abs(event.zoom - aim.current.zoom) < ZOOM_SETTLED) aim.current = null;
+        }}
       >
         <RouteLines lines={layers.lines} visible={directions} opacity={layers.opacity} />
         <StopDots stops={layers.stops} selectedCode={selectedStop} onPressStop={selectStop} />
+        {!selectedRoute ? (
+          <VehicleMarkers
+            vehicles={overviewVehicles}
+            nowMs={overview.nowMs}
+            color={colors.primary}
+            labels={state.tiles.glyphsUrl !== null}
+            lineOf={lineOf}
+            onPressVehicle={(id) => {
+              const picked = overviewVehicles.find((candidate) => candidate.id === id);
+              if (!picked) return;
+              setSelectedRoute(picked.routeCode);
+              setSelectedVehicle(id);
+              setSelectedStop(null);
+            }}
+          />
+        ) : null}
         {selectedRoute ? (
           <VehicleMarkers
             vehicles={vehicles}
@@ -488,7 +594,8 @@ export default function MapScreen() {
             color={colorOfRoute(selectedRoute)}
             labels={state.tiles.glyphsUrl !== null}
             selectedId={onTrackedRoute ? trackedId : selectedVehicle}
-            othersOpacity={onTrackedRoute ? TRACK_OTHERS_OPACITY : 1}
+            // CA1.1: one multicab picked (its card open) or tracked: the others fade, so it stands out
+            othersOpacity={onTrackedRoute || selectedVehicle !== null ? TRACK_OTHERS_OPACITY : 1}
             lineOf={lineOf}
             onPressVehicle={(id) => {
               if (onTrackedRoute) return;
@@ -497,7 +604,8 @@ export default function MapScreen() {
             }}
           />
         ) : null}
-        {commuter && selectedRoute ? (
+        {/* CA1.1: the commuter's "You" dot on All routes too (a simulated or pinned spot has no blue dot) */}
+        {commuter ? (
           <TrackingLayers
             commuter={commuter}
             showPin={commuter.source !== 'gps'}
@@ -547,15 +655,10 @@ export default function MapScreen() {
       <View style={styles.bottom} onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)} pointerEvents="box-none">
         <View style={styles.buttons} pointerEvents="box-none" onLayout={(event) => setButtonsHeight(event.nativeEvent.layout.height)}>
           {trackedId ? <RoundButton icon={Crosshair} label={strings.live.tracking.jumpTo} onPress={jumpToTracked} active /> : null}
-          <TourTarget id="relay">
-            <RoundButton icon={RadioTower} label={strings.report.title} onPress={() => setReportOpen(true)} />
-          </TourTarget>
-          <TourTarget id="routes">
-            <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
-          </TourTarget>
-          {/* CA1: Ask Tunton, the offline assistant (nothing leaves the phone) */}
-          <TourTarget id="ask">
-            <RoundButton icon={MessageCircleQuestionMark} label={strings.assistant.open} onPress={() => router.push('/assistant')} />
+          {/* CA1.1, Emjay's order: zoom in, zoom out, Locate, Relay, routes, then Tunie */}
+          <TourTarget id="zoom" style={styles.zoom}>
+            <RoundButton icon={Plus} label={strings.live.zoomIn} onPress={() => zoomBy(MAP_ZOOM_STEP)} />
+            <RoundButton icon={Minus} label={strings.live.zoomOut} onPress={() => zoomBy(-MAP_ZOOM_STEP)} />
           </TourTarget>
           <TourTarget id="locate">
             <RoundButton
@@ -564,6 +667,15 @@ export default function MapScreen() {
               onPress={locate}
               active={commuter?.source === 'simulated' || (location.following && location.locationAllowed)}
             />
+          </TourTarget>
+          <TourTarget id="relay">
+            <RoundButton icon={RadioTower} label={strings.report.title} onPress={() => setReportOpen(true)} />
+          </TourTarget>
+          <TourTarget id="routes">
+            <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
+          </TourTarget>
+          <TourTarget id="ask">
+            <TunieButton expanded={!infoCardShown} onPress={() => router.push('/assistant')} />
           </TourTarget>
         </View>
         {location.showExplainer ? <LocationExplainer onContinue={location.continueExplainer} onNotNow={location.dismissExplainer} /> : null}
@@ -577,7 +689,16 @@ export default function MapScreen() {
             </Pressable>
           </View>
         ) : null}
-        {relay ? <RelayBar routeCode={relay.routeCode} destination={relay.destination.name} uplink={uplink} onStop={stopRelay} /> : null}
+        {relay ? (
+          <RelayBar
+            session={relay}
+            position={commuter}
+            speedKmh={fix?.speedMps !== null && fix?.speedMps !== undefined ? fix.speedMps * KMH_PER_MPS : null}
+            lines={relayLines}
+            uplink={uplink}
+            onStop={stopRelay}
+          />
+        ) : null}
         {trackedId && trackedRoute && !onTrackedRoute ? (
           <TrackingBar
             label={tracked?.label ?? null}
@@ -638,8 +759,6 @@ export default function MapScreen() {
               <X color={colors.textSecondary} size={ICON_SIZE} />
             </Pressable>
           </View>
-        ) : !selectedRoute ? (
-          <ExploreCard onAllRoutes={() => setSelectorOpen(true)} />
         ) : null}
         </Animated.View>
       </View>
@@ -650,6 +769,7 @@ export default function MapScreen() {
           selectedCode={selectedRoute}
           filter={filter}
           onShow={showRoute}
+          onShowAll={showAllRoutes}
           onClose={() => setSelectorOpen(false)}
         />
       ) : null}
@@ -710,6 +830,10 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
   buttons: {
     alignSelf: 'flex-end',
     alignItems: 'flex-end',
+    gap: spacing.sm,
+  },
+  // CA1.1: + and - as one group
+  zoom: {
     gap: spacing.sm,
   },
   grow: {

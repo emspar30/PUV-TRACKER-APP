@@ -11,6 +11,7 @@ import { TAB_ROUTES, type TabRouteName } from '@/navigation/tabs';
 import { entryRoute } from '@/shared/auth/gate';
 import { useProfileStore } from '@/state/profileStore';
 import { useSessionStore } from '@/state/sessionStore';
+import { useTrackingStore } from '@/state/trackingStore';
 import { strings } from '@/strings';
 import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -39,6 +40,9 @@ export default function TabsLayout() {
   const styles = useStyles();
   // B3: a red dot on the Check-in icon while a check-in runs, seen from every tab
   const checkedIn = useActiveCheckIn() !== null;
+  // CA1.1: and on the Map icon while the tracked multicab is near
+  const trackedNear = useTrackingStore((state) => state.vehicleId !== null && state.near);
+  const dotted = (name: TabRouteName) => (name === 'checkin' && checkedIn) || (name === 'index' && trackedNear);
   const status = useSessionStore((state) => state.status);
   // PRD 14: the offline banner in the top bar, on every tab
   useConnectionProbe();
@@ -80,13 +84,14 @@ export default function TabsLayout() {
                   const icon = (
                     <View>
                       <Icon color={color} size={ICON_SIZE} />
-                      {name === 'checkin' && checkedIn ? <View style={styles.dot} /> : null}
+                      {dotted(name) ? <View style={styles.dot} /> : null}
                     </View>
                   );
                   const tourId = TOUR_TABS[name];
                   return tourId ? <TourTarget id={tourId}>{icon}</TourTarget> : icon;
                 },
-                tabBarAccessibilityLabel: name === 'checkin' && checkedIn ? strings.tabs.checkinActive : undefined,
+                tabBarAccessibilityLabel:
+                  name === 'checkin' && checkedIn ? strings.tabs.checkinActive : name === 'index' && trackedNear ? strings.tabs.mapNear : undefined,
               }}
             />
           );

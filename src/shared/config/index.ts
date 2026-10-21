@@ -103,6 +103,8 @@ export const ETA_MAX_KM = 10;
 export const TRACK_ALERT_ETA_S = 120;
 // B2: in-app alerts (a toast and a short vibration) as the tracked multicab comes within each of these
 export const TRACK_DISTANCE_ALERTS_M = [1000, 500, 250, 100] as const;
+// CA1.1: a red dot on the Map tab while the tracked multicab is this close (the first alert's distance)
+export const TRACK_NEAR_BADGE_M = 1000;
 // B2: tracking ends by itself when the multicab is this close to the commuter's boarding point, or
 // when it passed between two readings (the last reading within TRACK_ARRIVED_PASS_M, then a jump
 // of more than that: it has gone by and is counting to its next time round)
@@ -145,7 +147,9 @@ export const OCCUPANCY_AMBER_MAX_TAKEN = 12;
 
 // --- Fare (PRD 12.4). TODO(placeholder): confirm against the official fare order.
 // These are the defaults the seed writes into each route row; the fare engine reads the row.
-export const FARE_BASE_PHP = 15.0;
+// 2026-10-22 (Emjay): the traditional jeepney rate (LTFRB), ₱14.00 for the first 4 km (was ₱15.00);
+// ₱2.00 per further km and the 20% discount unchanged. A change here needs ROUTE_DATA_VERSION bumped.
+export const FARE_BASE_PHP = 14.0;
 export const FARE_BASE_KM = 4.0;
 export const FARE_PER_KM_PHP = 2.0;
 export const FARE_DISCOUNT_MULTIPLIER = 0.8;
@@ -309,10 +313,16 @@ export const BLUE_DOT_UPDATE_INTERVAL_S = 2;
 export const BLUE_DOT_UPDATE_DISTANCE_M = 5;
 // Zoom used when the camera follows the blue dot
 export const MAP_FOLLOW_ZOOM = 16;
+// CA1.1: the Map's + and - buttons zoom by this many levels a tap
+export const MAP_ZOOM_STEP = 1;
 // B8: skeletons show at least this long on a tab's first visit; longer on Crowdsource, Profile and
 // Notifications, whose data comes over the network
 export const SKELETON_MIN_MS = 400;
 export const SKELETON_LONG_MS = 900;
+// CA1.1: search results (My Rides, the relay's destination) shimmer this long after each change of
+// the typed text, then fade in; the rows shown meanwhile
+export const SEARCH_SKELETON_MS = 350;
+export const SEARCH_SKELETON_ROWS = 3;
 // B8: a route framed this recently is framed again when the cards over the map change size (the
 // bottom card swaps as the route is picked), so it sits in the space they leave
 export const MAP_REFIT_WINDOW_MS = 1500;
@@ -343,6 +353,11 @@ export const CHECKIN_RADIUS_M = 60;
 // A check-in lasts this long (PRD 7.5). The 5-minute reminder arrives with notifications in G1.
 export const CHECKIN_LIFETIME_S = 900;
 export const CHECKIN_REMINDER_S = 300;
+// CA1.1 (Emjay, 2026-10-22): "Did you board?" as soon as a Live multicab of a pinged route stands
+// (under STATIONARY_SPEED_KMH) this close to the check-in's stop for this long, before the 5-minute
+// reminder (which asks the same). Demo multicabs stand 8 to 20 s at a stop.
+export const CHECKIN_BOARD_NEAR_M = 60;
+export const CHECKIN_BOARD_DWELL_S = 10;
 
 // --- Night Mode window (PRD 10.4). Setting only in v0.
 export const NIGHT_MODE_START = '21:00';
@@ -359,9 +374,14 @@ export const ENERGY_ENABLED_DEMO = true;
 // commuters see their balance grow as they check in and relay; tracking stays free (charging off, D1).
 export const ENERGY_UI_VISIBLE = true;
 export const ENERGY_WALLET_CAP = 5;
+// CA1.1 (Emjay, 2026-10-22; server: 20261022000000_checkin_points): a check-in costs this much for each
+// route pinged (pinging drivers may cost SMS money later); Energy comes back only by waiting (the
+// passive refill) or a relay with GPS, the verified kind; a relay without GPS earns nothing (was 0.5).
+// Every account starts with ENERGY_WELCOME (the full wallet).
 export const ENERGY_GPS_REPORT = 1.0;
-export const ENERGY_NO_GPS_REPORT = 0.5;
-export const ENERGY_CHECKIN = 0.3;
+export const ENERGY_NO_GPS_REPORT = 0;
+export const ENERGY_CHECKIN_ROUTE_COST = 0.3;
+export const ENERGY_WELCOME = 5;
 export const ENERGY_PASSIVE_AMOUNT = 1;
 export const ENERGY_PASSIVE_INTERVAL_H = 12;
 export const ENERGY_PASSIVE_DAILY_MAX = 2;
@@ -392,6 +412,8 @@ export const RELAY_DESTINATION_ARRIVED_M = 100;
 export const RELAY_BROADCAST_MAX_MIN = 90;
 // B4: how often the time limit is checked while the relay shares the location
 export const RELAY_CHECK_S = 30;
+// CA1.1 relay info: the rider and the destination count as on the route line within this distance
+export const RELAY_PROGRESS_SNAP_M = 100;
 // Asia/Manila is UTC+8 all year (no daylight saving).
 export const MANILA_UTC_OFFSET_MIN = 480;
 

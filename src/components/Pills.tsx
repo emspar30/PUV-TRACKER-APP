@@ -8,6 +8,8 @@ const CHECK_SIZE = spacing.md;
 // Extra touch area so a 32 dp chip still has a 48 dp target
 const CHIP_HIT_SLOP = (MIN_TOUCH_TARGET - CHIP_HEIGHT) / 2;
 const DOT_SIZE = spacing.sm;
+// CA1.1: a chip that cannot be picked now (as Button's disabled look)
+const DISABLED_OPACITY = 0.5;
 
 export type StatusTone = 'success' | 'warning' | 'danger' | 'neutral';
 
@@ -35,11 +37,13 @@ export function StatusPill({ label, tone }: { label: string; tone: StatusTone })
 export function Chip({
   label,
   selected = false,
+  disabled = false,
   onPress,
   accessibilityLabel,
 }: {
   label: string;
   selected?: boolean;
+  disabled?: boolean;
   onPress?: () => void;
   accessibilityLabel?: string;
 }) {
@@ -47,12 +51,12 @@ export function Chip({
   const { colors } = useTheme();
   return (
     <Pressable
-      style={[styles.chip, selected && styles.chipSelected]}
+      style={[styles.chip, selected && styles.chipSelected, disabled && styles.chipDisabled]}
       onPress={onPress}
-      disabled={!onPress}
+      disabled={!onPress || disabled}
       hitSlop={CHIP_HIT_SLOP}
       accessibilityRole={onPress ? 'button' : 'text'}
-      accessibilityState={onPress ? { selected } : undefined}
+      accessibilityState={onPress ? { selected, disabled } : undefined}
       accessibilityLabel={accessibilityLabel ?? label}
     >
       {selected ? <Check color={colors.onPrimaryContainer} size={CHECK_SIZE} /> : null}
@@ -140,6 +144,9 @@ const useStyles = makeStyles(({ colors, typography }) => ({
   chipSelected: {
     borderColor: colors.primaryContainer,
     backgroundColor: colors.primaryContainer,
+  },
+  chipDisabled: {
+    opacity: DISABLED_OPACITY,
   },
   chipText: {
     ...typography.labelLg,

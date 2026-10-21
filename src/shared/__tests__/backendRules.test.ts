@@ -1,6 +1,9 @@
 // SB1 business rules on fixtures: Night Mode, the Manila day, Energy caps, tracking and the feed.
 
 import {
+  affordableRoutes,
+  chargeCheckIn,
+  checkInCost,
   energyBalance,
   energyEarn,
   feedExpiresAt,
@@ -37,16 +40,15 @@ describe('Night Mode window, 21:00 to 04:59 Manila', () => {
 describe('Energy', () => {
   const t = manila(5, 9);
 
-  it('earns 1.0 for a GPS report, 0.5 without, 0.3 for a check-in', () => {
+  it('earns 1.0 for a GPS report and nothing without GPS (CA1.1, was 0.5)', () => {
     expect(energyEarn([], 'gps_report', t, 'a')).toBe(1);
-    expect(energyEarn([], 'no_gps_report', t, 'a')).toBe(0.5);
-    expect(energyEarn([], 'checkin', t, 'a')).toBe(0.3);
+    expect(energyEarn([], 'no_gps_report', t, 'a')).toBe(0);
   });
 
   it('each kind once per Manila day, and again after Manila midnight', () => {
-    const ledger = [row('checkin', 0.3, t)];
-    expect(energyEarn(ledger, 'checkin', manila(5, 23), 'b')).toBe(0);
-    expect(energyEarn(ledger, 'checkin', manila(6, 0, 1), 'c')).toBe(0.3);
+    const ledger = [row('gps_report', 1, t)];
+    expect(energyEarn(ledger, 'gps_report', manila(5, 23), 'b')).toBe(0);
+    expect(energyEarn(ledger, 'gps_report', manila(6, 0, 1), 'c')).toBe(1);
   });
 
   it('passive: +1 per 12 hours, at most 2 a day', () => {
@@ -59,10 +61,10 @@ describe('Energy', () => {
   });
 
   it('the wallet stops at 5', () => {
-    const full = [row('passive', 1, t - 1), row('passive', 1, t - 2), row('gps_report', 1, t - 3), row('passive', 1, t - 4e8), row('checkin', 0.3, t - 4e8), row('no_gps_report', 0.5, t - 4e8)];
+    const full = [row('welcome', 5, t - 9e8), row('checkin', -0.6, t - 4e8), row('passive', 1, t - 4e8), row('checkin', -0.6, t - 1)];
     expect(energyBalance(full)).toBe(4.8);
-    expect(energyEarn(full, 'checkin', t, 'x')).toBeCloseTo(0.2, 9);
-    expect(energyBalance([...full, row('checkin', 0.2, t), row('gps_report', 1, t + 9e7)])).toBe(5);
+    expect(energyEarn(full, 'gps_report', t, 'x')).toBeCloseTo(0.2, 9);
+    expect(energyBalance([...full, row('gps_report', 0.2, t), row('gps_report', 1, t + 9e7)])).toBe(5);
   });
 
   it('the same request key never books twice', () => {
@@ -73,7 +75,26 @@ describe('Energy', () => {
   it('tracking costs 1 when Energy is on, nothing when off, and is refused below 1', () => {
     expect(startTracking([], false, 'k')).toEqual({ ok: true, cost: 0 });
     expect(startTracking([row('gps_report', 1, t)], true, 'k')).toEqual({ ok: true, cost: 1 });
-    expect(startTracking([row('checkin', 0.3, t)], true, 'k')).toEqual({ ok: false, reason: 'not_enough_energy' });
+    expect(startTracking([row('passive', 0.5, t)], true, 'k')).toEqual({ ok: false, reason: 'not_enough_energy' });
+  });
+
+  // CA1.1 (Emjay, 2026-10-22): a check-in costs 0.3 for each route pinged
+  it('a check-in costs 0.3 a route, nothing while Energy is off, and is refused when short', () => {
+    expect(checkInCost(1)).toBe(0.3);
+    expect(checkInCost(4)).toBe(1.2);
+    const wallet = [row('welcome', 1, t)];
+    expect(chargeCheckIn(wallet, true, 3, 'k')).toEqual({ ok: true, cost: 0.9 });
+    expect(chargeCheckIn(wallet, true, 4, 'k')).toEqual({ ok: false, reason: 'not_enough_energy' });
+    expect(chargeCheckIn([], false, 4, 'k')).toEqual({ ok: true, cost: 0 });
+    expect(chargeCheckIn([...wallet, row('checkin', -0.9, t, 'k')], true, 3, 'k')).toEqual({ ok: true, cost: 0 });
+  });
+
+  it('the routes a balance pays for, counted in tenths', () => {
+    expect(affordableRoutes(0.8, true)).toBe(2);
+    expect(affordableRoutes(0.9, true)).toBe(3);
+    expect(affordableRoutes(2.1, true)).toBe(7);
+    expect(affordableRoutes(0.2, true)).toBe(0);
+    expect(affordableRoutes(0, false)).toBe(Number.POSITIVE_INFINITY);
   });
 });
 

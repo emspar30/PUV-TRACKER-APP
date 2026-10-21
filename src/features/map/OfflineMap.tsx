@@ -38,6 +38,8 @@ import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme'
 // not shown. Every other MapLibre message goes to the console as before.
 LogManager.onLog((event) => isExpectedMapLog(event.message));
 
+// A view of no size: the pan limit is the whole tile set
+const OPEN_VIEW = '0x0';
 const PADDING = { top: spacing.xl, right: spacing.xl + MIN_TOUCH_TARGET, bottom: spacing.xl, left: spacing.xl };
 // B8: the camera may go a little past the offline tiles, so a route near their edge (De Oro, at the
 // north) can still be framed in the space the cards leave; the margin mostly sits under the top bar
@@ -121,24 +123,37 @@ export function OfflineMap({
     return panLimit(TILESET.bounds, [0, 0, lon, lat]);
   }, [viewKey]);
 
+  // CA1.1: a move asked for (Locate, a route framed) first lifts the limit to the tile edge: zoomed
+  // out, the limit is held near the middle of the map and the camera stopped there instead of at the
+  // target. The camera's next report sets the limit for the new view again.
+  const [movedFor, setMovedFor] = useState<MapFocus | null>(null);
+  if (focus && focus !== movedFor) {
+    setMovedFor(focus);
+    setViewKey(OPEN_VIEW);
+  }
+
   const padding = { ...PADDING, top: PADDING.top + topInset, bottom: PADDING.bottom + bottomInset };
   // B8: the last area framed and when, to frame it again if the cards over the map change size
   const lastFit = useRef<{ bounds: MapFocusTarget & { kind: 'bounds' }; atMs: number } | null>(null);
 
   useEffect(() => {
-    if (!focus) return;
+    if (!focus) return undefined;
     const animation = { duration: mapRoute.cameraAnimationMs };
-    if (focus.kind === 'bounds') {
-      camera.current?.fitBounds(focus.bounds, { padding, ...animation });
-      lastFit.current = { bounds: focus, atMs: Date.now() };
-    } else {
-      lastFit.current = null;
-      camera.current?.easeTo({
-        center: [focus.center.lon, focus.center.lat],
-        ...(focus.zoom !== undefined ? { zoom: focus.zoom } : {}),
-        ...animation,
-      });
-    }
+    // One frame later, so the lifted limit has reached the native camera before it moves
+    const frame = requestAnimationFrame(() => {
+      if (focus.kind === 'bounds') {
+        camera.current?.fitBounds(focus.bounds, { padding, ...animation });
+        lastFit.current = { bounds: focus, atMs: Date.now() };
+      } else {
+        lastFit.current = null;
+        camera.current?.easeTo({
+          center: [focus.center.lon, focus.center.lat],
+          ...(focus.zoom !== undefined ? { zoom: focus.zoom } : {}),
+          ...animation,
+        });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
     // Only a new focus moves the camera here; a change of inset is handled below
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, mapRoute.cameraAnimationMs]);

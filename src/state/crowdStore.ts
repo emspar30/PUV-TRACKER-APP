@@ -31,7 +31,7 @@ export function useCrowd(): CrowdRepositories {
 }
 
 // Checks in on the server (or the demo), then keeps the countdown on the phone with the server's
-// expiry. The check-in earns Energy, so the wallet is read again.
+// expiry. CA1.1: the check-in spends Energy, so the wallet is read again.
 export async function checkIn(routeCodes: readonly string[], stationCode: string): Promise<CheckInResult> {
   const nowMs = Date.now();
   const result = await currentCrowd().checkins.checkIn(routeCodes, stationCode, newRequestKey('checkin', nowMs, Math.random()));

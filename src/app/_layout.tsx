@@ -46,11 +46,8 @@ function ThemedStack() {
       <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
       {/* Every page, the menu included, slides in from the right over the whole screen, with no dimming */}
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: colors.canvas } }}>
-        {/* CA1.1: Ask Tunton slides up over the Map as a sheet (or fills the screen), the Map still behind it */}
-        <Stack.Screen
-          name="assistant"
-          options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' } }}
-        />
+        {/* CA1.1: Ask Tunie over the Map, which stays behind it; the sheet slides itself in and out */}
+        <Stack.Screen name="assistant" options={{ presentation: 'transparentModal', animation: 'none', contentStyle: { backgroundColor: 'transparent' } }} />
       </Stack>
       <DialogHost />
       {/* EQ-14: after the dialog, so a notice (such as Badge earned) is not under its dimmed backdrop */}

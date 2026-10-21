@@ -2,9 +2,10 @@ import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { ChevronRight, MapPin, MapPinOff, Star } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomSheet, Chip, Hint, LineBadge, Logo, RoundButton, SkeletonCard, TopBar, type SheetRequest } from '@/components';
+import { BottomSheet, Chip, LineBadge, Logo, RoundButton, SkeletonCard, TopBar, type SheetRequest } from '@/components';
 import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
@@ -18,6 +19,7 @@ import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { TripLayers, type TripPin } from '@/features/plan/TripLayers';
+import { HeadingCard } from '@/features/ride/HeadingCard';
 import type { PickTarget, PickedPoint } from '@/features/ride/PointPills';
 import { FareSummaryCard, SuggestedRouteCard } from '@/features/ride/RideCards';
 import { RideFailure } from '@/features/ride/RideResult';
@@ -45,7 +47,7 @@ import { useRidesStore } from '@/state/ridesStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { showToast } from '@/state/toastStore';
 import { strings } from '@/strings';
-import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
+import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
 const LOGO_SIZE = spacing.xl * 2;
@@ -77,7 +79,6 @@ export default function MyRidesScreen() {
   const { lines, stops } = useRouteData();
   const { state: tiles } = useOfflineTiles();
   const [fareType] = useFareType();
-  const hintSeen = useHintsStore((state) => state.seen.ride);
   const dismissHint = useHintsStore((state) => state.dismiss);
   const destinations = useDestinationsStore((state) => state.destinations);
   const addDestination = useDestinationsStore((state) => state.add);
@@ -373,26 +374,36 @@ export default function MyRidesScreen() {
         </View>
         <View style={styles.overlay} pointerEvents="box-none">
           <View onLayout={(event) => setCardHeight(event.nativeEvent.layout.height + spacing.sm)}>
-            <TripCard
-              origin={origin}
-              destination={destination}
-              active={active}
-              onActivate={activate}
-              onClear={clearField}
-              onSwap={swap}
-              onUseMyPosition={myPosition ? () => pick(myPosition) : undefined}
-              onToggleDestination={toggleDestination}
-              destinationSaved={destinationSaved}
-              searching={searching}
-              query={query}
-              onQuery={setQuery}
-              onSubmitQuery={() => (matches[0] ? choose(matches[0]) : undefined)}
-              collapsed={collapsed}
-              onToggleCollapsed={() => {
-                setCollapsed((value) => !value);
-                setSearching(null);
-              }}
-            />
+            {/* CA1.1: until a destination is being picked, "Where are you heading today?" (moved
+                from the Map); tapping it opens typing in To */}
+            {!destination && searching === null ? (
+              <Animated.View key="heading" entering={FadeIn.duration(motion.dialogMs)}>
+                <HeadingCard onSearch={() => activate('destination')} />
+              </Animated.View>
+            ) : (
+              <Animated.View key="trip" entering={FadeIn.duration(motion.dialogMs)}>
+                <TripCard
+                  origin={origin}
+                  destination={destination}
+                  active={active}
+                  onActivate={activate}
+                  onClear={clearField}
+                  onSwap={swap}
+                  onUseMyPosition={myPosition ? () => pick(myPosition) : undefined}
+                  onToggleDestination={toggleDestination}
+                  destinationSaved={destinationSaved}
+                  searching={searching}
+                  query={query}
+                  onQuery={setQuery}
+                  onSubmitQuery={() => (matches[0] ? choose(matches[0]) : undefined)}
+                  collapsed={collapsed}
+                  onToggleCollapsed={() => {
+                    setCollapsed((value) => !value);
+                    setSearching(null);
+                  }}
+                />
+              </Animated.View>
+            )}
           </View>
           {searching !== null ? <PlaceResults matches={matches} query={query} onChoose={choose} raised /> : null}
         </View>
@@ -433,7 +444,6 @@ export default function MyRidesScreen() {
               <SkeletonCard />
             </>
           ) : null}
-          {!loadingResults && !hintSeen && needsPick ? <Hint text={strings.hints.ride} onDismiss={() => dismissHint('ride')} /> : null}
 
           {!loadingResults && plan && !plan.ok && ranked.length === 0 ? (
             <RideFailure failure={plan} explanation={explanation} action={failureAction} badgeColor={colorOf} />

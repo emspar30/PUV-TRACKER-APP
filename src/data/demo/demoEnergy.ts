@@ -1,29 +1,34 @@
 // The demo Energy wallet (SB2, Demo data on): a ledger kept in memory on this phone, run by the same
 // rules as the server (src/shared/backend/rules). It sends nothing. The passive refill is booked when
-// due, so a fresh demo wallet starts with one Energy. Tracking costs Energy here only while ENERGY_ENABLED_DEMO is on (off by default, D1). Pure: no React Native or Expo imports.
+// due. CA1.1: a fresh demo wallet starts full (the welcome Energy), and check-ins spend from it. Tracking costs Energy here only while ENERGY_ENABLED_DEMO is on (off by default, D1). Pure: no React Native or Expo imports.
 
 import {
+  chargeCheckIn,
   energyBalance,
   energyEarn,
   nextPassiveRefillMs,
   passiveRefillDue,
+  REFILL_CLOCK_KINDS,
   startTracking,
-  type EnergyKind,
+  type EarnKind,
   type LedgerRow,
 } from '../../shared/backend/rules';
-import { ENERGY_ENABLED_DEMO, ENERGY_HISTORY_LIMIT, TRACKING_SESSION_MIN } from '../../shared/config';
+import { ENERGY_ENABLED_DEMO, ENERGY_HISTORY_LIMIT, ENERGY_WALLET_CAP, ENERGY_WELCOME, TRACKING_SESSION_MIN } from '../../shared/config';
 import type { EnergyRepository } from '../repositories/types';
 
 const MS_PER_MIN = 60000;
 
-// The demo check-ins and reports earn through `earn`, as check_in and post_report do on the server
+// The demo reports earn through `earn`, as post_report does on the server; the demo check-ins pay
+// through `chargeCheckIn`, as check_in_routes does
 export type DemoEnergy = EnergyRepository & {
   // Books one earning by the shared rules; returns the amount booked (0 when capped or repeated)
-  earn(kind: Exclude<EnergyKind, 'tracking' | 'passive'>, requestKey: string): number;
+  earn(kind: Exclude<EarnKind, 'passive'>, requestKey: string): number;
+  // CA1.1: spends a check-in for `routeCount` routes; false when the wallet does not have it
+  chargeCheckIn(routeCount: number, requestKey: string): boolean;
 };
 
 export function createDemoEnergy(now: () => number = Date.now, enabled = ENERGY_ENABLED_DEMO): DemoEnergy {
-  const ledger: LedgerRow[] = [];
+  const ledger: LedgerRow[] = [{ kind: 'welcome', amount: Math.min(ENERGY_WELCOME, ENERGY_WALLET_CAP), atMs: now(), requestKey: 'welcome-energy' }];
 
   const book = (row: LedgerRow) => {
     if (row.amount !== 0) ledger.push(row);
@@ -43,7 +48,7 @@ export function createDemoEnergy(now: () => number = Date.now, enabled = ENERGY_
         .reverse()
         .map(({ kind, amount, atMs: at }) => ({ kind, amount, atMs: at }));
       const balance = energyBalance(ledger);
-      const passives = ledger.filter((row) => row.kind === 'passive').map((row) => row.atMs);
+      const passives = ledger.filter((row) => REFILL_CLOCK_KINDS.includes(row.kind)).map((row) => row.atMs);
       const lastPassive = passives.length > 0 ? Math.max(...passives) : null;
       return { balance, enabled, history, nextRefillMs: nextPassiveRefillMs(lastPassive, balance, atMs) };
     },
@@ -53,6 +58,13 @@ export function createDemoEnergy(now: () => number = Date.now, enabled = ENERGY_
       const amount = energyEarn(ledger, kind, atMs, requestKey);
       book({ kind, amount, atMs, requestKey });
       return amount;
+    },
+
+    chargeCheckIn(routeCount, requestKey) {
+      const result = chargeCheckIn(ledger, enabled, routeCount, requestKey);
+      if (!result.ok) return false;
+      book({ kind: 'checkin', amount: -result.cost, atMs: now(), requestKey });
+      return true;
     },
 
     async startTracking(requestKey) {

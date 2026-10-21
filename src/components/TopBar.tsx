@@ -108,6 +108,9 @@ export function TopBar({ tour = false }: { tour?: boolean }) {
   );
 }
 
+// CA1.1: the bar's height, so a sheet over a screen with it can stop just below
+export const TOP_BAR_HEIGHT = MIN_TOUCH_TARGET + spacing.sm;
+
 const useStyles = makeStyles(({ colors, elevation }) => ({
   wrap: {
     gap: spacing.xs,
@@ -123,7 +126,7 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
   },
   who: {
     flexShrink: 1,
-    minHeight: MIN_TOUCH_TARGET + spacing.sm,
+    minHeight: TOP_BAR_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,

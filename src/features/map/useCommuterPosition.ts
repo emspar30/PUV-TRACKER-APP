@@ -12,6 +12,7 @@ import type { LatLon } from '@/shared/geo/haversine';
 import { fixAgeS } from '@/shared/location/accuracyGate';
 import { mayRequestPermission } from '@/shared/location/consent';
 import { selectLocationAllowed, useLocationStore, type LocationFix } from '@/state/locationStore';
+import { simulatedPosition } from '@/shared/demo/simulatedPosition';
 import { useSettingsStore } from '@/state/settingsStore';
 
 export type CommuterPosition = LatLon & {
@@ -28,19 +29,20 @@ export function useCommuterPosition(): CommuterPosition | null {
   const { stops } = useRouteData();
   const simulated = useSettingsStore((state) => state.simulatedLocation);
   const simulatedStop = useSettingsStore((state) => state.simulatedStop);
+  const simulatedPoint = useSettingsStore((state) => state.simulatedPoint);
   const fix = useLocationStore((state) => state.fix);
   const pin = useLocationStore((state) => state.manualOrigin);
 
   return useMemo(() => {
     if (simulated) {
-      // A stop saved from older route data (RR3 replaced the placeholder stops) falls back to the default
-      const stop = stops.find((candidate) => candidate.code === simulatedStop) ?? stops.find((candidate) => candidate.code === DEMO_COMMUTER_STOP_CODE);
-      if (stop) return { lat: stop.lat, lon: stop.lon, source: 'simulated', stopCode: stop.code };
+      // CA1.1: a pinned spot, else the stop (one from older route data falls back to the default)
+      const at = simulatedPosition(stops, simulatedStop, simulatedPoint, DEMO_COMMUTER_STOP_CODE);
+      if (at) return { lat: at.lat, lon: at.lon, source: 'simulated', stopCode: at.stopCode };
     }
     if (fix && boundsContainPoint(TILESET.bounds, fix)) return { lat: fix.lat, lon: fix.lon, source: 'gps', stopCode: null };
     if (pin) return { lat: pin.lat, lon: pin.lon, source: 'pin', stopCode: null };
     return null;
-  }, [simulated, simulatedStop, stops, fix, pin]);
+  }, [simulated, simulatedStop, simulatedPoint, stops, fix, pin]);
 }
 
 // What the check-in and report gates see (G0): a GPS position carries the fix's accuracy, mock flag

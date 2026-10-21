@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS franchise_routes (
   route_name      TEXT NOT NULL,
   route_color     TEXT NOT NULL,
   direction_mode  TEXT NOT NULL CHECK (direction_mode IN ('one_way','two_way','loop')),
-  base_fare       REAL NOT NULL DEFAULT 15.00,
+  base_fare       REAL NOT NULL DEFAULT 14.00,
   base_km         REAL NOT NULL DEFAULT 4.0,
   per_km_rate     REAL NOT NULL DEFAULT 2.00,
   primary_geojson TEXT NOT NULL,

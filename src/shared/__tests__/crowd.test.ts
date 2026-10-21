@@ -10,11 +10,14 @@ import { canReportWithGps, checkInGeofence, type Place } from '../checkin/geofen
 import {
   CHECKIN_LIFETIME_S,
   CHECKIN_RADIUS_M,
-  ENERGY_CHECKIN,
+  ENERGY_CHECKIN_ROUTE_COST,
   ENERGY_GPS_REPORT,
   ENERGY_NO_GPS_REPORT,
   ENERGY_PASSIVE_AMOUNT,
+  ENERGY_PASSIVE_INTERVAL_H,
   ENERGY_TRACKING_COST,
+  ENERGY_WALLET_CAP,
+  ENERGY_WELCOME,
   GPS_ACCURACY_GATE_CHECKIN_M,
   GPS_ACCURACY_GATE_RELAY_M,
 } from '../config';
@@ -63,62 +66,86 @@ describe('reporting with GPS', () => {
 
 const REPORT: ReportInput = { routeCode: 'R4', phrase: 'few_seats', seatTier: 'amber', vehicleId: 'R4-01', stopCode: 'MCA', withGps: true };
 
-describe('the demo loop: earn by checking in and reporting, spend by tracking', () => {
+describe('the demo loop (CA1.1): start full, spend on check-ins and tracking, earn by GPS relays and waiting', () => {
   const setup = (username: string | null = 'demo_me') => {
     let now = T0;
     const clock = () => now;
     // Energy switched on, as for a demonstration (it is off by default, D1)
     const energy = createDemoEnergy(clock, true);
     const crowd = createDemoCrowd(energy, () => username, 7, clock);
-    return { energy, crowd, advance: (ms: number) => (now += ms), at: () => now };
+    // Tracking spends 1 each time, to bring the wallet down
+    const spend = async (times: number) => {
+      for (let i = 0; i < times; i += 1) await energy.startTracking(`track-spend-${i}`);
+    };
+    return { energy, crowd, spend, advance: (ms: number) => (now += ms), at: () => now };
   };
+  const balanceOf = async (energy: ReturnType<typeof createDemoEnergy>) => (await energy.refresh())?.balance;
 
-  it('a check-in earns once a day, counts the user at the station, and ends at once', async () => {
+  it('a new wallet holds the welcome Energy', async () => {
+    expect(await balanceOf(setup().energy)).toBe(ENERGY_WELCOME);
+  });
+
+  it('a check-in costs 0.3, counts the user at the station, and ends at once; the same request pays once', async () => {
     const { energy, crowd } = setup();
-    await energy.refresh();
     const before = (await crowd.checkins.waitingCounts('R4', ['AAA']))?.get('AAA') ?? 0;
     expect(await crowd.checkins.checkIn(['R4'], 'AAA', 'checkin-aaaaaaaa')).toEqual({ ok: true, expiresAtMs: T0 + CHECKIN_LIFETIME_S * 1000 });
     expect((await crowd.checkins.waitingCounts('R4', ['AAA']))?.get('AAA')).toBe(before + 1);
-    expect((await energy.refresh())?.balance).toBe(ENERGY_PASSIVE_AMOUNT + ENERGY_CHECKIN);
-    await crowd.checkins.checkIn(['R4'], 'AAA', 'checkin-bbbbbbbb');
-    expect((await energy.refresh())?.balance).toBe(ENERGY_PASSIVE_AMOUNT + ENERGY_CHECKIN);
+    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME - ENERGY_CHECKIN_ROUTE_COST);
+    await crowd.checkins.checkIn(['R4'], 'AAA', 'checkin-aaaaaaaa');
+    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME - ENERGY_CHECKIN_ROUTE_COST);
     await crowd.checkins.end();
     expect((await crowd.checkins.waitingCounts('R4', ['AAA']))?.get('AAA') ?? 0).toBe(before);
   });
 
-  it('a check-in at a shared stop counts on each route pinged, and earns once', async () => {
+  it('a check-in at a shared stop counts on each route pinged, and pays for each', async () => {
     const { energy, crowd } = setup();
-    await energy.refresh();
     const count = async (route: string) => (await crowd.checkins.waitingCounts(route, ['RCA']))?.get('RCA') ?? 0;
     const before = { R3: await count('R3'), R4: await count('R4'), R5: await count('R5') };
     await crowd.checkins.checkIn(['R4', 'R3'], 'RCA', 'checkin-aaaaaaaa');
     expect(await count('R4')).toBe(before.R4 + 1);
     expect(await count('R3')).toBe(before.R3 + 1);
     expect(await count('R5')).toBe(before.R5);
-    expect((await energy.refresh())?.balance).toBe(ENERGY_PASSIVE_AMOUNT + ENERGY_CHECKIN);
+    expect(await balanceOf(energy)).toBeCloseTo(ENERGY_WELCOME - 2 * ENERGY_CHECKIN_ROUTE_COST, 9);
   });
 
-  it('reports earn 1.0 with GPS and 0.5 without, once a day each; the next Manila day pays again', async () => {
-    const { energy, crowd, advance } = setup();
-    await energy.refresh();
+  it('a check-in the wallet cannot pay is refused and counts nobody', async () => {
+    const { energy, crowd, spend } = setup();
+    await spend(4);
+    const before = (await crowd.checkins.waitingCounts('R4', ['RCA']))?.get('RCA') ?? 0;
+    expect(await crowd.checkins.checkIn(['R4', 'R3', 'R5', 'R6'], 'RCA', 'checkin-aaaaaaaa')).toEqual({ ok: false, reason: 'not_enough_energy' });
+    expect((await crowd.checkins.waitingCounts('R4', ['RCA']))?.get('RCA') ?? 0).toBe(before);
+    expect((await crowd.checkins.checkIn(['R4', 'R3', 'R5'], 'RCA', 'checkin-bbbbbbbb')).ok).toBe(true);
+    expect(await balanceOf(energy)).toBeCloseTo(0.1, 9);
+  });
+
+  it('a relay with GPS earns 1.0 once a day, one without earns nothing; the next Manila day pays again', async () => {
+    const { energy, crowd, spend, advance } = setup();
+    await spend(3);
     expect(await crowd.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: true, postId: 'report-aaaaaaaa' });
     await crowd.reports.post(REPORT, 'report-bbbbbbbb');
     await crowd.reports.post({ ...REPORT, withGps: false }, 'report-cccccccc');
-    const balance = ENERGY_PASSIVE_AMOUNT + ENERGY_GPS_REPORT + ENERGY_NO_GPS_REPORT;
-    expect((await energy.refresh())?.balance).toBe(balance);
+    expect(ENERGY_NO_GPS_REPORT).toBe(0);
+    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME - 3 + ENERGY_GPS_REPORT);
     advance(DAY);
     await crowd.reports.post(REPORT, 'report-dddddddd');
-    expect((await energy.refresh())?.balance).toBeGreaterThan(balance);
+    expect(await balanceOf(energy)).toBe(ENERGY_WALLET_CAP);
   });
 
-  it('the Energy earned pays for tracking', async () => {
-    const { energy, crowd } = setup();
-    await energy.refresh();
-    expect((await energy.startTracking('track-aaaaaaaa')).ok).toBe(true);
+  it('waiting refills: the first refill comes 12 hours after the welcome, not at the first spend', async () => {
+    const { energy, spend, advance } = setup();
+    await spend(2);
+    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME - 2);
+    advance(ENERGY_PASSIVE_INTERVAL_H * 3600000);
+    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME - 2 + ENERGY_PASSIVE_AMOUNT);
+  });
+
+  it('tracking spends from the wallet, and a GPS relay pays for more', async () => {
+    const { energy, crowd, spend } = setup();
+    await spend(5);
     expect(await energy.startTracking('track-bbbbbbbb')).toEqual({ ok: false, reason: 'not_enough_energy' });
     await crowd.reports.post(REPORT, 'report-aaaaaaaa');
     expect((await energy.startTracking('track-cccccccc')).ok).toBe(true);
-    expect((await energy.refresh())?.balance).toBe(ENERGY_PASSIVE_AMOUNT + ENERGY_GPS_REPORT - 2 * ENERGY_TRACKING_COST);
+    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME + ENERGY_GPS_REPORT - 6 * ENERGY_TRACKING_COST);
   });
 
   it('own demo reports show in the feed for an hour; no handle, no report', async () => {
@@ -205,6 +232,14 @@ describe('the live check-ins and reports', () => {
     await expect(crowd.checkins.end()).resolves.toBeUndefined();
     const failing = createLiveCrowd(port({ postReport: async () => ({ code: '42501', message: 'sign in to take part' }) }));
     expect(await failing.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: false, reason: 'error', message: 'sign in to take part' });
+  });
+
+  it('CA1.1: a check-in the wallet cannot pay comes back as not_enough_energy', async () => {
+    const crowd = createLiveCrowd(port({ checkIn: async () => ({ code: 'P0001', message: 'not enough energy' }) }));
+    expect(await crowd.checkins.checkIn(['R4', 'R3'], 'RCA', 'checkin-aaaaaaaa')).toEqual({ ok: false, reason: 'not_enough_energy' });
+    // P0001 is also any raise without a code: only the wallet's message reads as not enough Energy
+    const other = createLiveCrowd(port({ checkIn: async () => ({ code: 'P0001', message: 'something else' }) }));
+    expect(await other.checkins.checkIn(['R4'], 'RCA', 'checkin-aaaaaaaa')).toEqual({ ok: false, reason: 'error', message: 'something else' });
   });
 
   it('N1: flags by numeric id, reports when the post got hidden, and maps the errors', async () => {

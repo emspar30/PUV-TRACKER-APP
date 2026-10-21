@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronRight, Map as MapIcon, X } from 'lucide-react-native';
+import { ArrowRight, Bus, Check, ChevronRight, Map as MapIcon, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -21,6 +21,8 @@ type RouteSelectorProps = {
   selectedCode: string | null;
   filter: VehicleFilter;
   onShow: (code: string, filter: VehicleFilter) => void;
+  // CA1.1: "All routes": no route picked, every shown route's multicabs on the map
+  onShowAll: () => void;
   onClose: () => void;
 };
 
@@ -31,11 +33,12 @@ const SMALL_ICON = spacing.md;
 const PANEL_MAX_HEIGHT = '75%';
 
 // The route list (restyle): a panel over the map. Tapping a route opens it in place with its stops,
-// a vehicle filter and "Show on map".
-export function RouteSelector({ routes, selectedCode, filter: initialFilter, onShow, onClose }: RouteSelectorProps) {
+// a vehicle filter and "Show on map". CA1.1: "All routes" first, the default (the Map shows every
+// route's multicabs while no route is picked); the shown choice has a check.
+export function RouteSelector({ routes, selectedCode, filter: initialFilter, onShow, onShowAll, onClose }: RouteSelectorProps) {
   const styles = useStyles();
   const { colors, typography, routeBadgeText } = useTheme();
-  const [open, setOpen] = useState<string | null>(selectedCode ?? routes[0]?.code ?? null);
+  const [open, setOpen] = useState<string | null>(selectedCode);
   const [filter, setFilter] = useState<VehicleFilter>(initialFilter);
   return (
     <View style={styles.backdrop}>
@@ -54,6 +57,21 @@ export function RouteSelector({ routes, selectedCode, filter: initialFilter, onS
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={styles.list}>
+          <Pressable
+            style={[styles.row, styles.rowHead, selectedCode === null && styles.rowOpen]}
+            onPress={onShowAll}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedCode === null }}
+          >
+            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+              <Bus color={colors.onPrimary} size={SMALL_ICON} />
+            </View>
+            <View style={styles.grow}>
+              <Text style={typography.labelLg}>{strings.live.selector.allRoutes}</Text>
+              <Text style={typography.bodySm}>{strings.live.selector.allRoutesBody}</Text>
+            </View>
+            {selectedCode === null ? <Check color={colors.primary} size={ICON_SIZE} /> : null}
+          </Pressable>
           {routes.map((route) => {
             const expanded = route.code === open;
             return (
@@ -68,6 +86,7 @@ export function RouteSelector({ routes, selectedCode, filter: initialFilter, onS
                     <Text style={[typography.labelLg, { color: routeBadgeText }]}>{route.code}</Text>
                   </View>
                   <Text style={[typography.labelLg, styles.grow]}>{route.name}</Text>
+                  {route.code === selectedCode ? <Check color={colors.primary} size={ICON_SIZE} /> : null}
                   {!expanded ? <ChevronRight color={colors.textSecondary} size={ICON_SIZE} /> : null}
                 </Pressable>
                 {expanded ? (

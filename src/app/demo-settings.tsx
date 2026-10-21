@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Bus, Crosshair, MapPin, RotateCcw, Timer, VenetianMask } from 'lucide-react-native';
+import { Bus, Crosshair, MapPin, Pin, RotateCcw, Timer, VenetianMask } from 'lucide-react-native';
 import { ScrollView, Text, View } from 'react-native';
 
 import { Chip, Screen, SettingsGroup, SettingsRow } from '@/components';
@@ -65,6 +65,15 @@ export default function DemoSettingsScreen() {
           value={s.simulatedLocation}
           onValueChange={s.setSimulatedLocation}
         />
+        {/* CA1.1: where to stand, always reachable; pinning a spot turns simulated location on */}
+        <SettingsRow
+          icon={Pin}
+          tone="success"
+          title={strings.demo.standSpot}
+          subtitle={strings.demo.standSpotBody}
+          detail={s.simulatedPoint ? strings.demo.pinnedSpot : standing}
+          onPress={() => router.push('/simulated-pin')}
+        />
         {__DEV__ ? (
           <SettingsRow icon={Crosshair} tone="warning" title={strings.demo.fakeGps} subtitle={strings.demo.fakeGpsBody} value={s.fakeGps} onValueChange={s.setFakeGps} />
         ) : null}
@@ -106,11 +115,18 @@ export default function DemoSettingsScreen() {
           <Text style={typography.overline}>{strings.demo.standAt}</Text>
           <Text style={typography.bodySm}>{strings.demo.standAtBody}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+            {/* CA1.1: any spot, pinned on the map */}
+            <Chip
+              label={s.simulatedPoint ? strings.demo.pinnedSpot : strings.demo.pinOnMap}
+              selected={s.simulatedPoint !== null}
+              onPress={() => router.push('/simulated-pin')}
+              accessibilityLabel={strings.demo.pinOnMapLabel}
+            />
             {stops.map((stop) => (
               <Chip
                 key={stop.code}
                 label={stop.code}
-                selected={stop.code === standing}
+                selected={s.simulatedPoint === null && stop.code === standing}
                 onPress={() => s.setSimulatedStop(stop.code)}
                 accessibilityLabel={`${stop.code}, ${stop.name}`}
               />

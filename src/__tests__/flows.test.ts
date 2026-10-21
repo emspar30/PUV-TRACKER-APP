@@ -244,12 +244,10 @@ describe('CA1.1 flow: the conversation is kept for an hour', () => {
     const first = load();
     first.setState({ entries: [] });
     first.getState().ask('what route should I board for robinsons?', parseQuery('what route should I board for robinsons?'), NOW);
-    first.getState().setSnap('expanded');
     // Closing the sheet, going to My Rides and back, or restarting the app: the same questions
     const again = load();
     expect(again.getState().entries.map((entry) => entry.question)).toEqual(['what route should I board for robinsons?']);
     expect(again.getState().entries[0].intent).toEqual(parseQuery('what route should I board for robinsons?'));
-    expect(again.getState().snap).toBe('expanded');
     // Still there 59 minutes later, gone after an hour
     again.getState().prune(NOW + 59 * 60_000);
     expect(again.getState().entries).toHaveLength(1);

@@ -17,6 +17,7 @@ import { placeOf, useCommuterPosition } from '@/features/map/useCommuterPosition
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
+import { affordableRoutes, checkInCost } from '@/shared/backend/rules';
 import { checkInGeofence, type Place } from '@/shared/checkin/geofence';
 import { formatCountdown, isActive, remainingMs } from '@/shared/checkin/localCheckin';
 import { mergeWaiting } from '@/shared/checkin/waiting';
@@ -24,6 +25,7 @@ import {
   CHECKIN_COUNTS_REFRESH_S,
   CHECKIN_FAREWELL_S,
   CHECKIN_RADIUS_M,
+  ENERGY_CHECKIN_ROUTE_COST,
   GPS_ACCURACY_GATE_CHECKIN_M,
   MAP_FOLLOW_ZOOM,
   WALK_SPEED_M_PER_MIN,
@@ -36,6 +38,7 @@ import { routeCodesOf, routesAtStop, stopsForRoute, toggleRoute } from '@/shared
 import { useCheckInStore } from '@/state/checkinStore';
 import { checkIn as cloudCheckIn, endCheckIn, useCrowd } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
+import { useEnergyStore } from '@/state/energyStore';
 import { useHintsStore } from '@/state/hintsStore';
 import { useLocationStore } from '@/state/locationStore';
 import { strings } from '@/strings';
@@ -167,8 +170,13 @@ export default function CheckInScreen() {
   // Every route that stops at the station. With a route filter on, that route is pinged by
   // default; with All, every route here is (the commuter can narrow it at a shared stop).
   const stopRoutes = useMemo(() => (candidate ? routesAtStop(lines, candidate.stop) : []), [lines, candidate]);
-  const defaultPing = filter && stopRoutes.includes(filter) ? [filter] : stopRoutes;
-  const pinged = candidate && ping && ping.station === candidate.stop.code ? ping.routes : defaultPing;
+  // CA1.1: a check-in costs Energy for each route pinged, so no more routes than the balance pays
+  // for are picked (unknown balance: the server decides)
+  const energy = useEnergyStore((state) => state.snapshot);
+  const maxRoutes = energy ? affordableRoutes(energy.balance, energy.enabled) : Number.POSITIVE_INFINITY;
+  const defaultPing = (filter && stopRoutes.includes(filter) ? [filter] : stopRoutes).slice(0, Math.max(1, maxRoutes));
+  const pinged = candidate && ping && ping.station === candidate.stop.code && ping.routes.length <= Math.max(1, maxRoutes) ? ping.routes : defaultPing;
+  const affordable = pinged.length <= maxRoutes;
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);
@@ -214,7 +222,7 @@ export default function CheckInScreen() {
   };
 
   const doCheckIn = async () => {
-    if (!candidate || active || sendingRef.current || pinged.length === 0) return;
+    if (!candidate || active || sendingRef.current || pinged.length === 0 || !affordable) return;
     const code = candidate.stop.code;
     // The fix's age is taken at the tap (G0: a stale fix is refused)
     const fence = checkInGeofence(placeOf(commuter, fix, Date.now()), candidate.stop);
@@ -244,6 +252,8 @@ export default function CheckInScreen() {
       const result = await cloudCheckIn(routes, code);
       if (!result.ok) {
         if (result.reason === 'sign_in') promptSignIn();
+        else if (result.reason === 'not_enough_energy')
+          showDialog({ tone: 'warning', title: strings.checkin.noEnergyTitle, body: strings.checkin.noEnergyBody(ENERGY_CHECKIN_ROUTE_COST) });
         else showDialog({ tone: 'danger', title: strings.checkin.failedTitle, body: result.message ?? strings.checkin.failedBody });
         return;
       }
@@ -354,11 +364,23 @@ export default function CheckInScreen() {
             meta={metaOf(candidate.stop.code, candidate.distanceM)}
             routes={badges(stopRoutes)}
             checkInLabel={strings.checkin.checkInAt(candidate.stop.code)}
-            disabled={sending || pinged.length === 0}
+            disabled={sending || pinged.length === 0 || !affordable}
             onCheckIn={() => void doCheckIn()}
           >
             {stopRoutes.length > 1 ? (
-              <RoutePing routes={stopRoutes} picked={pinged} onChange={(routes) => setPing({ station: candidate.stop.code, routes })} />
+              <RoutePing
+                routes={stopRoutes}
+                picked={pinged}
+                max={Math.max(1, maxRoutes)}
+                onChange={(routes) => setPing({ station: candidate.stop.code, routes })}
+              />
+            ) : null}
+            {energy?.enabled ? (
+              <Text style={[typography.bodySm, !affordable && styles.short]}>
+                {affordable
+                  ? strings.checkin.cost(checkInCost(pinged.length), ENERGY_CHECKIN_ROUTE_COST, energy.balance)
+                  : strings.checkin.noEnergyBody(ENERGY_CHECKIN_ROUTE_COST)}
+              </Text>
             ) : null}
           </StationCard>
         </Animated.View>
@@ -440,6 +462,10 @@ export default function CheckInScreen() {
 }
 
 const useStyles = makeStyles(({ colors }) => ({
+  // CA1.1: the check-in cost line when the balance is short
+  short: {
+    color: colors.danger,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.canvas,

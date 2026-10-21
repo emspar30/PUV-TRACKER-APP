@@ -6,7 +6,7 @@ const MIN = 60_000;
 // About 111 m per 0.001 degree of latitude
 const DEG_PER_M = 0.001 / 111;
 const DEST = { code: 'MCA', name: 'Market', lat: 8.95, lon: 125.53 };
-const SESSION: RelayBroadcast = { routeCode: 'R4', vehicleId: null, seatTier: 'green', destination: DEST, startedMs: T0 };
+const SESSION: RelayBroadcast = { routeCode: 'R4', vehicleId: null, seatTier: 'green', destination: DEST, startedMs: T0, startPoint: null };
 const north = (m: number) => ({ lat: DEST.lat + m * DEG_PER_M, lon: DEST.lon });
 
 describe('relay broadcast (B4)', () => {

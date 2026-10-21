@@ -1,9 +1,10 @@
 import { router, useIsFocused } from 'expo-router';
 import { SendHorizontal, WifiOff, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, Text, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Pressable, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomSheet, Chip, type SheetRequest } from '@/components';
+import { BottomSheet, Chip, TOP_BAR_HEIGHT, type SheetRequest } from '@/components';
 import { useRepositories } from '@/data/live/useRepositories';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { replyOf, STARTER_CHIPS, type ChipAction, type Reply } from '@/features/assistant/reply';
@@ -17,6 +18,7 @@ import { parseQuery, type Intent } from '@/shared/assistant/intent';
 import { isNight } from '@/shared/backend/rules';
 import { ASSISTANT_INPUT_MAX_CHARS } from '@/shared/config';
 import { discountMultiplier } from '@/shared/fare/fare';
+import { sheetTopClearance } from '@/shared/ui/sheetSnap';
 import { useAssistantStore } from '@/state/assistantStore';
 import { useFareType } from '@/state/fareType';
 import { useSessionStore } from '@/state/sessionStore';
@@ -25,6 +27,8 @@ import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme'
 
 const ICON_SIZE = spacing.lg;
 const DISABLED_OPACITY = 0.5;
+const TUNIE = require('../../assets/assistant/tunie.png');
+const TUNIE_SIZE = spacing.xl;
 
 // A chip that leaves the conversation: the Map tab (with a route) or My Rides (with the trip). Each
 // tap carries a new time stamp, so the tab applies it once. The conversation is kept (CA1.1).
@@ -44,12 +48,15 @@ function remember(question: string, intent: Intent) {
 // CA1: Ask Tunton (PRD 19.5). A question is typed or tapped as a chip, parsed by fixed rules
 // (shared/assistant) and answered from the data on the phone: the planner and fare as My Rides, the
 // coverage states as the Map tab, the nearest stop. Answers about routes follow the live (or demo)
-// multicabs while the screen is open. CA1.1: My Rides' draggable sheet over the Map (collapsed, half
-// or open, by its handle; remembered), a chat with the message box at the bottom and the newest
-// message last; the questions are kept on the phone for an hour (assistantStore); online only.
+// multicabs while the screen is open. CA1.1: Tunie, in My Rides' draggable sheet over the Map: it
+// slides up fully open (so the first message shows whole), can be dragged to half, and slides away
+// when closed (Close, a tap above it, or dragged to the bottom); a chat with the message box at the
+// bottom and the newest message last, open no higher than the Map's top bar; the questions are kept
+// on the phone for an hour (assistantStore); online only.
 export default function AssistantScreen() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const { lines, stops } = useRouteData();
   const places = useSearchablePlaces({ saved: true });
   const commuter = useCommuterPosition();
@@ -58,14 +65,16 @@ export default function AssistantScreen() {
   const teamAccount = useSessionStore((state) => state.teamAccount);
   const focused = useIsFocused();
   const entries = useAssistantStore((state) => state.entries);
-  const snap = useAssistantStore((state) => state.snap);
   // Typing opens the sheet fully, so the answers show above the keyboard
   const [sheetRequest, setSheetRequest] = useState<SheetRequest | null>(null);
+  // A new value slides the sheet away; the screen closes once it is gone
+  const [dismissKey, setDismissKey] = useState(0);
+  const close = () => setDismissKey((key) => key + 1);
   const access = useAssistantAccess();
   const online = access === 'open';
   const [draft, setDraft] = useState('');
 
-  // Questions older than a day are let go when the screen opens
+  // Questions older than an hour are let go when the screen opens
   useEffect(() => useAssistantStore.getState().prune(Date.now()), []);
 
   // Live multicabs only for the routes asked about (and those sharing their stops, for an alternative)
@@ -145,10 +154,11 @@ export default function AssistantScreen() {
   const header = (
     <View style={styles.headerContent}>
       <View style={styles.bar}>
+        <Image source={TUNIE} style={styles.tunie} accessibilityIgnoresInvertColors />
         <Text style={[typography.headlineSm, styles.title]} accessibilityRole="header" numberOfLines={1}>
           {strings.assistant.title}
         </Text>
-        <Pressable style={styles.iconButton} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={strings.assistant.close}>
+        <Pressable style={styles.iconButton} onPress={close} accessibilityRole="button" accessibilityLabel={strings.assistant.close}>
           <X color={colors.textPrimary} size={ICON_SIZE} />
         </Pressable>
       </View>
@@ -196,12 +206,21 @@ export default function AssistantScreen() {
     // The sheet's room shrinks with the keyboard, so the message box stays just above it
     <KeyboardAvoidingView style={styles.overlay} behavior="padding">
       {/* Above the sheet: a tap closes Ask Tunton and goes back to the Map */}
-      <Pressable style={styles.outside} onPress={() => router.back()} accessibilityLabel={strings.assistant.close} />
+      <Pressable style={styles.outside} onPress={close} accessibilityLabel={strings.assistant.close} />
       <BottomSheet
         id="assistant"
-        defaultSnap={snap}
+        // Opens fully, sliding up; collapsed means closed
+        defaultSnap="expanded"
+        remember={false}
+        slideIn
+        dismissKey={dismissKey}
+        onDismissed={() => router.back()}
+        // The Map's top bar stays in view above the open sheet
+        topClearance={sheetTopClearance(insets.top + spacing.sm, TOP_BAR_HEIGHT, spacing.sm)}
         request={sheetRequest}
-        onSnapChange={(settled) => useAssistantStore.getState().setSnap(settled)}
+        onSnapChange={(settled) => {
+          if (settled === 'peek') close();
+        }}
         header={header}
         footer={messageBox}
         chat
@@ -252,6 +271,11 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   title: {
     flex: 1,
+  },
+  tunie: {
+    width: TUNIE_SIZE,
+    height: TUNIE_SIZE,
+    marginRight: spacing.sm,
   },
   notice: {
     flexDirection: 'row',

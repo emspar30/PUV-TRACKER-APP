@@ -49,3 +49,23 @@ describe('settings store: Demo data', () => {
     expect(restart().getState().demoData).toBe(true);
   });
 });
+
+
+// CA1.1: the Map opens on the route last picked
+describe('settings store: the Map route', () => {
+  it('is All routes (null) by default', () => {
+    expect(restart().getState().mapRoute).toBeNull();
+  });
+
+  it('a picked route survives a restart, and All routes again too', () => {
+    restart().getState().setMapRoute('R1');
+    expect(restart().getState().mapRoute).toBe('R1');
+    restart().getState().setMapRoute(null);
+    expect(restart().getState().mapRoute).toBeNull();
+  });
+
+  it('ignores a damaged value', () => {
+    mockSaved.set('settings', JSON.stringify({ state: { mapRoute: 4 }, version: 0 }));
+    expect(restart().getState().mapRoute).toBeNull();
+  });
+});

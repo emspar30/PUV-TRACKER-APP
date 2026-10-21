@@ -1,7 +1,9 @@
 // ST2-D: the tips tour. Which controls it points at, in order, and where its speech bubble goes
 // beside the one it points at. Pure: no React Native or Expo imports.
 
-export const TOUR_STEPS = ['profile', 'menu', 'relay', 'routes', 'ask', 'locate', 'search', 'checkin', 'ride', 'crowdsource'] as const;
+// CA1.1: in the order of the Map's controls, top to bottom: the zoom buttons, Locate, Relay, routes,
+// Tunie; then the tabs. "Where are you heading today?" moved to My Rides (its tab step).
+export const TOUR_STEPS = ['profile', 'menu', 'zoom', 'locate', 'relay', 'routes', 'ask', 'checkin', 'ride', 'crowdsource'] as const;
 export type TourStepId = (typeof TOUR_STEPS)[number];
 
 export type Rect = { x: number; y: number; width: number; height: number };

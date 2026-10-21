@@ -52,6 +52,9 @@ export const motion = {
   // The app dialog and floating cards: a short eased fade, never a spring
   dialogMs: 180,
   cardMs: 220,
+  // CA1.1: a sheet sliding off the screen when closed; a label sliding open or shut (Ask Tunie)
+  sheetOutMs: 220,
+  labelMs: 260,
 } as const;
 
 // Type scale of docs/DESIGN.md, in dp, set in the Android system font (Roboto)

@@ -2,7 +2,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, View, type AccessibilityActionEvent, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring, Extrapolation } from 'react-native-reanimated';
+import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withSpring, withTiming, Extrapolation } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -55,6 +55,16 @@ type BottomSheetProps = {
   chat?: boolean;
   // The button that steps between the snap points; the handle still drags (default shown)
   chevron?: boolean;
+  // CA1.1: space kept free above the open sheet, in dp from the top of the screen (default: the
+  // status bar and a row of floating buttons), such as the Map's top bar
+  topClearance?: number;
+  // Whether the snap point is remembered under `id` while the app is open (default true)
+  remember?: boolean;
+  // CA1.1: slide up from the bottom edge when it first appears, instead of being there at once
+  slideIn?: boolean;
+  // CA1.1: a new value slides the sheet down off the screen, then onDismissed is called
+  dismissKey?: number;
+  onDismissed?: () => void;
 };
 
 // A sheet over a full-screen map that the user drags between three snap points: peek, half and
@@ -71,6 +81,11 @@ export function BottomSheet({
   footer,
   chat = false,
   chevron = true,
+  topClearance,
+  remember: keepSnap = true,
+  slideIn = false,
+  dismissKey,
+  onDismissed,
 }: BottomSheetProps) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -80,15 +95,15 @@ export function BottomSheet({
 
   const [containerHeight, setContainerHeight] = useState(0);
   // The snap point, with a counter so that settling on the same point again still re-runs the animation
-  const [position, setPosition] = useState<{ snap: SnapName; seq: number }>({ snap: remembered ?? defaultSnap, seq: 0 });
+  const [position, setPosition] = useState<{ snap: SnapName; seq: number }>({ snap: (keepSnap ? remembered : undefined) ?? defaultSnap, seq: 0 });
   const snap = position.snap;
   const heights = useMemo<SnapHeights | null>(
     // Never cover the avatar button at the top right, so Settings opens from every snap point
     () =>
       containerHeight > 0
-        ? sheetSnapHeights(containerHeight, sheetTopClearance(insets.top, MIN_TOUCH_TARGET, spacing.sm))
+        ? sheetSnapHeights(containerHeight, topClearance ?? sheetTopClearance(insets.top, MIN_TOUCH_TARGET, spacing.sm))
         : null,
-    [containerHeight, insets.top],
+    [containerHeight, insets.top, topClearance],
   );
 
   // Visible height while dragging and animating, on the UI thread
@@ -127,15 +142,32 @@ export function BottomSheet({
   useEffect(() => {
     if (!heights) return;
     const target = heights[position.snap];
-    if (height.get() === 0) {
+    if (height.get() === 0 && !slideIn) {
       height.set(target);
     } else {
       height.set(withSpring(target, { ...motion.sheetSpring, velocity: releaseSpeed.get() }));
       releaseSpeed.set(0);
     }
-    remember(id, position.snap);
+    if (keepSnap) remember(id, position.snap);
     onSnapChange?.(position.snap, target);
-  }, [position, heights, height, releaseSpeed, remember, id, onSnapChange]);
+  }, [position, heights, height, releaseSpeed, remember, keepSnap, id, onSnapChange, slideIn]);
+
+  // CA1.1: a dismiss request slides the sheet out, then the screen closes. Handled while rendering
+  // (as `request`), the animation itself in an effect.
+  const [handledDismiss, setHandledDismiss] = useState(dismissKey);
+  const [dismissing, setDismissing] = useState(false);
+  if (dismissKey !== undefined && dismissKey !== handledDismiss) {
+    setHandledDismiss(dismissKey);
+    setDismissing(true);
+  }
+  useEffect(() => {
+    if (!dismissing) return;
+    height.set(
+      withTiming(0, { duration: motion.sheetOutMs, easing: Easing.in(Easing.cubic) }, (finished) => {
+        if (finished && onDismissed) scheduleOnRN(onDismissed);
+      }),
+    );
+  }, [dismissing, height, onDismissed]);
 
   const makePan = useCallback(
     (enabled: boolean) =>

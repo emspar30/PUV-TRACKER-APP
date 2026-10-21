@@ -40,9 +40,10 @@ export function createDemoCrowd(
       },
 
       async checkIn(routeCodes, stationCode, requestKey) {
+        // CA1.1: paid first, for each route pinged
+        if (!energy.chargeCheckIn(routeCodes.length, requestKey)) return { ok: false, reason: 'not_enough_energy' };
         const expiresAtMs = now() + CHECKIN_LIFETIME_S * MS_PER_S;
         mine = { routeCodes, stationCode, expiresAtMs };
-        energy.earn('checkin', requestKey);
         return { ok: true, expiresAtMs };
       },
 

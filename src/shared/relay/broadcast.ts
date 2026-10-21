@@ -17,6 +17,8 @@ export type RelayBroadcast = {
   seatTier: SeatTier;
   destination: Pick<RouteStop, 'code' | 'name' | 'lat' | 'lon'>;
   startedMs: number;
+  // CA1.1: where the rider was when sharing started, for how much of the ride is done; null if unknown
+  startPoint: LatLon | null;
 };
 
 export type BroadcastEnd = 'arrived' | 'expired';

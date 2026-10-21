@@ -102,3 +102,4 @@ export function routeCodesOf(lines: readonly Pick<DirectedLine, 'routeCode'>[]):
 export function toggleRoute(current: string | null, tapped: string): string | null {
   return current === tapped ? null : tapped;
 }
+

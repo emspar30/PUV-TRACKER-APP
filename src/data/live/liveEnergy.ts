@@ -16,7 +16,7 @@ export type EnergyPort = {
   // energy_passive_refill(); books nothing when it is not due
   refill(): Promise<PortFailure | null>;
   // energy_balance(), app_config (energy_enabled, energy_passive_interval_h), the caller's newest
-  // energy_ledger rows and the time of their last passive refill
+  // energy_ledger rows and the time of their last passive refill (or the welcome Energy, CA1.1)
   read(limit: number): Promise<{
     balance: number | string;
     enabled: boolean;

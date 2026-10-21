@@ -23,10 +23,11 @@ export type VehiclesRepository = {
 // A failed cloud call: 'sign_in' when there is no account (live data), else the message
 export type CloudFailure = { ok: false; reason: 'sign_in' | 'error'; message?: string };
 
-export type CheckInResult = { ok: true; expiresAtMs: number } | CloudFailure;
+// CA1.1: a check-in costs Energy for each route pinged; not_enough_energy when the wallet is short
+export type CheckInResult = { ok: true; expiresAtMs: number } | CloudFailure | { ok: false; reason: 'not_enough_energy' };
 
 // C1: station check-ins. Demo keeps them on the phone; live calls check_in, checkin_counts and
-// end_check_in. The check-in earns Energy (once a Manila day) inside the same call.
+// end_check_in. CA1.1: the check-in spends Energy for each route pinged inside the same call.
 export type CheckinsRepository = {
   source: LiveSource;
   // People waiting per station code on a route (the caller included; a station with nobody is

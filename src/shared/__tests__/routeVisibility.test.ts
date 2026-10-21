@@ -1,5 +1,5 @@
 import { UNSELECTED_ROUTE_OPACITY } from '../config';
-import { compareRouteCodes, isSingleLegRoute, returnStyledIds, routeCodesOf, routesAtStop, routeVisibility, stopsForRoute, toggleRoute } from '../ui/routeVisibility';
+import { compareRouteCodes, isSingleLegRoute, toggleRoute, returnStyledIds, routeCodesOf, routesAtStop, routeVisibility, stopsForRoute } from '../ui/routeVisibility';
 
 import { FIXTURE_OUTBOUND, FIXTURE_RETURN, FIXTURE_STOPS, pointAt } from './fixtures/routeFixture';
 
@@ -131,3 +131,4 @@ describe('route chips', () => {
     expect(toggleRoute('T1', 'T2')).toBe('T2');
   });
 });
+
