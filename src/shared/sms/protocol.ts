@@ -14,6 +14,8 @@ const ROUTE_RE = /^R\d{1,2}$/;
 const CODE_RE = /^[A-Z]{2,4}$/;
 
 const PREFIX = 'HM2';
+// DR5: the driver phone's SMS receiver keeps a text only if it starts with this
+export const HEATMAP_TEXT_PREFIX = `${PREFIX}|`;
 const SEQ_DIGITS = 4;
 const MAC_BYTES = 4;
 const MAX_COUNT = 999;

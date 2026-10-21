@@ -8,12 +8,61 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "commuter"
+      }
+    },
+    "development-driver": {
+      "extends": "development",
+      "env": {
+        "APP_VARIANT": "driver"
+      }
+    },
+    "development-gateway": {
+      "extends": "development",
+      "env": {
+        "APP_VARIANT": "gateway"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "commuter"
+      }
+    },
+    "preview-driver": {
+      "extends": "preview",
+      "env": {
+        "APP_VARIANT": "driver"
+      }
+    },
+    "preview-gateway": {
+      "extends": "preview",
+      "env": {
+        "APP_VARIANT": "gateway",
+        "EXPO_PUBLIC_CARRIER_TEST": "1"
+      }
+    },
+    "release-driver": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "driver"
+      }
+    },
+    "release-gateway": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "gateway"
       }
     }
   }

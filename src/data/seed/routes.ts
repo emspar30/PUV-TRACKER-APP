@@ -52,7 +52,7 @@ export type SeedRouteLine = {
 // Names from the Butuan City PUJ route map (October 2026). The colour is the dark-theme value
 // stored with the route; the light theme uses LIGHT_ROUTE_COLORS in src/theme/tokens.ts.
 // RR3: R1, R2 and R14 names from Emjay (2026-10-08); R14's trace ends at Taligaman, short of De Oro.
-const ROUTE_META: Readonly<Record<string, { name: string; color: string }>> = {
+export const ROUTE_META: Readonly<Record<string, { name: string; color: string }>> = {
   R1: { name: 'Bancasi - Downtown', color: '#60A5FA' },
   R2: { name: 'Bancasi - Langihan', color: '#F472B6' },
   R3: { name: 'Ampayon-Libertad', color: '#10B981' },

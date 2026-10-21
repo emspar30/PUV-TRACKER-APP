@@ -47,3 +47,10 @@ yarn-error.*
 !.env.example
 # Avatar originals (about 80 MB); the app uses the 256 px copies in assets/avatars
 /assets/profile avatars/
+
+# DR6: the SMS worker bundle (npm run worker:build)
+services/sms-worker/dist/
+services/sms-worker/logs/
+# Gradle caches created by editors or local builds inside the native modules
+modules/*/android/.gradle/
+modules/*/android/build/

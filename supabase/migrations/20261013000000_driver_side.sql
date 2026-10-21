@@ -16,6 +16,7 @@ begin
   end if;
 end;
 $$;
+
 -- ---------------------------------------------------------------------------
 -- vehicle_beacons: the beacon of a vehicle (PRD 8.2). short_id is what the beacon advertises
 -- (1 to 65535); secret_id points to the 32-byte secret in Vault, as 64 hex characters.
@@ -26,7 +27,9 @@ create table public.vehicle_beacons (
   secret_id   uuid not null,
   rotated_at  timestamptz not null default now()
 );
+
 alter table public.vehicle_beacons enable row level security;
+
 revoke all on public.vehicle_beacons from anon, authenticated;
 grant all on public.vehicle_beacons to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -46,8 +49,11 @@ create table public.driver_devices (
   retired_at      timestamptz,
   note            text check (char_length(note) <= 200)
 );
+
 create unique index driver_devices_one_active_per_vehicle on public.driver_devices (vehicle_id) where active;
+
 alter table public.driver_devices enable row level security;
+
 revoke all on public.driver_devices from anon, authenticated;
 grant all on public.driver_devices to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -65,7 +71,9 @@ create table public.gateways (
   last_heartbeat_at  timestamptz,
   last_status        jsonb
 );
+
 alter table public.gateways enable row level security;
+
 revoke all on public.gateways from anon, authenticated;
 grant all on public.gateways to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -94,9 +102,12 @@ create table public.sms_outbox (
   expires_at    timestamptz not null,
   check (encoding = 'text' or body_b64 is not null)
 );
+
 create index sms_outbox_status_idx on public.sms_outbox (status, created_at);
 create index sms_outbox_created_idx on public.sms_outbox (created_at);
+
 alter table public.sms_outbox enable row level security;
+
 revoke all on public.sms_outbox from anon, authenticated;
 grant all on public.sms_outbox to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -109,7 +120,9 @@ create table public.sms_dispatch_state (
   last_counts   jsonb not null,
   last_sent_at  timestamptz not null
 );
+
 alter table public.sms_dispatch_state enable row level security;
+
 revoke all on public.sms_dispatch_state from anon, authenticated;
 grant all on public.sms_dispatch_state to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -124,8 +137,11 @@ create table public.ops_alerts (
   created_at   timestamptz not null default now(),
   resolved_at  timestamptz
 );
+
 create index ops_alerts_kind_idx on public.ops_alerts (kind, created_at);
+
 alter table public.ops_alerts enable row level security;
+
 revoke all on public.ops_alerts from anon, authenticated;
 grant all on public.ops_alerts to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -147,6 +163,7 @@ as $$
   where c.expires_at > now()
   group by c.route_id, c.station_code;
 $$;
+
 -- Active driver phones with their route and SMS key (from Vault)
 create function public.worker_devices()
 returns table (device_id text, vehicle_id text, route_id text, phone_e164 text, sms_key text)
@@ -162,6 +179,7 @@ as $$
   where d.active and v.active
   order by d.device_id;
 $$;
+
 -- What each route was last sent
 create function public.worker_dispatch_state()
 returns table (route_id text, last_counts jsonb, last_sent_at timestamptz)
@@ -172,6 +190,7 @@ set search_path = ''
 as $$
   select s.route_id, s.last_counts, s.last_sent_at from public.sms_dispatch_state s;
 $$;
+
 -- Reserves n sequence numbers (1 to 10) for one phone, wrapping at 10000 (SMS_SEQ_MODULUS);
 -- returns the first. Safe when two workers run: the row is locked.
 create function public.worker_next_seq(device text, n integer)
@@ -190,6 +209,7 @@ begin
   return (coalesce(prev_seq, -1) + 1) % 10000;
 end;
 $$;
+
 -- Queues one route's messages and records what the route was sent, in one transaction.
 -- messages: [{ "device_id", "seq", "encoding", "body_text", "body_b64" }]
 create function public.worker_enqueue(route text, counts jsonb, messages jsonb, ttl_min integer)
@@ -214,6 +234,7 @@ begin
   return queued;
 end;
 $$;
+
 -- The gateway takes up to max_rows messages, oldest first. Before that: claims older than lease_s
 -- go back to the queue (or fail after max_attempts), and queued messages past expires_at expire.
 create function public.worker_claim(gateway text, max_rows integer, lease_s integer, max_attempts integer)
@@ -251,6 +272,7 @@ begin
   returning o.id, d.phone_e164, o.encoding, o.body_text, o.body_b64;
 end;
 $$;
+
 -- The gateway reports a message: sent, delivered, or failed (queued again until max_attempts).
 -- Returns false when the message is not this gateway's or not in a state for that result.
 create function public.worker_result(message_id bigint, gateway text, result text, error_text text, max_attempts integer)
@@ -282,6 +304,7 @@ begin
   return changed > 0;
 end;
 $$;
+
 -- The active gateway whose token has this SHA-256, or null
 create function public.worker_gateway_auth(hash text)
 returns text
@@ -292,6 +315,7 @@ set search_path = ''
 as $$
   select g.gateway_id from public.gateways g where g.token_hash = hash and g.active;
 $$;
+
 create function public.worker_heartbeat(gateway text, status jsonb)
 returns boolean
 language plpgsql
@@ -306,6 +330,7 @@ begin
   return changed > 0;
 end;
 $$;
+
 -- Records a problem unless the same kind is already open from the last quiet_min minutes
 create function public.worker_alert(kind text, detail jsonb, quiet_min integer)
 returns boolean
@@ -324,6 +349,7 @@ begin
   return true;
 end;
 $$;
+
 -- ---------------------------------------------------------------------------
 -- Admin functions (DR3 scripts on Emjay's PC, service role).
 -- ---------------------------------------------------------------------------
@@ -347,6 +373,7 @@ begin
   return vault.create_secret(secret_value, secret_name, secret_description);
 end;
 $$;
+
 -- ---------------------------------------------------------------------------
 -- (Admin functions continued) The scripts make the secrets with a
 -- secure random source and hand them over here; they go straight into Vault.
@@ -417,6 +444,7 @@ begin
          coalesce((select array_agg(g.phone_e164 order by g.gateway_id) from public.gateways g where g.active and g.phone_e164 is not null), '{}'::text[]);
 end;
 $$;
+
 -- Retires a driver phone (lost, replaced, or the pilot ended): it gets no more messages, its queued
 -- messages expire, its SMS key in Vault is overwritten with a random value, and, when a new secret is given, its vehicle's
 -- beacon secret is replaced so codes from the old phone stop validating at once (runbook 11.5).
@@ -451,6 +479,7 @@ begin
   return true;
 end;
 $$;
+
 -- Adds a gateway or replaces its token (and number); the gateway is active afterwards
 create function public.admin_provision_gateway(gateway text, hash text, phone text)
 returns void
@@ -465,6 +494,7 @@ begin
   on conflict (gateway_id) do update set token_hash = excluded.token_hash, phone_e164 = excluded.phone_e164, active = true;
 end;
 $$;
+
 -- Functions are executable by PUBLIC by default: only the service role (worker, admin scripts) may run these
 revoke execute on function public.worker_demand_snapshot() from public, anon, authenticated;
 revoke execute on function public.worker_devices() from public, anon, authenticated;
@@ -480,6 +510,7 @@ revoke execute on function public.admin_provision_driver(text, text, text, text,
 revoke execute on function public.admin_retire_device(text, text) from public, anon, authenticated;
 revoke execute on function public.admin_provision_gateway(text, text, text) from public, anon, authenticated;
 revoke execute on function public.vault_put(text, text, text) from public, anon, authenticated;
+
 grant execute on function public.worker_demand_snapshot() to service_role;
 grant execute on function public.worker_devices() to service_role;
 grant execute on function public.worker_dispatch_state() to service_role;
@@ -493,4 +524,4 @@ grant execute on function public.worker_alert(text, jsonb, integer) to service_r
 grant execute on function public.admin_provision_driver(text, text, text, text, integer, text, text, text) to service_role;
 grant execute on function public.admin_retire_device(text, text) to service_role;
 grant execute on function public.admin_provision_gateway(text, text, text) to service_role;
--- vault_put is internal: called only by the admin functions above, not granted to anyone;
+-- vault_put is internal: called only by the admin functions above, not granted to anyone

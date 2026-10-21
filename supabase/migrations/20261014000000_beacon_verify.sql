@@ -6,9 +6,11 @@
 
 -- HMAC-SHA256 (pgcrypto). Hosted Supabase projects have it in the extensions schema already.
 create extension if not exists pgcrypto with schema extensions;
+
 -- feed_posts.beacon_ok: null when sent without a beacon code; true when the code was valid and named
 -- the reported vehicle and route; false when it did not check out. Server-only for now: no grant.
 alter table public.feed_posts add column beacon_ok boolean;
+
 -- beacon_verify_calls: the caller's verify_beacon calls in the current minute, one row per user, for
 -- the limit of 30 a minute. Server-only.
 create table public.beacon_verify_calls (
@@ -16,7 +18,9 @@ create table public.beacon_verify_calls (
   window_start  timestamptz not null,
   calls         integer not null check (calls >= 0)
 );
+
 alter table public.beacon_verify_calls enable row level security;
+
 revoke all on public.beacon_verify_calls from anon, authenticated;
 grant all on public.beacon_verify_calls to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -93,6 +97,7 @@ begin
   return query select null::text, null::text, null::text, 'beacon_expired'::text;
 end;
 $$;
+
 -- The commuter app's check (PRD 0.2 S7): one row with the vehicle, its route and plate when the code
 -- is ok, else only the status (beacon_invalid, beacon_expired, unknown_vehicle, too_many_checks).
 -- A status, not an exception: an exception would roll back the call counter with it, so failed codes
@@ -125,6 +130,7 @@ begin
   return query select b.vehicle_id, b.route_id, b.plate, b.status from public.beacon_check(payload_hex) b;
 end;
 $$;
+
 -- post_report with the beacon code the phone heard (null when none). The relay is posted either way;
 -- beacon_ok says whether the code was valid now and named the same route and vehicle (a report that
 -- names no vehicle takes the beacon's). The seven-argument version stays, for builds from before DR8.
@@ -160,6 +166,7 @@ begin
   return post;
 end;
 $$;
+
 -- beacon_check is internal; verify_beacon and the new post_report are for signed-in users only
 revoke execute on function public.beacon_check(text) from public, anon, authenticated;
 revoke execute on function public.verify_beacon(text) from public, anon;

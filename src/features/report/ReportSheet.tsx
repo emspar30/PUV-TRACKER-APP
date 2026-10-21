@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
-import { Bluetooth, MapPin, Search, X } from 'lucide-react-native';
+import { MapPin, Search, X } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 
-import { Button, Chip, IconTile, LineBadge, RouteChip } from '@/components';
+import { Button, Chip, RouteChip } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
+import { useBoardingEndsCheckIn } from '@/features/checkin/useBoardingEndsCheckIn';
 import type { FeedPhrase } from '@/shared/backend/rules';
 import { promptSignIn } from '@/features/auth/promptSignIn';
 import { PlaceResults } from '@/features/search/PlaceResults';
@@ -19,9 +20,11 @@ import type { SeatTier } from '@/shared/telemetry/occupancy';
 import { sendReport } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
 import { useRelayStore } from '@/state/relayStore';
+import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
+import { BleCard } from './BleCard';
 import { useBleVehicle } from './useBleVehicle';
 import { useVehicleChoices } from './useVehicleChoices';
 
@@ -51,11 +54,16 @@ type ReportSheetProps = {
 // else picked by hand), then Seats, "What's happening" (optional), the Destination and the GPS
 // switch. Fixed fields only (D2). Sent with GPS, the rider's location is shared on the live map
 // until they reach the destination, which ends it. Earns Energy (with GPS 1.0, without 0.5; each
-// once a Manila day). Unverified until Bluetooth (D5).
+// once a Manila day). Unverified until the verification window (V1).
+// DR8: Bluetooth listens while the panel is open (live data only); a multicab the server verifies
+// fills in the route and vehicle, its newest code goes with the relay, and a check-in on its route ends.
 export function ReportSheet({ routes, initialRoute, vehiclePicker, stopsOf, position, gpsAvailable, checkGps, onClose }: ReportSheetProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
-  const ble = useBleVehicle();
+  const demoData = useSettingsStore((state) => state.demoData);
+  const ble = useBleVehicle(!demoData);
+  const found = ble.view?.kind === 'found' ? ble.view : null;
+  useBoardingEndsCheckIn(found?.vehicle ?? null);
   const { stops } = useRouteData();
   const [pickedRoute, setRoute] = useState<string | null>(initialRoute ?? routes[0]?.code ?? null);
   const [seatTier, setSeatTier] = useState<SeatTier | null>(null);
@@ -77,10 +85,11 @@ export function ReportSheet({ routes, initialRoute, vehiclePicker, stopsOf, posi
   const startBroadcast = useRelayStore((store) => store.start);
 
   // Bluetooth, when it hears the multicab, decides the route and the vehicle
-  const route = ble?.routeCode ?? pickedRoute;
-  const vehicles = useVehicleChoices(ble ? null : route, vehiclePicker);
+  const route = found?.vehicle.routeCode ?? pickedRoute;
+  // T1: the team-account picker lists the route's active vehicles (none while Bluetooth has one)
+  const vehicles = useVehicleChoices(found ? null : route, vehiclePicker);
   // A multicab picked on another route does not count
-  const vehicleId = ble?.vehicleId ?? (vehicles.some((vehicle) => vehicle.id === pickedVehicle) ? pickedVehicle : null);
+  const vehicleId = found?.vehicle.vehicleId ?? (vehicles.some((vehicle) => vehicle.id === pickedVehicle) ? pickedVehicle : null);
   const destinations = useMemo(() => (route ? destinationOptions(stopsOf(route), position) : []), [route, stopsOf, position]);
   const destination = destinations.find((stop) => stop.code === destinationCode) ?? null;
   const chooseDestination = (place: SearchablePlace) => {
@@ -114,7 +123,8 @@ export function ReportSheet({ routes, initialRoute, vehiclePicker, stopsOf, posi
       // B6: the nearest stop goes with every relay, GPS or not, as a code only
       const stopCode = relayStopCode(stops, position);
       const sendGps = gps && checkGps();
-      const result = await sendReport({ routeCode: route, phrase, seatTier, vehicleId, stopCode, withGps: sendGps });
+      const beaconHex = found?.payloadHex ?? null;
+      const result = await sendReport({ routeCode: route, phrase, seatTier, vehicleId, stopCode, withGps: sendGps, beaconHex });
       if (result.ok) {
         onClose();
         if (sendGps && destination) {
@@ -153,7 +163,7 @@ export function ReportSheet({ routes, initialRoute, vehiclePicker, stopsOf, posi
     }
   };
 
-  const bleColor = routes.find((option) => option.code === ble?.routeCode)?.color ?? colors.primary;
+  const bleColor = routes.find((option) => option.code === found?.vehicle.routeCode)?.color ?? colors.primary;
 
   return (
     <Animated.View style={styles.backdrop} entering={FadeIn.duration(motion.dialogMs)}>
@@ -168,18 +178,8 @@ export function ReportSheet({ routes, initialRoute, vehiclePicker, stopsOf, posi
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          {ble ? (
-            // B4 slot: the vehicle heard over Bluetooth replaces the manual pickers
-            <View style={styles.ble} accessible accessibilityLabel={strings.report.bleLabel(ble.routeCode, ble.plate)}>
-              <IconTile icon={Bluetooth} />
-              <View style={styles.grow}>
-                <Text style={typography.labelLg}>{strings.report.bleTitle}</Text>
-                <Text style={typography.bodySm}>{strings.report.bleBody}</Text>
-              </View>
-              <LineBadge code={ble.routeCode} color={bleColor} />
-              <Text style={typography.labelLg}>{ble.plate}</Text>
-            </View>
-          ) : (
+          <BleCard ble={ble} routeColor={bleColor} />
+          {found ? null : (
             <>
               <Text style={typography.labelLg}>{strings.report.route}</Text>
               <View style={styles.chips}>
@@ -376,16 +376,6 @@ const useStyles = makeStyles(({ colors }) => ({
     flexDirection: 'row',
     gap: spacing.sm,
     paddingBottom: spacing.xs,
-  },
-  ble: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + spacing.xs,
-    padding: spacing.sm + spacing.xs,
-    borderRadius: radii.card,
-    backgroundColor: colors.surfaceLow,
-    borderWidth: 1,
-    borderColor: colors.outline,
   },
   gpsRow: {
     minHeight: MIN_TOUCH_TARGET,

@@ -50,6 +50,12 @@
       "@maplibre/maplibre-react-native",
       "expo-asset",
       [
+        "expo-camera",
+        {
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",

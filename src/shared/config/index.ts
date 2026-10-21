@@ -321,8 +321,9 @@ export const GPS_ACCURACY_GATE_RELAY_M = 30;
 export const GPS_ACCURACY_GATE_CHECKIN_M = 25;
 // G0: a fix older than this is stale and refused wherever the gates apply (PRD 10.3)
 export const LOCATION_FIX_MAX_AGE_S = 30;
-// G0: the version of the location consent notice; a new notice asks again (PRD 7.1, 15.1)
-export const LOCATION_CONSENT_VERSION = 1;
+// G0: the version of the location consent notice; a new notice asks again (PRD 7.1, 15.1).
+// 2 (owner, 2026-10-18, backlog 118): the notice names the Bluetooth search in Relay
+export const LOCATION_CONSENT_VERSION = 2;
 // G0: the development fake location source (emulator only): accuracies either side of both gates,
 // and how old a "stale" fix is
 export const FAKE_FIX_ACCURACY_OPTIONS_M = [10, 25, 28, 40] as const;
@@ -414,9 +415,32 @@ export const CONNECTION_PROBE_TIMEOUT_MS = 5000;
 // --- Privacy (PRD 15.1): the contact point for privacy questions and data requests (Emjay, 2026-10-08)
 export const PRIVACY_CONTACT_EMAIL = 'emspar30@gmail.com';
 
-// --- BLE (PRD 10.1, 12.4). Only the smoothing function exists in v0.
+// --- BLE (PRD 10.1, 12.4). Starting hypotheses, tuned by field experiments E1 and E2 (PRD 17.1).
 export const RSSI_SMOOTHING_ALPHA = 0.3;
 export const RSSI_PRESENCE_THRESHOLD_DBM = -65;
+// The stronger of two beacons wins only if it leads by this much; otherwise ambiguous (PRD 10.1)
+export const RSSI_MARGIN_DB = 8;
+// A beacon is present after its smoothed signal stays above the threshold this long (PRD 10.1)
+export const BEACON_PRESENCE_S = 3;
+// DR2: a beacon not heard for this long is gone, whatever its last signal (hypothesis; E1)
+export const BEACON_LOST_S = 10;
+// The commuter app listens for this long once armed (PRD 8.1)
+export const ARMED_SCAN_MIN = 15;
+
+// --- Driver beacon (PRD 8.2, 9.2; DR2, docs/IMPLEMENTATION_PLAN_DRIVER.md section 6.1). Not a secret:
+// every Tunton beacon advertises this service UUID, so commuter phones can filter on it.
+export const BEACON_SERVICE_UUID = '45ca985d-065a-488b-b652-af6ec6cf1b4e';
+export const BEACON_PAYLOAD_VERSION = 1;
+// The rotating code changes every slot; the server accepts the current slot plus or minus the tolerance
+export const BEACON_SLOT_S = 60;
+export const BEACON_SLOT_TOLERANCE = 1;
+// Advertising settings passed to the native module (PRD 9.2: balanced, about 250 ms; power tuned in E1)
+export const BEACON_ADVERTISE_MODE = 'balanced';
+export const BEACON_TX_POWER = 'medium';
+// DR8: the commuter app scans at low latency while the Relay panel is open (the user is waiting on it)
+export const BEACON_SCAN_MODE = 'low_latency';
+// DR8: verify_beacon calls a user may make a minute (the migration repeats it; a test checks they agree)
+export const BEACON_VERIFY_PER_MIN = 30;
 
 // --- SMS protocol v2 (PRD 12.3)
 export const SMS_MAX_AGE_MIN = 30;
@@ -424,3 +448,87 @@ export const SMS_STALE_HEATMAP_MIN = 15;
 export const SMS_SEQ_MODULUS = 10000;
 // A sequence number is newer if it is 1 to this many ahead of the last one, modulo SMS_SEQ_MODULUS.
 export const SMS_SEQ_NEWER_WINDOW = 5000;
+// One text SMS holds 160 GSM-7 septets; a data SMS 140 bytes, less the 7-byte port header
+// (DATA_SMS_MAX_BYTES is confirmed on the pilot carrier in DR5)
+export const SMS_TEXT_MAX_SEPTETS = 160;
+export const DATA_SMS_MAX_BYTES = 133;
+// The driver app listens for data SMS on this port (not a well-known port)
+export const DATA_SMS_PORT = 8901;
+
+// --- Heatmap dispatch (PRD 9.6; the SMS worker, DR6). Per route, the worker sends when a stop's
+// count changes by DISPATCH_MIN_CHANGE or more, when an empty stop gets someone (owner, 2026-10-15),
+// or every DISPATCH_INTERVAL_MIN while any count is above zero, and only between the operating hours (minutes after midnight, Asia/Manila).
+// Owner, 2026-10-18: all day, so the app can be tested at any hour (Q6 was 05:00 to 21:00: 300 and 1260)
+export const SMS_DISPATCH_MIN_CHANGE = 2;
+export const SMS_DISPATCH_INTERVAL_MIN = 5;
+export const SMS_OPERATING_START_MIN = 0;
+export const SMS_OPERATING_END_MIN = 1440;
+// The gateway waits this long between two sends (PRD 16 risk 3: carrier spam filters). DR5's
+// carrier test uses it; the gateway service in DR7 too.
+export const GATEWAY_SEND_GAP_MS = 1500;
+
+// --- SMS worker (DR6; docs/IMPLEMENTATION_PLAN_DRIVER.md section 7). The worker checks the counts
+// every WORKER_CYCLE_S and reloads the driver phones (and their keys) every WORKER_DEVICE_REFRESH_MIN.
+export const WORKER_CYCLE_S = 30;
+export const WORKER_DEVICE_REFRESH_MIN = 10;
+// A queued message not sent within this is dropped: a stale count is worse than none (it must stay
+// under SMS_MAX_AGE_MIN, or the driver phone would refuse it anyway)
+export const SMS_OUTBOX_TTL_MIN = 10;
+// The gateway has this long to report a message it took, before it goes back to the queue
+export const SMS_CLAIM_LEASE_S = 120;
+export const SMS_SEND_MAX_ATTEMPTS = 3;
+// The gateway's HTTP API: request bodies above this are refused; at most GATEWAY_PULL_MAX messages
+// per pull; the gateway pulls every GATEWAY_PULL_S and sends a heartbeat every GATEWAY_HEARTBEAT_S
+export const WORKER_BODY_MAX_BYTES = 4096;
+export const GATEWAY_PULL_MAX = 10;
+export const GATEWAY_PULL_S = 10;
+export const GATEWAY_HEARTBEAT_S = 60;
+// The gateway gives up waiting for Android's "sent" result after this (DR7)
+export const GATEWAY_SENT_TIMEOUT_S = 30;
+// DR7: when the worker cannot be reached, the gateway waits these steps before trying again (then
+// stays at the last), and keeps this many recent events for its log screen
+export const GATEWAY_BACKOFF_S = [10, 30, 60, 120] as const;
+export const GATEWAY_EVENTS_MAX = 100;
+// Health alerts (Q9: dashboard only), checked during the operating hours (now all day), at most one per kind per
+// OPS_ALERT_QUIET_MIN: no gateway heartbeat for GATEWAY_HEARTBEAT_ALERT_MIN; more than
+// GATEWAY_FAIL_ALERT_RATIO of the last hour's messages failed (once at least
+// GATEWAY_FAIL_ALERT_MIN_MESSAGES were tried); 90 % of messages took more than SMS_LATENCY_P90_TARGET_S
+// from queued to sent (PRD 13)
+export const GATEWAY_HEARTBEAT_ALERT_MIN = 5;
+export const GATEWAY_FAIL_ALERT_RATIO = 0.05;
+export const GATEWAY_FAIL_ALERT_MIN_MESSAGES = 20;
+export const SMS_LATENCY_P90_TARGET_S = 60;
+export const OPS_ALERT_QUIET_MIN = 60;
+// The worker's port when PORT is not set (the gateway's development setup code uses it)
+export const WORKER_DEFAULT_PORT = 8787;
+
+// --- Driver app (PRD 9.4; DR5). Waiting counts are shown in bands: 0, 1 to 4, 5 to 9, 10 or more.
+export const HEATMAP_BAND_EDGES = [1, 5, 10] as const;
+// Q5: exact numbers in the list (the map shows bands). Q11: bands only during Night Mode.
+export const DRIVER_SHOW_EXACT_COUNTS = true;
+export const DRIVER_NIGHT_BANDS_ONLY = true;
+// Backlog 125: the driver home on a short phone (the HONOR X8c is 360 x 804 dp, the Xiaomi
+// 2311DRK48G 406 x 904). Below this height the stale notice shows its title only and the plate card is
+// tighter, so the stop list and the map keep their room
+export const DRIVER_COMPACT_HEIGHT_DP = 860;
+// The driver phone warns when its clock is off by more than this (PRD 8.2, 14)
+export const CLOCK_DRIFT_WARN_S = 90;
+// The clock estimate looks at the last few heatmap messages' carrier timestamps
+export const CLOCK_DRIFT_SAMPLES = 5;
+// DR5: the native inbox keeps this many heatmap messages until the app drains them (the oldest go
+// first), and the admin screen lists this many recent results, accepted or not
+export const DRIVER_INBOX_MAX = 50;
+export const DRIVER_RECENT_LOG_MAX = 20;
+// The driver's map (owner's decision 2026-10-14, replacing "no gestures"): it may be dragged and
+// zoomed within the offline tiles; each zoom button moves this many levels, and from this many levels
+// above the default view (the route framed) each stop shows its count instead of only its colour
+export const DRIVER_MAP_ZOOM_STEP = 1;
+export const DRIVER_MAP_DETAIL_ZOOM = 0.75;
+// It zooms out no further than the default view (the route framed between the panels, worked out
+// per screen) and in at most this many levels more
+export const DRIVER_MAP_MAX_ZOOM_IN = 3;
+
+// --- Provisioning (PRD 9.5; DR3, DR4). A setup QR expires this long after it is printed.
+export const PROVISIONING_QR_TTL_MIN = 15;
+// Q12: the admin screens are behind a PIN of this many digits
+export const ADMIN_PIN_DIGITS = 6;

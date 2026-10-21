@@ -1,0 +1,5 @@
+<!-- Empty on purpose: this module is linked into every app variant, so the driver app's SMS receiver
+     and RECEIVE_SMS come from plugins/withDriverAndroid.js, and the gateway app's SEND_SMS and
+     READ_PHONE_STATE from plugins/withGatewayAndroid.js (DR5). The commuter app gets none of them. -->
+<manifest>
+</manifest>

@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import { create } from 'zustand';
 
 import { getSupabase, isSupabaseConfigured, readStoredSession } from '@/services/supabase';
@@ -71,6 +72,18 @@ export function startSessionTracking(): void {
       });
 
     auth.onAuthStateChange((event, session) => apply(event, session));
+
+    // Backlog 124: outside a browser supabase-js refreshes the session on a timer that never stops,
+    // so it also fires in the background, where Android may freeze the app or cut its network mid
+    // request. The server then has rotated the refresh token, the phone still holds the old one, the
+    // next try counts as reuse and the session is revoked (the HONOR was signed out overnight). As
+    // supabase-js asks of React Native apps: refresh only while the app is in front.
+    const followForeground = (state: string) => {
+      if (state === 'active') void auth.startAutoRefresh();
+      else void auth.stopAutoRefresh();
+    };
+    followForeground(AppState.currentState);
+    AppState.addEventListener('change', followForeground);
   } catch (error) {
     apply(null, null);
     useSessionStore.setState({ error: error instanceof Error ? error.message : String(error) });

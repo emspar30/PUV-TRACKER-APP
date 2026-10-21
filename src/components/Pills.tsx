@@ -9,7 +9,7 @@ const CHECK_SIZE = spacing.md;
 const CHIP_HIT_SLOP = (MIN_TOUCH_TARGET - CHIP_HEIGHT) / 2;
 const DOT_SIZE = spacing.sm;
 
-export type StatusTone = 'success' | 'warning' | 'neutral';
+export type StatusTone = 'success' | 'warning' | 'danger' | 'neutral';
 
 // A small status label such as "Live", "Stale · 3 min" or "No data", with a coloured dot
 export function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {
@@ -18,6 +18,8 @@ export function StatusPill({ label, tone }: { label: string; tone: StatusTone })
   const tones = {
     success: { fill: colors.successContainer, text: colors.success },
     warning: { fill: colors.warningContainer, text: colors.warning },
+    // The driver app's admin screen (a stopped beacon)
+    danger: { fill: colors.dangerContainer, text: colors.danger },
     neutral: { fill: colors.surface, text: colors.textSecondary },
   };
   const { fill, text } = tones[tone];

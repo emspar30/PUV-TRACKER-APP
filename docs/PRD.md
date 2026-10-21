@@ -534,7 +534,7 @@ On Android, any app with SMS permission can read an incoming text, but only the 
 
 | Path | How it works | Trade-offs |
 | --- | --- | --- |
-| Primary: data SMS | The gateway app sends a binary message to a private port with `sendDataMessage`. The driver app receives it through the `DATA_SMS_RECEIVED` broadcast. These messages do not appear in the inbox. | Needs carrier support for port-addressed SMS; must be tested on the pilot network |
+| Primary: data SMS | The gateway app sends a binary message to a private port with `sendDataMessage`. The driver app receives it through the `DATA_SMS_RECEIVED` broadcast. These messages do not appear in the inbox. | Needs carrier support for port-addressed SMS; must be tested on the pilot network (tested 2026-10-18: Globe gateway to a TNT phone, all delivered) |
 | Fallback: text SMS | Plain text signed message read through `SMS_RECEIVED`. | The default messaging app may still show a notification; the driver device should have notifications disabled for that app |
 
 - **Distribution:** SMS permissions are heavily restricted on Google Play, so the driver app is distributed as a signed APK by the cooperative and the research team, not through the Play Store.
@@ -547,7 +547,7 @@ On Android, any app with SMS permission can read an incoming text, but only the 
 - Static map of the assigned route with terminal icons.
 - Glowing node over each terminal, sized by waiting count (0, 1 to 4, 5 to 9, 10 or more).
 - Large text and 48 dp or larger touch targets, readable in sunlight and in a moving vehicle.
-- Status strip showing Bluetooth on, last SMS received, clock drift and battery.
+- Status strip showing the beacon (Bluetooth on) and the battery, with "Charging" only while charging (owner decision, 2026-10-18). The time of the last SMS shows above the list and in the stale notice; clock drift shows as a warning only when the clock is off (section 8.2).
 
 ### 9.5 Provisioning
 
@@ -561,8 +561,9 @@ An admin provisions each driver device once, in person:
 ### 9.6 SMS gateway
 
 - **Gateway app:** a small custom Kotlin app on a dedicated phone on mains power, with a UPS or power bank for outages. It pulls queued messages from the Node.js worker over HTTPS and sends them by SMS.
-- **Dispatch policy:** send only when a terminal's count changes by 2 or more, or every 5 minutes while any count is above zero. This limits volume.
-- **Volume planning:** at one message per 5 minutes over 14 operating hours, a vehicle receives about 170 messages a day. A 10-vehicle pilot is then about 1,700 messages a day, which the SMS plan must be confirmed to allow.
+- **Dispatch policy:** send only when a terminal's count changes by 2 or more, when a terminal that had nobody waiting gets someone, or every 5 minutes while any count is above zero. This limits volume while a lone commuter at an empty terminal still reaches the driver within a minute (owner decision, 2026-10-15).
+- **Operating hours:** all day (owner decision, 2026-10-18, so the app can be tested at any hour; the plan's Q6 was 05:00 to 21:00). Whether the pilot keeps 24/7 is decided before the pilot.
+- **Volume planning:** at one message per 5 minutes over 14 operating hours, a vehicle receives about 170 messages a day (more if the pilot runs all day while people wait at night). A 10-vehicle pilot is then about 1,700 messages a day, which the SMS plan must be confirmed to allow.
 - **Telco terms:** consumer "unlimited SMS" promos usually have fair-use rules. The project must either confirm written allowance, use several SIMs, or move to a licensed SMS provider before the pilot. This is a key risk (section 16).
 - **Health monitoring:** the worker tracks send success, delivery latency and battery of the gateway phone and alerts the admin.
 

@@ -38,6 +38,16 @@ export async function askLocationPermission(): Promise<PermissionResult> {
   return toPermissionResult(await Location.requestForegroundPermissionsAsync());
 }
 
+// DR8: whether the phone's location setting is on. Android delivers Bluetooth scan results to the
+// commuter app only then (it scans without the neverForLocation flag)
+export async function locationServicesOn(): Promise<boolean> {
+  try {
+    return await Location.hasServicesEnabledAsync();
+  } catch {
+    return false;
+  }
+}
+
 // Starts foreground position updates and returns the function that stops them
 export async function watchLocation(onFix: (fix: LocationFix) => void): Promise<() => void> {
   const subscription = await Location.watchPositionAsync(

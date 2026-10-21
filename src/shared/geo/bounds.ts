@@ -87,3 +87,10 @@ export function roundView([west, south, east, north]: Bounds, stepDeg: number): 
   const spanLat = Math.ceil(Math.abs(north - south) / stepDeg) * stepDeg;
   return [0, 0, spanLon, spanLat];
 }
+
+// The driver's map (owner, 2026-10-14): the highest latitude the camera centre may reach so the top
+// of the screen stays on the tiles, given how far the screen reaches above its centre. Never below
+// `keepLat` (the default view's centre, which must stay reachable) nor the tiles' south edge.
+export function northCenterCap(tiles: Bounds, aboveCenterDeg: number, keepLat: number): number {
+  return Math.max(tiles[3] - aboveCenterDeg, keepLat, tiles[1]);
+}

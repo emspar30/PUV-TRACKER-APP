@@ -12,6 +12,8 @@ const shared = {
     '<rootDir>/src/shared/**/__tests__/**/*.test.ts',
     '<rootDir>/supabase/functions/_shared/**/*.test.ts',
     '<rootDir>/tests/integration/**/*.test.ts',
+    // DR6: the SMS worker (plain Node)
+    '<rootDir>/services/sms-worker/__tests__/**/*.test.ts',
   ],
   transform: expoPreset.transform,
   // @noble/hashes ships ES modules only, and so does the module Expo's Babel preset
@@ -27,6 +29,9 @@ const app = {
   preset: 'jest-expo',
   testMatch: ['<rootDir>/src/**/__tests__/**/*.test.{ts,tsx}'],
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/src/shared/'],
+  // DR5: the driver app's tests check signed messages, so @noble/hashes (ES modules only) is
+  // transformed here too, as in the shared project
+  transformIgnorePatterns: expoPreset.transformIgnorePatterns.map((pattern) => pattern.replace('/node_modules/(?!(', '/node_modules/(?!(@noble|')),
   moduleNameMapper: { ...expoPreset.moduleNameMapper, ...moduleNameMapper },
 };
 
