@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
-import { countOutbox, pushOutbox, readOutbox, removeOutbox } from '@/data/db/telemetryOutbox';
+import { drainOutbox, pushOutbox } from '@/data/db/telemetryOutbox';
 import { getLocalDb } from '@/data/RouteDataProvider';
 import { sendTelemetryBatch } from '@/services/telemetry';
 import type { RelayBroadcast } from '@/shared/relay/broadcast';
-import { nextBatch, retryDelayS, sendOutcome } from '@/shared/telemetry/outbox';
+import { retryDelayS } from '@/shared/telemetry/outbox';
 import type { TelemetryPacket } from '@/shared/telemetry/packet';
 import { nextPacket, type BroadcastFix } from '@/shared/telemetry/sendRule';
 import { useLocationStore } from '@/state/locationStore';
@@ -55,39 +55,37 @@ export function useGpsBroadcast(session: RelayBroadcast | null, teamAccount: boo
     flushing.current = true;
     if (retryTimer.current) clearTimeout(retryTimer.current);
     retryTimer.current = null;
+    flushAgain.current = false;
     try {
-      for (;;) {
-        flushAgain.current = false;
-        const batch = nextBatch(await readOutbox(db));
-        if (!batch) break;
-        const outcome = sendOutcome(await sendTelemetryBatch(batch.vehicleId, batch.points));
-        if (outcome === 'retry') {
-          failures.current += 1;
-          setFailing(true);
-          retryTimer.current = setTimeout(() => void flushRef.current(), retryDelayS(failures.current) * MS_PER_S);
-          break;
-        }
-        await removeOutbox(db, batch.ids);
+      // Equal to batch by batch: any batch leaving the buffer resets the failures, a failure counts one
+      const drained = await drainOutbox(db, sendTelemetryBatch, Date.now);
+      if (drained.progressed) {
         failures.current = 0;
         setFailing(false);
-        if (outcome === 'sent') setSent({ startedMs: startedRef.current, atMs: Date.now() });
       }
-      setSaved(await countOutbox(db));
+      if (drained.sentAtMs !== null) setSent({ startedMs: startedRef.current, atMs: drained.sentAtMs });
+      if (drained.retry) {
+        failures.current += 1;
+        setFailing(true);
+        retryTimer.current = setTimeout(() => void flushRef.current(), retryDelayS(failures.current) * MS_PER_S);
+      }
+      setSaved(drained.remaining);
     } catch {
       // The local database is closing (a reload); the buffer is read again next time
     } finally {
       flushing.current = false;
     }
-    if (flushAgain.current && !retryTimer.current) void flush();
+    if (flushAgain.current && !retryTimer.current) void flushRef.current();
   }, [teamAccount]);
 
   useEffect(() => {
     flushRef.current = flush;
   }, [flush]);
 
-  // Send what is left in the buffer at start and whenever the app comes back to the foreground
+  // Send what is left in the buffer at start and whenever the app comes back to the foreground.
+  // Through the ref (set by the effect above, which runs first), as the retry timer does
   useEffect(() => {
-    void flush();
+    void flushRef.current();
     const subscription = AppState.addEventListener('change', (state) => {
       setActive(state === 'active');
       if (state === 'active') void flush();

@@ -61,7 +61,7 @@ import { projectOntoLine } from '@/shared/geo/line';
 import { withReturnLegs } from '@/shared/routing/loop';
 import type { RouteDirection } from '@/shared/routing/types';
 import { isNight } from '@/shared/backend/rules';
-import { ageSeconds, routeCoverage } from '@/shared/telemetry/coverage';
+import { ageSeconds, nudgeShown, routeCoverage } from '@/shared/telemetry/coverage';
 import { displayPosition, isGhostAge } from '@/shared/telemetry/deadReckoning';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
@@ -195,8 +195,9 @@ export default function MapScreen() {
   const offTeam = repos.vehicles.source === 'live' && teamAccount === false;
   // CF1 coverage nudge: the picked route has no Live multicab (whatever the seat filter), by day,
   // for anyone who could see one. Overlapping routes are then watched for an alternative nearby.
-  const routeLive = routeCoverage(live.vehicles.map((item) => ageSeconds(item.lastPacketMs, live.nowMs))).coverage === 'live';
-  const nudgeOn = focused && selectedRoute !== null && live.nowMs > 0 && !routeLive && !night && !offTeam;
+  const nudgeOn =
+    focused &&
+    nudgeShown({ routePicked: selectedRoute !== null, lastPacketsMs: live.vehicles.map((item) => item.lastPacketMs), nowMs: live.nowMs, night, offTeam });
   const overlapping = useMemo(() => (selectedRoute ? overlappingRoutes(stops, selectedRoute) : []), [stops, selectedRoute]);
   const others = useRoutesVehicles(repos.vehicles, overlapping, !nudgeOn);
   const alternative = useMemo(

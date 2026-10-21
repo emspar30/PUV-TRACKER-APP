@@ -22,6 +22,7 @@ import type { PickTarget, PickedPoint } from '@/features/ride/PointPills';
 import { FareSummaryCard, SuggestedRouteCard } from '@/features/ride/RideCards';
 import { RideFailure } from '@/features/ride/RideResult';
 import { TripCard } from '@/features/ride/TripCard';
+import { pointParam } from '@/navigation/tripParams';
 import { FARE_REGULAR_MULTIPLIER, FREQUENT_DESTINATIONS_MAX, SKELETON_MIN_MS } from '@/shared/config';
 import { discountMultiplier } from '@/shared/fare/fare';
 import { boundsOfLines, clipBounds, withMinimumSpan } from '@/shared/geo/bounds';
@@ -62,13 +63,6 @@ function routeCards(lines: DirectedLine[]): RouteCard[] {
       lines.find((line) => line.routeCode === code && line.direction === 'outbound') ?? lines.find((line) => line.routeCode === code);
     return { code, name: first?.name.split(',')[0] ?? code };
   });
-}
-
-// CA1: a point passed in the route's parameters, or null when any part is missing or not a number
-function pointParam(lat: string | undefined, lon: string | undefined, title: string | undefined): PickedPoint | null {
-  const point = { lat: Number(lat), lon: Number(lon) };
-  if (lat === undefined || lon === undefined || !title || !Number.isFinite(point.lat) || !Number.isFinite(point.lon)) return null;
-  return { ...point, label: title };
 }
 
 // My Rides (restyle): From and To, the distance and fare, the best-matching route with ways on to

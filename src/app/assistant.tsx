@@ -11,6 +11,7 @@ import { replyOf, STARTER_CHIPS, type ChipAction, type Reply } from '@/features/
 import { useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useSearchablePlaces } from '@/features/search/useSearchablePlaces';
 import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
+import { tripParams } from '@/navigation/tripParams';
 import { answer, routesToWatch, type AssistantContext } from '@/shared/assistant/answer';
 import { parseQuery, type Intent } from '@/shared/assistant/intent';
 import { isNight } from '@/shared/backend/rules';
@@ -29,23 +30,11 @@ type Entry = { id: number; question: string; intent: Intent };
 // A chip that leaves the conversation: the Map tab (with a route) or My Rides (with the trip). Each
 // tap carries a new time stamp, so the tab applies it once.
 function open(action: Exclude<ChipAction, { kind: 'ask' }>) {
-  const at = String(Date.now());
   if (action.kind === 'openMap') {
-    router.navigate(action.route ? { pathname: '/', params: { route: action.route, at } } : '/');
+    router.navigate(action.route ? { pathname: '/', params: { route: action.route, at: String(Date.now()) } } : '/');
     return;
   }
-  const { from, to, route } = action;
-  router.navigate({
-    pathname: '/ride',
-    params: {
-      toLat: String(to.lat),
-      toLon: String(to.lon),
-      toTitle: to.title,
-      ...(from ? { fromLat: String(from.lat), fromLon: String(from.lon), fromTitle: from.title } : {}),
-      route,
-      at,
-    },
-  });
+  router.navigate({ pathname: '/ride', params: tripParams(action, Date.now()) });
 }
 
 // CA1: Ask Tunton, the offline assistant (PRD 19.5). A question is typed or tapped as a chip, parsed

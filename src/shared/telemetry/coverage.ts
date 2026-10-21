@@ -25,3 +25,11 @@ export function routeCoverage(agesS: readonly number[]): RouteCoverage {
   const youngest = Math.min(...agesS);
   return { coverage: coverageOf(youngest), youngestAgeS: youngest };
 }
+
+// CF1 coverage nudge: the picked route has no Live multicab, by day, for anyone who could see one.
+// nowMs is 0 until the first vehicles have arrived.
+export function nudgeShown(options: { routePicked: boolean; lastPacketsMs: readonly number[]; nowMs: number; night: boolean; offTeam: boolean }): boolean {
+  const { routePicked, lastPacketsMs, nowMs, night, offTeam } = options;
+  if (!routePicked || nowMs <= 0 || night || offTeam) return false;
+  return routeCoverage(lastPacketsMs.map((lastMs) => ageSeconds(lastMs, nowMs))).coverage !== 'live';
+}
