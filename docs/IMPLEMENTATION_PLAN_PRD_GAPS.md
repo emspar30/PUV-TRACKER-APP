@@ -56,20 +56,62 @@ Each decision has a recommendation. The step waits only on its own decision.
 
 - **D1:** 50 m arrival with the 60 s countdown, approved. Change: the idle stop must not end a relay at long traffic lights. **High-traffic zones** (geofences of `HIGH_TRAFFIC_ZONE_RADIUS_M`, 150 m, around each point) hold the idle clock while the rider is inside an active zone:
   - all day: 8.947640, 125.540652; 8.947401, 125.536297; 8.945686, 125.531917;
-  - rush hour, 16:00 to 18:59 Asia/Manila: 8.961681, 125.602418; 8.951828, 125.553233; 8.947254, 125.544264.
+  - rush hour, 16:00 to 18:59 Asia/Manila: 8.961681, 125.602418; and the whole Magsaysay Bridge, the straight stretch from 8.951828, 125.553233 to 8.947254, 125.544264 (about 1.1 km; Emjay, 2026-10-22).
+  - A zone is a point, or a stretch of road between two points; the radius applies along the whole stretch.
 - **D2 to D8:** as recommended in the table above. D5's `expo-task-manager` is approved for when B1 starts.
+
+**Decided later (Emjay, 2026-10-22 and 2026-10-23), for RL2:**
+
+These decisions replace the "Share with GPS" switch with the relay flow in section 4, "RL2 The relay flow". Earlier drafts (a "Use my GPS" switch, relays without a beacon, a speed test before release) were dropped on 2026-10-23.
+
+- **D9 Location and the live map switch:**
+  - Every relay needs the phone's location, to check that the rider is at the multicab's route. When Relay opens without it, the app asks: the consent screen (G0) if needed, then Android's "Turn on location" dialog.
+  - The form has one switch, "Show me on the live map". It is off by default, and the rider's last choice is remembered.
+- **D10 Beacon required, and Energy:**
+  - A relay needs a verified multicab beacon. With none heard, the form is greyed out and says no registered multicab was detected.
+  - The rider must also be near that multicab's route line or one of its stops.
+  - The form shows the multicab's route and plate, never the beacon's id.
+  - Copying a beacon does not work: renaming a phone's Bluetooth or copying a beacon's id fails, because the code changes every `BEACON_SLOT_S` (60 s) and the server checks it with a secret. A recorded code passes for about 2 minutes (`BEACON_SLOT_TOLERANCE`); the route check stops it being used away from the route. The route check runs on the phone, so a modified app could skip it; Play Integrity (out of scope, PRD 0.6) is the later answer.
+  - Earning: on the live map +1.0, in Crowdsource +0.5. No daily limit; the wallet cap (`ENERGY_WALLET_CAP`, 5) stays.
+  - A multicab the rider relayed in the last `RELAY_SAME_VEHICLE_GAP_H` (3 h) is refused with "You already relayed this multicab.", even with other multicabs in between. Different multicabs always earn, however close together (for example two rides to school).
+- **D11 "Near" stop:** the stop nearest the rider when the relay is released. It does not follow the rider; readers judge from the stop and the post's age.
+- **D12 Queued relay:**
+  - Every relay is queued on the phone first. At a stop a multicab is expected to be loading, and hearing several beacons there is normal.
+  - It is released (posted, or shown on the live map) when exactly one beacon is heard and the rider has moved 50 m along the route line. That beacon's multicab is the one relayed, so a rider who moved to another parked multicab relays that one.
+  - In a multicab already moving between stops, release takes a few seconds.
+  - The queue waits up to `RELAY_QUEUE_MAX_MIN` (30 min) while the multicab stays and the rider stays near it with location on.
+  - It ends, with nothing posted or earned, when:
+    - the rider walks away (no beacon for 30 s);
+    - location is turned off;
+    - 30 minutes pass;
+    - the phone's battery runs out, or the phone switches off.
+  - If the battery runs out after release, the relay stops by itself: the phone sends a small "still riding" signal every `RELAY_HEARTBEAT_MIN` (5 min), with no coordinates, and the post is removed `RELAY_POST_GRACE_MIN` (15 min) after the last one.
+  - Switching to another app (for example social media) does not end it: the queue keeps running in the background (B1, moved up).
+  - This is how the PRD's Smart Queue (10.1 steps 4 to 6) is built, without the Energy escrow: nothing is posted or earned before release.
+- **Testing (Emjay, 2026-10-23):**
+  - In demo data only, a multicab picked by hand counts as a beacon heard, because the emulator has no Bluetooth.
+  - Team accounts get no such exception.
+  - The field test uses real accounts on the live project: Emjay's phone runs the driver app (`APP_VARIANT=driver`, provisioned with `scripts/provision-driver.ts` as a vehicle on the route ridden) and is the beacon. The partner's phone runs the commuter app and relays from the same multicab.
+  - **First test phase:** only the multicab carrying Emjay's driver phone can be relayed; relays without a beacon stay refused (Emjay, 2026-10-23).
+    - The partner and friends make their own commuter accounts and use the app normally. The test checks the beacon, the relay, GPS and Bluetooth, and the checks and limits above.
+    - Usability testing is on commuters only. Drivers see a demo and answer questions and the SUS survey.
+    - The driver app has no sign-in. A phone becomes a multicab's beacon once, by a setup QR from `scripts/provision-driver.ts` (for example `--vehicle R4-TEST-02 --plate "TEST 002" --route R4`).
 
 ## 3. Order
 
 | # | Step | Size | Waits for | Why here |
 | --- | --- | --- | --- | --- |
 | 1 | RL1 relay session limits | S | D1 to D3 | Pure logic, no server change; every later relay step uses it. |
+| 1a | RL2a relay gate and form (location, beacon, route check, live map switch) | M | RL1, D9 to D11, approval of a migration | Uses RL1's end rules for Crowdsource relays. |
+| 1b | RL2b Energy for relays | S | RL2a, D10, approval of a migration | Changes the earning rule RL2a's form shows. |
+| 1c | RL2c queued relay | M | RL2b, D12 | Closes the terminal and roadside farming holes; this is SQ1. |
+| 1d | B1 background relay (moved up from 5) | M | RL2c, D5, native rebuild, P | The queue and the relay keep running while the rider uses other apps (D12). |
 | 2 | NM1 Night Mode stop view | M | Approval of a migration and the `ingest` deploy | Independent. The PRD's precondition (after S9) is met. |
 | 3 | RK1 risk signals | S | Approval of a migration and the `ingest` deploy | V1a and MOD1 read its events. |
 | 4 | V1a verification window (speed, route, displacement, BLE) | L | RL1, RK1 | The core of S8. The traced lines (ST2-C2) are good enough to build and test on; field values come in S10. |
-| 5 | B1 background relay | M | D5, native rebuild, P | BT1 hands off between phones that are asleep. |
+| 5 | B1 background relay | — | — | Moved up to 1d (D12). |
 | 6 | BT1 Primary and Secondary | L | V1a, B1 | Completes S8's acceptance criteria. |
-| 7 | SQ1 Smart Queue | M | V1a | Needs the verification lock and Energy escrow. |
+| 7 | SQ1 Smart Queue | — | — | Folded into RL2c (D12). |
 | 8 | MOD1a, MOD1b moderation | L | D4, V1a | Needs verified evidence. |
 | 9 | DT1 detours | M | D8, V1a | Needs data. |
 | 10 | V1b activity recognition | M | D6, field rides | Only if needed. |
@@ -101,6 +143,124 @@ Each decision has a recommendation. The step waits only on its own decision.
   - **U:** at 3 h the prompt shows; Keep restarts the clock; no answer ends it as `capped`.
   - **U:** `flows.test.ts` covers a simulated ride to its destination.
   - **E:** a pinned simulated position walked to the destination shows the countdown.
+
+### RL2 The relay flow (D9 to D12)
+
+This is the whole flow. It is built in four steps, each its own commit:
+
+- **RL2a, the Relay form's checks:** location, beacon, route check, the live map switch, and the server change that refuses relays without a beacon.
+- **RL2b, the Energy rules:** +1 / +0.5, and the same-multicab refusal.
+- **RL2c, the waiting queue:** a relay is posted only once the multicab moves.
+- **B1, the background relay:** the queue and the relay keep running in other apps.
+
+1. **Open.** The rider taps the Relay round button on the Live map.
+2. **Location.**
+   - With no location permission, the consent screen (G0) shows. With the phone's location off, Android's "Turn on location" dialog shows.
+   - If the rider declines, the form stays greyed out with "Relay needs your location."
+   - Until a fix of 30 m accuracy or better comes, the form shows "Waiting for your location…".
+3. **Beacon.**
+   - Bluetooth scans, as in DR8, and the server checks each beacon's code (`verify_beacon`). While scanning, the card reads "Looking for the multicab…".
+   - With nothing verified after `RELAY_BEACON_WAIT_S` (15 s), the form is greyed out with "No registered multicab detected. This multicab may not be registered with Tunton."
+   - The scan keeps going, so the form opens up when a beacon is verified.
+4. **Route check.**
+   - The rider's fix must be within `ROUTE_SNAP_DISTANCE_M` (30 m) of a heard multicab's route line, or within `RELAY_STOP_AREA_M` (60 m) of one of its stops.
+   - Otherwise the form is greyed out with "You are not on Route <code>'s route."
+5. **Form.**
+   - The card shows the route and plate of the one multicab heard, or "2 multicabs here · R4" when several are heard. It never shows a beacon id.
+   - The route and vehicle pickers go: the beacon decides.
+   - The form asks for:
+     - seats;
+     - what's happening (optional);
+     - the destination, which is required because reaching it ends the relay;
+     - "Show me on the live map", which is remembered from the rider's last relay.
+6. **Send:** the relay is **queued**. Nothing goes to the server yet.
+7. **Queued.**
+   - The Relay bar reads "Queued · waiting for the multicab to move", with Cancel.
+   - **Release:** exactly one beacon is present and the rider has moved `MIN_DISPLACEMENT_M` (50 m) along the route line from where they queued, for two fixes in a row. The phone then sends the relay with that beacon's newest code.
+   - **Ends, with nothing posted or earned** (a notification says why):
+     - no beacon heard for `RELAY_QUEUE_BEACON_LOST_S` (30 s): "You left the multicab. Your relay was cancelled.";
+     - location turned off or lost: "Location is off. Your relay was cancelled.";
+     - still queued after `RELAY_QUEUE_MAX_MIN` (30 min): "The multicab did not leave in time. Your relay was cancelled.";
+     - the multicab at release is on another route than the destination's: "You boarded a multicab on another route. Relay again.";
+     - the multicab at release was relayed in the last 3 h: "You already relayed this multicab.";
+     - Cancel;
+     - the battery runs out or the phone switches off: nothing was sent, so nothing is left behind.
+   - Switching to another app does not end the queue (B1).
+8. **Posted.**
+   - The server checks again: the beacon code is valid and names the multicab, and the same multicab was not relayed by this rider in the last 3 h. It refuses a relay with no valid beacon.
+   - The server then books the Energy (D10).
+   - On the live map: positions are sent, as now.
+   - In Crowdsource: the post names the stop nearest the release point (D11) and sends no coordinates.
+   - Both end by RL1's rules: arrival, idle, or the 3-hour cap.
+   - **Battery runs out after release:** a Crowdsource post is kept alive by a "still riding" signal every 5 min (no coordinates) and is removed 15 min after the last one. A live map marker already turns "Estimated" and then disappears when positions stop (CF1).
+
+### RL2a Relay gate and form (D9, D10 without Energy, D11)
+
+- **Build:**
+  - `src/shared/relay/gate.ts` (pure): steps 2 to 4 of the flow. Its input is the location state, the beacons heard (verified), the fix, and the routes' lines and stops. It answers `ok` with the multicabs, `no_location`, `waiting_fix`, `searching`, `no_beacon` or `off_route`.
+  - `ReportSheet.tsx`:
+    - the greyed-out states and their messages;
+    - the card with route and plate;
+    - the route and vehicle pickers removed;
+    - the destination required;
+    - one switch, "Show me on the live map", persisted in `settingsStore` (`relayLiveMap`, default off).
+  - Location prompts: G0 consent, then Android's "Turn on location" dialog (the `expo-location` call is checked in the SDK 57 docs before building).
+  - The relay session (`relayStore`) gains `mode: 'live' | 'feed'` and the post's id. `useGpsBroadcast` sends positions only in `live`. RL1's watch runs in both modes. The Relay bar shows the Crowdsource mode ("In Crowdsource · ends at your stop").
+  - Until RL2c, Send posts at once (the queue comes in RL2c).
+  - **Server** (one migration):
+    - `feed_posts.live_map boolean not null default false`, set to `with_gps` for existing rows;
+    - a 9-argument `post_report` adds `live_map` and refuses a relay without a valid beacon. The older versions lose their grant, so builds from before RL2a cannot relay;
+    - `expires_at`: now plus `RELAY_POST_GRACE_MIN` (15 min). The phone calls `renew_report(post bigint)` every `RELAY_HEARTBEAT_MIN` (5 min) while the relay runs, which moves it to now plus 15 min. If the battery runs out, the post is gone within 15 min;
+    - a post that lapsed during a dead zone comes back on the next `renew_report`, if it lapsed less than 30 min ago and the relay is still running;
+    - `end_report(post bigint)` sets `expires_at` to now. Both calls are for the post's author only;
+    - the feed reads `live_map = false` instead of `with_gps = false` (`services/crowd.ts`, `crowdsource.tsx:93`).
+  - When RL1 ends a Crowdsource relay, the phone calls `end_report`, retried through the outbox when offline. Stop on the Relay bar also calls it.
+  - Demo data only: a hand-picked multicab counts as heard (D12, Testing).
+- **Accept:**
+  - **U:** `gate.ts`: no permission gives `no_location`; no verified beacon after 15 s gives `no_beacon`; a beacon with the rider 100 m from its line and stops gives `off_route`; 20 m from the line gives `ok`; 50 m from a stop and off the line gives `ok`.
+  - **U:** the live map switch is remembered after the app restarts.
+  - **U:** a `feed` session sends no positions; its RL1 end calls `end_report` once, also when the end comes offline.
+  - **U:** a `feed` session calls `renew_report` every 5 min; with the app stopped (battery out), no call comes and the post lapses after 15 min.
+  - **L:** `post_report` without a valid beacon is refused; with one, `live_map` is stored and `expires_at` is 15 min ahead; `renew_report` moves it on and brings back a post lapsed less than 30 min ago; `end_report` by the author expires it; another user's calls are refused.
+  - **L:** the feed shows a Crowdsource relay and hides a live map relay.
+  - **E:** demo data: Relay opens with the card's route and plate; the live map switch starts off; Send posts.
+  - **E:** phone location off: Android's dialog shows; declining keeps the form greyed out.
+  - **P:** live data, no driver phone nearby: the form is greyed out with "No registered multicab detected".
+
+### RL2b Energy for relays (D10)
+
+- **Now:** a relay with GPS earns +1.0, once per Manila day; without GPS it earns nothing (CA1.1).
+- **Build:**
+  - Energy kinds `live_report` +1.0 (`ENERGY_LIVE_REPORT`) and `feed_report` +0.5 (`ENERGY_FEED_REPORT`), with no daily limit; the wallet cap stays. The old kinds stay for the history of earlier relays.
+  - **Same multicab:** `post_report` refuses a relay on a multicab the same rider relayed (with a valid beacon) in the last `RELAY_SAME_VEHICLE_GAP_H` (3 h), with "You already relayed this multicab.", even with other multicabs in between. `relayStore` keeps the phone's recent relays, so the form can say so before Send; the server's answer decides.
+  - `src/shared/backend/rules.ts` gains the same rules as pure functions, tested against the same cases as the SQL.
+  - **Server** (one migration): the `app_config` amounts, `energy_earn`'s new kinds, and the same-multicab check in `post_report`.
+  - Strings: the earning hint by the live map switch, the same-multicab message, and the history names "Relay on the live map" and "Relay in Crowdsource".
+  - PRD 19 (Energy) and 0.3 are updated.
+- **Accept:**
+  - **U:** the live map earns 1.0 and Crowdsource 0.5; three relays on three multicabs in one day earn three times; the cap of 5 holds.
+  - **U:** multicab A, then A 2 h later: refused; A, then A 3 h later: allowed; A, B, then A within minutes: the second A is refused; A then B (two rides to school): both earn.
+  - **L:** the same cases against `post_report` on the live project.
+  - **E:** demo data: two relays on the same demo multicab; the second is refused with the message.
+  - **P, X:** on a multicab with the driver phone's beacon: the relay earns; a second relay on it is refused.
+
+### RL2c Queued relay (D12; PRD 10.1 steps 4 to 6)
+
+- **Build:**
+  - `src/shared/relay/queue.ts` (pure): step 7 of the flow. Its input is the queue (where and when it started, the route), the beacons present, the fix and the time. It answers `waiting`, `release` with the multicab, or `ended` with a reason. Two beacons present keep it waiting; it releases on the one left (PRD 10.1 step 5).
+  - `relayStore` gains the state `queued`. Send starts it; release calls `sendReport` with the beacon's newest code, then starts the RL1 watch.
+  - Bluetooth keeps scanning while a relay is queued, not only while the panel is open (today's `ARMED_SCAN_MIN`).
+  - The Relay bar: "Queued · waiting for the multicab to move", with Cancel. Each end shows a toast and a vibration.
+  - Until B1, leaving the app pauses the queue; it does not end it. It carries on when the rider comes back.
+  - DR8's "pick one of two multicabs" goes: the queue resolves it.
+  - Demo data: the hand-picked demo multicab is present while the rider is within `RELAY_STOP_AREA_M` of where they queued or moving along the line. The emulator's route playback (Extended controls, Location, Routes) drives a release.
+- **Accept:**
+  - **U:** one beacon and 60 m along R4: released. Two beacons until one fades at departure: released on the one still heard. Parked 10 min, moved to another multicab, then it departs: released on the second.
+  - **U:** 100 m off the line with a beacon: still waiting.
+  - **U:** ends: no beacon for 30 s; location off; 30 min; another route at release; the same multicab within 3 h; Cancel.
+  - **U:** nothing reaches `sendReport` before release (spied in `flows.test.ts`).
+  - **E:** demo data, emulator route playback along R4 from a stop: "Queued", then posted after 50 m.
+  - **PP, X:** two driver phones side by side at a terminal; board one; it is the one relayed when it leaves.
 
 ### NM1 Night Mode stop view (PRD 10.4)
 
@@ -140,6 +300,8 @@ Each decision has a recommendation. The step waits only on its own decision.
 
 ### V1a Verification window (PRD 10.2, 0.2 S8), without activity recognition
 
+**Since D12 (2026-10-23):** RL2 checks the beacon and the route on the phone before a relay is posted, and RL2c's queue checks 50 m of displacement along the line. V1a keeps the rest: the motion test, `verifyReport`, the stored result, the marker badge, and the same checks in `ingest`.
+
 - **Build:**
   - `src/shared/verification/window.ts` (pure; also used by `_shared/verifyReport.ts`). Its input is the session's positions, their accuracy, the route line, and the beacon result. It runs 4 tests:
     1. **BLE:** `beacon_ok` true (DR8) for a relay that has a beacon. A relay without a beacon cannot become verified, only stay "unverified".
@@ -165,6 +327,8 @@ Each decision has a recommendation. The step waits only on its own decision.
   - **X:** one real ride.
 
 ### B1 Relay in the background (PRD 8.5)
+
+**Since D12 (2026-10-23):** B1 also keeps a queued relay (RL2c) running, with its Bluetooth scan, while the rider uses other apps. The scan already filters on the beacon service UUID (`BeaconScanner.kt`), which Android keeps delivering with the screen off while the process lives; this is checked on a phone.
 
 - **Dependency (D5):** `npx expo install expo-task-manager`, and `app.json` plugin options for `expo-location`: background location, a foreground service, `isAndroidForegroundServiceEnabled`.
 - **Build:**
@@ -207,6 +371,8 @@ Each decision has a recommendation. The step waits only on its own decision.
   - **PP:** a two-phone ride with a handoff.
 
 ### SQ1 Smart Queue (PRD 10.1 steps 4 to 6)
+
+**Folded into RL2c (D12, 2026-10-23).** The text below is the original plan, kept for the record; RL2c replaces the escrow with holding the relay on the phone.
 
 - **Build:**
   - `shared/beacon/smartQueue.ts`: two beacons are present within the 8 dB margin while the vehicle is stationary.
@@ -326,7 +492,14 @@ All of them go in `src/shared/config`; the server ones also go in `app_config`.
 | `RELAY_TERMINAL_RADIUS_M` | 100 | RL1 |
 | `RELAY_CAP_ANSWER_MIN` | 5 | RL1 |
 | `HIGH_TRAFFIC_ZONE_RADIUS_M` | 150 | RL1 (D1) |
-| `HIGH_TRAFFIC_ZONES` | 3 all-day and 3 rush-hour points (D1) | RL1 (D1) |
+| `HIGH_TRAFFIC_ZONES` | 3 all-day points; at rush hour 1 point and the Magsaysay Bridge (D1) | RL1 (D1) |
+| `ENERGY_LIVE_REPORT`, `ENERGY_FEED_REPORT` | 1.0, 0.5 (replacing `ENERGY_GPS_REPORT` and `ENERGY_NO_GPS_REPORT`) | RL2b (D10) |
+| `RELAY_SAME_VEHICLE_GAP_H` | 3 | RL2b (D10) |
+| `RELAY_BEACON_WAIT_S` | 15 | RL2a (D10) |
+| `RELAY_HEARTBEAT_MIN`, `RELAY_POST_GRACE_MIN` | 5, 15 | RL2a (D12) |
+| `RELAY_STOP_AREA_M` | 60 (as `CHECKIN_RADIUS_M`) | RL2a (D10) |
+| `RELAY_QUEUE_BEACON_LOST_S` | 30 | RL2c (D12) |
+| `RELAY_QUEUE_MAX_MIN` | 30 (Emjay, 2026-10-23; PRD 10.1 says 10) | RL2c (D12) |
 | `NODE_PASS_RADIUS_M`, `NODE_PASS_GAP_MIN` | 50, 10 | NM1 |
 | `IMPOSSIBLE_SPEED_KMH` | 120 | RK1 |
 | `RISK_REVIEW_SCORE` | 3 | RK1 |
