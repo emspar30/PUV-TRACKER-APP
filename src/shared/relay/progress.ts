@@ -3,11 +3,12 @@
 // line when the rider and the destination are both on it (the destination ahead), else a straight
 // line. Pure: no React Native or Expo imports.
 
-import { ETA_MIN_SPEED_KMH, RELAY_BROADCAST_MAX_MIN, RELAY_PROGRESS_SNAP_M } from '../config';
+import { ETA_MIN_SPEED_KMH, RELAY_PROGRESS_SNAP_M } from '../config';
 import { haversineMeters, type LatLon } from '../geo/haversine';
 import { projectOntoLine, type LineCoordinates } from '../geo/line';
 
 import type { RelayBroadcast } from './broadcast';
+import { askInMin } from './limits';
 
 const M_PER_KM = 1000;
 const MS_PER_MIN = 60_000;
@@ -23,9 +24,9 @@ export type RelayProgress = {
   done: number | null;
   // Minutes left at the current speed; null when slower than ETA_MIN_SPEED_KMH (stopped, in traffic)
   etaMin: number | null;
-  // Whole minutes since sharing started, and until it ends by itself (RELAY_BROADCAST_MAX_MIN)
+  // Whole minutes since sharing started, and until "Still riding?" is asked (RL1)
   sharedMin: number;
-  endsInMin: number;
+  askInMin: number;
 };
 
 // Metres along one of the route's lines from `from` to `to`, the shortest where both lie on a line
@@ -49,13 +50,14 @@ export function relayProgress(input: {
   // The route's lines, both directions
   lines: readonly LineCoordinates[];
   speedKmh: number | null;
+  // RL1: when the cap's hours started (the start, or the last "Keep sharing")
+  capFromMs: number;
   nowMs: number;
 }): RelayProgress {
-  const { session, position, lines, speedKmh, nowMs } = input;
-  const sharedMs = Math.max(0, nowMs - session.startedMs);
-  const sharedMin = Math.floor(sharedMs / MS_PER_MIN);
-  const endsInMin = Math.max(0, Math.ceil(RELAY_BROADCAST_MAX_MIN - sharedMs / MS_PER_MIN));
-  if (!position) return { leftM: null, byRoad: false, done: null, etaMin: null, sharedMin, endsInMin };
+  const { session, position, lines, speedKmh, capFromMs, nowMs } = input;
+  const sharedMin = Math.floor(Math.max(0, nowMs - session.startedMs) / MS_PER_MIN);
+  const askIn = askInMin(capFromMs, nowMs);
+  if (!position) return { leftM: null, byRoad: false, done: null, etaMin: null, sharedMin, askInMin: askIn };
   const road = alongRouteM(lines, position, session.destination);
   const leftM = road ?? haversineMeters(position, session.destination);
   let done: number | null = null;
@@ -64,5 +66,5 @@ export function relayProgress(input: {
     done = totalM > 0 ? Math.min(Math.max(1 - leftM / totalM, 0), 1) : 1;
   }
   const etaMin = speedKmh !== null && speedKmh >= ETA_MIN_SPEED_KMH ? Math.max(1, Math.round((leftM / M_PER_KM / speedKmh) * MIN_PER_HOUR)) : null;
-  return { leftM: Math.round(leftM), byRoad: road !== null, done, etaMin, sharedMin, endsInMin };
+  return { leftM: Math.round(leftM), byRoad: road !== null, done, etaMin, sharedMin, askInMin: askIn };
 }

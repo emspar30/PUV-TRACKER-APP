@@ -8,13 +8,17 @@ import { LIVE_UI_REFRESH_INTERVAL_S } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
 import type { LineCoordinates } from '@/shared/geo/line';
 import type { RelayBroadcast } from '@/shared/relay/broadcast';
+import { arrivalLeftS } from '@/shared/relay/limits';
 import { relayProgress } from '@/shared/relay/progress';
+import { useRelayStore } from '@/state/relayStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
 import type { UplinkStatus } from './useGpsBroadcast';
 
 const MS_PER_S = 1000;
+// RL1: the arrival countdown counts down every second
+const COUNTDOWN_TICK_S = 1;
 const METERS_PER_KM = 1000;
 const ICON_SIZE = spacing.md + spacing.xs;
 const BAR_HEIGHT = spacing.sm;
@@ -52,6 +56,7 @@ const distance = (meters: number) => (meters < METERS_PER_KM ? strings.format.me
 // B4: shown on the Map while a relay shares the rider's location; it ends by itself at the
 // destination. CA1.1: a tap opens the relay's details: how far to the destination, how much of the
 // ride is done, about how long is left, how long it has been shared, and the multicab and seats.
+// RL1: at the destination it counts down the seconds until sharing stops.
 export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }: RelayBarProps) {
   const styles = useStyles();
   const { colors, typography, elevation } = useTheme();
@@ -59,15 +64,18 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
   const [nowMs, setNowMs] = useState(Date.now);
   const [open, setOpen] = useState(false);
   const live = uplink.kind === 'live';
+  const watch = useRelayStore((store) => store.watch);
+  const arriving = watch.arrivingSinceMs !== null;
 
   // "sent 10 s ago" counts up while the marker is live; the details keep their times current
   useEffect(() => {
-    if (!live && !open) return undefined;
-    const timer = setInterval(() => setNowMs(Date.now()), LIVE_UI_REFRESH_INTERVAL_S * MS_PER_S);
+    if (!live && !open && !arriving) return undefined;
+    const timer = setInterval(() => setNowMs(Date.now()), (arriving ? COUNTDOWN_TICK_S : LIVE_UI_REFRESH_INTERVAL_S) * MS_PER_S);
     return () => clearInterval(timer);
-  }, [live, open]);
+  }, [live, open, arriving]);
 
-  const progress = relayProgress({ session, position, lines, speedKmh, nowMs: Math.max(nowMs, session.startedMs) });
+  const progress = relayProgress({ session, position, lines, speedKmh, capFromMs: watch.capFromMs, nowMs: Math.max(nowMs, session.startedMs) });
+  const leftS = arrivalLeftS(watch, Math.max(nowMs, watch.arrivingSinceMs ?? 0));
   const Chevron = open ? ChevronUp : ChevronDown;
 
   return (
@@ -86,7 +94,11 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
               {t.sharingTitle}
             </Text>
             <Text style={typography.bodySm} numberOfLines={1}>
-              {progress.leftM !== null ? t.info.left(distance(progress.leftM), session.destination.name) : t.sharingDetail(session.routeCode, session.destination.name)}
+              {leftS !== null
+                ? t.arriving(session.destination.name, leftS)
+                : progress.leftM !== null
+                  ? t.info.left(distance(progress.leftM), session.destination.name)
+                  : t.sharingDetail(session.routeCode, session.destination.name)}
             </Text>
             <Text style={typography.bodySm} numberOfLines={1}>
               {uplinkText(uplink, Math.max(nowMs, live ? uplink.sentMs : 0))}
@@ -116,7 +128,7 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
           <Text style={typography.bodySm}>
             {t.info.multicab(session.vehicleId, strings.crowdsource.seats[session.seatTier])}
           </Text>
-          <Text style={typography.bodySm}>{t.info.shared(progress.sharedMin, progress.endsInMin)}</Text>
+          <Text style={typography.bodySm}>{t.info.shared(progress.sharedMin, progress.askInMin)}</Text>
         </Animated.View>
       ) : null}
     </View>

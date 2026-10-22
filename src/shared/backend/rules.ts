@@ -42,12 +42,17 @@ function manilaMinuteOfDay(atMs: number): number {
   return ((minutes % MIN_PER_DAY) + MIN_PER_DAY) % MIN_PER_DAY;
 }
 
-export function isNight(atMs: number, start = NIGHT_MODE_START, end = NIGHT_MODE_END): boolean {
+// True inside a Manila time window ("HH:MM" to "HH:MM"), which may wrap midnight. The end minute is
+// included: 04:59 is still night.
+export function inManilaWindow(atMs: number, start: string, end: string): boolean {
   const now = manilaMinuteOfDay(atMs);
   const from = minutesOf(start);
   const to = minutesOf(end);
-  // The end minute is included: 04:59 is still night
   return from <= to ? now >= from && now <= to : now >= from || now <= to;
+}
+
+export function isNight(atMs: number, start = NIGHT_MODE_START, end = NIGHT_MODE_END): boolean {
+  return inManilaWindow(atMs, start, end);
 }
 
 // The Manila calendar day (YYYY-MM-DD), for the daily Energy caps

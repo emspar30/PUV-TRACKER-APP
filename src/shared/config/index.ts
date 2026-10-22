@@ -406,11 +406,48 @@ export const FEED_STOP_NEAR_M = 500;
 export const TRUST_BADGE_POINTS = 5;
 // B6: at most this many trust points a Manila day (server: app_config.trust_daily_max)
 export const TRUST_DAILY_MAX = 3;
-// B4: a relay with GPS shares the rider's location until they come this close to the destination
-// they picked, or for this long at most
-export const RELAY_DESTINATION_ARRIVED_M = 100;
-export const RELAY_BROADCAST_MAX_MIN = 90;
-// B4: how often the time limit is checked while the relay shares the location
+// RL1 (PRD 8.1 step 8): a relay with GPS ends RELAY_ARRIVAL_COUNTDOWN_S after the rider comes within
+// RELAY_ARRIVAL_RADIUS_M of the destination they picked; leaving that radius cancels the countdown
+export const RELAY_ARRIVAL_RADIUS_M = 50;
+export const RELAY_ARRIVAL_COUNTDOWN_S = 60;
+// RL1 (PRD 8.4): idle stop. Fixes that stay within RELAY_IDLE_RADIUS_M for RELAY_IDLE_MIN end the
+// relay; RELAY_IDLE_TERMINAL_MIN within RELAY_TERMINAL_RADIUS_M of a terminal (the route's first and
+// last stop until real terminals are listed, D3)
+export const RELAY_IDLE_RADIUS_M = 30;
+export const RELAY_IDLE_MIN = 20;
+export const RELAY_IDLE_TERMINAL_MIN = 30;
+export const RELAY_TERMINAL_RADIUS_M = 100;
+// RL1 (PRD 8.4): after RELAY_SESSION_CAP_H the relay asks "Still riding?"; with no answer within
+// RELAY_CAP_ANSWER_MIN it ends. Keep sharing starts the hours again.
+export const RELAY_SESSION_CAP_H = 3;
+export const RELAY_CAP_ANSWER_MIN = 5;
+// RL1 (Emjay, D1, 2026-10-22): where multicabs wait long in traffic. Inside an active zone (within
+// HIGH_TRAFFIC_ZONE_RADIUS_M of its point, or of the straight stretch between its two points) the
+// idle clock is held, so a long red light or a jammed bridge never ends a relay. `hours` is a Manila
+// window, start and end minute included; null is all day.
+export const HIGH_TRAFFIC_ZONE_RADIUS_M = 150;
+export const HIGH_TRAFFIC_ZONES: readonly {
+  id: string;
+  name: string | null;
+  points: readonly { lat: number; lon: number }[];
+  hours: readonly [start: string, end: string] | null;
+}[] = [
+  { id: 'HT1', name: null, points: [{ lat: 8.94764, lon: 125.540652 }], hours: null },
+  { id: 'HT2', name: null, points: [{ lat: 8.947401, lon: 125.536297 }], hours: null },
+  { id: 'HT3', name: null, points: [{ lat: 8.945686, lon: 125.531917 }], hours: null },
+  { id: 'RH1', name: null, points: [{ lat: 8.961681, lon: 125.602418 }], hours: ['16:00', '18:59'] },
+  // Emjay: the rush-hour jam runs the whole Magsaysay Bridge, from RH2 to RH3 (about 1.1 km, straight)
+  {
+    id: 'RH2-RH3',
+    name: 'Magsaysay Bridge',
+    points: [
+      { lat: 8.951828, lon: 125.553233 },
+      { lat: 8.947254, lon: 125.544264 },
+    ],
+    hours: ['16:00', '18:59'],
+  },
+];
+// B4: how often the relay's limits are checked while it shares the location
 export const RELAY_CHECK_S = 30;
 // CA1.1 relay info: the rider and the destination count as on the route line within this distance
 export const RELAY_PROGRESS_SNAP_M = 100;

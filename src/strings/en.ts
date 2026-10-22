@@ -185,7 +185,7 @@ export const en = {
       noPosition: 'Waiting for your location to measure how far is left.',
       route: (code: string, stop: string) => `${code}, getting off at ${stop}.`,
       multicab: (vehicle: string | null, seats: string) => `${vehicle ? `Multicab ${vehicle}` : 'No multicab picked'} · ${seats}.`,
-      shared: (minutes: number, endsIn: number) => `Shared for ${minutes} min; it ends by itself in ${endsIn} min, or at your stop.`,
+      shared: (minutes: number, askIn: number) => `Shared for ${minutes} min. It stops at your stop; in ${askIn} min it asks if you are still riding.`,
     },
     // T1: what the relay bar says about the marker
     uplink: {
@@ -197,8 +197,16 @@ export const en = {
     },
     arrivedTitle: (stop: string) => `You reached ${stop}`,
     arrivedBody: 'Location sharing stopped. Thanks for the relay!',
-    expiredTitle: 'Location sharing ended',
-    expiredBody: 'It stops by itself after a while. Relay again if you are still riding.',
+    // RL1: the arrival countdown in the relay bar, and the other ways sharing ends by itself
+    arriving: (stop: string, seconds: number) => `At ${stop} · sharing stops in ${seconds} s`,
+    idleTitle: 'Location sharing stopped',
+    idleBody: (minutes: number) => `You stayed in one place for ${minutes} min. Relay again if you are still riding.`,
+    stillRidingTitle: 'Still riding?',
+    stillRidingBody: (hours: number, minutes: number) =>
+      `You have shared your location for ${hours} hours. Keep sharing, or it stops in ${minutes} min.`,
+    keepSharing: 'Keep sharing',
+    cappedTitle: 'Location sharing ended',
+    cappedBody: 'No answer to "Still riding?". Relay again if you are still riding.',
     // T1: the manual vehicle picker (team accounts), until Bluetooth finds it (D5)
     vehicle: 'Multicab you are riding (optional)',
     vehicleHint: 'Pick it to move its marker on the live map. Unverified for now.',

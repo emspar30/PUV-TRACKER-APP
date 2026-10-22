@@ -1,28 +1,12 @@
-import { FEED_STOP_NEAR_M, RELAY_BROADCAST_MAX_MIN, RELAY_DESTINATION_ARRIVED_M } from '../config';
-import { broadcastEnd, destinationOptions, inRouteOrder, nearestDestination, relayStopCode, type RelayBroadcast } from '../relay/broadcast';
+import { FEED_STOP_NEAR_M } from '../config';
+import { destinationOptions, inRouteOrder, nearestDestination, relayStopCode, terminalsOf } from '../relay/broadcast';
 
-const T0 = Date.UTC(2026, 9, 6, 2, 0, 0);
-const MIN = 60_000;
 // About 111 m per 0.001 degree of latitude
 const DEG_PER_M = 0.001 / 111;
 const DEST = { code: 'MCA', name: 'Market', lat: 8.95, lon: 125.53 };
-const SESSION: RelayBroadcast = { routeCode: 'R4', vehicleId: null, seatTier: 'green', destination: DEST, startedMs: T0, startPoint: null };
 const north = (m: number) => ({ lat: DEST.lat + m * DEG_PER_M, lon: DEST.lon });
 
 describe('relay broadcast (B4)', () => {
-  it('ends when the rider reaches the destination', () => {
-    expect(broadcastEnd(SESSION, north(RELAY_DESTINATION_ARRIVED_M - 10), T0 + MIN)).toBe('arrived');
-  });
-
-  it('goes on while the rider is still away from it', () => {
-    expect(broadcastEnd(SESSION, north(RELAY_DESTINATION_ARRIVED_M + 50), T0 + MIN)).toBeNull();
-    expect(broadcastEnd(SESSION, null, T0 + MIN)).toBeNull();
-  });
-
-  it('ends after the time limit even without a position', () => {
-    expect(broadcastEnd(SESSION, null, T0 + RELAY_BROADCAST_MAX_MIN * MIN)).toBe('expired');
-  });
-
   it('leaves out the stop the rider is at from the destinations', () => {
     const near = { ...DEST, code: 'A', ...north(10) };
     const far = { ...DEST, code: 'B', ...north(1000) };
@@ -51,6 +35,13 @@ describe('relay broadcast (B4)', () => {
     expect(relayStopCode([near, nearer, far], DEST)).toBe('B');
     expect(relayStopCode([far], DEST)).toBeNull();
     expect(relayStopCode([near], null)).toBeNull();
+  });
+
+  it('RL1: the terminals are the first and last stop in riding order (D3)', () => {
+    const stops = [0, 1000, 2000].map((m) => ({ ...DEST, code: String(m), ...north(m) }));
+    expect(terminalsOf(stops)).toEqual([north(0), north(2000)]);
+    expect(terminalsOf([stops[0]])).toEqual([north(0)]);
+    expect(terminalsOf([])).toEqual([]);
   });
 });
 

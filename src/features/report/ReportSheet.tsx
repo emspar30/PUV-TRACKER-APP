@@ -13,7 +13,7 @@ import { PlaceResults } from '@/features/search/PlaceResults';
 import { usePlaceMatches, useSearchablePlaces } from '@/features/search/useSearchablePlaces';
 import { ENERGY_GPS_REPORT, ENERGY_UI_VISIBLE, FEED_LIFETIME_MIN, FEED_PHRASES, MAX_WALK_PER_LEG_M } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
-import { destinationOptions, nearestDestination, relayStopCode } from '@/shared/relay/broadcast';
+import { destinationOptions, nearestDestination, relayStopCode, terminalsOf } from '@/shared/relay/broadcast';
 import type { SearchablePlace } from '@/shared/routing/placeSearch';
 import type { RouteStop } from '@/shared/routing/types';
 import type { SeatTier } from '@/shared/telemetry/occupancy';
@@ -135,6 +135,7 @@ export function ReportSheet({ routes, initialRoute, vehiclePicker, stopsOf, posi
             destination: { code: destination.code, name: destination.name, lat: destination.lat, lon: destination.lon },
             startedMs: Date.now(),
             startPoint: position ? { lat: position.lat, lon: position.lon } : null,
+            terminals: terminalsOf(stopsOf(route)),
           });
         }
         showDialog({
