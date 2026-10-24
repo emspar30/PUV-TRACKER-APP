@@ -48,19 +48,29 @@ export type ReportInput = {
   vehicleId: string | null;
   // B6: the stop nearest to the phone when it was sent (sent even without GPS; no coordinates)
   stopCode: string | null;
+  // RL2a (D9): every relay uses the phone's location now, so this is always true from the form
   withGps: boolean;
-  // DR8: the newest code of the multicab's beacon, when Bluetooth found it; the server checks it
+  // RL2a (D9): shown on the live map (positions sent) rather than in Crowdsource
+  liveMap: boolean;
+  // DR8: the newest code of the multicab's beacon, when Bluetooth found it; the server checks it.
+  // RL2a (D10): the server refuses a relay without a valid one
   beaconHex?: string | null;
 };
 
-// postId: the new post's id, so the feed can mark the user's own posts "You" (EQ-7)
-export type ReportResult = { ok: true; postId?: string } | CloudFailure | { ok: false; reason: 'no_username' };
+// postId: the new post's id, so the feed can mark the user's own posts "You" (EQ-7).
+// no_beacon (RL2a): the server found no valid beacon code with the relay
+export type ReportResult = { ok: true; postId?: string } | CloudFailure | { ok: false; reason: 'no_username' | 'no_beacon' };
 
 // RP1: the Report button. Demo keeps the posts on the phone; live calls post_report and reads
-// feed_posts. A report earns Energy (with GPS 1.0, without 0.5; once a Manila day each).
+// feed_posts. A report earns Energy (on the live map 1.0, once a Manila day; in Crowdsource 0 until RL2b).
 export type ReportsRepository = {
   source: LiveSource;
   post(input: ReportInput, requestKey: string): Promise<ReportResult>;
+  // RL2a (D12): a Crowdsource relay's "still riding" signal (renew_report): it stays up
+  // RELAY_POST_GRACE_MIN more. false when the server no longer keeps it (ended, or lapsed too long)
+  keep(postId: string): Promise<boolean>;
+  // RL2a: the relay ended (at the stop, idle, the cap, or Stop): the post leaves Crowdsource now
+  end(postId: string): Promise<void>;
   // Live posts, newest first; null when unknown (signed out)
   recent(): Promise<readonly FeedPost[] | null>;
   // N1: flags someone else's post (flag_post; one flag per account). hidden: it reached

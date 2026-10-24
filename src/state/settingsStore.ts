@@ -28,6 +28,8 @@ type StoredSettings = {
   simulatedStop: string;
   // CA1.1: a spot pinned on the map instead of a stop; null when a stop is used
   simulatedPoint: { lat: number; lon: number } | null;
+  // RL2a (Emjay, D9): the Relay form's "Show me on the live map", off by default, kept as last set
+  relayLiveMap: boolean;
 };
 
 // G0: the development fake location source (development builds only, never stored). Its fixes go
@@ -51,6 +53,7 @@ type SettingsState = StoredSettings &
   setSimulatedLocation: (on: boolean) => void;
   setSimulatedStop: (code: string) => void;
   setSimulatedPoint: (point: { lat: number; lon: number } | null) => void;
+  setRelayLiveMap: (on: boolean) => void;
   setFakeGps: (on: boolean) => void;
   setFake: (fake: Partial<Omit<FakeGps, 'fakeGps'>>) => void;
   // Demo settings, "Reset app": every setting back to its default
@@ -70,6 +73,7 @@ const DEFAULTS: StoredSettings & FakeGps = {
   simulatedLocation: false,
   simulatedStop: DEMO_COMMUTER_STOP_CODE,
   simulatedPoint: null,
+  relayLiveMap: false,
   fakeGps: false,
   fakeAccuracyM: FAKE_FIX_DEFAULT_ACCURACY_M,
   fakeMocked: false,
@@ -104,6 +108,7 @@ export const useSettingsStore = create<SettingsState>()(
       // CA1.1: a pinned spot; it turns simulated location on unless fake GPS is already standing there
       setSimulatedPoint: (simulatedPoint) =>
         set((state) => (state.simulatedLocation || state.fakeGps ? { simulatedPoint } : { simulatedPoint, simulatedLocation: true, fakeGps: false })),
+      setRelayLiveMap: (relayLiveMap) => set({ relayLiveMap }),
       setFakeGps: (fakeGps) => set(fakeGps ? { fakeGps, simulatedLocation: false } : { fakeGps }),
       setFake: (fake) => set(fake),
       resetSettings: () => set(DEFAULTS),
@@ -111,7 +116,7 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'settings',
       storage: deviceStorage,
-      partialize: ({ theme, demoData, mapLabels, seatFilter, arrivalAlert, mapRoute, rideStops, simulatedLocation, simulatedStop, simulatedPoint }) => ({
+      partialize: ({ theme, demoData, mapLabels, seatFilter, arrivalAlert, mapRoute, rideStops, simulatedLocation, simulatedStop, simulatedPoint, relayLiveMap }) => ({
         theme,
         demoData,
         mapLabels,
@@ -122,6 +127,7 @@ export const useSettingsStore = create<SettingsState>()(
         simulatedLocation,
         simulatedStop,
         simulatedPoint,
+        relayLiveMap,
       }),
       // Ignore a stored value this version does not know
       merge: (persisted, current) => {
@@ -141,6 +147,7 @@ export const useSettingsStore = create<SettingsState>()(
             stored.simulatedPoint && Number.isFinite(stored.simulatedPoint.lat) && Number.isFinite(stored.simulatedPoint.lon)
               ? { lat: stored.simulatedPoint.lat, lon: stored.simulatedPoint.lon }
               : current.simulatedPoint,
+          relayLiveMap: bool(stored.relayLiveMap, current.relayLiveMap),
         };
       },
     },

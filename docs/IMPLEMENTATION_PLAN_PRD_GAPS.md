@@ -214,7 +214,8 @@ This is the whole flow. It is built in four steps, each its own commit:
     - a post that lapsed during a dead zone comes back on the next `renew_report`, if it lapsed less than 30 min ago and the relay is still running;
     - `end_report(post bigint)` sets `expires_at` to now. Both calls are for the post's author only;
     - the feed reads `live_map = false` instead of `with_gps = false` (`services/crowd.ts`, `crowdsource.tsx:93`).
-  - When RL1 ends a Crowdsource relay, the phone calls `end_report`, retried through the outbox when offline. Stop on the Relay bar also calls it.
+  - When a relay ends, however it ends (RL1's rules, Stop, Keep sharing unanswered), the phone calls `end_report` once, best effort: a call lost offline is covered by the post lapsing 15 min after its last renewal. If `renew_report` answers false (the post was hidden by flags, or lapsed too long ago), the relay ends with a toast.
+  - Built (2026-10-23): the live map switch is disabled, with a note, for accounts off the team list, because the live map is team-only on the server for now.
   - Demo data only: a hand-picked multicab counts as heard (D12, Testing).
 - **Accept:**
   - **U:** `gate.ts`: no permission gives `no_location`; no verified beacon after 15 s gives `no_beacon`; a beacon with the rider 100 m from its line and stops gives `off_route`; 20 m from the line gives `ok`; 50 m from a stop and off the line gives `ok`.

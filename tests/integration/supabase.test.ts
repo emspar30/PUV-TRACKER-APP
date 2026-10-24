@@ -251,11 +251,16 @@ live('S4 backend, live project', () => {
 live('SB1 commuter backend, live project', () => {
   let writer: SupabaseClient;
   let outsider: SupabaseClient;
+  // RL2a (20261023000000): a relay needs a valid beacon code, which only the service role can set
+  // up, so with it applied the feed checks run in driverSide.test.ts and only the refusals run here
+  let gateApplied = false;
   const key = (label: string) => `it-${label}-${Date.now()}`;
 
   beforeAll(async () => {
     writer = await signedIn('TEST_WRITER_EMAIL', 'TEST_WRITER_PASSWORD');
     outsider = await signedIn('TEST_OUTSIDER_EMAIL', 'TEST_OUTSIDER_PASSWORD');
+    gateApplied = !(await writer.rpc('end_report', { post: -1 })).error;
+    if (!gateApplied) console.log('[integration] RL2a relay gate not applied yet: the relay tests use the older post_report');
   }, TIMEOUT_MS);
 
   it(
@@ -373,6 +378,7 @@ live('SB1 commuter backend, live project', () => {
   it(
     'a report appears in the feed with a username and no user id or coordinates',
     async () => {
+      if (gateApplied) return;
       const post = await writer.rpc('post_report', {
         route: 'R4',
         phrase: 'few_seats',
@@ -402,6 +408,7 @@ live('SB1 commuter backend, live project', () => {
   it(
     'B6: a relay names its stop and the Trusted flag; trust points are capped a day and only the server sets them',
     async () => {
+      if (gateApplied) return;
       const before = await writer.from('profiles').select('trust_points, trust_today').single();
       expect(before.error).toBeNull();
       const post = await writer.rpc('post_report', {
@@ -442,6 +449,29 @@ live('SB1 commuter backend, live project', () => {
       // Builds from before B6 still post, with no stop
       const old = await writer.rpc('post_report', { route: 'R4', phrase: 'full', seat_tier: null, vehicle: null, with_gps: false, request_key: key('old') });
       expect(old.error).toBeNull();
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    'RL2a: no relay without a valid beacon code, and no older post_report; renew and end of another post do nothing',
+    async () => {
+      if (!gateApplied) return;
+      const relay = (beacon: string | null) =>
+        writer.rpc('post_report', { route: 'R4', phrase: null, seat_tier: 'green', vehicle: null, with_gps: true, stop: 'MCA', beacon, live_map: false, request_key: key('gate') });
+      expect((await relay(null)).error?.message).toContain('registered multicab beacon');
+      expect((await relay('00')).error?.message).toContain('registered multicab beacon');
+      // Builds from before RL2a can no longer relay
+      for (const args of [
+        { route: 'R4', phrase: 'full', seat_tier: null, vehicle: null, with_gps: false, request_key: key('v0') },
+        { route: 'R4', phrase: 'full', seat_tier: null, vehicle: null, with_gps: false, stop: 'MCA', request_key: key('b6') },
+        { route: 'R4', phrase: 'full', seat_tier: null, vehicle: null, with_gps: false, stop: 'MCA', beacon: '00', request_key: key('dr8') },
+      ]) {
+        expect((await writer.rpc('post_report', args)).error).not.toBeNull();
+      }
+      // A post that is not the caller's (or does not exist) is neither renewed nor ended
+      expect((await outsider.rpc('renew_report', { post: -1 })).data).toBe(false);
+      expect((await outsider.rpc('end_report', { post: -1 })).error).toBeNull();
     },
     TIMEOUT_MS,
   );

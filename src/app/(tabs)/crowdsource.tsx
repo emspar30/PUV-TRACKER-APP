@@ -89,8 +89,8 @@ export default function CrowdsourceScreen() {
   // B8: live data loads over the network; the demo shows the same short placeholder
   const loadingFeed = useSkeleton(SKELETON_LONG_MS, !(!demo && crowd.reports.source === 'live' && loaded === null));
   const needsSignIn = !demo && crowd.reports.source === 'live' && loaded !== null && mine === null;
-  // Only updates sent without GPS: those with GPS belong to the live map (broadcast and merged)
-  const visible = posts.filter((post) => !post.withGps && !flagged.has(post.id));
+  // RL2a: only relays kept off the live map; those on it belong to the live map (broadcast and merged)
+  const visible = posts.filter((post) => !post.liveMap && !flagged.has(post.id));
   const shown = filter ? visible.filter((post) => post.routeCode === filter) : visible;
   const colorOf = (code: string) => {
     const line = lines.find((candidate) => candidate.routeCode === code);

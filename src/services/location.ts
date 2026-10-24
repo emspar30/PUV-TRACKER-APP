@@ -38,6 +38,17 @@ export async function askLocationPermission(): Promise<PermissionResult> {
   return toPermissionResult(await Location.requestForegroundPermissionsAsync());
 }
 
+// RL2a (D9): Android's own "Turn on location" dialog (expo-location, SDK 57). true when the rider
+// turned it on; false when they declined (the promise rejects) or the dialog could not show
+export async function askToTurnOnLocation(): Promise<boolean> {
+  try {
+    await Location.enableNetworkProviderAsync();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // DR8: whether the phone's location setting is on. Android delivers Bluetooth scan results to the
 // commuter app only then (it scans without the neverForLocation flag)
 export async function locationServicesOn(): Promise<boolean> {

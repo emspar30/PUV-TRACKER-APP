@@ -201,6 +201,8 @@ live('DR8 boarding detection, live project', () => {
   let admin: SupabaseClient;
   let writer: SupabaseClient;
   let applied = false;
+  // RL2a (20261023000000): the nine-argument post_report, renew_report and end_report
+  let gateApplied = false;
   let shortId = 0;
 
   async function cleanUp() {
@@ -242,6 +244,8 @@ live('DR8 boarding detection, live project', () => {
       .single<{ short_id: number }>();
     if (provisioned.error) throw new Error(provisioned.error.message);
     shortId = provisioned.data.short_id;
+    gateApplied = !(await writer.rpc('end_report', { post: -1 })).error;
+    if (!gateApplied) console.log('[boarding detection] RL2a not run: 20261023000000_relay_gate.sql is not applied');
   }, TIMEOUT_MS);
 
   afterAll(async () => {
@@ -276,7 +280,8 @@ live('DR8 boarding detection, live project', () => {
   }, TIMEOUT_MS);
 
   it('a relay with the code records whether it checked out, and takes the vehicle from it', async () => {
-    if (!applied) return;
+    // RL2a replaces the eight-argument version: see the next test
+    if (!applied || gateApplied) return;
     await awayFromBoundary();
     const post = async (beacon: string, vehicle: string | null) =>
       writer.rpc('post_report', { route: ROUTE, phrase: null, seat_tier: 'green', vehicle, with_gps: false, stop: null, beacon, request_key: `dr8-${randomBytes(6).toString('hex')}` });
@@ -291,6 +296,58 @@ live('DR8 boarding detection, live project', () => {
     ]);
     // Clients never read beacon_ok
     expect((await writer.from('feed_posts').select('beacon_ok').eq('id', good.data)).error).not.toBeNull();
+  }, TIMEOUT_MS);
+
+  it('RL2a: only a valid code for the same route and vehicle posts; the post lapses unless renewed, and ends for good', async () => {
+    if (!applied || !gateApplied) return;
+    await awayFromBoundary();
+    const MIN = 60_000;
+    const relay = (beacon: string | null, liveMap: boolean, route = ROUTE, vehicle: string | null = null) =>
+      writer.rpc('post_report', {
+        route,
+        phrase: null,
+        seat_tier: 'green',
+        vehicle,
+        with_gps: true,
+        stop: null,
+        beacon,
+        live_map: liveMap,
+        request_key: `rl2a-${randomBytes(6).toString('hex')}`,
+      });
+    const refused = 'registered multicab beacon';
+    expect((await relay(null, false)).error?.message).toContain(refused);
+    expect((await relay(code(-2), false)).error?.message).toContain(refused);
+    expect((await relay(code(0), false, 'R4')).error?.message).toContain(refused);
+    expect((await relay(code(0), false, ROUTE, 'R4-TEST-01')).error?.message).toContain(refused);
+    // The eight-argument version is closed
+    const old = await writer.rpc('post_report', { route: ROUTE, phrase: null, seat_tier: 'green', vehicle: null, with_gps: false, stop: null, beacon: code(0), request_key: `dr8-${randomBytes(6).toString('hex')}` });
+    expect(old.error).not.toBeNull();
+
+    const feed = await relay(code(0), false);
+    expect(feed.error).toBeNull();
+    const row = await admin.from('feed_posts').select('vehicle_id, beacon_ok, live_map, expires_at').eq('id', feed.data).single();
+    expect(row.data).toMatchObject({ vehicle_id: BEACON_VEHICLE, beacon_ok: true, live_map: false });
+    // relay_post_grace_min (15) ahead, give or take the clocks
+    const ahead = Date.parse(row.data!.expires_at) - Date.now();
+    expect(ahead).toBeGreaterThan(13 * MIN);
+    expect(ahead).toBeLessThan(17 * MIN);
+    expect((await writer.from('feed_posts').select('live_map').eq('id', feed.data).single()).data?.live_map).toBe(false);
+    expect((await writer.rpc('renew_report', { post: feed.data })).data).toBe(true);
+    // Lapsed 10 minutes ago (a dead zone): it comes back; 40 minutes ago: it stays down
+    await admin.from('feed_posts').update({ expires_at: new Date(Date.now() - 10 * MIN).toISOString() }).eq('id', feed.data);
+    expect((await writer.rpc('renew_report', { post: feed.data })).data).toBe(true);
+    await admin.from('feed_posts').update({ expires_at: new Date(Date.now() - 40 * MIN).toISOString() }).eq('id', feed.data);
+    expect((await writer.rpc('renew_report', { post: feed.data })).data).toBe(false);
+
+    // On the live map; ended by its author: gone now, and never renewed again
+    const live = await relay(code(0), true);
+    expect(live.error).toBeNull();
+    expect((await admin.from('feed_posts').select('live_map').eq('id', live.data).single()).data?.live_map).toBe(true);
+    expect((await writer.rpc('end_report', { post: live.data })).error).toBeNull();
+    const ended = await admin.from('feed_posts').select('ended_at, expires_at').eq('id', live.data).single();
+    expect(ended.data?.ended_at).not.toBeNull();
+    expect(Date.parse(ended.data!.expires_at)).toBeLessThanOrEqual(Date.now() + 5000);
+    expect((await writer.rpc('renew_report', { post: live.data })).data).toBe(false);
   }, TIMEOUT_MS);
 });
 

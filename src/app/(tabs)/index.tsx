@@ -211,15 +211,14 @@ export default function MapScreen() {
 
   // G0: the commuter's GPS fix, a simulated stop (Demo settings) or a long-press pin
   const commuter = useCommuterPosition();
-  // RP1: the Report panel; "with GPS" needs a good fix or the simulated stop
+  // RP1: the Report panel; RL2a: every relay needs a good fix or the simulated position
   const [reportOpen, setReportOpen] = useState(false);
-  // G0: a mock or stale fix does not count (the screen redraws at least every live tick)
   const fix = useLocationStore((store) => store.fix);
-  const gpsAvailable = canReportWithGps(placeOf(commuter, fix, live.nowMs));
-  // B4: a relay sent with GPS shares the location until the rider reaches their destination
+  // B4: a relay runs until the rider reaches their destination
   const relay = useRelayBroadcast(commuter);
-  // T1: a team account's relay moves the picked multicab's marker; buffered through dead zones
-  const uplink = useGpsBroadcast(relay, repos.vehicles.source === 'live' && teamAccount === true);
+  // T1: a team account's relay on the live map moves its multicab's marker; buffered through dead
+  // zones. RL2a: a Crowdsource relay sends no positions
+  const uplink = useGpsBroadcast(relay?.mode === 'live' ? relay : null, repos.vehicles.source === 'live' && teamAccount === true);
 
   // L1: at night the server shows only stopped multicabs (PRD 10.4), so an empty live route says
   // Night Mode rather than No data. The server decides; this only labels it.
@@ -241,6 +240,11 @@ export default function MapScreen() {
     [nudgeOn, selectedRoute, lines, stops, others.vehicles, others.nowMs, commuter],
   );
   const stopRelay = useRelayStore((store) => store.stop);
+  // RL2a: a route's lines (both directions), for the Relay form's route check
+  const relayLinesOf = useCallback(
+    (code: string) => loopLines.filter((line) => line.routeCode === code).map((line) => line.coordinates),
+    [loopLines],
+  );
   const relayStopsOf = useCallback(
     (code: string) =>
       inRouteOrder(
@@ -736,7 +740,6 @@ export default function MapScreen() {
             nowMs={live.nowMs}
             nextStop={nextStopOf(vehicle, loopLines, layers.stops)?.code ?? null}
             stopped={vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs)}
-            eta={vehicleEta?.kind === 'approaching' ? strings.live.tracking.minutes(vehicleEta.etaS) : null}
             distanceKm={vehicleKm}
             onTrack={() => void startTracking(vehicle.id)}
             estimated={isGhostAge(ageSeconds(vehicle.lastPacketMs, live.nowMs))}
@@ -778,11 +781,11 @@ export default function MapScreen() {
         <ReportSheet
           routes={routeOptions}
           initialRoute={selectedRoute}
-          vehiclePicker={repos.vehicles.source === 'live' && teamAccount === true}
           stopsOf={relayStopsOf}
+          linesOf={relayLinesOf}
           position={commuter}
-          gpsAvailable={gpsAvailable}
           checkGps={() => canReportWithGps(placeOf(commuter, useLocationStore.getState().fix, Date.now()))}
+          liveMapAllowed={repos.vehicles.source !== 'live' || teamAccount === true}
           onClose={() => setReportOpen(false)}
         />
       ) : null}

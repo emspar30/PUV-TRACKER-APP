@@ -50,6 +50,8 @@ const spot = (id: string, index = 0): LatLon => {
 const BRIDGE = 'RH2-RH3';
 const bridgeMiddle = { lat: (spot(BRIDGE, 0).lat + spot(BRIDGE, 1).lat) / 2, lon: (spot(BRIDGE, 0).lon + spot(BRIDGE, 1).lon) / 2 };
 const session = (startedMs: number, terminals: LatLon[] = []): RelayBroadcast => ({
+  mode: 'live',
+  post: null,
   routeCode: 'R4',
   vehicleId: null,
   seatTier: 'green',

@@ -6,6 +6,8 @@ import { useRelayStore } from '../relayStore';
 
 const T0 = Date.UTC(2026, 9, 22, 2, 0, 0);
 const SESSION = {
+  mode: 'live' as const,
+  post: null,
   routeCode: 'R4',
   vehicleId: null,
   seatTier: 'green' as const,

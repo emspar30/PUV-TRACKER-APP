@@ -18,7 +18,8 @@ export type FeedRow = {
   vehicle_id: string | null;
   stop_code: string | null;
   author_trusted: boolean;
-  with_gps: boolean;
+  // RL2a (D9): on the live map, so not a Crowdsource post
+  live_map: boolean;
   created_at: string;
 };
 
@@ -30,6 +31,9 @@ export type CrowdPort = {
   endCheckIn(): Promise<PortFailure | null>;
   // post_report: the new post's id, or the error
   postReport(input: ReportInput, requestKey: string): Promise<PortFailure | { postId: string }>;
+  // RL2a: renew_report(post): true while the server keeps the post up; end_report(post)
+  renewReport(postId: number): Promise<boolean | PortFailure>;
+  endReport(postId: number): Promise<PortFailure | null>;
   // Live, visible feed_posts, newest first
   feed(): Promise<FeedRow[]>;
   // flag_post(post): true once the post is hidden
@@ -39,10 +43,14 @@ export type CrowdPort = {
 const NOT_SIGNED_IN = '28000';
 // post_report raises this when the account has no username yet
 const NO_USERNAME = 'P0001';
+const NO_USERNAME_MESSAGE = 'username';
 // ...and check_in when the wallet cannot pay (CA1.1). P0001 is also the code of any raise without
 // one, so the message is matched too.
 const NOT_ENOUGH_ENERGY = 'P0001';
 const NOT_ENOUGH_ENERGY_MESSAGE = 'not enough energy';
+// ...and post_report when the relay has no valid beacon code (RL2a, D10)
+const NO_BEACON = 'P0001';
+const NO_BEACON_MESSAGE = 'registered multicab beacon';
 
 const failure = (result: PortFailure): CloudFailure =>
   result.code === NOT_SIGNED_IN ? { ok: false, reason: 'sign_in' } : { ok: false, reason: 'error', message: result.message };
@@ -62,7 +70,7 @@ export function feedPostOf(row: FeedRow): FeedPost | null {
     stopCode: row.stop_code,
     trusted: row.author_trusted,
     username: row.author_username,
-    withGps: row.with_gps,
+    liveMap: row.live_map,
     postedMs: Date.parse(row.created_at),
     demo: false,
   };
@@ -106,11 +114,28 @@ export function createLiveCrowd(port: CrowdPort): CrowdRepositories {
         try {
           const result = await port.postReport(input, requestKey);
           if ('postId' in result) return { ok: true, postId: result.postId };
-          if (result.code === NO_USERNAME) return { ok: false, reason: 'no_username' };
+          if (result.code === NO_BEACON && result.message.includes(NO_BEACON_MESSAGE)) return { ok: false, reason: 'no_beacon' };
+          if (result.code === NO_USERNAME && result.message.includes(NO_USERNAME_MESSAGE)) return { ok: false, reason: 'no_username' };
           return failure(result);
         } catch (error) {
           return { ok: false, reason: 'error', message: messageOf(error) };
         }
+      },
+
+      // Best effort: a missed signal is followed by the next one, and a post never renewed lapses
+      async keep(postId) {
+        const id = Number(postId);
+        if (!Number.isSafeInteger(id) || !(await port.signedIn())) return false;
+        const result = await port.renewReport(id).catch(() => true);
+        // A failure (offline) is not an answer: the post may still be up, so the relay goes on
+        return typeof result === 'boolean' ? result : true;
+      },
+
+      // Best effort too: without it the post lapses RELAY_POST_GRACE_MIN after its last signal
+      async end(postId) {
+        const id = Number(postId);
+        if (!Number.isSafeInteger(id) || !(await port.signedIn())) return;
+        await port.endReport(id).catch(() => null);
       },
 
       async recent() {

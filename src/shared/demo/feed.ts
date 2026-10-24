@@ -1,5 +1,5 @@
 // The demo Crowdsource feed (restyle): reports as the real feed will hold them (PRD 19 D2: a preset
-// phrase, an optional seat tier, the author's handle, with or without GPS; gone after
+// phrase, an optional seat tier, the author's handle, on the live map or not; gone after
 // FEED_LIFETIME_MIN). Computed on the phone from the seed and the clock, so every phone shows the
 // same posts at the same time. Always labelled "Demo". Pure: no React Native or Expo imports.
 
@@ -22,7 +22,8 @@ export type FeedPost = {
   // B6: the author was Trusted when they sent it (TRUST_BADGE_POINTS)
   trusted: boolean;
   username: string;
-  withGps: boolean;
+  // RL2a (D9): the relay shows on the live map, so it is left out of Crowdsource
+  liveMap: boolean;
   postedMs: number;
   demo: boolean;
 };
@@ -31,8 +32,8 @@ export type FeedPost = {
 const DEMO_HANDLES = ['demo_rider', 'demo_juan', 'demo_maria', 'demo_student', 'demo_commuter', 'demo_lola'];
 const SEAT_TIERS: readonly (SeatTier | null)[] = ['green', 'amber', 'red', null];
 const MS_PER_MIN = 60000;
-// Share of demo posts sent with GPS, from Trusted authors, and naming a multicab
-const GPS_SHARE = 0.5;
+// Share of demo posts sent to the live map, from Trusted authors, and naming a multicab
+const LIVE_MAP_SHARE = 0.5;
 const TRUSTED_SHARE = 0.4;
 const VEHICLE_SHARE = 0.7;
 const DEMO_VEHICLES_PER_ROUTE = 4;
@@ -59,12 +60,12 @@ export function demoFeed(
       const phrase = FEED_PHRASES[random.int(0, FEED_PHRASES.length - 1)];
       const seatTier = SEAT_TIERS[random.int(0, SEAT_TIERS.length - 1)];
       const username = DEMO_HANDLES[random.int(0, DEMO_HANDLES.length - 1)];
-      const withGps = random.next() < GPS_SHARE;
+      const liveMap = random.next() < LIVE_MAP_SHARE;
       const stops = stopsOf(routeCode);
       const stopCode = stops.length > 0 ? stops[random.int(0, stops.length - 1)] : null;
       const vehicleId = random.next() < VEHICLE_SHARE ? `${routeCode}-0${random.int(1, DEMO_VEHICLES_PER_ROUTE)}` : null;
       const trusted = random.next() < TRUSTED_SHARE;
-      const post: FeedPost = { id: `demo-${slot}-${n}`, routeCode, phrase, seatTier, vehicleId, stopCode, trusted, username, withGps, postedMs, demo: true };
+      const post: FeedPost = { id: `demo-${slot}-${n}`, routeCode, phrase, seatTier, vehicleId, stopCode, trusted, username, liveMap, postedMs, demo: true };
       if (postedMs <= nowMs && nowMs - postedMs < lifetimeMs) posts.push(post);
     }
   }

@@ -8,6 +8,7 @@ import type { CheckInResult, FlagResult, ReportInput, ReportResult } from '@/dat
 import { supabaseCrowdPort } from '@/services/crowd';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { newRequestKey } from '@/shared/backend/rules';
+import type { RelayPost } from '@/shared/relay/broadcast';
 import { DEMO_SEED } from '@/shared/config';
 
 import { useCheckInStore } from './checkinStore';
@@ -91,4 +92,13 @@ export async function sendReport(input: ReportInput): Promise<ReportResult> {
     if (result.postId) useOwnPostsStore.getState().add(result.postId);
   }
   return result;
+}
+
+// RL2a (D12): a Crowdsource relay's "still riding" signal, and its end, on the source that took it
+export function keepRelayPost(post: RelayPost): Promise<boolean> {
+  return selectCrowd(post.demo, demoCrowd, liveCrowd).reports.keep(post.id);
+}
+
+export function endRelayPost(post: RelayPost): Promise<void> {
+  return selectCrowd(post.demo, demoCrowd, liveCrowd).reports.end(post.id);
 }

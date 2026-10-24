@@ -10,7 +10,7 @@ const T0 = 1_790_000_000_000;
 const MIN = 60_000;
 const LINES = [FIXTURE_OUTBOUND.coordinates, FIXTURE_RETURN.coordinates];
 const destination = { code: 'CCC', name: 'Six kilometres', ...pointAt(6) };
-const session: RelayBroadcast = { routeCode: 'T1', vehicleId: 'T1-01', seatTier: 'amber', destination, startedMs: T0, startPoint: pointAt(2), terminals: [] };
+const session: RelayBroadcast = { mode: 'live', post: null, routeCode: 'T1', vehicleId: 'T1-01', seatTier: 'amber', destination, startedMs: T0, startPoint: pointAt(2), terminals: [] };
 const CAP_MIN = RELAY_SESSION_CAP_H * 60;
 
 describe('relay progress', () => {

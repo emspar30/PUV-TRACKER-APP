@@ -22,6 +22,8 @@ export const noLiveCheckins: CheckinsRepository = {
 export const noLiveReports: ReportsRepository = {
   source: 'none',
   post: async () => ({ ok: false, reason: 'error' }),
+  keep: async () => false,
+  end: async () => undefined,
   recent: async () => null,
   flag: async () => ({ ok: false, reason: 'error' }),
 };

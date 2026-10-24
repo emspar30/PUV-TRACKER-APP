@@ -7,9 +7,19 @@ import { lineEndKm, projectOntoLine, type LineCoordinates } from '../geo/line';
 import type { RouteStop } from '../routing/types';
 import type { SeatTier } from '../telemetry/occupancy';
 
+// RL2a: the relay's post, and whether the demo or the server holds it (the relay keeps its source
+// even if the Demo data switch changes meanwhile)
+export type RelayPost = { id: string; demo: boolean };
+
 export type RelayBroadcast = {
+  // RL2a (D9): 'live' shares the location on the live map; 'feed' is a Crowdsource post that sends
+  // no coordinates, kept up by a "still riding" signal and ended at the stop
+  mode: 'live' | 'feed';
+  // RL2a: the post, for the "still riding" signal and its end; null when there is none to keep
+  post: RelayPost | null;
   routeCode: string;
-  // T1: the multicab picked by hand; without one the location moves no marker
+  // T1: the multicab picked by hand; without one the location moves no marker. RL2a: the multicab
+  // whose beacon was verified (or the demo multicab picked)
   vehicleId: string | null;
   // T1: the seats answer, sent with every position
   seatTier: SeatTier;

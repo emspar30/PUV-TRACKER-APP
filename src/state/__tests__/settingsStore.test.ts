@@ -69,3 +69,22 @@ describe('settings store: the Map route', () => {
     expect(restart().getState().mapRoute).toBeNull();
   });
 });
+
+// RL2a (Emjay, D9): the Relay form's "Show me on the live map" starts off and keeps the last choice
+describe('settings store: the relay live map switch', () => {
+  it('is off by default', () => {
+    expect(restart().getState().relayLiveMap).toBe(false);
+  });
+
+  it('a switch to on survives a restart, and back to off too', () => {
+    restart().getState().setRelayLiveMap(true);
+    expect(restart().getState().relayLiveMap).toBe(true);
+    restart().getState().setRelayLiveMap(false);
+    expect(restart().getState().relayLiveMap).toBe(false);
+  });
+
+  it('ignores a damaged value', () => {
+    mockSaved.set('settings', JSON.stringify({ state: { relayLiveMap: 'yes' }, version: 0 }));
+    expect(restart().getState().relayLiveMap).toBe(false);
+  });
+});

@@ -136,16 +136,31 @@ export const en = {
     route: 'Route',
     whatsHappening: "What's happening? (optional)",
     seats: 'Seats',
-    // B4: the destination ends the GPS sharing; Bluetooth fills in the vehicle (slot, later)
+    // B4: the destination ends the relay (RL2a: required); Bluetooth fills in the vehicle
     destination: 'Destination',
-    destinationHint: 'Where you get off. Sharing with GPS stops there.',
-    destinationNone: 'No stops on this route yet, so it can only be sent without GPS.',
-    gpsNeedsDestination: 'Pick a destination to share with GPS.',
+    destinationHint: 'Where you get off. Your relay ends there.',
+    destinationNone: 'No stops on this route yet, so it cannot be relayed.',
     bleTitle: 'Found by Bluetooth',
     bleBody: 'Route and multicab filled in',
     bleLabel: (code: string, plate: string) => `Found by Bluetooth: ${code}, ${plate}`,
-    // DR8: the Nearby devices explainer (PRD 4.2) and the Bluetooth card's other states. Every state
-    // but "found" leaves the manual pickers below it.
+    // RL2a: demo data has no beacons; the multicab is picked by hand
+    demoVehicleTitle: 'Demo multicab',
+    demoVehicleBody: 'Picked by hand (demo data only)',
+    demoVehicleLabel: (code: string, plate: string) => `Demo multicab: ${code}, ${plate}`,
+    // RL2a (Emjay's D9, D10): why the form is greyed out
+    gate: {
+      needsPermission: "Relay needs your location, to check you are on the multicab's route.",
+      locationOff: "Your phone's location is off. Relay needs it.",
+      turnOn: 'Turn on location',
+      openSettings: 'Open settings',
+      waitingFix: 'Waiting for your location…',
+      noBluetooth: 'Relay needs Bluetooth to find the multicab you are in.',
+      noBeacon: 'No registered multicab detected. This multicab may not be registered with Tunton.',
+      several: 'More than one multicab is near. Sit inside yours and wait a moment.',
+      pick: 'Demo: pick the route and the multicab you are in.',
+      offRoute: (code: string) => `You are not on Route ${code}'s route.`,
+    },
+    // DR8: the Nearby devices explainer (PRD 4.2) and the Bluetooth card's other states
     nearby: {
       title: 'Find your multicab by Bluetooth',
       body: "Inside a multicab, Tunton can hear its signal and fill in the route and plate for you. It listens only for multicab signals, and only while this panel is open. Nothing is stored.",
@@ -158,20 +173,24 @@ export const en = {
       locationOff: "Turn on your phone's location to find your multicab by Bluetooth.",
     },
     ble: {
-      searching: 'Looking for your multicab… Or pick the route below.',
-      ambiguous: 'Two multicabs nearby. Pick yours below.',
-      bluetooth_off: 'Bluetooth is off. Turn it on to find your multicab, or pick the route below.',
-      no_permission: 'Nearby devices is off for Tunton. Pick the route below.',
-      not_supported: 'This phone cannot look for multicabs. Pick the route below.',
+      searching: 'Looking for the multicab you are in…',
+      ambiguous: 'More than one multicab nearby.',
+      bluetooth_off: 'Bluetooth is off. Turn it on to find your multicab.',
+      no_permission: 'Nearby devices is off for Tunton.',
+      not_supported: 'This phone cannot look for multicabs, so it cannot relay.',
       stopped: 'Stopped looking for your multicab. Close and open Relay to look again.',
-      beacon_invalid: "This multicab's signal did not check out. Pick the route below.",
-      beacon_expired: "This multicab's signal is out of date. Pick the route below.",
-      unknown_vehicle: 'This multicab is not registered yet. Pick the route below.',
-      too_many_checks: 'Too many checks for now. Pick the route below.',
-      network: 'Could not check the multicab (no connection). Pick the route below.',
+      beacon_invalid: "This multicab's signal did not check out.",
+      beacon_expired: "This multicab's signal is out of date.",
+      unknown_vehicle: 'This multicab is not registered with Tunton.',
+      too_many_checks: 'Too many checks for now. Wait a moment.',
+      network: 'Could not check the multicab (no connection).',
       sign_in: 'Sign in to find your multicab by Bluetooth.',
     },
     sharingTitle: 'Sharing your location',
+    // RL2a: a Crowdsource relay sends no location
+    feedTitle: 'Relayed in Crowdsource',
+    lapsedTitle: 'Relay ended',
+    lapsedBody: 'Your relay is no longer in Crowdsource.',
     sharingDetail: (code: string, stop: string) => `${code} · until ${stop}`,
     stopSharing: 'Stop',
     // CA1.1: the relay's details, opened from the bar
@@ -190,6 +209,8 @@ export const en = {
     // T1: what the relay bar says about the marker
     uplink: {
       noVehicle: 'No multicab picked, so no live marker',
+      // RL2a: a Crowdsource relay
+      feed: 'No location is sent · ends at your stop',
       offTeam: 'Live markers are for team accounts for now',
       waiting: 'Waiting for a precise location…',
       live: (seconds: number) => `On the live map · sent ${seconds} s ago`,
@@ -207,22 +228,22 @@ export const en = {
     keepSharing: 'Keep sharing',
     cappedTitle: 'Location sharing ended',
     cappedBody: 'No answer to "Still riding?". Relay again if you are still riding.',
-    // T1: the manual vehicle picker (team accounts), until Bluetooth finds it (D5)
-    vehicle: 'Multicab you are riding (optional)',
-    vehicleHint: 'Pick it to move its marker on the live map. Unverified for now.',
-    withGps: 'Share with GPS',
-    // CA1.1: only a relay with GPS (the verified kind) earns Energy
-    gpsEarns: (gps: number) => `Earns +${gps.toFixed(1)} Energy with GPS (once a day); none without`,
-    gpsUnavailable: 'No precise location right now. Sent without GPS, which earns no Energy.',
-    // D1: while Energy is hidden (tracking is free), the same lines without the rewards
-    gpsShares: 'Shows your multicab on the live map until your stop',
-    gpsUnavailableFree: 'No precise location right now. Sent without GPS.',
+    // RL2a: the demo picker (live data: Bluetooth finds the multicab)
+    vehicle: 'Multicab you are in',
+    // RL2a (Emjay's D9): one switch, off by default and remembered
+    liveMap: 'Show me on the live map',
+    // CA1.1: only a relay on the live map earns Energy for now (RL2b changes it)
+    liveMapEarns: (amount: number) => `Your multicab moves on the live map until your stop. Earns +${amount.toFixed(1)} Energy (once a day).`,
+    // D1: while Energy is hidden (tracking is free), the same line without the reward
+    liveMapShares: 'Your multicab moves on the live map until your stop.',
+    feedOnly: 'Off: your relay shows in Crowdsource until your stop. No location is sent.',
+    liveMapTeamOnly: 'The live map is open to team accounts only for now. Your relay goes to Crowdsource.',
     unverified: 'Relays show as unverified for now.',
     send: 'Relay update',
     sending: 'Sending…',
     sentTitle: 'Update relayed',
-    sentBody: (minutes: number) => `It shows in Crowdsource for ${minutes} minutes.`,
-    // With GPS the update belongs to the live map (broadcast), not the Crowdsource feed
+    // RL2a: in Crowdsource until the stop; on the live map the update belongs to the map, not the feed
+    sentBodyFeed: (stop: string) => `It shows in Crowdsource until you reach ${stop}.`,
     sentBodyGps: (stop: string) => `Your location shows on the live map until you reach ${stop}.`,
     failedTitle: 'Update not sent',
     failedBody: 'Try again in a moment.',
@@ -355,7 +376,6 @@ export const en = {
       stopped: 'Stopped',
       close: 'Close multicab details',
       track: 'Track',
-      eta: (text: string) => `~${text}`,
     },
     // L2: tracking one multicab to the commuter's stop
     tracking: {

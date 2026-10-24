@@ -3,7 +3,7 @@
 // without an account. Other people waiting are made up from the seed and the clock. Sends nothing.
 // Pure: no React Native or Expo imports.
 
-import { CHECKIN_LIFETIME_S, DEMO_CHECKIN_OTHERS_MAX, DEMO_CHECKIN_SLOT_MIN, FEED_LIFETIME_MIN } from '../../shared/config';
+import { CHECKIN_LIFETIME_S, DEMO_CHECKIN_OTHERS_MAX, DEMO_CHECKIN_SLOT_MIN, RELAY_POST_GRACE_MIN, RELAY_POST_REVIVE_MIN } from '../../shared/config';
 import type { FeedPost } from '../../shared/demo/feed';
 import { childSeed, seededRandom } from '../../shared/util/random';
 import type { CrowdRepositories } from '../repositories/select';
@@ -22,6 +22,9 @@ export function createDemoCrowd(
 ): CrowdRepositories {
   let mine: Mine | null = null;
   let posts: FeedPost[] = [];
+  // RL2a: when each of the user's posts lapses (moved on by keep, set to now by end), and the ended ones
+  const expiresMs = new Map<string, number>();
+  const ended = new Set<string>();
 
   return {
     checkins: {
@@ -58,6 +61,8 @@ export function createDemoCrowd(
       async post(input, requestKey) {
         const name = username();
         if (!name) return { ok: false, reason: 'no_username' };
+        // RL2a (D10): as the server, no relay without its multicab (picked by hand in the demo)
+        if (!input.vehicleId) return { ok: false, reason: 'no_beacon' };
         const postedMs = now();
         posts = [
           {
@@ -69,21 +74,40 @@ export function createDemoCrowd(
             stopCode: input.stopCode,
             trusted: false,
             username: name,
-            withGps: input.withGps,
+            liveMap: input.liveMap,
             postedMs,
             demo: true,
           },
           ...posts,
         ];
-        energy.earn(input.withGps ? 'gps_report' : 'no_gps_report', requestKey);
+        expiresMs.set(requestKey, postedMs + RELAY_POST_GRACE_MIN * MS_PER_MIN);
+        // Until RL2b: the live map earns as a relay with GPS did (once a Manila day), Crowdsource nothing
+        energy.earn(input.liveMap ? 'gps_report' : 'no_gps_report', requestKey);
         return { ok: true, postId: requestKey };
       },
 
-      // The user's own demo posts younger than FEED_LIFETIME_MIN; the screen adds the made-up feed
+      // RL2a: the "still riding" signal, by the server's rule: an ended post, or one lapsed
+      // RELAY_POST_REVIVE_MIN or more, stays down
+      async keep(postId) {
+        const atMs = now();
+        const until = expiresMs.get(postId);
+        if (until === undefined || ended.has(postId) || atMs - until >= RELAY_POST_REVIVE_MIN * MS_PER_MIN) return false;
+        expiresMs.set(postId, atMs + RELAY_POST_GRACE_MIN * MS_PER_MIN);
+        return true;
+      },
+
+      async end(postId) {
+        if (!expiresMs.has(postId)) return;
+        ended.add(postId);
+        expiresMs.set(postId, now());
+      },
+
+      // The user's own demo posts still up; the screen adds the made-up feed
       async recent() {
         const atMs = now();
-        posts = posts.filter((post) => atMs - post.postedMs < FEED_LIFETIME_MIN * MS_PER_MIN);
-        return posts;
+        // A post lapsed RELAY_POST_REVIVE_MIN ago cannot come back, so it is forgotten
+        posts = posts.filter((post) => atMs - (expiresMs.get(post.id) ?? 0) < RELAY_POST_REVIVE_MIN * MS_PER_MIN);
+        return posts.filter((post) => (expiresMs.get(post.id) ?? 0) > atMs);
       },
 
       // N1: nothing to send in demo; the screen hides the flagged post for this user

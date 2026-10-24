@@ -57,6 +57,7 @@ const distance = (meters: number) => (meters < METERS_PER_KM ? strings.format.me
 // destination. CA1.1: a tap opens the relay's details: how far to the destination, how much of the
 // ride is done, about how long is left, how long it has been shared, and the multicab and seats.
 // RL1: at the destination it counts down the seconds until sharing stops.
+// RL2a: a Crowdsource relay shows the same bar, saying no location is sent.
 export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }: RelayBarProps) {
   const styles = useStyles();
   const { colors, typography, elevation } = useTheme();
@@ -91,7 +92,7 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
           <IconTile icon={RadioTower} tone={uplink.kind === 'saved' ? 'warning' : 'success'} />
           <View style={styles.grow}>
             <Text style={typography.labelLg} numberOfLines={1}>
-              {t.sharingTitle}
+              {session.mode === 'feed' ? t.feedTitle : t.sharingTitle}
             </Text>
             <Text style={typography.bodySm} numberOfLines={1}>
               {leftS !== null
@@ -101,7 +102,7 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
                   : t.sharingDetail(session.routeCode, session.destination.name)}
             </Text>
             <Text style={typography.bodySm} numberOfLines={1}>
-              {uplinkText(uplink, Math.max(nowMs, live ? uplink.sentMs : 0))}
+              {session.mode === 'feed' ? t.uplink.feed : uplinkText(uplink, Math.max(nowMs, live ? uplink.sentMs : 0))}
             </Text>
           </View>
           <Chevron color={colors.textSecondary} size={ICON_SIZE} />

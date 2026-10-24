@@ -31,19 +31,31 @@ export const supabaseCrowdPort: CrowdPort = {
     return error ? failureOf(error) : null;
   },
 
+  // RL2a: the nine-argument version (20261023000000), the only one the server still grants; it
+  // refuses a relay without a valid beacon code
   async postReport(input, requestKey) {
-    const args = {
+    const { data, error } = await getSupabase().rpc('post_report', {
       route: input.routeCode,
       phrase: input.phrase,
       seat_tier: input.seatTier,
       vehicle: input.vehicleId,
       with_gps: input.withGps,
       stop: input.stopCode,
+      beacon: input.beaconHex ?? null,
+      live_map: input.liveMap,
       request_key: requestKey,
-    };
-    // DR8: the eight-argument version only with a beacon code, so a server without it still takes the rest
-    const { data, error } = await getSupabase().rpc('post_report', input.beaconHex ? { ...args, beacon: input.beaconHex } : args);
+    });
     return error ? failureOf(error) : { postId: String(data) };
+  },
+
+  async renewReport(postId) {
+    const { data, error } = await getSupabase().rpc('renew_report', { post: postId });
+    return error ? failureOf(error) : data === true;
+  },
+
+  async endReport(postId) {
+    const { error } = await getSupabase().rpc('end_report', { post: postId });
+    return error ? failureOf(error) : null;
   },
 
   async flagPost(postId) {
@@ -55,9 +67,9 @@ export const supabaseCrowdPort: CrowdPort = {
   async feed() {
     const { data, error } = await getSupabase()
       .from('feed_posts')
-      .select('id, author_username, route_id, vehicle_id, phrase, seat_tier, stop_code, author_trusted, with_gps, created_at')
-      // Crowdsource lists updates sent without GPS; those with GPS feed the live map
-      .eq('with_gps', false)
+      .select('id, author_username, route_id, vehicle_id, phrase, seat_tier, stop_code, author_trusted, live_map, created_at')
+      // RL2a: Crowdsource lists relays kept off the live map; the others feed the live map
+      .eq('live_map', false)
       .order('created_at', { ascending: false })
       .limit(FEED_READ_LIMIT);
     if (error) throw new Error(error.message);

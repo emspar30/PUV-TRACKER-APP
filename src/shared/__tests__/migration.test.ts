@@ -107,9 +107,9 @@ describe('migration: tables', () => {
     const columns = body.slice(0, body.indexOf(');'));
     expect(columns).not.toMatch(/\blat\b|\blon\b|\btext\s+text\b|message|comment/);
     expect(columns).toMatch(/phrase\s+text not null check \(phrase in \('full', 'few_seats', 'not_moving', 'heavy_traffic', 'loading'\)\)/);
-    // B6 added stop_code and author_trusted in grants of their own
+    // B6 added stop_code and author_trusted in grants of their own, RL2a live_map
     const grants = clientGrantsOn('public.feed_posts');
-    expect(grants).toHaveLength(3);
+    expect(grants).toHaveLength(4);
     for (const grant of grants) {
       expect(grant).toMatch(/^grant select \(/);
       expect(grant).not.toContain('user_id');
@@ -431,5 +431,44 @@ describe('migration: boarding detection (DR8)', () => {
     expect(beaconSql).not.toMatch(/beacon text default/);
     expect(statements).toContain('alter table public.feed_posts add column beacon_ok boolean');
     expect(statements.some((s) => s.startsWith('grant') && s.includes('beacon_ok'))).toBe(false);
+  });
+});
+
+describe('migration: relay gate (RL2a)', () => {
+  const gateSql = read(['20261023000000_relay_gate.sql']);
+  const postReport = 'public.post_report(text, text, text, text, boolean, text, text, boolean, text)';
+
+  it('only the nine-argument post_report is callable; the older versions lose their grant', () => {
+    expect(statements).toContain(`grant execute on function ${postReport} to authenticated`);
+    for (const old of [
+      'public.post_report(text, text, text, text, boolean, text)',
+      'public.post_report(text, text, text, text, boolean, text, text)',
+      'public.post_report(text, text, text, text, boolean, text, text, text)',
+    ]) {
+      expect(statements).toContain(`revoke execute on function ${old} from authenticated`);
+    }
+  });
+
+  it('refuses a relay without a valid beacon code for the same route and vehicle', () => {
+    expect(gateSql).toContain("if beacon is null then raise exception 'a registered multicab beacon is needed'");
+    expect(gateSql).toMatch(/checked\.status is distinct from 'ok' or checked\.route_id is distinct from route/);
+  });
+
+  it('live_map is readable by clients, ended_at is not; old relays with GPS move to the live map', () => {
+    expect(statements).toContain('grant select (live_map) on public.feed_posts to authenticated');
+    expect(statements.some((s) => s.startsWith('grant') && s.includes('ended_at'))).toBe(false);
+    expect(statements).toContain('update public.feed_posts set live_map = with_gps');
+  });
+
+  it('a post lapses after the grace minutes unless renewed; only its author renews or ends it', () => {
+    expect(gateSql).toMatch(/relay_post_grace_min smallint not null default 15/);
+    expect(gateSql).toMatch(/relay_post_revive_min smallint not null default 30/);
+    for (const fn of ['renew_report', 'end_report']) {
+      expect(statements).toContain(`grant execute on function public.${fn}(bigint) to authenticated`);
+      const body = gateSql.slice(gateSql.indexOf(`create function public.${fn}`));
+      expect(body.slice(0, body.indexOf('$$;'))).toContain('f.user_id = uid');
+    }
+    // An ended or hidden post never comes back
+    expect(gateSql).toMatch(/f\.ended_at is null\s+and not f\.hidden/);
   });
 });

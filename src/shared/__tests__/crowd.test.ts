@@ -20,6 +20,8 @@ import {
   ENERGY_WELCOME,
   GPS_ACCURACY_GATE_CHECKIN_M,
   GPS_ACCURACY_GATE_RELAY_M,
+  RELAY_POST_GRACE_MIN,
+  RELAY_POST_REVIVE_MIN,
 } from '../config';
 
 const T0 = Date.UTC(2026, 9, 5, 2, 0, 0);
@@ -64,7 +66,9 @@ describe('reporting with GPS', () => {
   });
 });
 
-const REPORT: ReportInput = { routeCode: 'R4', phrase: 'few_seats', seatTier: 'amber', vehicleId: 'R4-01', stopCode: 'MCA', withGps: true };
+const MIN = 60_000;
+// RL2a: every relay uses GPS; this one is on the live map
+const REPORT: ReportInput = { routeCode: 'R4', phrase: 'few_seats', seatTier: 'amber', vehicleId: 'R4-01', stopCode: 'MCA', withGps: true, liveMap: true };
 
 describe('the demo loop (CA1.1): start full, spend on check-ins and tracking, earn by GPS relays and waiting', () => {
   const setup = (username: string | null = 'demo_me') => {
@@ -118,12 +122,12 @@ describe('the demo loop (CA1.1): start full, spend on check-ins and tracking, ea
     expect(await balanceOf(energy)).toBeCloseTo(0.1, 9);
   });
 
-  it('a relay with GPS earns 1.0 once a day, one without earns nothing; the next Manila day pays again', async () => {
+  it('a relay on the live map earns 1.0 once a day, one in Crowdsource earns nothing (until RL2b); the next Manila day pays again', async () => {
     const { energy, crowd, spend, advance } = setup();
     await spend(3);
     expect(await crowd.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: true, postId: 'report-aaaaaaaa' });
     await crowd.reports.post(REPORT, 'report-bbbbbbbb');
-    await crowd.reports.post({ ...REPORT, withGps: false }, 'report-cccccccc');
+    await crowd.reports.post({ ...REPORT, liveMap: false }, 'report-cccccccc');
     expect(ENERGY_NO_GPS_REPORT).toBe(0);
     expect(await balanceOf(energy)).toBe(ENERGY_WELCOME - 3 + ENERGY_GPS_REPORT);
     advance(DAY);
@@ -148,15 +152,39 @@ describe('the demo loop (CA1.1): start full, spend on check-ins and tracking, ea
     expect(await balanceOf(energy)).toBe(ENERGY_WELCOME + ENERGY_GPS_REPORT - 6 * ENERGY_TRACKING_COST);
   });
 
-  it('own demo reports show in the feed for an hour; no handle, no report', async () => {
+  it('RL2a: an own demo relay stays while kept, lapses RELAY_POST_GRACE_MIN after the last signal, and ends at once', async () => {
     const { crowd, advance } = setup();
-    await crowd.reports.post(REPORT, 'report-aaaaaaaa');
+    await crowd.reports.post({ ...REPORT, liveMap: false }, 'report-aaaaaaaa');
     const posts = await crowd.reports.recent();
     expect(posts).toHaveLength(1);
-    expect(posts?.[0]).toMatchObject({ routeCode: 'R4', phrase: 'few_seats', seatTier: 'amber', vehicleId: 'R4-01', stopCode: 'MCA', username: 'demo_me', withGps: true, demo: true });
-    advance(3600000);
+    expect(posts?.[0]).toMatchObject({ routeCode: 'R4', phrase: 'few_seats', seatTier: 'amber', vehicleId: 'R4-01', stopCode: 'MCA', username: 'demo_me', liveMap: false, demo: true });
+    // Kept every few minutes for an hour: still up
+    for (let i = 0; i < 12; i += 1) {
+      advance(5 * MIN);
+      expect(await crowd.reports.keep('report-aaaaaaaa')).toBe(true);
+    }
+    expect(await crowd.reports.recent()).toHaveLength(1);
+    // The battery runs out: no signal, and it lapses
+    advance(RELAY_POST_GRACE_MIN * MIN);
     expect(await crowd.reports.recent()).toEqual([]);
-    expect(await setup(null).crowd.reports.post(REPORT, 'report-bbbbbbbb')).toEqual({ ok: false, reason: 'no_username' });
+    // Back within RELAY_POST_REVIVE_MIN of lapsing (a dead zone): it comes back
+    advance(10 * MIN);
+    expect(await crowd.reports.keep('report-aaaaaaaa')).toBe(true);
+    expect(await crowd.reports.recent()).toHaveLength(1);
+    // The relay ends: gone at once, and it never comes back
+    await crowd.reports.end('report-aaaaaaaa');
+    expect(await crowd.reports.recent()).toEqual([]);
+    expect(await crowd.reports.keep('report-aaaaaaaa')).toBe(false);
+  });
+
+  it('RL2a: a post lapsed RELAY_POST_REVIVE_MIN ago stays down; no multicab or no handle, no relay', async () => {
+    const { crowd, advance } = setup();
+    await crowd.reports.post({ ...REPORT, liveMap: false }, 'report-aaaaaaaa');
+    advance((RELAY_POST_GRACE_MIN + RELAY_POST_REVIVE_MIN) * MIN);
+    expect(await crowd.reports.keep('report-aaaaaaaa')).toBe(false);
+    expect(await crowd.reports.keep('report-unknown')).toBe(false);
+    expect(await crowd.reports.post({ ...REPORT, vehicleId: null }, 'report-bbbbbbbb')).toEqual({ ok: false, reason: 'no_beacon' });
+    expect(await setup(null).crowd.reports.post(REPORT, 'report-cccccccc')).toEqual({ ok: false, reason: 'no_username' });
   });
 });
 
@@ -166,6 +194,8 @@ const port = (over: Partial<CrowdPort> = {}): CrowdPort => ({
   checkinCounts: async () => [{ station_code: 'AAA', waiting: '2' }],
   endCheckIn: async () => null,
   postReport: async () => ({ postId: '41' }),
+  renewReport: async () => true,
+  endReport: async () => null,
   feed: async () => [
     {
       id: 5,
@@ -176,7 +206,7 @@ const port = (over: Partial<CrowdPort> = {}): CrowdPort => ({
       seat_tier: 'red',
       stop_code: 'IMA',
       author_trusted: true,
-      with_gps: false,
+      live_map: false,
       created_at: new Date(T0).toISOString(),
     },
   ],
@@ -207,7 +237,7 @@ describe('the live check-ins and reports', () => {
         stopCode: 'IMA',
         trusted: true,
         username: 'juan',
-        withGps: false,
+        liveMap: false,
         postedMs: T0,
         demo: false,
       },
@@ -232,6 +262,50 @@ describe('the live check-ins and reports', () => {
     await expect(crowd.checkins.end()).resolves.toBeUndefined();
     const failing = createLiveCrowd(port({ postReport: async () => ({ code: '42501', message: 'sign in to take part' }) }));
     expect(await failing.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: false, reason: 'error', message: 'sign in to take part' });
+  });
+
+  it('RL2a: a relay without a valid beacon comes back as no_beacon; another P0001 stays an error', async () => {
+    const crowd = createLiveCrowd(port({ postReport: async () => ({ code: 'P0001', message: 'a registered multicab beacon is needed' }) }));
+    expect(await crowd.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: false, reason: 'no_beacon' });
+    const other = createLiveCrowd(port({ postReport: async () => ({ code: 'P0001', message: 'something else' }) }));
+    expect(await other.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: false, reason: 'error', message: 'something else' });
+  });
+
+  it('RL2a: keeps and ends a post by its numeric id; offline keeps the relay going; a demo id never leaves', async () => {
+    const renewed: number[] = [];
+    const ended: number[] = [];
+    const crowd = createLiveCrowd(
+      port({
+        renewReport: async (id) => {
+          renewed.push(id);
+          return id !== 9;
+        },
+        endReport: async (id) => {
+          ended.push(id);
+          return null;
+        },
+      }),
+    );
+    expect(await crowd.reports.keep('41')).toBe(true);
+    // The server no longer keeps it
+    expect(await crowd.reports.keep('9')).toBe(false);
+    await crowd.reports.end('41');
+    expect(renewed).toEqual([41, 9]);
+    expect(ended).toEqual([41]);
+    expect(await crowd.reports.keep('report-aaaaaaaa')).toBe(false);
+    await crowd.reports.end('report-aaaaaaaa');
+    expect(ended).toEqual([41]);
+    // No connection, or an error: not an answer, so the relay goes on; a failed end is ignored
+    const offline = createLiveCrowd(
+      port({
+        renewReport: async () => Promise.reject(new Error('offline')),
+        endReport: async () => Promise.reject(new Error('offline')),
+      }),
+    );
+    expect(await offline.reports.keep('41')).toBe(true);
+    await expect(offline.reports.end('41')).resolves.toBeUndefined();
+    expect(await createLiveCrowd(port({ renewReport: async () => ({ code: '42501', message: 'denied' }) })).reports.keep('41')).toBe(true);
+    expect(await createLiveCrowd(port({ signedIn: async () => false })).reports.keep('41')).toBe(false);
   });
 
   it('CA1.1: a check-in the wallet cannot pay comes back as not_enough_energy', async () => {
@@ -273,7 +347,7 @@ describe('the live check-ins and reports', () => {
       seat_tier: 'purple',
       stop_code: null,
       author_trusted: false,
-      with_gps: true,
+      live_map: true,
       created_at: new Date(T0).toISOString(),
     };
     expect(feedPostOf(row)?.seatTier).toBeNull();

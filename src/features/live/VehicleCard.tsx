@@ -15,12 +15,10 @@ type VehicleCardProps = {
   // Stop code ahead of the vehicle, or null at the end of its line
   nextStop: string | null;
   stopped: boolean;
-  // "3 min" to the commuter's stop, or null when there is no ETA (D9)
-  eta: string | null;
   // How far the vehicle is from the commuter (PRD 7.4), or null without a position
   distanceKm: number | null;
   onTrack: () => void;
-  // CF1: drawn at an estimated position (silent 90 s to 5 minutes); there is no ETA then
+  // CF1: drawn at an estimated position (silent 90 s to 5 minutes)
   estimated?: boolean;
   onClose: () => void;
 };
@@ -29,10 +27,10 @@ const ICON_SIZE = spacing.md + spacing.xs;
 const SMALL_ICON = spacing.md;
 
 // The tapped multicab (restyle): route and plate, next stop, free seats, how fresh the position is
-// and how far from the commuter (PRD 7.4, "Seen 40 s ago, 1.4 km from you"). With an ETA to the
-// commuter's stop it shows that too, and Track opens the tracking panel (L2). A live vehicle the
-// server has not verified says "Prototype data, unverified" (PRD 0.7).
-export function VehicleCard({ vehicle, nowMs, nextStop, stopped, eta, distanceKm, onTrack, estimated = false, onClose }: VehicleCardProps) {
+// and how far from the commuter (PRD 7.4, "Seen 40 s ago, 1.4 km from you"). The ETA shows only
+// after Track opens the tracking panel (L2; Emjay, 2026-10-24). A live vehicle the server has not
+// verified says "Prototype data, unverified" (PRD 0.7).
+export function VehicleCard({ vehicle, nowMs, nextStop, stopped, distanceKm, onTrack, estimated = false, onClose }: VehicleCardProps) {
   const styles = useStyles();
   const { colors, typography, mapPaint, elevation } = useTheme();
   const free = Math.max(0, VEHICLE_CAPACITY_SEATS - vehicle.seatsTaken);
@@ -52,8 +50,7 @@ export function VehicleCard({ vehicle, nowMs, nextStop, stopped, eta, distanceKm
           </View>
           {nextStop ? <Text style={typography.bodySm}>{strings.live.vehicle.next(nextStop)}</Text> : null}
         </View>
-        {eta ? <StatusPill label={strings.live.vehicle.eta(eta)} tone="success" /> : null}
-        {stopped && !eta ? <StatusPill label={strings.live.vehicle.stopped} tone="warning" /> : null}
+        {stopped ?<StatusPill label={strings.live.vehicle.stopped} tone="warning" /> : null}
         <Pressable style={styles.icon} onPress={onClose} accessibilityRole="button" accessibilityLabel={strings.live.vehicle.close}>
           <X color={colors.textSecondary} size={ICON_SIZE} />
         </Pressable>

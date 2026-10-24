@@ -449,6 +449,22 @@ export const HIGH_TRAFFIC_ZONES: readonly {
 ];
 // B4: how often the relay's limits are checked while it shares the location
 export const RELAY_CHECK_S = 30;
+// RL2a (Emjay, D10, 2026-10-23): a relay needs a verified multicab beacon. With none verified after
+// RELAY_BEACON_WAIT_S the Relay form says no registered multicab was detected (it keeps listening).
+export const RELAY_BEACON_WAIT_S = 15;
+// RL2a (D10): the rider must be within ROUTE_SNAP_DISTANCE_M of the multicab's route line, or within
+// RELAY_STOP_AREA_M of one of its stops (a terminal's parking may sit off the line)
+export const RELAY_STOP_AREA_M = 60;
+// RL2a (D12): a Crowdsource relay stays up while the phone says "still riding" every
+// RELAY_HEARTBEAT_MIN; it lapses RELAY_POST_GRACE_MIN after the last one (the battery ran out), and
+// a post that lapsed less than RELAY_POST_REVIVE_MIN ago (a dead zone) comes back on the next one.
+// Server: app_config.relay_post_grace_min and relay_post_revive_min
+export const RELAY_HEARTBEAT_MIN = 5;
+export const RELAY_POST_GRACE_MIN = 15;
+export const RELAY_POST_REVIVE_MIN = 30;
+// RL2a: demo data has no beacons, so the Relay form lists this many made-up multicabs per route to
+// pick by hand; the one picked counts as heard (demo only)
+export const DEMO_RELAY_VEHICLES = 3;
 // CA1.1 relay info: the rider and the destination count as on the route line within this distance
 export const RELAY_PROGRESS_SNAP_M = 100;
 // Asia/Manila is UTC+8 all year (no daylight saving).

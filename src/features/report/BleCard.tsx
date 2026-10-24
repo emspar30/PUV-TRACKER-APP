@@ -1,7 +1,8 @@
-import { Bluetooth, BluetoothSearching } from 'lucide-react-native';
+import { Bluetooth, BluetoothSearching, Bus } from 'lucide-react-native';
 import { Linking, Text, View } from 'react-native';
 
 import { Button, IconTile, LineBadge } from '@/components';
+import type { RelayVehicle } from '@/shared/relay/gate';
 import { strings } from '@/strings';
 import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -34,29 +35,42 @@ type BleCardProps = {
   routeColor: string;
 };
 
-// DR8: the top of the Relay panel. Found: the route and plate from Bluetooth (the manual pickers are
-// hidden). Otherwise one line on what Bluetooth is doing, above the pickers; or the Nearby devices
-// explainer before the system prompt (PRD 4.2).
+type RelayVehicleCardProps = {
+  vehicle: RelayVehicle;
+  routeColor: string;
+  // Found by Bluetooth, or picked by hand in demo data
+  demo: boolean;
+};
+
+// RL2a (D10): the multicab being relayed: its route number and plate, never the beacon's id
+export function RelayVehicleCard({ vehicle, routeColor, demo }: RelayVehicleCardProps) {
+  const styles = useStyles();
+  const { typography } = useTheme();
+  const text = strings.report;
+  const { routeCode, plate } = vehicle;
+  return (
+    <View style={styles.card} accessible accessibilityLabel={demo ? text.demoVehicleLabel(routeCode, plate) : text.bleLabel(routeCode, plate)}>
+      <IconTile icon={demo ? Bus : Bluetooth} />
+      <View style={styles.grow}>
+        <Text style={typography.labelLg}>{demo ? text.demoVehicleTitle : text.bleTitle}</Text>
+        <Text style={typography.bodySm}>{demo ? text.demoVehicleBody : text.bleBody}</Text>
+      </View>
+      <LineBadge code={routeCode} color={routeColor} />
+      <Text style={typography.labelLg}>{plate}</Text>
+    </View>
+  );
+}
+
+// DR8: the top of the Relay panel. Found: the route and plate from Bluetooth. Otherwise one line on
+// what Bluetooth is doing, or the Nearby devices explainer before the system prompt (PRD 4.2).
+// RL2a: there are no manual pickers any more; without a verified multicab the form stays greyed out.
 export function BleCard({ ble, routeColor }: BleCardProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const { nearby, view } = ble;
   const text = strings.report;
 
-  if (view?.kind === 'found') {
-    const { routeCode, plate } = view.vehicle;
-    return (
-      <View style={styles.card} accessible accessibilityLabel={text.bleLabel(routeCode, plate)}>
-        <IconTile icon={Bluetooth} />
-        <View style={styles.grow}>
-          <Text style={typography.labelLg}>{text.bleTitle}</Text>
-          <Text style={typography.bodySm}>{text.bleBody}</Text>
-        </View>
-        <LineBadge code={routeCode} color={routeColor} />
-        <Text style={typography.labelLg}>{plate}</Text>
-      </View>
-    );
-  }
+  if (view?.kind === 'found') return <RelayVehicleCard vehicle={view.vehicle} routeColor={routeColor} demo={false} />;
 
   if (nearby.status === 'explain') {
     return (
