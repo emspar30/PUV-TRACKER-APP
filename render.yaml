@@ -1,0 +1,32 @@
+# The SMS worker (DR6) on Render, so it runs without the team PC and the gateway phone reaches it
+# over HTTPS from anywhere. See services/sms-worker/README.md, "Hosted on Render".
+# The secrets are typed into the Render dashboard (sync: false) and never stored in this file.
+services:
+  - type: web
+    name: tunton-sms-worker
+    runtime: node
+    plan: free
+    # Closest Render region to the Philippines
+    region: singapore
+    buildCommand: npm ci && npm run worker:build
+    startCommand: node services/sms-worker/dist/worker.cjs
+    healthCheckPath: /healthz
+    autoDeploy: true
+    # Redeploy only when the worker or the shared rules it bundles change
+    buildFilter:
+      paths:
+        - services/sms-worker/**
+        - src/shared/**
+        - package.json
+        - package-lock.json
+        - render.yaml
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # text: the DITO SIM on the driver phone does not receive data SMS (team test, 2026-10-25)
+      - key: SMS_PRIMARY_ENCODING
+        value: text

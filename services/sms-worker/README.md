@@ -58,6 +58,19 @@ powershell -ExecutionPolicy Bypass -File scripts\run-worker.ps1
    - the pilot: a **Cloudflare Tunnel** (`cloudflared`, installed on the PC only) gives the worker an `https://` address; the gateway's setup code uses that address. Release builds of the gateway accept HTTPS only.
 6. **Check it:** open `https://<tunnel address>/healthz` in a phone browser: it says `ok`.
 
+## Hosted on Render
+
+Instead of the team PC, the worker can run on Render (`render.yaml` at the repository root, a Blueprint), so it stays up without a PC and the gateway phone reaches it over HTTPS without a USB cable or tunnel. The free plan is enough: Render puts a free service to sleep after 15 minutes without requests, but the gateway pulls every 10 s, which keeps it awake; a whole month is 744 hours, under the 750 free hours. If the gateway is off for 15 minutes the worker sleeps too, and the gateway's next pull wakes it in about a minute. The Starter plan never sleeps.
+
+1. Push `render.yaml` to GitHub.
+2. In the Render dashboard: New, Blueprint, connect the GitHub repository, pick `render.yaml`.
+3. Type `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` when Render asks. **Secret:** the key goes only into Render's environment settings, never into a file in the repository.
+4. Wait for the deploy, then open `https://<service>.onrender.com/healthz` in a phone browser: it says `ok`.
+5. Set up the gateway again with the new address: `npx tsx scripts/provision-gateway.ts --gateway GW-01 --phone <gateway number> --worker-url https://<service>.onrender.com`, and scan the QR with the gateway app. The old token stops working at once.
+6. Stop any worker still running on a PC: two workers would queue the same texts twice.
+
+`SMS_PRIMARY_ENCODING` is `text` there: the DITO SIM on the driver phone does not receive data SMS (team test, 2026-10-25). The logs are in the Render dashboard (Logs), one JSON line per event as below.
+
 ## The gateway's API (plan section 6.4)
 
 | Request | Body | Answer |
