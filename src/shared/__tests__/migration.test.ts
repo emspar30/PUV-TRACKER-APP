@@ -13,9 +13,10 @@ const FILES = fs
   .readdirSync(MIGRATIONS)
   .filter((name) => name.endsWith('.sql'))
   .sort();
-// DR3's migration and its later fixes
+// DR3's migration and its later fixes, and DRG2's driver registration
 const DRIVER_SIDE = '20261013000000_driver_side.sql';
-const DRIVER_SIDE_FILES = FILES.filter((name) => name.startsWith('20261013'));
+const DRIVER_REGISTRATION = '20261027000000_driver_registration.sql';
+const DRIVER_SIDE_FILES = FILES.filter((name) => name.startsWith('20261013') || name === DRIVER_REGISTRATION);
 
 const read = (names: string[]) =>
   names
@@ -147,12 +148,12 @@ describe('migration: tables', () => {
     for (const word of ['classification', 'avatar', 'full_name', 'email', 'discount']) {
       expect(sql).not.toContain(word);
     }
-    // The driver side (20261013000000_driver_side) keeps the numbers of driver phones and SMS
-    // gateways, never a rider's: only those two tables have a phone column
+    // The driver side (20261013000000_driver_side, 20261027000000_driver_registration) keeps the
+    // numbers of driver phones, SMS gateways and registering drivers, never a rider's
     const withPhone = [...sql.matchAll(/create table (public\.\w+) \(([\s\S]*?)\);/g)]
       .filter((match) => match[2].includes('phone'))
       .map((match) => match[1]);
-    expect(withPhone).toEqual(['public.driver_devices', 'public.gateways']);
+    expect(withPhone).toEqual(['public.driver_devices', 'public.gateways', 'public.registration_checks', 'public.driver_registrations']);
     // Phone numbers exist only on the driver side (driver and gateway SIMs), never for riders
     expect(riderSql).not.toContain('phone');
   });
@@ -431,6 +432,94 @@ describe('migration: boarding detection (DR8)', () => {
     expect(beaconSql).not.toMatch(/beacon text default/);
     expect(statements).toContain('alter table public.feed_posts add column beacon_ok boolean');
     expect(statements.some((s) => s.startsWith('grant') && s.includes('beacon_ok'))).toBe(false);
+  });
+});
+
+describe('migration: driver registration (DRG2)', () => {
+  const regSql = read([DRIVER_REGISTRATION]);
+  const regStatements = regSql
+    .replace(/\$\$[\s\S]*?\$\$/g, '$$body$$')
+    .split(';')
+    .map((s) => s.replace(/\s+/g, ' ').trim());
+  const regFunctions = regStatements
+    .filter((s) => /^create (or replace )?function/.test(s))
+    .map((s) => /function public\.(\w+)/.exec(s)![1]);
+  const body = (fn: string) => {
+    const rest = regSql.slice(regSql.indexOf(`function public.${fn}(`));
+    return rest.slice(0, rest.indexOf('$$;', rest.indexOf('as $$')));
+  };
+  const grantsOf = (fn: string) => regStatements.filter((s) => s.startsWith(`grant execute on function public.${fn}(`));
+  const NEW_TABLES = ['public.admin_accounts', 'public.driver_settings', 'public.registration_checks', 'public.driver_registrations'];
+
+  it('adds four server-only tables', () => {
+    expect(tables).toEqual(expect.arrayContaining(NEW_TABLES));
+    for (const table of NEW_TABLES) {
+      expect(clientGrantsOn(table)).toEqual([]);
+      expect(policiesOn(table)).toEqual([]);
+    }
+  });
+
+  it('stores only hashes: the install token as SHA-256, the admin PIN salted; no secret column', () => {
+    for (const table of NEW_TABLES) {
+      const start = regSql.indexOf(`create table ${table} (`);
+      expect(regSql.slice(start, regSql.indexOf(');', start))).not.toMatch(/\b(secret|sms_key|token|pin)\s+text\b/);
+    }
+    expect(regSql).toContain("install_token_hash  text not null unique check (install_token_hash ~ '^[0-9a-f]{64}$')");
+    expect(regSql).toContain("admin_pin_hash  text check (admin_pin_hash ~ '^[0-9a-f]{64}$')");
+  });
+
+  it('the registration functions are for the service role only', () => {
+    const registration = regFunctions.filter((fn) => fn.startsWith('registration_'));
+    expect(registration).toEqual(['registration_check_start', 'registration_check_verify', 'registration_submit', 'registration_status', 'registration_collect']);
+    for (const fn of registration) {
+      expect(regStatements.find((s) => s.startsWith(`revoke execute on function public.${fn}(`))).toMatch(/ from public, anon, authenticated$/);
+      expect(grantsOf(fn)).toHaveLength(1);
+      expect(grantsOf(fn)[0]).toMatch(/ to service_role$/);
+    }
+  });
+
+  it('every console function is for signed-in callers and checks is_admin first', () => {
+    const console_ = regFunctions.filter((fn) => fn.startsWith('console_'));
+    expect(console_).toHaveLength(7);
+    for (const fn of console_) {
+      expect(grantsOf(fn)).toEqual([expect.stringMatching(/ to authenticated$/)]);
+      const code = body(fn).replace(/^[\s\S]*?\bbegin\b/, '').trim();
+      expect(code.startsWith("if not public.is_admin() then raise exception 'admins only'")).toBe(true);
+    }
+  });
+
+  it('keeps the photos private: a non-public bucket, JPEG only, 1 MB at most, read and deleted only by the admin', () => {
+    expect(regSql).toContain("values ('driver-registrations', 'driver-registrations', false, 1000000, array['image/jpeg'])");
+    const policies = regStatements.filter((s) => s.startsWith('create policy'));
+    expect(policies).toHaveLength(2);
+    for (const policy of policies) {
+      expect(policy).toContain('on storage.objects for');
+      expect(policy).toContain("bucket_id = 'driver-registrations' and (select public.is_admin())");
+    }
+    expect(policies.map((p) => / for (\w+) /.exec(p)![1]).sort()).toEqual(['delete', 'select']);
+  });
+
+  it('enforces the number-check limits and the wrong-try limit on the server', () => {
+    const start = body('registration_check_start');
+    for (const reason of ['daily_limit', 'number_limit', 'too_soon']) expect(start).toContain(`raise exception '${reason}'`);
+    expect(start).toContain("(c.created_at at time zone 'asia/manila')::date = today");
+    expect(body('registration_check_verify')).toContain('open_check.tries >= max_tries');
+  });
+
+  it('collects a setup once: only an approved registration, which becomes collected in the same transaction', () => {
+    const collect = body('registration_collect');
+    expect(collect).toContain("reg.status <> 'approved' then raise exception 'not_approved'");
+    expect(collect).toContain('for update');
+    expect(collect).toContain("set status = 'collected'");
+    expect(collect).toContain('public.admin_provision_driver(');
+    expect(collect).toContain('public.admin_retire_device(old_device');
+  });
+
+  it('heatmap rows keep their driver phone; other rows go to a number; the gateway reads either', () => {
+    expect(regSql).toContain("(kind = 'heatmap' and device_id is not null and route_id is not null and seq is not null and to_e164 is null)");
+    const claim = body('worker_claim');
+    expect(claim).toContain('coalesce(o.to_e164, d.phone_e164)');
+    expect(claim).toContain('(o.device_id is null or d.active)');
   });
 });
 

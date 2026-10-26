@@ -143,8 +143,9 @@ export function installTokenHash(token: string): string {
 
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'collected' | 'expired';
 
+// A newer registration from the same number expires an older one that is still pending or approved
 const MOVES: Record<RegistrationStatus, readonly RegistrationStatus[]> = {
-  pending: ['approved', 'rejected'],
+  pending: ['approved', 'rejected', 'expired'],
   approved: ['collected', 'expired'],
   rejected: [],
   collected: [],

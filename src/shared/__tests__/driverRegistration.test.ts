@@ -149,9 +149,10 @@ describe('install token and status', () => {
     expect(() => installTokenHash('short')).toThrow(RangeError);
   });
 
-  it('moves only pending to a decision and approved to collected or expired', () => {
+  it('moves pending to a decision (or expired by a newer registration) and approved to collected or expired', () => {
     expect(canMove('pending', 'approved')).toBe(true);
     expect(canMove('pending', 'rejected')).toBe(true);
+    expect(canMove('pending', 'expired')).toBe(true);
     expect(canMove('approved', 'collected')).toBe(true);
     expect(canMove('approved', 'expired')).toBe(true);
     expect(canMove('pending', 'collected')).toBe(false);
