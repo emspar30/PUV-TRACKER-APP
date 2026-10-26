@@ -30,14 +30,16 @@
 
 **No new native code** is planned for the driver app. Testing uses the installed `development-driver` build. If that build turns out too old for today's code, it costs one EAS build (#12), asked first.
 
-## 2. Decisions needed before starting
+## 2. Decisions (owner, 2026-10-27)
 
-| # | Question | Recommended |
+All recommendations were accepted, except D4 (one admin account). The PRD was updated to match.
+
+| # | Question | Decided |
 | --- | --- | --- |
-| D1 | When are the photos deleted? | **At the decision** (approve or reject), keeping a text record of who decided, when, and "CTTDM ID checked". Then the PRD's 30 days changes |
-| D2 | Where does the install token live on the phone? | **The app's private storage** (as the driver app's other data). The PRD says the Keystore, which needs new native code and a build. The token works only once and only after approval, so private storage is enough; the PRD wording would change |
-| D3 | The admin console | **A small separate web app** (`admin/`, React with Vite, signing in with Supabase), hosted free as a Render static site next to the worker. Needs your approval of its packages |
-| D4 | Admin accounts | **Your two email accounts**, marked as admins in a new `admin_accounts` table, added once by SQL |
+| D1 | When are the photos deleted? | **At the decision** (approve or reject), keeping a text record of who decided, when, and the outcome |
+| D2 | Where does the install token live on the phone? | **The app's private storage** (as the driver app's other data). The token works only once and only after approval, so the Keystore (new native code and a build) is not needed |
+| D3 | The admin console | **A small separate web app** (`admin/`, React with Vite, signing in with Supabase), hosted free as a Render static site next to the worker. Its packages are approved in DRG5 |
+| D4 | Admin accounts | **One account for now**, marked as admin in a new `admin_accounts` table, added once by SQL. More can be added later the same way |
 | D5 | Admin PIN for the driver phones | **One PIN for all pilot phones**, set once in the console's settings |
 | D6 | Limits on number-check texts (anyone can start a registration, and each check costs a text from the gateway SIM) | **3 per number a day and 20 in total a day**; a number can be checked again after 10 minutes |
 
@@ -95,7 +97,7 @@ New screens before the existing setup steps, using fetch (the driver app keeps i
 ### DRG5 Admin console (M, W)
 
 `admin/`, a small web app, after you approve its packages (D3):
-- **Sign in** with your two accounts (D4).
+- **Sign in** with the admin account (D4).
 - **Pending:** each registration with number, plate, route, both photos side by side, and the warning when the plate already has a phone. Buttons: **Approve**, **Reject** (with a reason).
 - **Drivers:** active phones with vehicle and number, and **Retire**.
 - **Settings:** the admin PIN (D5).
@@ -110,7 +112,7 @@ Register the Xiaomi from the driver app, approve it in the console, collect the 
 ### DRG7 Docs and the old path (S)
 
 - `docs/TESTING_GUIDE.md`: setting up a driver by registration; the QR scripts become the development path.
-- PRD wording for D1 and D2, the runbook, `STATUS.md` and the backlog.
+- The runbook, `STATUS.md` and the backlog (the PRD already matches D1 to D6).
 - The release builds (driver, gateway, commuter preview) stay batched with backlog 126 and the gateway's failed-report fix, asked separately.
 
 ## 5. Risks
