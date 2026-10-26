@@ -91,6 +91,7 @@ All values are starting hypotheses (section 17). The agent exposes them from one
 | Fare rounding | nearest ₱0.25 (assumed) | 7.2 |
 | SMS maximum age and stale heatmap | 30 minutes, 15 minutes | 12.3 |
 | SMS sequence wrap-around window | a number is newer if it is 1 to 5,000 ahead of the last one, modulo 10,000 | 12.3 |
+| Driver registration (owner, 2026-10-27; proposed) | photos at most 1,600 px on the long side as JPEG (about 0.5 MB each); photos deleted 30 days after the decision; an approved setup can be collected for 7 days; the verification SMS is valid for 10 minutes | 9.5, 15.1 |
 | Telemetry timestamp limits | reject packets older than 120 s or more than 30 s in the future | 8.4 |
 | Store-and-forward batch (T1) | at most 60 positions and 4 KB per request; positions up to 30 minutes old kept as history; retry after 5 s, doubling to 60 s | 8.4 |
 | Relay seats sent (T1) | Seats available 3, Filling up 9, Full 14 | 8.4 |
@@ -283,14 +284,14 @@ Four roles use the system, and each has a different device and permission set.
 | Role | Who | Device and access | What they need |
 | --- | --- | --- | --- |
 | Commuter | Students, workers and seniors riding multicabs | Own Android 8.0+ phone, often low-end, intermittent data | Know where the next PUV is, how full it is, the route and the fare |
-| Driver | Multicab driver on a pilot route | Cooperative-provided low-end Android with a SIM that can receive SMS, no data plan | Know where passengers are waiting so dispatch timing improves |
+| Driver | Multicab driver on a pilot route | Cooperative-provided low-end Android with a SIM that can receive SMS, no data plan; internet twice at setup only (9.5) | Know where passengers are waiting so dispatch timing improves |
 | Cooperative / transport office | Franchise holder, LTFRB or city transport office | Admin console in a browser | Consent to the pilot, accurate route data, aggregate reports |
-| Admin (research team) | Project team | Admin console | Manage routes, vehicles, keys, moderation and SMS gateway health |
+| Admin (research team) | Project team | Admin console | Approve driver registrations; manage routes, vehicles, keys, moderation and SMS gateway health |
 
 ### 4.1 Device assumptions
 
 - Commuter phones run Android 8.0 or newer, with as little as 3 GB RAM and aggressive vendor battery management.
-- Driver devices run Android 8.0 or newer, are plugged into the vehicle charger, and are provisioned once by an admin.
+- Driver devices run Android 8.0 or newer and are plugged into the vehicle charger. Drivers register in the driver app, and it works only after an admin approves them (section 9.5).
 - The SMS gateway is one dedicated Android phone on mains power (section 6.4).
 
 ### 4.2 Commuter permissions
@@ -322,8 +323,8 @@ Each gate is a decision point: expand only if its criteria are met, otherwise tu
 | Area | Phase 1 pilot | Phase 2 and later |
 | --- | --- | --- |
 | Commuter app | Offline map, routing and fare for the pilot route; live map on the pilot route; BLE boarding and relay; station check-in; free live view | Energy and Trust, flags with appeals, merit shields, ETA, remaining routes |
-| Driver | BLE advertiser, signed SMS heatmap, one-time provisioning by an admin | A second gateway device or a licensed SMS provider if volume needs it |
-| Cloud and admin | Supabase, SMS worker, admin console for routes, vehicles, keys and manual moderation | Automated strike workflow and analytics |
+| Driver | BLE advertiser, signed SMS heatmap, self-registration with admin approval | A second gateway device or a licensed SMS provider if volume needs it |
+| Cloud and admin | Supabase, SMS worker, admin console for driver approvals, routes, vehicles, keys and manual moderation | Automated strike workflow and analytics |
 | Community | None | Pseudonymous community feed (Phase 3) |
 
 Station check-in is in Phase 1 because the driver heatmap has no data without it. Energy charging is not, because live view is free during the pioneer period (section 11.1).
@@ -366,14 +367,14 @@ Riders send data up to Supabase; the SMS worker and gateway phone carry demand c
 | Supabase cloud | Hosted service | Auth, Postgres and PostGIS, Realtime, Edge Functions that enforce the rules, pg\_cron for cleanup |
 | Node.js SMS worker | Small server | Turn demand counts into signed SMS, queue and retry, watch gateway health |
 | Gateway phone | Android on mains power | Pull queued messages and send them by SMS |
-| Admin console | Web browser | Route and detour data, vehicle provisioning and keys, moderation queue, analytics |
+| Admin console | Web browser | Driver registration review and approval, route and detour data, vehicles and keys, moderation queue, analytics |
 
 ### 6.2 Architecture rules
 
 - **Offline first:** routing, fares, offline maps and the blue dot never depend on the cloud.
 - **Server is the authority** for time (Night Mode), beacon code validation, Primary assignment, expiry of check-ins and strikes.
 - **Liveness is separate from location:** a keepalive and a timeout rule tell the server whether a broadcaster is alive; the location filter does not (section 8.4).
-- **One-way driver channel:** drivers receive SMS and advertise BLE. Nothing from the driver device goes to the cloud, so there is no driver data cost.
+- **One-way driver channel:** drivers receive SMS and advertise BLE. In daily use nothing from the driver device goes to the cloud, so there is no driver data cost. The only exception is setup: the registration and the one-time setup download go over the internet (section 9.5).
 
 ### 6.3 Backend choice
 
@@ -563,14 +564,36 @@ On Android, any app with SMS permission can read an incoming text, but only the 
 - Large text and 48 dp or larger touch targets, readable in sunlight and in a moving vehicle.
 - Status strip showing the beacon (Bluetooth on) and the battery, with "Charging" only while charging (owner decision, 2026-10-18). The time of the last SMS shows above the list and in the stale notice; clock drift shows as a warning only when the clock is off (section 8.2).
 
-### 9.5 Provisioning
+### 9.5 Driver registration and approval
 
-An admin provisions each driver device once, in person:
+Drivers set up the driver app themselves, and the app works only after an admin (the research team) approves them (owner decision, 2026-10-27). This replaces in-person provisioning, where an admin typed each driver's details into a script and the driver scanned the setup QR it printed. The scripts and the QR stay as a path for development and testing.
 
-1. Install the signed APK.
-2. Scan a one-time provisioning QR from the admin console containing the vehicle ID, route, plate, vehicle secret and gateway number.
-3. Grant Bluetooth, SMS and notification permissions and run the self-test (beacon visible, test SMS received).
-4. Record the device in the console. Lost or replaced devices have their secret rotated.
+**Registration (in the driver app, online once).**
+
+1. Install the signed APK (15.2).
+2. **Mobile number:** the number of the SIM in this phone. The gateway sends one verification SMS to it, and the app reads it by itself. That proves the SIM is in this phone and that the carrier delivers the gateway's messages. There is no code to type.
+3. **Plate and route:** the driver types the plate (the app checks its format) and picks the route from the app's route list. No vehicle list is prepared in advance.
+4. **Photos:** the driver's ID issued by the Butuan City transport office (CTTDM), and the multicab with its plate visible, with the route signboard in view if possible. A consent notice before the photos says why they are needed, who sees them and when they are deleted (15.1).
+5. **Permissions:** Nearby devices (Bluetooth), notifications and SMS are granted now. This includes the restricted-setting steps on phones that block SMS for apps not installed from Play. Nothing is left to grant after approval.
+6. **Submit.** The app makes a random install token, keeps it in the Android Keystore and sends only its hash with the registration. It then shows "Waiting for approval", or the reason if the registration was rejected.
+
+**Review (admin console).**
+
+- Pending registrations show the number, plate, route and both photos. An admin approves when the ID is valid and the plate in the photo matches the typed plate, or rejects with a reason that the driver sees.
+- Approving creates the vehicle (plate and route) if it does not exist yet, so the vehicle list builds itself.
+- If the plate already has an active driver phone, the console warns. Approving then retires the old phone and rotates the vehicle's beacon secret, as a replacement does.
+- The admin sets the PIN for the device's Admin screen in the console (one PIN for all pilot devices is allowed). Drivers are not told it.
+
+**Setup after approval.**
+
+- On approval the server makes the device's setup: the vehicle's beacon secret, the device's SMS signing key, the gateway numbers, the plate and route, and the admin PIN hash. The gateway texts the driver once: "You're approved. Open Tunton Driver while connected to the internet."
+- The driver opens the app while online. The app shows its install token, and the server hands over the setup once. A second request, or one with another token, gets nothing. The secrets go into the Android Keystore, as with the QR.
+- With the permissions already granted, the app turns the beacon on and opens the home screen by itself. From then on it works offline, on Bluetooth and SMS only (6.2).
+- A setup not collected within 7 days expires, and the driver registers again. A lost install token (app data cleared, phone reset) also means registering again.
+
+**Internet use.** The driver phone needs internet twice, to register and to collect the setup, and never after that. Cooperative Wi-Fi, a hotspot from another phone or a small one-time load is enough.
+
+**After setup.** The console lists active driver phones with their vehicle. Retire and Replace work as the scripts do today, and lost or replaced devices have their secret rotated.
 
 ### 9.6 SMS gateway
 
@@ -744,7 +767,8 @@ Row Level Security is on for every table. Users can read only what their role al
 | --- | --- | --- |
 | `profiles` | user\_id, avatar\_id, trust\_points, merit\_points, energy, created\_at | No classification stored |
 | `devices` | user\_id, device\_hash, integrity\_status, last\_seen | Keyed HMAC hash; ban state |
-| `vehicles` | vehicle\_id, plate, route\_id, secret\_ref, active | Secrets in a vault, not in plain columns |
+| `vehicles` | vehicle\_id, plate, route\_id, secret\_ref, active | Secrets in a vault, not in plain columns; created when a driver registration is approved |
+| `driver_registrations` | registration\_id, phone, plate, route\_id, status (pending, approved, rejected, collected, expired), reason, id\_photo\_ref, vehicle\_photo\_ref, install\_token\_hash, decided\_by, decided\_at | Section 9.5. Photos in a private storage bucket that only admins can read, deleted 30 days after the decision |
 | `relay_sessions` | session\_id, user\_id, vehicle\_id, role, dest\_node, verified, started\_at, ended\_at | Raw location links kept 30 days |
 | `telemetry_latest` | vehicle\_id, geom, speed, heading, seats, updated\_at | One row per vehicle, used by live view |
 | `telemetry_raw` | session\_id, geom, speed, ts | Day mode kept 7 days; night sessions deleted after 24 h |
@@ -913,6 +937,10 @@ Each row names what the system sees and what it does automatically. Where recove
 | Poor GPS accuracy near large buildings | Accuracy worse than 30 m | Fix discarded; check-in refused with a message to move into the open |
 | Bluetooth or a permission is denied | Permission check fails | Reduced mode per section 4.2; the user can still confirm the route manually, but earns no reward |
 | Driver phone clock drift | Beacon time slot differs from server by more than 90 s | Driver app shows a warning; admin notified; reports from that vehicle are marked unverified until fixed |
+| Driver registers a plate that already has an active driver phone | Plate match at review | Console warns; approving retires the old phone and rotates the beacon secret (9.5) |
+| Verification SMS does not reach the registering phone | No code read within 10 minutes | App offers to send it again and asks the driver to check the number and the SIM; nothing is submitted until the number is verified |
+| Approved driver does not open the app online | Setup not collected within 7 days | Setup expires; the driver registers again |
+| Driver app data cleared or phone reset before or after setup | Install token or setup missing on the phone | The driver registers again; on approval the old phone is retired as a replacement |
 | Wrong or outdated route data | Many verified rides fall outside all polylines | Console flags the route; admin adds or fixes polyline and publishes a new route version |
 | Admin changes the Night Mode window | Server config update | Applies at the next publishing cycle for all clients |
 
@@ -924,6 +952,7 @@ The app handles location and device identifiers, so privacy is a design requirem
 
 - **Lawful basis and consent:** explicit, separate consent for location collection, with a plain-language privacy notice in English and Cebuano shown before any permission request.
 - **Data minimization:** no photos, no phone number, no classification stored in the cloud, and no driver identities on the public map.
+- **Driver registration (9.5):** the one exception to "no photos". The CTTDM driver ID photo and the multicab photo are collected only to approve a driver, after a consent notice. They sit in private storage that only admins can read and are deleted 30 days after the decision. The driver's mobile number, plate and route are kept while the device is active, as for provisioned devices. This needs the DPO review before the pilot.
 - **Retention:** raw day-mode coordinates 7 days, raw night-mode coordinates 24 hours, session-to-user links 30 days for moderation, then aggregation or deletion. Energy and strike ledgers are kept for the life of the account.
 - **Hashed identifiers are still personal data.** The device fingerprint is a keyed HMAC, not a plain hash, and is described that way in the privacy notice.
 - **Data subject rights:** in-app account deletion, data export on request, and a contact point for privacy questions.
@@ -1014,6 +1043,8 @@ Several values in this PRD are carried over from v1.0 or set as starting hypothe
 - [ ] SMS plan: written confirmation of volume terms, or move to a licensed SMS provider
 - [ ] Vehicle capacity: is 16 seats right for every pilot vehicle, or does it vary
 - [ ] Cooperative agreement: who signs, and what data the cooperative may see
+- [ ] Driver registration (9.5): DPO review of collecting CTTDM ID and multicab photos, and the 30-day deletion
+- [ ] Can every pilot driver get online twice at setup (cooperative Wi-Fi, a hotspot or a small load)
 - [ ] Free viewing during the pioneer period: how long, and the exit rule
 - [ ] Cebuano translation: who reviews the wording
 
@@ -1145,3 +1176,4 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 17. **Sections 0.3, 7.3, 7.5, 11.1 and D14 (Oct 22, 2026, CA1.1):** check-ins cost 0.3 Energy per route pinged instead of earning 0.3; Energy comes back by waiting or a relay with GPS (+1.0), a relay without GPS earns nothing (was +0.5), and every account starts with 5. During a check-in the app asks *Did you board?* when a multicab of a pinged route stands at the stop, and at 5 minutes. The Map remembers the route last picked, and its tab shows a red dot while the tracked multicab is within 1 km (Emjay approved).
 18. **Sections 0.3, 8.1 and 8.4 (Oct 22, 2026, RL1):** a relay with GPS ends 60 s after the rider comes within 50 m of the destination (leaving cancels the countdown; was at once at 100 m), after the idle stop, or when *Still riding?* gets no answer 3 hours in (was 90 minutes, no prompt). High-traffic zones hold the idle clock at long traffic lights and on the Magsaysay Bridge at rush hour. The route's first and last stop count as terminals until a real list exists (Emjay's decisions D1 to D3).
 19. **Sections 0.3 and 19.4 (Oct 23, 2026, RL2a):** a relay needs location, a verified beacon and the route check, or the form is greyed out; one remembered "Show me on the live map" switch replaces "Share with GPS"; a relay without GPS (60 minutes in the feed) is gone, and a Crowdsource relay lasts until the rider's stop, kept up by a "still riding" signal (Emjay's decisions D9 to D11).
+20. **Sections 0.3, 4, 4.1, 5.1, 6.1, 6.2, 9.5, 12.2, 14, 15.1 and 18.1 (Oct 27, 2026, driver registration):** in-person provisioning is replaced by self-registration with admin approval. The driver enters the mobile number (checked by an SMS the app reads by itself), the plate and route, and uploads photos of the CTTDM driver ID and the multicab. The research team approves or rejects in the admin console, which builds the vehicle list as drivers are approved. The setup (beacon secret, SMS key, gateway numbers, admin PIN) is then downloaded once with an install token made at registration. The driver phone needs internet twice at setup and never after. ID photos are deleted 30 days after the decision. The provisioning scripts and QR stay for development (owner decision).
