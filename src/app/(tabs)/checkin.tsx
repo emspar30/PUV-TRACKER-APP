@@ -13,6 +13,7 @@ import { LocationExplainer } from '@/features/map/LocationExplainer';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
+import { YouLayers } from '@/features/map/YouLayers';
 import { placeOf, useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
@@ -41,6 +42,7 @@ import { showDialog } from '@/state/dialogStore';
 import { useEnergyStore } from '@/state/energyStore';
 import { useHintsStore } from '@/state/hintsStore';
 import { useLocationStore } from '@/state/locationStore';
+import { useTabBarSpace } from '@/navigation/useTabBarSpace';
 import { strings } from '@/strings';
 import { MAP_GEOMETRY, MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
@@ -84,6 +86,8 @@ export default function CheckInScreen() {
   const [ping, setPing] = useState<{ station: string; routes: string[] } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [cardHeight, setCardHeight] = useState(0);
+  // The card sits above the floating bottom bar; the map runs under it
+  const tabBar = useTabBarSpace();
   // B8: the card shows a skeleton on the first visit
   const loadingCard = useSkeleton(SKELETON_MIN_MS);
   // B8: the top bar's height, so framed stations keep clear of it
@@ -409,7 +413,7 @@ export default function CheckInScreen() {
           labelsDimmed={active || filter !== null}
           initialBounds={initialBounds}
           focus={focus}
-          bottomInset={cardHeight}
+          bottomInset={cardHeight + tabBar.above}
           topInset={insets.top + spacing.sm + topHeight}
           onUserMove={location.stopFollowing}
         >
@@ -420,6 +424,7 @@ export default function CheckInScreen() {
             onPressStop={active ? undefined : pickStation}
             color={active ? badgeColor(checkIn.routeCode) : filter ? badgeColor(filter) : undefined}
           />
+          <YouLayers commuter={commuter} labels={tiles.tiles.glyphsUrl !== null} />
         </OfflineMap>
       ) : (
         <View style={styles.centered}>
@@ -430,7 +435,7 @@ export default function CheckInScreen() {
         <TopBar />
       </View>
 
-      <View style={styles.bottom} pointerEvents="box-none">
+      <View style={[styles.bottom, { bottom: tabBar.above }]} pointerEvents="box-none">
         <View style={styles.fab} pointerEvents="box-none">
           <RoundButton
             icon={LocateFixed}
@@ -480,11 +485,11 @@ const useStyles = makeStyles(({ colors }) => ({
     left: spacing.md,
     right: spacing.md,
   },
+  // As wide as the floating bottom bar under it
   bottom: {
     position: 'absolute',
-    left: spacing.sm + spacing.xs,
-    right: spacing.sm + spacing.xs,
-    bottom: spacing.sm + spacing.xs,
+    left: spacing.md,
+    right: spacing.md,
     gap: spacing.sm,
   },
   fab: {

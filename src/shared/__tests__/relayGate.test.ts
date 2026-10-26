@@ -1,10 +1,10 @@
 // RL2a (Emjay's D9 to D11, 2026-10-23): the Relay form opens only with location, a verified beacon
 // and the rider on that multicab's route.
 
-import { RELAY_BEACON_WAIT_S, RELAY_STOP_AREA_M, ROUTE_SNAP_DISTANCE_M } from '../config';
+import { DEMO_BEACON_FOUND_AFTER_S, DEMO_BEACON_RANGE_M, RELAY_BEACON_WAIT_S, RELAY_STOP_AREA_M, ROUTE_SNAP_DISTANCE_M } from '../config';
 import type { LatLon } from '../geo/haversine';
 import type { LineCoordinates } from '../geo/line';
-import { demoRelayVehicles, onRoute, relayGate, type RelayBeacon, type RelayGateInput, type RelayVehicle } from '../relay/gate';
+import { demoBeacon, onRoute, relayGate, type RelayBeacon, type RelayGateInput, type DemoMulticab, type RelayVehicle } from '../relay/gate';
 
 const S = 1000;
 // About 111 m per 0.001 degree of latitude
@@ -55,10 +55,9 @@ describe('relayGate', () => {
     expect(gate({ beacon: { kind: 'unregistered' } })).toEqual({ kind: 'no_beacon' });
   });
 
-  it('passes on the Bluetooth problems, two beacons and the demo picker as their own states', () => {
+  it('passes on the Bluetooth problems and two beacons as their own states', () => {
     expect(gate({ beacon: { kind: 'off' } })).toEqual({ kind: 'no_bluetooth' });
     expect(gate({ beacon: { kind: 'several' } })).toEqual({ kind: 'several' });
-    expect(gate({ beacon: { kind: 'pick' } })).toEqual({ kind: 'pick' });
   });
 
   it('refuses a verified beacon away from its route (a recorded code played back at home)', () => {
@@ -85,11 +84,30 @@ describe('relayGate', () => {
   });
 });
 
-describe('demoRelayVehicles', () => {
-  it('makes up numbered multicabs for a route, with plates and no beacon ids', () => {
-    expect(demoRelayVehicles('R14', 2)).toEqual([
-      { routeCode: 'R14', vehicleId: 'R14-DEMO-1', plate: 'DEMO 1' },
-      { routeCode: 'R14', vehicleId: 'R14-DEMO-2', plate: 'DEMO 2' },
-    ]);
+describe('demoBeacon', () => {
+  const at = (id: string, m: number, routeCode = 'R4'): DemoMulticab => ({ id, label: id.toUpperCase(), routeCode, ...north(MIDDLE, m) });
+  const later = OPENED + DEMO_BEACON_FOUND_AFTER_S * S;
+
+  it('searches for DEMO_BEACON_FOUND_AFTER_S first, as in a real multicab', () => {
+    expect(demoBeacon(MIDDLE, [at('d1', 0)], OPENED, later - 1)).toEqual({ kind: 'searching' });
+    expect(demoBeacon(MIDDLE, [at('d1', 0)], OPENED, later)).toEqual({
+      kind: 'found',
+      vehicle: { routeCode: 'R4', vehicleId: 'd1', plate: 'D1' },
+    });
+  });
+
+  it('hears only a demo multicab within DEMO_BEACON_RANGE_M, the nearest first', () => {
+    expect(demoBeacon(MIDDLE, [at('far', DEMO_BEACON_RANGE_M + 5)], OPENED, later)).toEqual({ kind: 'searching' });
+    const near = demoBeacon(MIDDLE, [at('edge', DEMO_BEACON_RANGE_M - 5), at('close', 5, 'R14')], OPENED, later);
+    expect(near).toEqual({ kind: 'found', vehicle: { routeCode: 'R14', vehicleId: 'close', plate: 'CLOSE' } });
+  });
+
+  it('keeps searching without a position or any demo multicab', () => {
+    expect(demoBeacon(null, [at('d1', 0)], OPENED, later)).toEqual({ kind: 'searching' });
+    expect(demoBeacon(MIDDLE, [], OPENED, later)).toEqual({ kind: 'searching' });
+  });
+
+  it('never hears a multicab whose route the rider is not on', () => {
+    expect(DEMO_BEACON_RANGE_M).toBeLessThanOrEqual(ROUTE_SNAP_DISTANCE_M);
   });
 });

@@ -7,6 +7,8 @@ import { directionArrows } from '@/shared/geo/arrows';
 import { returnStyledIds } from '@/shared/ui/routeVisibility';
 import { MAP_GEOMETRY, useTheme } from '@/theme';
 
+import { STOP_LAYER_ID } from './StopDots';
+
 type LinePaint = NonNullable<LineLayerSpecification['paint']>;
 type ZoomStops = readonly (readonly [zoom: number, size: number])[];
 
@@ -46,7 +48,8 @@ type RouteLinesProps = {
 
 // Draws each directed route line with an outline in the map colour, in its route colour, with direction arrows.
 // The return direction is a lighter band with dashes. Rendered as a child of OfflineMap.
-// Layers are added in this order, bottom to top: outlines, lines, return dashes, arrows.
+// Layers are added in this order, bottom to top: outlines, lines, return dashes, arrows; all of them
+// below the stop dots (StopDots, which every map with route lines also shows).
 export function RouteLines({ lines, visible, opacity }: RouteLinesProps) {
   const { mapRoute, routeColor } = useTheme();
   // The stored route colour in dark mode; a colour readable on the light map in light mode
@@ -93,6 +96,7 @@ export function RouteLines({ lines, visible, opacity }: RouteLinesProps) {
           key={`${source}-casing`}
           id={`${source}-casing`}
           type="line"
+          beforeId={STOP_LAYER_ID}
           source={source}
           layout={ROUND}
           paint={{
@@ -108,6 +112,7 @@ export function RouteLines({ lines, visible, opacity }: RouteLinesProps) {
           key={`${source}-line`}
           id={`${source}-line`}
           type="line"
+          beforeId={STOP_LAYER_ID}
           source={source}
           layout={ROUND}
           paint={{
@@ -125,6 +130,7 @@ export function RouteLines({ lines, visible, opacity }: RouteLinesProps) {
             key={`${source}-dashes`}
             id={`${source}-dashes`}
             type="line"
+            beforeId={STOP_LAYER_ID}
             source={source}
             layout={FLAT}
             paint={{
@@ -142,6 +148,7 @@ export function RouteLines({ lines, visible, opacity }: RouteLinesProps) {
             key={`${source}-casing`}
             id={`${source}-casing`}
             type="line"
+            beforeId={STOP_LAYER_ID}
             source={source}
             minzoom={band.minZoom}
             maxzoom={band.maxZoom}
@@ -156,6 +163,7 @@ export function RouteLines({ lines, visible, opacity }: RouteLinesProps) {
             key={`${source}-arrow`}
             id={`${source}-arrow`}
             type="line"
+            beforeId={STOP_LAYER_ID}
             source={source}
             minzoom={band.minZoom}
             maxzoom={band.maxZoom}

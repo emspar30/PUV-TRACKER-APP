@@ -17,6 +17,7 @@ import { showDialog } from '@/state/dialogStore';
 import { useEnergyStore } from '@/state/energyStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { useUsernameStore } from '@/state/usernameStore';
+import { useTabBarSpace } from '@/navigation/useTabBarSpace';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
@@ -48,6 +49,7 @@ export default function CrowdsourceScreen() {
   const [filter, setFilter] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const crowd = useCrowd();
+  const tabBar = useTabBarSpace();
   const wallet = useEnergyStore((state) => state.snapshot);
   const ownName = useUsernameStore((state) => state.username);
   const ownPosts = useOwnPostsStore((state) => state.ids);
@@ -102,7 +104,8 @@ export default function CrowdsourceScreen() {
       <View style={styles.top}>
         <TopBar />
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
+      {/* The feed scrolls under the floating bottom bar and ends above it */}
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBar.above }]}>
         <View style={styles.titleRow}>
           <View style={styles.grow}>
             <Text style={typography.headlineMd} accessibilityRole="header">

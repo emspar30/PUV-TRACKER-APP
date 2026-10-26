@@ -81,6 +81,8 @@ export const en = {
     // B3: the tab while a check-in runs (the red dot)
     checkinActive: 'Check-in, you are checked in',
     mapNear: 'Map, your tracked multicab is near',
+    // The middle button: opens the Relay form over the current tab
+    relay: 'Relay',
     ride: 'My Rides',
     crowdsource: 'Crowdsource',
   },
@@ -133,7 +135,6 @@ export const en = {
     button: 'Relay',
     title: 'Relay a multicab update',
     close: 'Close relay',
-    route: 'Route',
     whatsHappening: "What's happening? (optional)",
     seats: 'Seats',
     // B4: the destination ends the relay (RL2a: required); Bluetooth fills in the vehicle
@@ -143,9 +144,9 @@ export const en = {
     bleTitle: 'Found by Bluetooth',
     bleBody: 'Route and multicab filled in',
     bleLabel: (code: string, plate: string) => `Found by Bluetooth: ${code}, ${plate}`,
-    // RL2a: demo data has no beacons; the multicab is picked by hand
+    // RL2a polish: demo data has no beacons; a moving demo multicab close by counts as heard
     demoVehicleTitle: 'Demo multicab',
-    demoVehicleBody: 'Picked by hand (demo data only)',
+    demoVehicleBody: 'Found nearby (demo data only)',
     demoVehicleLabel: (code: string, plate: string) => `Demo multicab: ${code}, ${plate}`,
     // RL2a (Emjay's D9, D10): why the form is greyed out
     gate: {
@@ -157,7 +158,7 @@ export const en = {
       noBluetooth: 'Relay needs Bluetooth to find the multicab you are in.',
       noBeacon: 'No registered multicab detected. This multicab may not be registered with Tunton.',
       several: 'More than one multicab is near. Sit inside yours and wait a moment.',
-      pick: 'Demo: pick the route and the multicab you are in.',
+      noDemoBeacon: (m: number) => `Demo: no demo multicab within ${m} m. Wait on its route until one passes.`,
       offRoute: (code: string) => `You are not on Route ${code}'s route.`,
     },
     // DR8: the Nearby devices explainer (PRD 4.2) and the Bluetooth card's other states
@@ -228,8 +229,6 @@ export const en = {
     keepSharing: 'Keep sharing',
     cappedTitle: 'Location sharing ended',
     cappedBody: 'No answer to "Still riding?". Relay again if you are still riding.',
-    // RL2a: the demo picker (live data: Bluetooth finds the multicab)
-    vehicle: 'Multicab you are in',
     // RL2a (Emjay's D9): one switch, off by default and remembered
     liveMap: 'Show me on the live map',
     // CA1.1: only a relay on the live map earns Energy for now (RL2b changes it)
@@ -357,7 +356,8 @@ export const en = {
     },
     active: {
       count: (count: number) => `${count} active`,
-      close: 'Hide route',
+      change: 'Change route',
+      collapse: 'Back to all routes',
     },
     vehicle: {
       route: (code: string) => `Route ${code}`,
@@ -382,7 +382,9 @@ export const en = {
       minutes: (seconds: number) => (seconds < SECONDS_PER_MINUTE ? '<1 min' : `${Math.round(seconds / SECONDS_PER_MINUTE)} min`),
       // B2: measured along the route, so it can fall while the multicab drives a loop that brings it back
       away: (distanceKm: number) => `${km(distanceKm)} by road`,
-      approaching: (stop: string) => `Approaching ${stop}`,
+      awayTo: (distanceKm: number, stop: string) => `${km(distanceKm)} by road to ${stop}`,
+      // CF1: the tracked multicab has sent nothing for a while; its marker is Estimated
+      signalLost: 'Signal lost · position estimated',
       // No boarding point known: the time shown is to the vehicle's next stop
       toNextStop: (stop: string) => `To next stop ${stop}`,
       // B2: the bar shown on another route, the button that goes back, and the distance alerts
@@ -395,7 +397,11 @@ export const en = {
       arrivedTitle: 'Your multicab has arrived',
       arrivedBody: (label: string) => `${label} is at your stop. Tracking has ended.`,
       passed: 'Passed your stop',
+      // Gone past the commuter on a loop: the time and distance are to its next time round
+      passedYou: 'Passed you · next time round',
       unknown: 'ETA unavailable',
+      // PRD 19.4: no time is shown past this distance
+      tooFar: (maxKm: number) => `Over ${maxKm} km away`,
       lastUpdated: 'Last updated',
       departed: 'Departed',
       next: 'Next',
@@ -409,9 +415,11 @@ export const en = {
       you: 'You',
       demoStop: (stop: string) => `Demo: you wait at ${stop}`,
       lost: 'No recent position',
+      // Under the greyed-out Track button, without the phone's location (and no simulated one)
+      turnOnToTrack: 'Turn on location to track',
       // SB2: paying for a session
       noEnergyTitle: 'Not enough Energy',
-      noEnergyBody: (cost: number, minutes: number) => `Tracking costs ${cost} Energy for ${minutes} minutes. Energy refills over time, or relay an update with GPS.`,
+      noEnergyBody: (cost: number, minutes: number) => `Tracking costs ${cost} Energy for ${minutes} minutes. Energy refills over time, or tap Relay and turn on "Show me on the live map".`,
       earnByReporting: 'Relay an update',
       failedTitle: 'Tracking could not start',
     },
@@ -465,8 +473,10 @@ export const en = {
     from: 'From',
     to: 'To',
     placeholder: 'Tap map or stop',
-    near: (code: string) => `Near ${code}`,
+    near: (name: string) => `Near ${name}`,
     pinned: 'Pinned point',
+    noRouteHere: 'No multicab route near here',
+    pickAgain: (maxM: number) => `Tap a spot within ${meters(maxM)} of a route, or tap a stop.`,
     swap: 'Swap From and To',
     clear: 'Clear',
     pickFor: (field: string, code: string) => `Set ${field} to ${code}`,
@@ -507,12 +517,22 @@ export const en = {
     start: 'Starting point',
     destination: 'Destination',
     choose: 'Tap the map or pick a stop',
+    // Emjay, 2026-10-26: before a trip, a round star button opens these
+    openSaved: 'Saved places and recent rides',
+    savedTitle: 'Saved and recent',
+    savedPlaces: 'Saved places',
+    savedEmpty: 'Nothing saved yet. Tap the map or pick a stop; star a destination to keep it here.',
     useMyPosition: 'Use my position',
     currentLocation: 'Current location',
     you: (code: string) => `You (${code})`,
     clearField: (field: string) => `Clear ${field}`,
     distance: 'Distance',
-    summary: (rideKm: number, walkM: number) => `${km(rideKm)} ride · ${meters(walkM)} walk`,
+    // One line per other route (Emjay, 2026-10-27): the walk in minutes only; its metres and the
+    // free seats are on the route's own card
+    summary: (rideKm: number, walkMin: number) => `${km(rideKm)} ride · ${Math.max(1, walkMin)} min walk`,
+    // The fare card splits the summary over two lines, so "(20 m)" never wraps alone
+    rideDistance: (rideKm: number) => `${km(rideKm)} ride`,
+    walkTotal: (walkM: number, walkMin: number) => `${Math.max(1, walkMin)} min walk (${meters(walkM)})`,
     discountChip: (percent: number, label: string) => `${percent}% ${label} fare`,
     regularWas: (amount: number) => `Regular fare ${peso(amount)}`,
     suggested: 'Suggested route',
@@ -529,6 +549,7 @@ export const en = {
     pickStop: 'Pick a stop',
     coming: (count: number, seats: number) => `${count} multicab${count === 1 ? '' : 's'} coming · ${seats} free seats`,
     noneComing: 'No multicab data near your stop',
+    comingShort: (count: number) => `${count} coming`,
     recentRides: 'Recent rides',
     recentRide: (code: string) => `Boarded at ${code}`,
     recentFrom: (source: 'checkin' | 'report') => (source === 'checkin' ? 'Check-in' : 'Relay report'),
@@ -616,7 +637,7 @@ export const en = {
     // CA1.1: a check-in costs Energy for each route pinged
     cost: (cost: number, per: number, left: number) => `Costs ${cost.toFixed(1)} Energy (${per.toFixed(1)} per route) · you have ${left.toFixed(1)}`,
     noEnergyTitle: 'Not enough Energy',
-    noEnergyBody: (per: number) => `A check-in costs ${per.toFixed(1)} Energy for each route. Energy refills over time, or relay an update with GPS.`,
+    noEnergyBody: (per: number) => `A check-in costs ${per.toFixed(1)} Energy for each route. Energy refills over time, or tap Relay and turn on "Show me on the live map".`,
     pingLabel: (code: string, on: boolean) => `${code}, ${on ? 'pinged' : 'not pinged'}`,
     nearest: 'Nearest to you',
     picked: 'Selected station',
@@ -970,13 +991,13 @@ export const en = {
     steps: {
       profile: { title: 'Your profile', body: 'Your avatar, username and fare type. Tap it for your badges.' },
       menu: { title: 'Menu', body: 'Settings, your places, and this tour again.' },
-      relay: { title: 'Relay a multicab', body: 'On a multicab? Tell others if it has seats, is full or stuck in traffic.' },
       zoom: { title: 'Zoom', body: 'Zoom in and out one step at a time.' },
       routes: { title: 'Routes', body: 'Pick a route to see its line, stops and multicabs.' },
       ask: { title: 'Ask Tunie', body: 'Ask for a trip, a fare, a route or the nearest stop, in English or Bisaya.' },
       locate: { title: 'Where you are', body: 'Tap to zoom in on you; tap again to see all of Butuan.' },
       checkin: { title: 'Check in', body: 'Waiting at a stop? Check in so drivers know someone is there.' },
       ride: { title: 'My Rides', body: 'Where are you heading? The fare and the routes that take you there.' },
+      relay: { title: 'Relay a multicab', body: 'On a multicab? Tell others if it has seats, is full or stuck in traffic.' },
       crowdsource: { title: 'Crowdsource', body: 'What other commuters reported in the last hour.' },
     } satisfies Record<TourStepId, { title: string; body: string }>,
     count: (step: number, total: number) => `${step}/${total}`,

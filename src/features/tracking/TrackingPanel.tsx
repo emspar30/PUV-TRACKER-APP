@@ -2,7 +2,7 @@ import { Armchair, BellRing, Bus, Square } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
 import { Button, IconTile, StatusPill, type IconTone } from '@/components';
-import { VEHICLE_CAPACITY_SEATS } from '@/shared/config';
+import { ETA_MAX_KM, VEHICLE_CAPACITY_SEATS } from '@/shared/config';
 import { etaDistanceKm, type Eta, type TrackProgress } from '@/shared/tracking/eta';
 import { ageSeconds } from '@/shared/telemetry/coverage';
 import { seatTier, type SeatTier } from '@/shared/telemetry/occupancy';
@@ -18,6 +18,8 @@ type TrackingPanelProps = {
   progress: TrackProgress;
   // What the ETA is to: the commuter's boarding point, or (without one) the vehicle's next stop
   etaTarget?: 'mine' | 'next';
+  // The vehicle has gone past the commuter; the ETA and distance are to its next time round
+  passedMe?: boolean;
   alertOn: boolean;
   // Shown once the alert has fired
   alertMessage: string | null;
@@ -34,7 +36,7 @@ const TIER_TONE: Record<SeatTier, IconTone> = { green: 'success', amber: 'warnin
 // Tracking one multicab (L2, PRD 19.2 D9): the ETA to the commuter's stop, where the vehicle is among
 // the stops, the vehicle and its seats, an in-app arrival alert (blue when on), and Stop (red).
 // One update time only: the Last updated box.
-export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine', alertOn, alertMessage, onToggleAlert, onStop }: TrackingPanelProps) {
+export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine', passedMe = false, alertOn, alertMessage, onToggleAlert, onStop }: TrackingPanelProps) {
   const styles = useStyles();
   const { colors, typography, elevation } = useTheme();
   const t = strings.live.tracking;
@@ -42,9 +44,20 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine
   const free = vehicle ? Math.max(0, VEHICLE_CAPACITY_SEATS - vehicle.seatsTaken) : 0;
   // The distance shows also while the ETA is hidden (slow or over 10 km, PRD 19.4)
   const distanceKm = etaDistanceKm(eta);
+  // No position for COVERAGE_LIVE_MAX_AGE_S: the time is hidden and the marker is Estimated (CF1)
+  const stale = eta?.kind === 'unknown' && eta.reason === 'stale';
 
+  // PRD 19.4: past ETA_MAX_KM the time is hidden; the headline says why (Emjay, 2026-10-26)
   const headline =
-    eta?.kind === 'approaching' ? t.minutes(eta.etaS) : eta?.kind === 'passed' ? t.passed : vehicle ? t.unknown : t.lost;
+    eta?.kind === 'approaching'
+      ? t.minutes(eta.etaS)
+      : eta?.kind === 'passed'
+        ? t.passed
+        : eta?.kind === 'unknown' && eta.reason === 'too_far'
+          ? t.tooFar(ETA_MAX_KM)
+          : vehicle
+            ? t.unknown
+            : t.lost;
   const segments = [
     { label: progress.passed?.code ?? '—', caption: t.departed, done: true },
     { label: progress.next?.code ?? '—', caption: t.next, done: eta?.kind === 'passed' },
@@ -57,15 +70,25 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine
         <View style={styles.grow}>
           <View style={styles.etaRow}>
             <Text style={typography.headlineLg}>{headline}</Text>
-            {distanceKm !== null ? <Text style={typography.bodySm}>{t.away(distanceKm)}</Text> : null}
+            {distanceKm !== null ? (
+              <Text style={typography.bodySm}>
+                {etaTarget === 'mine' && progress.mine ? t.awayTo(distanceKm, progress.mine.code) : t.away(distanceKm)}
+              </Text>
+            ) : null}
           </View>
-          {eta?.kind === 'approaching' && etaTarget === 'next' && progress.next ? (
+          {/* Emjay, 2026-10-26: the stop being approached is on the bar below, so the badge shows
+              only what the bar cannot: a lost signal, a multicab gone past, or a time to its next stop */}
+          {stale ? (
+            <View style={styles.row}>
+              <StatusPill label={t.signalLost} tone="warning" />
+            </View>
+          ) : passedMe ? (
+            <View style={styles.row}>
+              <StatusPill label={t.passedYou} tone="warning" />
+            </View>
+          ) : eta?.kind === 'approaching' && etaTarget === 'next' && progress.next ? (
             <View style={styles.row}>
               <StatusPill label={t.toNextStop(progress.next.code)} tone="neutral" />
-            </View>
-          ) : eta?.kind === 'approaching' && progress.mine ? (
-            <View style={styles.row}>
-              <StatusPill label={t.approaching(progress.mine.code)} tone="success" />
             </View>
           ) : null}
         </View>
@@ -151,6 +174,8 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   etaRow: {
     flexDirection: 'row',
+    // The distance moves under a long headline instead of being cut off by Last updated
+    flexWrap: 'wrap',
     alignItems: 'baseline',
     gap: spacing.sm,
   },

@@ -168,6 +168,34 @@ export const FARE_DISCOUNTED_CLASSES: readonly Classification[] = ['student', 's
 export const MAX_WALK_PER_LEG_M = 500;
 // Check-in card: "2 min walk" from the distance, at an unhurried 80 m a minute (about 4.8 km/h)
 export const WALK_SPEED_M_PER_MIN = 80;
+// Best match (Emjay, 2026-10-26): routes are ranked by door-to-door minutes first, with the ride at
+// this average multicab speed; trips within RANK_TIME_TIE_MIN of the quickest count as equal, and
+// then the free seats on multicabs still coming decide
+export const RANK_RIDE_SPEED_KMH = 18;
+export const RANK_TIME_TIE_MIN = 3;
+// A tapped point is named after a map place this close ("VALLEN ONE"), or "Near" a stop or place
+// within PIN_NAME_NEAR_M; farther than that it is a "Pinned point" (Emjay, 2026-10-26)
+export const PIN_NAME_AT_M = 30;
+export const PIN_NAME_NEAR_M = 250;
+// A map tap this close to a shown stop picks that stop, so a tap just beside its small dot still
+// snaps to it instead of naming a map place next to it (Emjay, 2026-10-27)
+export const STOP_TAP_SNAP_M = 40;
+// The walk to and from the multicab is drawn along the streets (Emjay, 2026-10-26) when both of its
+// ends are within this distance of a street; otherwise it is drawn as a straight line
+export const WALK_SNAP_MAX_M = 150;
+// A walk may start or end on any street up to this much farther than the nearest one, so a point at a
+// dead end can step to a street a few metres away; steps off the streets count this many times their
+// length (Emjay, 2026-10-26)
+export const WALK_SNAP_CHOICE_M = 20;
+export const WALK_OFFSTREET_FACTOR = 2;
+// The walk to and from the multicab ends where a street first comes this close to the route line
+// (the drawn route and the street need not lie exactly on each other), searched up to this much
+// walking
+export const WALK_ROUTE_REACH_M = 20;
+export const WALK_SEARCH_MAX_M = 3000;
+// The walk may meet the ridden line up to this far before or after the planned boarding (or
+// alighting) point; the ride is then drawn from where it meets the line
+export const WALK_ROUTE_WINDOW_M = 1000;
 // B3: an in-app reminder this long into a check-in, when the Check-in tab is not in front
 export const CHECKIN_REMINDER_MIN = 5;
 // B3: the "Safe travel" card after "I boarded" stays this long, then the card goes back to stations
@@ -462,9 +490,12 @@ export const RELAY_STOP_AREA_M = 60;
 export const RELAY_HEARTBEAT_MIN = 5;
 export const RELAY_POST_GRACE_MIN = 15;
 export const RELAY_POST_REVIVE_MIN = 30;
-// RL2a: demo data has no beacons, so the Relay form lists this many made-up multicabs per route to
-// pick by hand; the one picked counts as heard (demo only)
-export const DEMO_RELAY_VEHICLES = 3;
+// RL2a polish (Emjay, 2026-10-25): demo data has no beacons, so a moving demo multicab within
+// DEMO_BEACON_RANGE_M of the rider counts as heard, after the Relay form has searched for
+// DEMO_BEACON_FOUND_AFTER_S (demo only). Kept at ROUTE_SNAP_DISTANCE_M or less, so a multicab heard
+// always leaves the rider on its route.
+export const DEMO_BEACON_RANGE_M = 30;
+export const DEMO_BEACON_FOUND_AFTER_S = 2;
 // CA1.1 relay info: the rider and the destination count as on the route line within this distance
 export const RELAY_PROGRESS_SNAP_M = 100;
 // Asia/Manila is UTC+8 all year (no daylight saving).

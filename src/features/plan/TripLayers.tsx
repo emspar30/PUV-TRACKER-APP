@@ -2,10 +2,13 @@ import { GeoJSONSource, Layer, type LineLayerSpecification } from '@maplibre/map
 import type { Feature, FeatureCollection, LineString, Point } from 'geojson';
 import { useMemo } from 'react';
 
+import { walkGraph } from '@/data/seed/walkways';
 import type { LatLon } from '@/shared/geo/haversine';
 import { sliceCoordinates } from '@/shared/geo/line';
 import type { Itinerary } from '@/shared/routing/plan';
 import type { DirectedLine } from '@/shared/routing/types';
+import { walksForTrip } from '@/shared/routing/walk';
+import { STOP_LAYER_ID } from '@/features/map/StopDots';
 import { MAP_GEOMETRY, useTheme } from '@/theme';
 
 type LinePaint = NonNullable<LineLayerSpecification['paint']>;
@@ -35,37 +38,41 @@ type TripLayersProps = {
   itinerary: Itinerary | null;
 };
 
-// Draws the picked origin (green) and destination (red), a dashed line from each to the route,
-// and, when a trip was found, the ridden part of the route in amber.
-// Rendered as a child of OfflineMap, after the route lines.
+// Draws the picked origin (green) and destination (red) and, when a trip was found, a dashed walk
+// from each to the route and the ridden part of the route in amber.
+// Rendered as a child of OfflineMap, after the route lines. The ride and the walks are drawn below
+// the stop dots, so a stop on the ride can still be seen and tapped; the picked points above them.
 export function TripLayers({ lines, origin, destination, itinerary }: TripLayersProps) {
   const { mapRoute } = useTheme();
-  const ride = useMemo<Feature<LineString> | null>(() => {
-    if (!itinerary) return null;
+  // Emjay, 2026-10-26: the walks show only once From and To give a trip, so a single picked point
+  // has no dashed line. Each walk follows the streets to where it meets the ridden line, and the
+  // ride is drawn from there.
+  const trip = useMemo(() => {
+    if (!itinerary || !origin || !destination) return null;
     const leg = itinerary.legs[1];
     const line = lines.find((candidate) => candidate.id === leg.lineId);
     if (!line) return null;
-    const coordinates = sliceCoordinates(line.coordinates, leg.boardChainageKm, leg.alightChainageKm);
+    return { line, walks: walksForTrip(walkGraph(), line.coordinates, leg, origin.point, destination.point) };
+  }, [lines, itinerary, origin, destination]);
+
+  const ride = useMemo<Feature<LineString> | null>(() => {
+    if (!trip) return null;
+    const coordinates = sliceCoordinates(trip.line.coordinates, trip.walks.boardChainageKm, trip.walks.alightChainageKm);
     if (coordinates.length < 2) return null;
     return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } };
-  }, [lines, itinerary]);
+  }, [trip]);
 
-  // With a trip, the guides end where the rider boards and alights; without one, at the nearest point of the route
-  const guides = useMemo<FeatureCollection<LineString>>(() => {
-    const ends: [LatLon, LatLon][] = [];
-    const originEnd = itinerary ? itinerary.legs[1].from : origin?.snapped;
-    const destinationEnd = itinerary ? itinerary.legs[1].to : destination?.snapped;
-    if (origin && originEnd) ends.push([origin.point, originEnd]);
-    if (destination && destinationEnd) ends.push([destination.point, destinationEnd]);
-    return {
+  const guides = useMemo<FeatureCollection<LineString>>(
+    () => ({
       type: 'FeatureCollection',
-      features: ends.map(([from, to]) => ({
+      features: (trip ? [trip.walks.toBoard, trip.walks.fromAlight] : []).map((walk) => ({
         type: 'Feature',
         properties: {},
-        geometry: { type: 'LineString', coordinates: [toPosition(from), toPosition(to)] },
+        geometry: { type: 'LineString', coordinates: walk.map(toPosition) },
       })),
-    };
-  }, [origin, destination, itinerary]);
+    }),
+    [trip],
+  );
 
   const points = useMemo<FeatureCollection<Point>>(() => {
     const features: Feature<Point>[] = [];
@@ -75,14 +82,14 @@ export function TripLayers({ lines, origin, destination, itinerary }: TripLayers
         properties: { role },
         geometry: { type: 'Point', coordinates: toPosition(position) },
       });
-    const originEnd = itinerary ? itinerary.legs[1].from : origin?.snapped;
-    const destinationEnd = itinerary ? itinerary.legs[1].to : destination?.snapped;
-    if (origin && originEnd) add(originEnd, 'snap');
-    if (destination && destinationEnd) add(destinationEnd, 'snap');
+    if (trip) {
+      add(trip.walks.boardAt, 'snap');
+      add(trip.walks.alightAt, 'snap');
+    }
     if (origin) add(origin.point, 'origin');
     if (destination) add(destination.point, 'destination');
     return { type: 'FeatureCollection', features };
-  }, [origin, destination, itinerary]);
+  }, [origin, destination, trip]);
 
   return (
     <>
@@ -90,12 +97,14 @@ export function TripLayers({ lines, origin, destination, itinerary }: TripLayers
         <GeoJSONSource id="trip-ride" data={ride}>
           <Layer
             id="trip-ride-casing"
+            beforeId={STOP_LAYER_ID}
             type="line"
             layout={ROUND}
             paint={{ 'line-color': mapRoute.casingColor, 'line-width': rideWidth(mapRoute.casingExtraWidth) }}
           />
           <Layer
             id="trip-ride-line"
+            beforeId={STOP_LAYER_ID}
             type="line"
             layout={ROUND}
             paint={{ 'line-color': mapRoute.tripRideColor, 'line-width': rideWidth() }}
@@ -106,6 +115,7 @@ export function TripLayers({ lines, origin, destination, itinerary }: TripLayers
       <GeoJSONSource id="trip-guides" data={guides}>
         <Layer
           id="trip-guides-casing"
+          beforeId={STOP_LAYER_ID}
           type="line"
           layout={ROUND}
           paint={{
@@ -115,6 +125,7 @@ export function TripLayers({ lines, origin, destination, itinerary }: TripLayers
         />
         <Layer
           id="trip-guides-line"
+          beforeId={STOP_LAYER_ID}
           type="line"
           paint={{
             'line-color': mapRoute.tripWalkColor,

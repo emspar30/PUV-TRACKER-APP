@@ -1,8 +1,8 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, Minus, Plus, RadioTower, X, Zap } from 'lucide-react-native';
+import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, Minus, Plus, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, Vibration, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeInRight, FadeOutRight } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Logo, RoundButton, SkeletonCard, TopBar, type StatusTone } from '@/components';
@@ -19,12 +19,11 @@ import { LocationExplainer } from '@/features/map/LocationExplainer';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { OriginPin } from '@/features/map/OriginPin';
 import { RelayBar } from '@/features/report/RelayBar';
-import { ReportSheet } from '@/features/report/ReportSheet';
 import { useGpsBroadcast } from '@/features/report/useGpsBroadcast';
 import { useRelayBroadcast } from '@/features/report/useRelayBroadcast';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
-import { placeOf, useCommuterPosition } from '@/features/map/useCommuterPosition';
+import { useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
@@ -32,6 +31,8 @@ import { TrackingLayers } from '@/features/tracking/TrackingLayers';
 import { TourTarget } from '@/features/tour/TourTarget';
 import { TrackingBar } from '@/features/tracking/TrackingBar';
 import { TrackingPanel } from '@/features/tracking/TrackingPanel';
+import { useTrackLocation } from '@/features/tracking/trackLocation';
+import { useTabBarSpace } from '@/navigation/useTabBarSpace';
 import { useRouteLayers } from '@/features/map/useRouteLayers';
 import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
 import { useVehicles } from '@/features/vehicles/useVehicles';
@@ -56,7 +57,6 @@ import {
   SKELETON_MIN_MS,
   TOUR_START_DELAY_MS,
 } from '@/shared/config';
-import { canReportWithGps } from '@/shared/checkin/geofence';
 import { bestAlternative, overlappingRoutes } from '@/shared/routing/alternatives';
 import { nearestStop } from '@/shared/routing/describe';
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
@@ -71,7 +71,6 @@ import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import { isStopped } from '@/shared/telemetry/stopped';
 import { crossedDistance, crossesAlert, etaDistanceKm, etaNow, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
-import { inRouteOrder } from '@/shared/relay/broadcast';
 import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
 import { showDialog } from '@/state/dialogStore';
@@ -80,6 +79,7 @@ import { useHintsStore } from '@/state/hintsStore';
 import { useLocationStore } from '@/state/locationStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { showToast } from '@/state/toastStore';
+import { useRelayFormStore } from '@/state/relayFormStore';
 import { useRelayStore } from '@/state/relayStore';
 import { useTrackingStore } from '@/state/trackingStore';
 import { strings } from '@/strings';
@@ -120,6 +120,11 @@ export default function MapScreen() {
   const [topHeight, setTopHeight] = useState(0);
   // B8: the round buttons sit at the right, above the card: they do not take map height
   const [buttonsHeight, setButtonsHeight] = useState(0);
+  // When one column of round buttons would reach the cards at the top, + and - move to a second
+  // column at its left. The map's own height, the right column's and the + and - group's.
+  const [rootHeight, setRootHeight] = useState(0);
+  const [column, setColumn] = useState({ height: 0, withZoom: true });
+  const [zoomHeight, setZoomHeight] = useState(0);
   const [selectorOpen, setSelectorOpen] = useState(false);
   // CA1.1: the Map opens on the route last picked (kept on the phone), else All routes
   const [selectedRoute, setSelectedRoute] = useState<string | null>(() => useSettingsStore.getState().mapRoute);
@@ -211,8 +216,9 @@ export default function MapScreen() {
 
   // G0: the commuter's GPS fix, a simulated stop (Demo settings) or a long-press pin
   const commuter = useCommuterPosition();
-  // RP1: the Report panel; RL2a: every relay needs a good fix or the simulated position
-  const [reportOpen, setReportOpen] = useState(false);
+  const trackLocation = useTrackLocation(focused);
+  // Emjay, 2026-10-26: Relay is the middle button of the bottom bar; the Map opens the same form
+  const openRelayForm = useRelayFormStore((store) => store.show);
   const fix = useLocationStore((store) => store.fix);
   // B4: a relay runs until the rider reaches their destination
   const relay = useRelayBroadcast(commuter);
@@ -240,19 +246,6 @@ export default function MapScreen() {
     [nudgeOn, selectedRoute, lines, stops, others.vehicles, others.nowMs, commuter],
   );
   const stopRelay = useRelayStore((store) => store.stop);
-  // RL2a: a route's lines (both directions), for the Relay form's route check
-  const relayLinesOf = useCallback(
-    (code: string) => loopLines.filter((line) => line.routeCode === code).map((line) => line.coordinates),
-    [loopLines],
-  );
-  const relayStopsOf = useCallback(
-    (code: string) =>
-      inRouteOrder(
-        lines.filter((line) => line.routeCode === code).map((line) => line.coordinates),
-        stopsForRoute(lines, stops, code),
-      ),
-    [lines, stops],
-  );
   // The stop of the tracked route nearest to the commuter, shown as "Your stop"
   const myStop = commuter && trackedRoute ? (nearestStop(trackedStops, commuter)?.stop ?? null) : null;
   // A session lasts TRACKING_SESSION_MIN; tapping Track again starts (and pays for) a new one
@@ -265,13 +258,17 @@ export default function MapScreen() {
   // The rider may walk to the route, so the boarding point may be up to a walk away from the line
   const etaToMe = tracked && commuter ? etaTo(tracked, loopLines, commuter, MAX_WALK_PER_LEG_M) : null;
   // No usable boarding point (no position, outside the map, or not on this route): the ETA to the
-  // vehicle's next stop instead, so tracking always shows a time while the vehicle is on its line
+  // vehicle's next stop instead, so tracking always shows a time while the vehicle is on its line.
+  // Only then: a multicab that has gone past the commuter keeps its distance round to them, so the
+  // panel never shows the next stop's falling distance as if it were the commuter's (Emjay, 2026-10-26)
   const etaToNext =
-    tracked && (!etaToMe || etaToMe.kind === 'unknown') && trackedProgress.next
+    tracked && (!etaToMe || (etaToMe.kind === 'unknown' && etaToMe.reason === 'off_line')) && trackedProgress.next
       ? etaTo(tracked, loopLines, trackedProgress.next, ROUTE_STOP_MAX_DISTANCE_M)
       : null;
   const measuredEta = etaToNext?.kind === 'approaching' ? etaToNext : etaToMe;
   const etaTarget: 'mine' | 'next' = etaToNext?.kind === 'approaching' ? 'next' : 'mine';
+  // Already past the commuter on its current leg: whatever distance shows is to its next time round
+  const trackedPassedMe = tracked && commuter ? etaTo(tracked, loopLines, commuter, MAX_WALK_PER_LEG_M, { round: false }).kind === 'passed' : false;
   // L2: counted down by the age of the last packet, and hidden once the vehicle is no longer Live
   const trackedEta = measuredEta && tracked ? etaNow(measuredEta, ageSeconds(tracked.lastPacketMs, trackSource.nowMs)) : measuredEta;
   // The arrival alert is for the commuter's own boarding point only
@@ -379,6 +376,9 @@ export default function MapScreen() {
   const startTracking = async (id: string) => {
     const routeCode = live.vehicles.find((candidate) => candidate.id === id)?.routeCode ?? selectedRoute;
     if (startingTrack.current || !routeCode) return;
+    // Emjay, 2026-10-26: no tracking (and no Energy spent) without the phone's location; Track is
+    // greyed out then, so this only catches a tap in the moment before the setting is read again
+    if (trackLocation.status !== 'on') return;
     startingTrack.current = true;
     const session = await startTrackingSession();
     startingTrack.current = false;
@@ -392,7 +392,7 @@ export default function MapScreen() {
           title: strings.live.tracking.noEnergyTitle,
           body: strings.live.tracking.noEnergyBody(ENERGY_TRACKING_COST, TRACKING_SESSION_MIN),
           actions: [
-            { label: strings.live.tracking.earnByReporting, onPress: () => setReportOpen(true) },
+            { label: strings.live.tracking.earnByReporting, onPress: openRelayForm },
             { label: strings.common.close, variant: 'secondary' },
           ],
         });
@@ -461,13 +461,6 @@ export default function MapScreen() {
     setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: from.center, zoom }));
   };
 
-  const hideRoute = () => {
-    setSelectedRoute(null);
-    setSelectedVehicle(null);
-    setSelectedStop(null);
-    frame(null);
-  };
-
   // "View R4 on Map" from My Rides opens this tab with that route. Each tap carries a new time
   // stamp; it is applied once, while rendering, with no effect.
   const params = useLocalSearchParams<{ route?: string; at?: string }>();
@@ -502,6 +495,15 @@ export default function MapScreen() {
     fittedOnce.current = true;
     frame(selectedRoute);
   }, [frame, selectedRoute]);
+
+  // The map runs under the floating bottom bar (2026-10-26); the cards and buttons stay above it
+  const bottomGap = useTabBarSpace().above;
+  // Height free for the buttons: between the cards at the top and the card at the bottom
+  const buttonsRoom =
+    rootHeight - (insets.top + spacing.sm + topHeight + spacing.sm) - Math.max(bottomHeight - buttonsHeight, 0) - bottomGap;
+  // The height of all the buttons in one column, whichever way they were laid out when measured
+  const oneColumnHeight = column.withZoom ? column.height : column.height + spacing.sm + zoomHeight;
+  const zoomBeside = rootHeight > 0 && oneColumnHeight > buttonsRoom;
 
   if (state.status === 'preparing') {
     return (
@@ -549,16 +551,24 @@ export default function MapScreen() {
     location.showExplainer ||
     location.reducedMode;
   const selectedOption = routeOptions.find((option) => option.code === selectedRoute) ?? null;
+  const zoomButtons = (
+    <TourTarget id="zoom" style={styles.zoom}>
+      <View style={styles.zoom} onLayout={(event) => setZoomHeight(event.nativeEvent.layout.height)}>
+        <RoundButton icon={Plus} label={strings.live.zoomIn} onPress={() => zoomBy(MAP_ZOOM_STEP)} />
+        <RoundButton icon={Minus} label={strings.live.zoomOut} onPress={() => zoomBy(-MAP_ZOOM_STEP)} />
+      </View>
+    </TourTarget>
+  );
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} onLayout={(event) => setRootHeight(event.nativeEvent.layout.height)}>
       <OfflineMap
         tilesUrl={state.tiles.url}
         glyphsUrl={state.tiles.glyphsUrl}
         labelsDimmed={selectedRoute !== null}
         initialBounds={initialBounds}
         focus={focus}
-        bottomInset={Math.max(bottomHeight - buttonsHeight - spacing.sm, 0) + spacing.md}
+        bottomInset={Math.max(bottomHeight - buttonsHeight - spacing.sm, 0) + bottomGap}
         topInset={insets.top + spacing.sm + topHeight}
         attributionTop={insets.top + spacing.sm + topHeight + spacing.sm}
         onStatusChange={handleStatusChange}
@@ -628,59 +638,80 @@ export default function MapScreen() {
         onLayout={(event) => setTopHeight(event.nativeEvent.layout.height)}
       >
         <TopBar tour />
+        {/* Emjay's draft, 2026-10-26: the Routes button under the top bar opens the route list; a
+            picked route opens out of it as a card, and the card's chevron folds it back into the
+            button with All routes shown again */}
         {selectedOption ? (
-          <ActiveRouteCard
-            code={selectedOption.code}
-            name={selectedOption.name}
-            color={selectedOption.color}
-            status={status}
-            note={
-              teamOnly
-                ? strings.live.status.teamOnly
-                : night
-                  ? coverage.coverage === 'none'
-                    ? strings.live.status.nightHidden
-                    : strings.live.status.night
-                  : null
-            }
-            onClose={hideRoute}
-          />
-        ) : null}
+          <Animated.View key="route-card" entering={FadeInRight.duration(motion.cardMs)} exiting={FadeOutRight.duration(motion.cardMs)}>
+            <TourTarget id="routes">
+              <ActiveRouteCard
+                code={selectedOption.code}
+                name={selectedOption.name}
+                color={selectedOption.color}
+                status={status}
+                note={
+                  teamOnly
+                    ? strings.live.status.teamOnly
+                    : night
+                      ? coverage.coverage === 'none'
+                        ? strings.live.status.nightHidden
+                        : strings.live.status.night
+                      : null
+                }
+                onPress={() => setSelectorOpen(true)}
+                onCollapse={showAllRoutes}
+              />
+            </TourTarget>
+          </Animated.View>
+        ) : (
+          <Animated.View key="routes-button" style={styles.routes} entering={FadeIn.duration(motion.cardMs)}>
+            <TourTarget id="routes">
+              <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
+            </TourTarget>
+          </Animated.View>
+        )}
         {nudgeOn && selectedOption ? (
           <CoverageNudge
             code={selectedOption.code}
             alternative={alternative ? { ...alternative, color: colorOfRoute(alternative.routeCode) } : null}
-            onShare={() => setReportOpen(true)}
+            onShare={openRelayForm}
             onAlternative={(code) => showRoute(code, 'all')}
           />
         ) : null}
       </View>
 
-      <View style={styles.bottom} onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)} pointerEvents="box-none">
-        <View style={styles.buttons} pointerEvents="box-none" onLayout={(event) => setButtonsHeight(event.nativeEvent.layout.height)}>
-          {trackedId ? <RoundButton icon={Crosshair} label={strings.live.tracking.jumpTo} onPress={jumpToTracked} active /> : null}
-          {/* CA1.1, Emjay's order: zoom in, zoom out, Locate, Relay, routes, then Tunie */}
-          <TourTarget id="zoom" style={styles.zoom}>
-            <RoundButton icon={Plus} label={strings.live.zoomIn} onPress={() => zoomBy(MAP_ZOOM_STEP)} />
-            <RoundButton icon={Minus} label={strings.live.zoomOut} onPress={() => zoomBy(-MAP_ZOOM_STEP)} />
-          </TourTarget>
-          <TourTarget id="locate">
-            <RoundButton
-              icon={LocateFixed}
-              label={location.following ? strings.location.following : strings.location.locateMe}
-              onPress={locate}
-              active={commuter?.source === 'simulated' || (location.following && location.locationAllowed)}
-            />
-          </TourTarget>
-          <TourTarget id="relay">
-            <RoundButton icon={RadioTower} label={strings.report.title} onPress={() => setReportOpen(true)} />
-          </TourTarget>
-          <TourTarget id="routes">
-            <RoundButton icon={Bus} label={strings.live.selector.open} onPress={() => setSelectorOpen(true)} />
-          </TourTarget>
-          <TourTarget id="ask">
-            <TunieButton expanded={!infoCardShown} onPress={() => router.push('/assistant')} />
-          </TourTarget>
+      <View
+        style={[styles.bottom, { bottom: bottomGap }]}
+        onLayout={(event) => setBottomHeight(event.nativeEvent.layout.height)}
+        pointerEvents="box-none"
+      >
+        <View
+          style={[styles.buttons, zoomBeside && styles.buttonsBeside]}
+          pointerEvents="box-none"
+          onLayout={(event) => setButtonsHeight(event.nativeEvent.layout.height)}
+        >
+          {zoomBeside ? zoomButtons : null}
+          <View
+            style={styles.column}
+            pointerEvents="box-none"
+            onLayout={(event) => setColumn({ height: event.nativeEvent.layout.height, withZoom: !zoomBeside })}
+          >
+            {/* Emjay's order (draft, 2026-10-26): zoom in, zoom out, the tracked multicab, Locate, then
+                Tunie; Routes moved under the top bar and Relay to the bottom bar */}
+            {zoomBeside ? null : zoomButtons}
+            {trackedId ? <RoundButton icon={Crosshair} label={strings.live.tracking.jumpTo} onPress={jumpToTracked} active /> : null}
+            <TourTarget id="locate">
+              <RoundButton
+                icon={LocateFixed}
+                label={location.following ? strings.location.following : strings.location.locateMe}
+                onPress={locate}
+                active={commuter?.source === 'simulated' || (location.following && location.locationAllowed)}
+              />
+            </TourTarget>
+            <TourTarget id="ask">
+              <TunieButton expanded={!infoCardShown} onPress={() => router.push('/assistant')} />
+            </TourTarget>
+          </View>
         </View>
         {location.showExplainer ? <LocationExplainer onContinue={location.continueExplainer} onNotNow={location.dismissExplainer} /> : null}
         {location.reducedMode ? (
@@ -725,6 +756,7 @@ export default function MapScreen() {
             eta={trackedEta}
             progress={trackedProgress}
             etaTarget={etaTarget}
+            passedMe={trackedPassedMe}
             alertOn={alertOn}
             alertMessage={
               alertOn && trackedEtaS !== null && trackedEtaS <= TRACK_ALERT_ETA_S
@@ -742,6 +774,8 @@ export default function MapScreen() {
             stopped={vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs)}
             distanceKm={vehicleKm}
             onTrack={() => void startTracking(vehicle.id)}
+            locationOff={trackLocation.status !== 'on'}
+            onTurnOnLocation={trackLocation.turnOn}
             estimated={isGhostAge(ageSeconds(vehicle.lastPacketMs, live.nowMs))}
             onClose={() => setSelectedVehicle(null)}
           />
@@ -777,18 +811,6 @@ export default function MapScreen() {
         />
       ) : null}
 
-      {reportOpen ? (
-        <ReportSheet
-          routes={routeOptions}
-          initialRoute={selectedRoute}
-          stopsOf={relayStopsOf}
-          linesOf={relayLinesOf}
-          position={commuter}
-          checkGps={() => canReportWithGps(placeOf(commuter, useLocationStore.getState().fix, Date.now()))}
-          liveMapAllowed={repos.vehicles.source !== 'live' || teamAccount === true}
-          onClose={() => setReportOpen(false)}
-        />
-      ) : null}
     </View>
   );
 }
@@ -827,13 +849,25 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
     position: 'absolute',
     left: spacing.md,
     right: spacing.md,
-    bottom: spacing.md,
     gap: spacing.sm,
   },
   buttons: {
     alignSelf: 'flex-end',
     alignItems: 'flex-end',
     gap: spacing.sm,
+  },
+  // Too little height for one column: + and - beside the others, level with the top one
+  buttonsBeside: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  column: {
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+  },
+  // The Routes button, at the right under the top bar
+  routes: {
+    alignSelf: 'flex-end',
   },
   // CA1.1: + and - as one group
   zoom: {

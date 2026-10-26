@@ -8,6 +8,9 @@ import { MAP_GEOMETRY, spacing, useTheme } from '@/theme';
 type CirclePaint = NonNullable<CircleLayerSpecification['paint']>;
 
 const SOURCE = 'route-stops';
+// The dots' layer. Route and trip lines are placed below it (beforeId), so a line mounted later,
+// such as a newly picked route or a planned ride, never covers the dots or takes their taps
+export const STOP_LAYER_ID = `${SOURCE}-dot`;
 // Extra touch area around a dot, so a small dot is still easy to tap
 const HITBOX = { top: spacing.md, right: spacing.md, bottom: spacing.md, left: spacing.md };
 
@@ -61,7 +64,7 @@ export function StopDots({ stops, selectedCode, onPressStop, color }: StopDotsPr
       }
     >
       <Layer
-        id={`${SOURCE}-dot`}
+        id={STOP_LAYER_ID}
         type="circle"
         paint={{
           'circle-radius': radiusRamp(),
