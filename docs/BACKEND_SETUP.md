@@ -60,7 +60,9 @@ The design of the database, what you do in the Supabase dashboard, and the live 
 ## 5. What you do in the dashboard before "Supabase is ready"
 
 1. **Create two accounts** under Authentication, Users, "Add user", with "Auto Confirm User" on: a team account and an outsider. Use addresses and passwords made for testing.
-2. **Fill in `.env`** (copy `.env.example`; git-ignored): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and the four `TEST_...` values. **Once these are filled in, `npx jest` runs the live tests.**
+2. **Fill in `.env`** (copy `.env.example`; git-ignored): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and the four `TEST_...` values. The live tests then run, one named file at a time, with
+   `npm run test:live -- tests/integration/<file>.test.ts`. **Since 2026-10-28 `npx jest` alone never runs them**: one queues texts the
+   real gateway could pick up, and two share the admin PIN setting, so a parallel run broke one of them.
 3. **The service-role key** never goes in the app, in a committed file or in a chat. Since DR3 (2026-10-12) it may sit in the team PC's git-ignored `.env` as `SUPABASE_SERVICE_ROLE_KEY`, for the driver-side admin scripts, their live tests and the SMS worker only (section 8).
 4. Have the **database password** and the **project reference** ready for `supabase link`. You type them; the agent never sees or prints them.
 5. **Do not enable `pg_cron` yet.** The agent asks you at step 3 below.
@@ -75,7 +77,7 @@ The design of the database, what you do in the Supabase dashboard, and the live 
 | 4 | Add the team account (SQL below) | **Yes.** One row in `team_accounts`. |
 | 5 | You enable `pg_cron` (Database, Extensions); then paste `supabase/cron/retention.sql` | **Yes.** Five jobs. |
 | 6 | `npx supabase functions deploy ingest --no-verify-jwt` | **Yes.** If it asks for Docker (not installed), the agent stops and reports the options. |
-| 7 | `npx jest tests/integration` | Writes only test rows (a check-in, a report, a username, the test vehicle's telemetry). |
+| 7 | `npm run test:live -- tests/integration/supabase.test.ts` | Writes only test rows (a check-in, a report, a username, the test vehicle's telemetry). |
 
 ```sql
 insert into public.team_accounts (user_id, note)
@@ -128,7 +130,7 @@ Migration `20261013000000_driver_side.sql`; design in `docs/IMPLEMENTATION_PLAN_
 | 1 | `npx supabase db push --dry-run` | No. Must list **only** `20261013000000_driver_side.sql`. |
 | 2 | `npx supabase db push` | **Yes.** The tables and functions above. |
 | 3 | Paste the two new jobs at the end of `supabase/cron/retention.sql` into the SQL Editor | **Yes.** Two jobs. |
-| 4 | `npx jest tests/integration/driverSide.test.ts` | Writes and removes its own test rows (vehicle `R99-DR3-TEST`, gateway `GW-99`). |
+| 4 | `npm run test:live -- tests/integration/driverSide.test.ts` | Writes and removes its own test rows (vehicle `R99-DR3-TEST`, gateway `GW-99`). |
 
 ## 9. Driver registration (DRG2, 2026-10-27)
 
@@ -144,12 +146,12 @@ Migration `20261027000000_driver_registration.sql`; design in `docs/IMPLEMENTATI
 - **Making the admin account** (once, in the SQL Editor, with that account's user id from Authentication, Users):
   `insert into public.admin_accounts (user_id) values ('<user id>');` The admin console that signs in with it (DRG5) is
   `admin/`; its README has the full steps, local and hosted on Render.
-- **Live test:** `npx jest tests/integration/driverRegistration.test.ts` sends no SMS (its texts expire at once) and removes its own rows.
+- **Live test:** `npm run test:live -- tests/integration/driverRegistration.test.ts` sends no SMS (its texts expire at once) and removes its own rows.
   Do not run `tests/integration/driverSide.test.ts` while the real gateway is sending: it queues heatmap texts to a made-up number.
 
 **Edge Function `driver-registration` (DRG3), deployed 2026-10-27** with
 `npx supabase functions deploy driver-registration --no-verify-jwt --use-api` (no account calls it, so no JWT check; `--use-api`
 bundles on Supabase's side, no Docker). Redeploy the same way after changing `supabase/functions/driver-registration/` or the
 `_shared` files it imports. Number checks go out as data SMS; if the gateway SIM needs text (as DITO did):
-`npx supabase secrets set REGISTRATION_SMS_ENCODING=text`. Live test: `npx jest tests/integration/driverRegistrationFunction.test.ts`
+`npx supabase secrets set REGISTRATION_SMS_ENCODING=text`. Live test: `npm run test:live -- tests/integration/driverRegistrationFunction.test.ts`
 (made-up number, never texted; removes its rows).

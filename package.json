@@ -70,6 +70,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "test": "jest",
+    "test:live": "node scripts/test-live.js",
     "postinstall": "patch-package"
   },
   "private": true
