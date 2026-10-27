@@ -14,6 +14,7 @@
   - Ask before any new dependency, EAS build or Supabase command.
 - **Test labels:** U unit (jest), L live Supabase, P one phone, W web browser.
 - **Size:** S is under a day, M is 1 to 3 days, L is more than 3 days of agent work.
+- **Change in DRG3:** one Edge Function, `driver-registration`, serves all five actions (the plan named two, `driver-register` and `driver-setup`; both would use the same service role and the same open entry, so splitting them added only a second deploy).
 
 ## 1. How it fits what exists
 

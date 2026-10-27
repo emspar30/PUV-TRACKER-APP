@@ -6,7 +6,8 @@
 //   ENABLE_VERIFICATION (PRD 0.7; read in one place only: verifyReport), STATIONARY_SPEED_KMH (7.3),
 //   PACKET_MAX_AGE_S and PACKET_MAX_FUTURE_S (0.3), VEHICLE_CAPACITY_SEATS (7.3),
 //   PACKET_MAX_BYTES (8.4), INGEST_LOG_RETENTION_DAYS, PACKET_MAX_SPEED_KMH, and the T1 batch limits
-//   TELEMETRY_BATCH_MAX_POINTS, TELEMETRY_BATCH_MAX_BYTES and PACKET_BACKLOG_MAX_AGE_S.
+//   TELEMETRY_BATCH_MAX_POINTS, TELEMETRY_BATCH_MAX_BYTES and PACKET_BACKLOG_MAX_AGE_S, and the
+//   driver registration values (PRD 9.5, 0.3).
 export {
   ENABLE_VERIFICATION,
   INGEST_LOG_RETENTION_DAYS,
@@ -19,6 +20,21 @@ export {
   TELEMETRY_BATCH_MAX_BYTES,
   TELEMETRY_BATCH_MAX_POINTS,
   VEHICLE_CAPACITY_SEATS,
+  // Driver registration (PRD 9.5; DRG3)
+  PLATE_MAX_CHARS,
+  PLATE_MIN_CHARS,
+  PROVISIONING_QR_TTL_MIN,
+  REGISTRATION_CHECK_MAX_TRIES,
+  REGISTRATION_CHECK_RESEND_MIN,
+  REGISTRATION_CHECK_TTL_MIN,
+  REGISTRATION_CHECKS_PER_DAY,
+  REGISTRATION_CHECKS_PER_NUMBER_PER_DAY,
+  REGISTRATION_CODE_DIGITS,
+  REGISTRATION_PHOTO_MAX_BYTES,
+  REGISTRATION_PHOTO_MAX_PX,
+  REGISTRATION_SETUP_TTL_DAYS,
+  REGISTRATION_SUBMIT_WITHIN_MIN,
+  REGISTRATION_TEST_PHONE_PREFIX,
 } from '../../../supabase/functions/_shared/serverConfig.ts';
 
 // --- Position send rule (PRD 8.4)
@@ -613,27 +629,8 @@ export const DRIVER_MAP_DETAIL_ZOOM = 0.75;
 // per screen) and in at most this many levels more
 export const DRIVER_MAP_MAX_ZOOM_IN = 3;
 
-// --- Provisioning (PRD 9.5; DR3, DR4). A setup QR expires this long after it is printed.
-export const PROVISIONING_QR_TTL_MIN = 15;
+// --- Provisioning (PRD 9.5; DR3, DR4). PROVISIONING_QR_TTL_MIN (how long a setup QR or a collected
+// setup is accepted) and the driver registration values (PLATE_*, REGISTRATION_*) are server values,
+// re-exported at the top of this file.
 // Q12: the admin screens are behind a PIN of this many digits
 export const ADMIN_PIN_DIGITS = 6;
-
-// --- Driver registration (PRD 9.5 and 0.3; docs/IMPLEMENTATION_PLAN_DRIVER_REGISTRATION.md, owner
-// decisions D1 to D6). The photos of the CTTDM driver ID and the multicab: the long side at most this
-// many pixels, as JPEG, and never more than this many bytes. They are deleted at the decision (D1).
-export const REGISTRATION_PHOTO_MAX_PX = 1600;
-export const REGISTRATION_PHOTO_MAX_BYTES = 1_000_000;
-// The number check: a code of this many digits, valid this long and sent again only after this long.
-// Each check is a text from the gateway SIM and anyone can start one, so they are limited per number
-// and in total per Manila day (D6), and a code allows only a few wrong tries.
-export const REGISTRATION_CODE_DIGITS = 6;
-export const REGISTRATION_CHECK_TTL_MIN = 10;
-export const REGISTRATION_CHECK_RESEND_MIN = 10;
-export const REGISTRATION_CHECK_MAX_TRIES = 5;
-export const REGISTRATION_CHECKS_PER_NUMBER_PER_DAY = 3;
-export const REGISTRATION_CHECKS_PER_DAY = 20;
-// An approved setup must be collected within this many days, or the driver registers again
-export const REGISTRATION_SETUP_TTL_DAYS = 7;
-// A plate has this many letters and digits (at least one of each); the database allows 16 characters
-export const PLATE_MIN_CHARS = 3;
-export const PLATE_MAX_CHARS = 10;
