@@ -129,3 +129,19 @@ Migration `20261013000000_driver_side.sql`; design in `docs/IMPLEMENTATION_PLAN_
 | 2 | `npx supabase db push` | **Yes.** The tables and functions above. |
 | 3 | Paste the two new jobs at the end of `supabase/cron/retention.sql` into the SQL Editor | **Yes.** Two jobs. |
 | 4 | `npx jest tests/integration/driverSide.test.ts` | Writes and removes its own test rows (vehicle `R99-DR3-TEST`, gateway `GW-99`). |
+
+## 9. Driver registration (DRG2, 2026-10-27)
+
+Migration `20261027000000_driver_registration.sql`; design in `docs/IMPLEMENTATION_PLAN_DRIVER_REGISTRATION.md` (PRD 9.5).
+**Applied to the live project on 2026-10-27, alone** (owner's choice): `20261022000000_checkin_points.sql` and
+`20261023000000_relay_gate.sql` were not live yet and were set aside for that one push.
+
+- **Still to apply:** those two migrations. Because a newer one is already live, the CLI needs
+  `npx supabase db push --include-all` (run `--dry-run` first; it must list only those two).
+- **Tables, all server-only:** `admin_accounts` (the console's admin account), `driver_settings` (the salted admin PIN hash of the
+  pilot driver phones), `registration_checks`, `driver_registrations`. Bucket `driver-registrations`: private, JPEG, 1 MB; only the
+  admin account reads and deletes.
+- **Making the admin account** (once, in the SQL Editor, with that account's user id from Authentication, Users):
+  `insert into public.admin_accounts (user_id) values ('<user id>');`
+- **Live test:** `npx jest tests/integration/driverRegistration.test.ts` sends no SMS (its texts expire at once) and removes its own rows.
+  Do not run `tests/integration/driverSide.test.ts` while the real gateway is sending: it queues heatmap texts to a made-up number.
