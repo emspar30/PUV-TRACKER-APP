@@ -16,6 +16,7 @@ const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession
 const BUCKET = 'driver-registrations';
 const CODE_RANGE = 1_000_000;
 const CODE_DIGITS = 6;
+const TOKEN_BYTES = 32;
 
 // A refusal raised by a database function carries its reason as the message
 async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
@@ -29,6 +30,7 @@ const deps: RegistrationDeps = {
   // As the worker's SMS_PRIMARY_ENCODING (data unless the gateway SIM needs text, as DITO did)
   encoding: Deno.env.get('REGISTRATION_SMS_ENCODING') === 'text' ? 'text' : 'data',
   newCode: () => String(crypto.getRandomValues(new Uint32Array(1))[0] % CODE_RANGE).padStart(CODE_DIGITS, '0'),
+  newToken: () => btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(TOKEN_BYTES)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
   sha256Hex: async (text) => {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
     return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');

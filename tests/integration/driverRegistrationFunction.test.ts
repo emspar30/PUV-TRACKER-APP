@@ -43,7 +43,8 @@ live('DRG3 driver-registration function, live project', () => {
   let deployed = false;
   let writerWasAdmin = false;
   let savedPin: { admin_pin_hash: string | null; admin_pin_salt: string | null } | null = null;
-  const token = randomBytes(32).toString('base64url');
+  // The install token the function returns at submission
+  let token = '';
   let check = '';
   let uploads: { id: string; vehicle: string } = { id: '', vehicle: '' };
 
@@ -133,9 +134,13 @@ live('DRG3 driver-registration function, live project', () => {
 
   it('submits, reports pending, and refuses a second submission of the same check', async () => {
     if (!deployed) return;
-    const submitted = await call({ action: 'submit', check, plate: 'tst-9909', route: 'R99', token });
-    expect(submitted).toEqual({ status: 200, body: { ok: true, plate: PLATE, route: 'R99' } });
-    expect((await call({ action: 'submit', check, plate: PLATE, route: 'R99', token: randomBytes(32).toString('base64url') })).body.error).toBe('check_not_verified');
+    const submitted = await call({ action: 'submit', check, plate: 'tst-9909', route: 'R99' });
+    expect(submitted.status).toBe(200);
+    expect(submitted.body).toMatchObject({ ok: true, plate: PLATE, route: 'R99' });
+    token = submitted.body.token as string;
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect((await call({ action: 'submit', check, plate: PLATE, route: 'R99' })).body.error).toBe('check_not_verified');
+    expect((await call({ action: 'status', token: randomBytes(32).toString('base64url') })).status).toBe(404);
     expect(await call({ action: 'status', token })).toEqual({ status: 200, body: { ok: true, status: 'pending', reason: null } });
     expect((await call({ action: 'collect', token })).body.error).toBe('not_approved');
   }, TIMEOUT_MS);

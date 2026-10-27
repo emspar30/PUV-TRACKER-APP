@@ -45,6 +45,7 @@ function fake(overrides: Partial<RegistrationDeps> = {}): Fake {
     nowMs: () => NOW,
     encoding: 'data',
     newCode: () => '042917',
+    newToken: () => TOKEN,
     sha256Hex: async (text) => createHash('sha256').update(text).digest('hex'),
     startCheck: async (args) => {
       started.push(args);
@@ -132,19 +133,18 @@ describe('driver-register verify and submit', () => {
     expect((await handleRegister(post({ action: 'verify', phone: '09171234567', code: '42' }), fake())).body.error).toBe('wrong_code');
   });
 
-  it('submits the plate in its stored form, the route and the token\'s hash (never the token)', async () => {
+  it('submits the plate in its stored form and the route, stores only the hash of the token it makes, and returns the token once', async () => {
     const deps = fake();
-    const response = await handleRegister(post({ action: 'submit', check: CHECK, plate: 'abc-1234', route: 'R4', token: TOKEN }), deps);
-    expect(response).toEqual({ status: 200, body: { ok: true, plate: 'ABC 1234', route: 'R4' } });
+    const response = await handleRegister(post({ action: 'submit', check: CHECK, plate: 'abc-1234', route: 'R4' }), deps);
+    expect(response).toEqual({ status: 200, body: { ok: true, plate: 'ABC 1234', route: 'R4', token: TOKEN } });
     expect(deps.submitted).toEqual([{ check: CHECK, plate: 'ABC 1234', route: 'R4', tokenHash: TOKEN_HASH, withinMin: 60 }]);
     expect(JSON.stringify(deps.submitted)).not.toContain(TOKEN);
   });
 
   it.each([
-    [{ check: 'not-a-uuid', plate: 'ABC 1234', route: 'R4', token: TOKEN }, 'check_not_verified'],
-    [{ check: CHECK, plate: 'AB', route: 'R4', token: TOKEN }, 'invalid_plate'],
-    [{ check: CHECK, plate: 'ABC 1234', route: '4', token: TOKEN }, 'invalid_route'],
-    [{ check: CHECK, plate: 'ABC 1234', route: 'R4', token: 'short' }, 'invalid_token'],
+    [{ check: 'not-a-uuid', plate: 'ABC 1234', route: 'R4' }, 'check_not_verified'],
+    [{ check: CHECK, plate: 'AB', route: 'R4' }, 'invalid_plate'],
+    [{ check: CHECK, plate: 'ABC 1234', route: '4' }, 'invalid_route'],
   ])('refuses %j with %s', async (fields, reason) => {
     const deps = fake();
     expect((await handleRegister(post({ action: 'submit', ...fields }), deps)).body.error).toBe(reason);
@@ -152,8 +152,12 @@ describe('driver-register verify and submit', () => {
   });
 
   it.each(['check_not_verified', 'photos_missing'])('answers the database refusal %s with 400', async (reason) => {
-    const response = await handleRegister(post({ action: 'submit', check: CHECK, plate: 'ABC 1234', route: 'R4', token: TOKEN }), fake({ submit: refusing(reason) }));
+    const response = await handleRegister(post({ action: 'submit', check: CHECK, plate: 'ABC 1234', route: 'R4' }), fake({ submit: refusing(reason) }));
     expect(response).toEqual({ status: 400, body: { ok: false, error: reason } });
+  });
+
+  it('never hands out a malformed token', async () => {
+    await expect(handleRegister(post({ action: 'submit', check: CHECK, plate: 'ABC 1234', route: 'R4' }), fake({ newToken: () => 'short' }))).rejects.toThrow('malformed');
   });
 });
 

@@ -6,10 +6,11 @@
 // app calls it without an account (it has none), with a JSON body { action, ... }:
 //   registering  start  { phone }                        a number check SMS is queued
 //                verify { phone, code }                  the check id and two photo upload links
-//                submit { check, plate, route, token }   a pending registration
+//                submit { check, plate, route }          a pending registration, and its install token
 //   setup        status  { token }                       pending, approved, rejected (reason), ...
 //                collect { token }                       the setup, once (the QR's payload)
-// The install token travels only from the phone; the server keeps its SHA-256. The database functions
+// The install token is made here at submission and returned once, to the submitting phone only (the
+// app has no secure random source of its own); the server keeps only its SHA-256. The database functions
 // (20261027000000_driver_registration.sql) enforce the limits; a refusal comes back as its reason.
 
 import { normalizePhNumber } from './phone.ts';
@@ -96,6 +97,8 @@ export type RegistrationDeps = {
   encoding: SmsEncoding;
   // Six random digits
   newCode(): string;
+  // 32 random bytes as base64url (43 characters)
+  newToken(): string;
   sha256Hex(text: string): Promise<string>;
   startCheck(args: CheckStartArgs): Promise<void>;
   // The check id on a match, or null
@@ -199,8 +202,8 @@ async function submit(body: Record<string, unknown>, deps: RegistrationDeps): Pr
   if (!plate) return refused(HTTP_BAD_REQUEST, 'invalid_plate');
   const route = text(body.route);
   if (!isRouteCode(route)) return refused(HTTP_BAD_REQUEST, 'invalid_route');
-  const token = text(body.token);
-  if (!isInstallToken(token)) return refused(HTTP_BAD_REQUEST, 'invalid_token');
+  const token = deps.newToken();
+  if (!isInstallToken(token)) throw new Error('the install token is malformed');
   const tokenHash = await deps.sha256Hex(token);
   const result = await attempt(() => deps.submit({ check, plate, route, tokenHash, withinMin: REGISTRATION_SUBMIT_WITHIN_MIN }), {
     check_not_verified: refused(HTTP_BAD_REQUEST, 'check_not_verified'),
@@ -209,7 +212,7 @@ async function submit(body: Record<string, unknown>, deps: RegistrationDeps): Pr
     invalid_route: refused(HTTP_BAD_REQUEST, 'invalid_route'),
   });
   if (isResponse(result)) return result;
-  return ok({ plate, route });
+  return ok({ plate, route, token });
 }
 
 export async function handleRegister(request: RegistrationRequest, deps: RegistrationDeps): Promise<RegistrationResponse> {
