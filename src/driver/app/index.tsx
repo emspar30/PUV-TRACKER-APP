@@ -91,7 +91,8 @@ export default function DriverHome() {
   const forRoute = heatmap && setup && heatmap.route === setup.routeCode ? heatmap : null;
   const view = useMemo(() => heatmapView(forRoute, route?.stops ?? [], now), [forRoute, route, now]);
 
-  if (!setup || !route) return <Redirect href="/provision" />;
+  // DRG4: a phone without a setup registers (the setup QR stays one tap away there)
+  if (!setup || !route) return <Redirect href="/register" />;
 
   const update = describeUpdate(view);
   const clock = describeClock(driftStatus(driftSamples));

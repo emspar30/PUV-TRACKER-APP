@@ -634,3 +634,13 @@ export const DRIVER_MAP_MAX_ZOOM_IN = 3;
 // re-exported at the top of this file.
 // Q12: the admin screens are behind a PIN of this many digits
 export const ADMIN_PIN_DIGITS = 6;
+
+// --- Driver registration in the driver app (DRG4; PRD 9.5). A request to the registration function
+// gives up after this long (a weak signal at the cooperative); while it waits for the number check
+// SMS, the app looks in its inbox this often; while it waits for approval, it asks for the status
+// this often (and each time the app comes back to the screen).
+export const DRIVER_REQUEST_TIMEOUT_MS = 20000;
+export const REGISTRATION_INBOX_POLL_MS = 2000;
+export const REGISTRATION_STATUS_POLL_S = 60;
+// The photos are taken at most this good (0 to 1); a photo over REGISTRATION_PHOTO_MAX_BYTES is retaken
+export const REGISTRATION_PHOTO_QUALITY = 0.6;

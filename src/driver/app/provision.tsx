@@ -30,14 +30,13 @@ import { strings } from '@/strings';
 import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
 import { Notice } from '../components/Notice';
-import { beaconOptions, requestBeaconPermissions } from '../features/beacon/beacon';
-import { ensureInboxConfigured } from '../features/heatmap/inbox';
+import { requestBeaconPermissions } from '../features/beacon/beacon';
 import { driverRoute } from '../features/heatmap/routeStops';
 import { requestSmsPermission } from '../features/heatmap/smsPermission';
-import { setupFrom, useDriverStore } from '../state/driverStore';
-import { getSupport, isBeaconAvailable, provision, startAdvertising } from '../../../modules/tunton-beacon';
+import { applySetup } from '../features/setup/applySetup';
 
-// DR4: setting up a driver phone (PRD 9.5). Scan the setup QR from provision-driver.ts, confirm the
+// DR4: setting up a driver phone with a setup code (PRD 9.5; since DRG4 the development and testing
+// path: drivers register in register.tsx). Scan the setup QR from provision-driver.ts, confirm the
 // multicab, grant Nearby devices and notifications, then text messages (DR5), then the phone stores
 // its secrets in the Android Keystore (native module), starts the beacon and turns its SMS inbox on.
 // The admin checks the beacon from a second phone (DR4-M2). Text messages can be skipped (the beacon
@@ -83,8 +82,6 @@ export default function Provision() {
   const [step, setStep] = useState<Step>({ kind: 'scan', error: null });
   const [camera, requestCamera, getCamera] = useCameraPermissions();
   const paused = useRef(false);
-  const setSetup = useDriverStore((state) => state.setSetup);
-  const setBeaconEnabled = useDriverStore((state) => state.setBeaconEnabled);
   const styles = useStyles();
   const { colors, typography, routeColor } = useTheme();
   const text = strings.driver.provision;
@@ -142,25 +139,13 @@ export default function Provision() {
   };
 
   const setUp = async (payload: DriverProvisioning) => {
-    const support = getSupport();
-    if (!isBeaconAvailable() || !support.bluetooth || support.advertising === false) {
-      setStep({ kind: 'failed', payload, message: text.cannotBeacon });
-      return;
-    }
-    if (!support.bluetoothOn) {
-      setStep({ kind: 'failed', payload, message: text.bluetoothFirst });
-      return;
-    }
-    try {
-      await provision(payload.shortId, payload.beaconSecret, payload.smsKey);
-      await startAdvertising(beaconOptions());
-      await ensureInboxConfigured();
-      setSetup(setupFrom(payload, Date.now()));
-      setBeaconEnabled(true);
+    const outcome = await applySetup(payload);
+    if (outcome === 'done') {
       setStep({ kind: 'done' });
-    } catch {
-      setStep({ kind: 'failed', payload, message: text.failed });
+      return;
     }
+    const message = outcome === 'cannot_beacon' ? text.cannotBeacon : outcome === 'bluetooth_off' ? text.bluetoothFirst : text.failed;
+    setStep({ kind: 'failed', payload, message });
   };
 
   const previous = previousStep(step);
@@ -169,7 +154,9 @@ export default function Provision() {
         paused.current = false;
         setStep(previous);
       }
-    : undefined;
+    : step.kind === 'scan'
+      ? () => router.replace('/register')
+      : undefined;
 
   let body: ReactNode = null;
   let actions: ReactNode = null;
