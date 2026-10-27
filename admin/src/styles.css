@@ -1,0 +1,498 @@
+/* DRG5: the admin console. Colours are the app's tokens (src/theme/tokens.ts), set as variables by
+   theme.ts, light or dark as the system is. The one fixed colour set is the plate, drawn white like the
+   real plate it is matched against. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas, #f5f6f8);
+  color: var(--textPrimary, #1f1f1f);
+  font: 400 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3,
+p,
+figure {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+a {
+  color: var(--primary);
+}
+
+:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.muted {
+  color: var(--textSecondary);
+}
+
+.small {
+  font-size: 13px;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Top bar and tabs */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  padding: 12px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--outline);
+}
+
+.brand {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-right: auto;
+}
+
+.tab {
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: var(--textSecondary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.tab:hover {
+  background: var(--surface);
+}
+
+.tab[aria-current='page'] {
+  background: var(--primaryContainer);
+  color: var(--onPrimaryContainer);
+}
+
+/* Page */
+
+.page {
+  display: grid;
+  gap: 40px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.page.narrow {
+  max-width: 440px;
+}
+
+.signin {
+  min-height: 100vh;
+  align-content: center;
+  gap: 16px;
+}
+
+section {
+  display: grid;
+  gap: 12px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notice {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.notice.warning {
+  background: var(--warningContainer);
+  color: var(--warning);
+}
+
+.notice.error {
+  background: var(--dangerContainer);
+  color: var(--danger);
+}
+
+.notice.ok {
+  background: var(--successContainer);
+  color: var(--success);
+}
+
+/* Buttons and fields */
+
+.button {
+  min-height: 40px;
+  padding: 8px 18px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--textPrimary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button.primary {
+  background: var(--primary);
+  color: var(--onPrimary);
+}
+
+.button.outline {
+  border-color: var(--textTertiary);
+  background: transparent;
+  color: var(--primary);
+}
+
+.button.danger {
+  background: var(--danger);
+  color: var(--card);
+}
+
+.button.quiet {
+  background: transparent;
+  color: var(--primary);
+}
+
+.button.quiet:hover:not(:disabled) {
+  background: var(--primaryContainer);
+}
+
+.card {
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--outline);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--textTertiary);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--textPrimary);
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.settings {
+  max-width: 520px;
+}
+
+/* The review queue */
+
+.queue {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(240px, 300px);
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid var(--outline);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.photo-cell {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.photo-cell h3 {
+  color: var(--textSecondary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surfaceHigh);
+  cursor: zoom-in;
+}
+
+.photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.photo.empty {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  color: var(--textSecondary);
+  font-size: 14px;
+  text-align: center;
+  cursor: default;
+}
+
+.typed-plate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+
+/* The typed plate, as the white plate it is compared with in the photo */
+.plate {
+  display: inline-block;
+  padding: 6px 16px 5px;
+  border: 2px solid #1f1f1f;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow:
+    inset 0 0 0 3px #ffffff,
+    inset 0 0 0 4px #c4c7c5;
+  color: #1f1f1f;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.plate.small {
+  padding: 2px 8px;
+  border-width: 1.5px;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.plate-caption {
+  color: var(--textSecondary);
+  font-size: 13px;
+}
+
+.facts {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.route {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.phone {
+  font-size: 17px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.reject {
+  display: grid;
+  gap: 8px;
+}
+
+.picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 6px 12px;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  background: var(--surfaceLow);
+  color: var(--textPrimary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: var(--surface);
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: var(--primaryContainer);
+  color: var(--onPrimaryContainer);
+}
+
+/* The enlarged photo */
+
+.lightbox {
+  max-width: min(96vw, 1400px);
+  max-height: 96vh;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.lightbox::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.lightbox img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(96vh - 64px);
+  object-fit: contain;
+}
+
+.lightbox form {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px;
+}
+
+/* Tables */
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--outline);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 12px 16px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+th {
+  border-bottom: 1px solid var(--outline);
+  color: var(--textSecondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+tbody tr + tr td {
+  border-top: 1px solid var(--outline);
+}
+
+td.end {
+  text-align: right;
+}
+
+.reason {
+  display: block;
+  color: var(--textSecondary);
+  font-size: 13px;
+}
+
+.reason.warning {
+  color: var(--warning);
+}
+
+/* Narrow screens: photos side by side over the facts, then one column on a phone */
+
+@media (max-width: 900px) {
+  .review {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .facts {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .topbar {
+    padding: 10px 16px;
+  }
+
+  .page {
+    gap: 32px;
+    padding: 16px;
+  }
+
+  .review {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+}

@@ -142,7 +142,8 @@ Migration `20261027000000_driver_registration.sql`; design in `docs/IMPLEMENTATI
   pilot driver phones), `registration_checks`, `driver_registrations`. Bucket `driver-registrations`: private, JPEG, 1 MB; only the
   admin account reads and deletes.
 - **Making the admin account** (once, in the SQL Editor, with that account's user id from Authentication, Users):
-  `insert into public.admin_accounts (user_id) values ('<user id>');`
+  `insert into public.admin_accounts (user_id) values ('<user id>');` The admin console that signs in with it (DRG5) is
+  `admin/`; its README has the full steps, local and hosted on Render.
 - **Live test:** `npx jest tests/integration/driverRegistration.test.ts` sends no SMS (its texts expire at once) and removes its own rows.
   Do not run `tests/integration/driverSide.test.ts` while the real gateway is sending: it queues heatmap texts to a made-up number.
 

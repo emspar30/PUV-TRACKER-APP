@@ -17,7 +17,7 @@ module.exports = defineConfig([
   expoConfig,
   {
     // The Edge Function entry files run in Deno, with imports ESLint and TypeScript here cannot resolve
-    ignores: ['dist/*', 'android/*', 'docs/*', '.expo/*', 'supabase/functions/*/index.ts', 'supabase/.temp/*'],
+    ignores: ['dist/*', 'admin/dist/*', 'android/*', 'docs/*', '.expo/*', 'supabase/functions/*/index.ts', 'supabase/.temp/*'],
   },
   {
     // Pure TypeScript only: these folders must run in plain Node (PRD 0.1 rule 5)
@@ -98,6 +98,42 @@ module.exports = defineConfig([
             {
               group: ['react', 'react-native', 'react-native/*', 'react-native-*', 'expo', 'expo/*', 'expo-*', '@expo/*', '@maplibre/*', '@/*'],
               message: 'The SMS worker is plain Node: import src/shared by relative path, never app code.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // DRG5: the admin console is a web page. It takes the pure shared code, the strings and the colour
+    // tokens from the app, and nothing that needs React Native or belongs to one of the apps.
+    files: ['admin/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          // The patterns read like .gitignore: a folder blocked by @/* has to be let back in before a
+          // file in it can be, so @/theme is let in, its contents blocked, then tokens let in
+          paths: [{ name: '@/theme', message: 'Import the colour tokens only: @/theme/tokens.' }],
+          patterns: [
+            {
+              group: [
+                'react-native',
+                'react-native/*',
+                'react-native-*',
+                'expo',
+                'expo/*',
+                'expo-*',
+                '@expo/*',
+                '@maplibre/*',
+                '@/*',
+                '!@/shared',
+                '!@/strings',
+                '!@/theme',
+                '@/theme/*',
+                '!@/theme/tokens',
+              ],
+              message: 'The admin console takes only src/shared, src/strings and src/theme/tokens from the app.',
             },
           ],
         },

@@ -644,3 +644,13 @@ export const REGISTRATION_INBOX_POLL_MS = 2000;
 export const REGISTRATION_STATUS_POLL_S = 60;
 // The photos are taken at most this good (0 to 1); a photo over REGISTRATION_PHOTO_MAX_BYTES is retaken
 export const REGISTRATION_PHOTO_QUALITY = 0.6;
+
+// --- The admin console (DRG5; PRD 9.5, admin/). Its photo links work this long (the photos are shown
+// once and enlarged from the page, so a link is not needed again); the review list reloads this
+// often while the page is in view. The "approved" text waits for the gateway at most a day, then
+// expires unsent (the setup can still be collected for REGISTRATION_SETUP_TTL_DAYS). A rejection
+// reason is at most this long (the database keeps no more).
+export const CONSOLE_PHOTO_LINK_TTL_S = 300;
+export const CONSOLE_REFRESH_S = 30;
+export const REGISTRATION_NOTICE_TTL_MIN = 1440;
+export const REGISTRATION_REASON_MAX_CHARS = 200;
