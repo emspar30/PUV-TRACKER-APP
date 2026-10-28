@@ -1,5 +1,6 @@
-// Alternatives for a trip, and the "Best match": free seats on multicabs still coming to the
-// boarding point, then their number, then the shorter walk. Fixtures only.
+// Alternatives for a trip, and the "Best match": the quicker trip, then (among trips about as quick)
+// free seats on multicabs still coming to the boarding point, their number, the shorter walk.
+// Fixtures only.
 
 import { planOptions } from '../routing/plan';
 import { rankRouteOptions } from '../routing/rankOptions';
@@ -55,5 +56,13 @@ describe('route alternatives', () => {
       ['T2', 1, 14],
       ['T1', 1, 1],
     ]);
+  });
+
+  it('a much longer ride is not the best match, even with more free seats (Emjay, 2026-10-26)', () => {
+    // T2 rides 5 km more, about 17 minutes: far past RANK_TIME_TIE_MIN
+    const detour = { ...options[1], rideKm: options[1].rideKm + 5 };
+    const vehicles = [vehicle('a', 'T1-OUT', 1, 15), vehicle('b', 'T2-OUT', 1, 0)];
+    const ranked = rankRouteOptions([detour, options[0]], vehicles, LINES, NOW);
+    expect(ranked.map((option) => option.itinerary.legs[1].routeCode)).toEqual(['T1', 'T2']);
   });
 });

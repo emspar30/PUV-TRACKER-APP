@@ -5,13 +5,14 @@
 //   stale; the caller decides that).
 // - Beacon: one multicab's beacon is heard and the server accepted its rotating code. Nothing
 //   verified after RELAY_BEACON_WAIT_S means no registered multicab is near. Two beacons too close in
-//   signal wait for the queue (RL2c). In demo data the multicab picked by hand counts as heard.
+//   signal wait for the queue (RL2c). In demo data the nearest moving demo multicab within
+//   DEMO_BEACON_RANGE_M counts as heard (demoBeacon).
 // - Route: the rider is within ROUTE_SNAP_DISTANCE_M of that multicab's route line, or within
 //   RELAY_STOP_AREA_M of one of its stops. A beacon code recorded and played back away from the
 //   route does not pass.
 // Pure: no React Native or Expo imports.
 
-import { RELAY_BEACON_WAIT_S, RELAY_STOP_AREA_M, ROUTE_SNAP_DISTANCE_M } from '../config';
+import { DEMO_BEACON_FOUND_AFTER_S, DEMO_BEACON_RANGE_M, RELAY_BEACON_WAIT_S, RELAY_STOP_AREA_M, ROUTE_SNAP_DISTANCE_M } from '../config';
 import { haversineMeters, type LatLon } from '../geo/haversine';
 import { projectOntoLine, type LineCoordinates } from '../geo/line';
 
@@ -28,10 +29,9 @@ export type RelayLocation = 'needs_permission' | 'off' | 'on';
 //   searching    listening, nothing verified yet (or the check could not be made)
 //   unregistered a beacon was heard but the server does not know it
 //   several      two or more beacons within the margin
-//   pick         demo data: no multicab picked by hand yet
 //   found        one verified multicab
 export type RelayBeacon =
-  | { kind: 'off' | 'searching' | 'unregistered' | 'several' | 'pick' }
+  | { kind: 'off' | 'searching' | 'unregistered' | 'several' }
   | { kind: 'found'; vehicle: RelayVehicle };
 
 export type RelayGateInput = {
@@ -48,7 +48,7 @@ export type RelayGateInput = {
 };
 
 export type RelayGate =
-  | { kind: 'needs_permission' | 'location_off' | 'waiting_fix' | 'no_bluetooth' | 'searching' | 'no_beacon' | 'several' | 'pick' }
+  | { kind: 'needs_permission' | 'location_off' | 'waiting_fix' | 'no_bluetooth' | 'searching' | 'no_beacon' | 'several' }
   | { kind: 'off_route'; routeCode: string }
   | { kind: 'ok'; vehicle: RelayVehicle };
 
@@ -66,8 +66,6 @@ export function relayGate(input: RelayGateInput): RelayGate {
   switch (beacon.kind) {
     case 'off':
       return { kind: 'no_bluetooth' };
-    case 'pick':
-      return { kind: 'pick' };
     case 'several':
       return { kind: 'several' };
     case 'unregistered':
@@ -81,11 +79,25 @@ export function relayGate(input: RelayGateInput): RelayGate {
   }
 }
 
-// RL2a: the made-up multicabs of a route in demo data, to pick by hand (DEMO_RELAY_VEHICLES of them)
-export function demoRelayVehicles(routeCode: string, count: number): RelayVehicle[] {
-  return Array.from({ length: count }, (_, index) => ({
-    routeCode,
-    vehicleId: `${routeCode}-DEMO-${index + 1}`,
-    plate: `DEMO ${index + 1}`,
-  }));
+// A demo multicab where it is now (from the demo vehicles on the map)
+export type DemoMulticab = { id: string; label: string; routeCode: string; lat: number; lon: number };
+
+// RL2a polish (Emjay, 2026-10-25): demo data has no beacons, so the moving demo multicabs stand in
+// for them, as in a real multicab: the form searches for DEMO_BEACON_FOUND_AFTER_S, then the nearest
+// demo multicab within DEMO_BEACON_RANGE_M of the rider is heard. None that close keeps it searching
+// (the gate says so after RELAY_BEACON_WAIT_S). The caller keeps the one found while the form is open.
+export function demoBeacon(position: LatLon | null, multicabs: readonly DemoMulticab[], openedMs: number, nowMs: number): RelayBeacon {
+  if (!position || nowMs - openedMs < DEMO_BEACON_FOUND_AFTER_S * MS_PER_S) return { kind: 'searching' };
+  let nearest: DemoMulticab | null = null;
+  let nearestM = DEMO_BEACON_RANGE_M;
+  for (const multicab of multicabs) {
+    const distanceM = haversineMeters(position, multicab);
+    if (distanceM <= nearestM) {
+      nearest = multicab;
+      nearestM = distanceM;
+    }
+  }
+  return nearest
+    ? { kind: 'found', vehicle: { routeCode: nearest.routeCode, vehicleId: nearest.id, plate: nearest.label } }
+    : { kind: 'searching' };
 }

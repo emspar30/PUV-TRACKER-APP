@@ -65,6 +65,9 @@ type BottomSheetProps = {
   // CA1.1: a new value slides the sheet down off the screen, then onDismissed is called
   dismissKey?: number;
   onDismissed?: () => void;
+  // 2026-10-26: space kept free under the sheet, such as the floating bottom bar of the tabs. The
+  // sheet then ends there with rounded bottom corners, and the map shows round the bar.
+  bottomInset?: number;
 };
 
 // A sheet over a full-screen map that the user drags between three snap points: peek, half and
@@ -86,6 +89,7 @@ export function BottomSheet({
   slideIn = false,
   dismissKey,
   onDismissed,
+  bottomInset = 0,
 }: BottomSheetProps) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -235,7 +239,7 @@ export function BottomSheet({
 
   return (
     <View
-      style={styles.root}
+      style={[styles.root, bottomInset > 0 && [styles.lifted, { bottom: bottomInset }]]}
       pointerEvents="box-none"
       onLayout={(event: LayoutChangeEvent) => setContainerHeight(event.nativeEvent.layout.height)}
     >
@@ -300,7 +304,7 @@ export function BottomSheet({
               <ScrollView
                 ref={scroll}
                 style={styles.body}
-                contentContainerStyle={[styles.bodyContent, { paddingBottom: insets.bottom + spacing.lg }]}
+                contentContainerStyle={[styles.bodyContent, { paddingBottom: (bottomInset > 0 ? 0 : insets.bottom) + spacing.lg }]}
                 scrollEnabled={snap === 'expanded'}
                 showsVerticalScrollIndicator={snap === 'expanded'}
                 keyboardShouldPersistTaps="handled"
@@ -311,7 +315,7 @@ export function BottomSheet({
           )}
           {footer ? (
             <Animated.View
-              style={[styles.footer, { paddingBottom: insets.bottom + spacing.sm }, footerStyle]}
+              style={[styles.footer, { paddingBottom: (bottomInset > 0 ? 0 : insets.bottom) + spacing.sm }, footerStyle]}
               pointerEvents={snap === 'peek' ? 'none' : 'auto'}
               onLayout={(event: LayoutChangeEvent) => footerHeight.set(event.nativeEvent.layout.height)}
             >
@@ -331,6 +335,12 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
     right: 0,
     bottom: 0,
     left: 0,
+  },
+  // Above the tabs' floating bar: the part of the sheet below the visible height is cut off here
+  lifted: {
+    overflow: 'hidden',
+    borderBottomLeftRadius: radii.sheet,
+    borderBottomRightRadius: radii.sheet,
   },
   floating: {
     position: 'absolute',

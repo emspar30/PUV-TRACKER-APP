@@ -36,6 +36,8 @@ describe('config exposes every PRD 0.3 default', () => {
     ['RELAY_SESSION_CAP_H', 3],
     ['RELAY_BEACON_WAIT_S', 15],
     ['RELAY_STOP_AREA_M', 60],
+    ['DEMO_BEACON_RANGE_M', 30],
+    ['DEMO_BEACON_FOUND_AFTER_S', 2],
     ['RELAY_HEARTBEAT_MIN', 5],
     ['RELAY_POST_GRACE_MIN', 15],
     ['RELAY_POST_REVIVE_MIN', 30],

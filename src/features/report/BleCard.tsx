@@ -1,5 +1,5 @@
 import { Bluetooth, BluetoothSearching, Bus } from 'lucide-react-native';
-import { Linking, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Text, View } from 'react-native';
 
 import { Button, IconTile, LineBadge } from '@/components';
 import type { RelayVehicle } from '@/shared/relay/gate';
@@ -42,6 +42,20 @@ type RelayVehicleCardProps = {
   demo: boolean;
 };
 
+// RL2a polish (Emjay, 2026-10-25): while the phone looks for the multicab, a spinner beside the line,
+// so the rider can see it is still searching (demo data too)
+export function ScanningNote() {
+  const styles = useStyles();
+  const { colors, typography } = useTheme();
+  return (
+    <View style={[styles.note, styles.row]} accessible accessibilityLiveRegion="polite" accessibilityLabel={strings.report.ble.searching}>
+      <BluetoothSearching size={ICON_SIZE} color={colors.primary} />
+      <Text style={[typography.bodySm, styles.grow]}>{strings.report.ble.searching}</Text>
+      <ActivityIndicator size="small" color={colors.primary} />
+    </View>
+  );
+}
+
 // RL2a (D10): the multicab being relayed: its route number and plate, never the beacon's id
 export function RelayVehicleCard({ vehicle, routeColor, demo }: RelayVehicleCardProps) {
   const styles = useStyles();
@@ -71,6 +85,7 @@ export function BleCard({ ble, routeColor }: BleCardProps) {
   const text = strings.report;
 
   if (view?.kind === 'found') return <RelayVehicleCard vehicle={view.vehicle} routeColor={routeColor} demo={false} />;
+  if (view?.kind === 'starting' || view?.kind === 'searching') return <ScanningNote />;
 
   if (nearby.status === 'explain') {
     return (

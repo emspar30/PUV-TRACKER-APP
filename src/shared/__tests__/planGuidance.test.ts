@@ -4,7 +4,7 @@
 import { MAX_WALK_PER_LEG_M } from '../config';
 import { computeFare, discountMultiplier } from '../fare/fare';
 import { haversineMeters } from '../geo/haversine';
-import { describePoint, nearestOnRoute, nearestStop, snapToRoute } from '../routing/describe';
+import { describePoint, namePoint, nearestOnRoute, nearestStop, snapToRoute } from '../routing/describe';
 import { planTrip } from '../routing/plan';
 
 import { FIXTURE_FARE, FIXTURE_OUTBOUND, FIXTURE_RETURN, FIXTURE_STOPS, pointAt } from './fixtures/routeFixture';
@@ -45,6 +45,27 @@ describe('naming a point from the nearest stop', () => {
     });
     expect(nearestStop([], pointAt(1))).toBeNull();
     expect(nearestOnRoute([], pointAt(1))).toBeNull();
+  });
+});
+
+describe('naming a tapped point like a map app (Emjay, 2026-10-26)', () => {
+  const PLACES = [
+    { name: 'Vallen One', ...pointAt(3) },
+    { name: 'Corner bakery', ...pointAt(2.2, 50) },
+  ];
+
+  it('names the place the point is on', () => {
+    expect(namePoint(pointAt(3, 10), FIXTURE_STOPS, PLACES)).toEqual({ kind: 'at', name: 'Vallen One' });
+  });
+
+  it('otherwise says near the nearest stop or place, by its full name', () => {
+    expect(namePoint(pointAt(2, 60), FIXTURE_STOPS, PLACES)).toEqual({ kind: 'near', name: 'Two kilometres' });
+    expect(namePoint(pointAt(2.25, 100), FIXTURE_STOPS, PLACES)).toEqual({ kind: 'near', name: 'Corner bakery' });
+  });
+
+  it('gives no name when nothing is near', () => {
+    expect(namePoint(pointAt(4.5, -300), FIXTURE_STOPS, PLACES)).toEqual({ kind: 'none' });
+    expect(namePoint(pointAt(1), [], [])).toEqual({ kind: 'none' });
   });
 });
 

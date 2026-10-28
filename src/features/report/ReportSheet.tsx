@@ -4,18 +4,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 
-import { Button, Chip, RouteChip } from '@/components';
+import { Button, Chip } from '@/components';
+import type { VehiclesRepository } from '@/data/repositories/types';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { useBoardingEndsCheckIn } from '@/features/checkin/useBoardingEndsCheckIn';
 import type { FeedPhrase } from '@/shared/backend/rules';
 import { promptSignIn } from '@/features/auth/promptSignIn';
 import { PlaceResults } from '@/features/search/PlaceResults';
 import { usePlaceMatches, useSearchablePlaces } from '@/features/search/useSearchablePlaces';
-import { DEMO_RELAY_VEHICLES, ENERGY_GPS_REPORT, ENERGY_UI_VISIBLE, FEED_PHRASES, MAX_WALK_PER_LEG_M, RELAY_BEACON_WAIT_S } from '@/shared/config';
+import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
+import { DEMO_BEACON_RANGE_M, ENERGY_GPS_REPORT, ENERGY_UI_VISIBLE, FEED_PHRASES, MAX_WALK_PER_LEG_M, RELAY_BEACON_WAIT_S } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
 import type { LineCoordinates } from '@/shared/geo/line';
 import { destinationOptions, nearestDestination, relayStopCode, terminalsOf } from '@/shared/relay/broadcast';
-import { demoRelayVehicles, relayGate, type RelayBeacon, type RelayGate } from '@/shared/relay/gate';
+import { demoBeacon, relayGate, type DemoMulticab, type RelayBeacon, type RelayGate, type RelayVehicle } from '@/shared/relay/gate';
 import type { SearchablePlace } from '@/shared/routing/placeSearch';
 import type { RouteStop } from '@/shared/routing/types';
 import type { SeatTier } from '@/shared/telemetry/occupancy';
@@ -26,7 +28,7 @@ import { useSettingsStore } from '@/state/settingsStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
-import { BleCard, RelayVehicleCard } from './BleCard';
+import { BleCard, RelayVehicleCard, ScanningNote } from './BleCard';
 import { useRelayLocation, type RelayLocationState } from './relayLocation';
 import { useBleVehicle, type BleState } from './useBleVehicle';
 
@@ -41,9 +43,10 @@ const WAIT_TICK_S = 1;
 const DISABLED_OPACITY = 0.4;
 
 type ReportSheetProps = {
-  // Demo data: the routes to pick by hand
+  // Every route, for the found multicab's colour (and, in demo data, the demo multicabs to hear)
   routes: readonly { code: string; color: string }[];
-  initialRoute: string | null;
+  // Demo data: the demo multicabs moving on the map, which stand in for beacons
+  vehicles: VehiclesRepository;
   // The stops of a route, in route order: the destinations to pick from
   stopsOf: (routeCode: string) => readonly RouteStop[];
   // RL2a: a route's lines (both directions), for the route check
@@ -79,7 +82,7 @@ function beaconOf(ble: BleState): RelayBeacon {
 }
 
 // The line under the Bluetooth card while the form is greyed out; null when the card says it already
-function gateText(gate: RelayGate): string | null {
+function gateText(gate: RelayGate, demo: boolean): string | null {
   const t = strings.report.gate;
   switch (gate.kind) {
     case 'needs_permission':
@@ -91,11 +94,9 @@ function gateText(gate: RelayGate): string | null {
     case 'no_bluetooth':
       return t.noBluetooth;
     case 'no_beacon':
-      return t.noBeacon;
+      return demo ? t.noDemoBeacon(DEMO_BEACON_RANGE_M) : t.noBeacon;
     case 'several':
       return t.several;
-    case 'pick':
-      return t.pick;
     case 'off_route':
       return t.offRoute(gate.routeCode);
     case 'searching':
@@ -104,10 +105,10 @@ function gateText(gate: RelayGate): string | null {
   }
 }
 
-function GateNotice({ gate, location }: { gate: RelayGate; location: RelayLocationState }) {
+function GateNotice({ gate, location, demo }: { gate: RelayGate; location: RelayLocationState; demo: boolean }) {
   const styles = useStyles();
   const { typography } = useTheme();
-  const text = gateText(gate);
+  const text = gateText(gate, demo);
   if (!text) return null;
   const asksLocation = gate.kind === 'needs_permission' || gate.kind === 'location_off';
   return (
@@ -127,14 +128,15 @@ function GateNotice({ gate, location }: { gate: RelayGate; location: RelayLocati
 // RP1, B4: the Relay panel over the Live map (D12). RL2a (Emjay's D9 to D11, 2026-10-23): a relay
 // needs the phone's location, a multicab beacon the server verifies, and the rider on that
 // multicab's route (shared/relay/gate); until then the form is greyed out and says why. Bluetooth
-// fills in the route and plate (never the beacon's id); in demo data the multicab is picked by hand.
+// fills in the route and plate (never the beacon's id); in demo data a moving demo multicab within
+// DEMO_BEACON_RANGE_M stands in for the beacon (Emjay, 2026-10-25: no route or multicab pickers).
 // Then Seats, "What's happening" (optional), the Destination (required: reaching it ends the relay)
 // and one switch, "Show me on the live map" (off by default, remembered). Off, the relay is a
 // Crowdsource post naming the nearest stop, with no coordinates; on, the location moves the multicab
 // on the live map. Both end by RL1's rules. Unverified until the verification window (V1a).
 // DR8: Bluetooth listens while the panel is open (live data only); a check-in on the found
 // multicab's route ends.
-export function ReportSheet({ routes, initialRoute, stopsOf, linesOf, position, checkGps, liveMapAllowed, onClose }: ReportSheetProps) {
+export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, checkGps, liveMapAllowed, onClose }: ReportSheetProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const demoData = useSettingsStore((state) => state.demoData);
@@ -146,9 +148,8 @@ export function ReportSheet({ routes, initialRoute, stopsOf, linesOf, position, 
   const { stops } = useRouteData();
   const [openedMs] = useState(Date.now);
   const [nowMs, setNowMs] = useState(Date.now);
-  // Demo data: the route and the made-up multicab picked by hand
-  const [pickedRoute, setRoute] = useState<string | null>(initialRoute ?? routes[0]?.code ?? null);
-  const [pickedDemo, setPickedDemo] = useState<string | null>(null);
+  // Demo data: the demo multicab heard, kept while the form is open (the rider rides with it)
+  const [demoFound, setDemoFound] = useState<RelayVehicle | null>(null);
   const [seatTier, setSeatTier] = useState<SeatTier | null>(null);
   const [phrase, setPhrase] = useState<FeedPhrase | null>(null);
   const [destinationCode, setDestinationCode] = useState<string | null>(null);
@@ -165,9 +166,19 @@ export function ReportSheet({ routes, initialRoute, stopsOf, linesOf, position, 
   const sendingRef = useRef(false);
   const startBroadcast = useRelayStore((store) => store.start);
 
-  const demoVehicles = useMemo(() => (demoData && pickedRoute ? demoRelayVehicles(pickedRoute, DEMO_RELAY_VEHICLES) : []), [demoData, pickedRoute]);
-  const demoVehicle = demoVehicles.find((option) => option.vehicleId === pickedDemo) ?? null;
-  const beacon: RelayBeacon = demoData ? (demoVehicle ? { kind: 'found', vehicle: demoVehicle } : { kind: 'pick' }) : beaconOf(ble);
+  const routeCodes = useMemo(() => routes.map((option) => option.code), [routes]);
+  const demoFleet = useRoutesVehicles(vehicles, routeCodes, !demoData || demoFound !== null);
+  const multicabs = useMemo<DemoMulticab[]>(
+    () => demoFleet.vehicles.map(({ id, label, routeCode, lat, lon }) => ({ id, label, routeCode, lat, lon })),
+    [demoFleet.vehicles],
+  );
+  const beacon: RelayBeacon = demoData
+    ? demoFound
+      ? { kind: 'found', vehicle: demoFound }
+      : demoBeacon(position, multicabs, openedMs, nowMs)
+    : beaconOf(ble);
+  // Kept from the first time it is heard (set while rendering, so it shows in the same frame)
+  if (demoData && !demoFound && beacon.kind === 'found') setDemoFound(beacon.vehicle);
   const gate = relayGate({
     location: location.status,
     fixOk: checkGps(),
@@ -302,37 +313,15 @@ export function ReportSheet({ routes, initialRoute, stopsOf, linesOf, position, 
         </View>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           {demoData ? (
-            <>
-              <Text style={typography.labelLg}>{strings.report.route}</Text>
-              <View style={styles.chips}>
-                {routes.map((option) => (
-                  <RouteChip
-                    key={option.code}
-                    code={option.code}
-                    color={option.color}
-                    selected={option.code === pickedRoute}
-                    onPress={() => setRoute(option.code)}
-                    accessibilityLabel={strings.live.routeChip(option.code, option.code === pickedRoute)}
-                  />
-                ))}
-              </View>
-              <Text style={typography.labelLg}>{strings.report.vehicle}</Text>
-              <View style={styles.chips}>
-                {demoVehicles.map((option) => (
-                  <Chip
-                    key={option.vehicleId}
-                    label={option.plate}
-                    selected={option.vehicleId === pickedDemo}
-                    onPress={() => setPickedDemo(option.vehicleId === pickedDemo ? null : option.vehicleId)}
-                  />
-                ))}
-              </View>
-              {vehicle ? <RelayVehicleCard vehicle={vehicle} routeColor={colorOf(vehicle.routeCode)} demo /> : null}
-            </>
+            beacon.kind === 'found' ? (
+              <RelayVehicleCard vehicle={beacon.vehicle} routeColor={colorOf(beacon.vehicle.routeCode)} demo />
+            ) : position ? (
+              <ScanningNote />
+            ) : null
           ) : (
             <BleCard ble={ble} routeColor={colorOf(found?.vehicle.routeCode)} />
           )}
-          <GateNotice gate={gate} location={location} />
+          <GateNotice gate={gate} location={location} demo={demoData} />
 
           <View style={[styles.form, open ? null : styles.disabled]} pointerEvents={open ? 'auto' : 'none'} accessibilityState={{ disabled: !open }}>
             <Text style={typography.labelLg}>{strings.report.seats}</Text>

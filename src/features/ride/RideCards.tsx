@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { Button, Chip, IconTile, StatusPill } from '@/components';
 import { DRAFT_ROUTE_CODES } from '@/data/seed/routes';
-import { FARE_DISCOUNT_MULTIPLIER, type Classification } from '@/shared/config';
+import { FARE_DISCOUNT_MULTIPLIER, WALK_SPEED_M_PER_MIN, type Classification } from '@/shared/config';
 import type { FareResult } from '@/shared/fare/fare';
 import type { Itinerary } from '@/shared/routing/plan';
 import { strings } from '@/strings';
@@ -43,7 +43,8 @@ export function FareSummaryCard({
         <IconTile icon={Route} />
         <View style={styles.grow}>
           <Text style={typography.labelSm}>{strings.ride.distance}</Text>
-          <Text style={typography.labelLg}>{strings.ride.summary(itinerary.rideKm, itinerary.walkM)}</Text>
+          <Text style={typography.labelLg}>{strings.ride.rideDistance(itinerary.rideKm)}</Text>
+          <Text style={typography.bodySm}>{strings.ride.walkTotal(itinerary.walkM, Math.round(itinerary.walkM / WALK_SPEED_M_PER_MIN))}</Text>
         </View>
         <View style={styles.fare}>
           {discounted ? (
@@ -105,6 +106,7 @@ export function SuggestedRouteCard({
   const styles = useStyles();
   const { colors, typography, routeBadgeText } = useTheme();
   const [walkIn, ride, walkOut] = itinerary.legs;
+  const draft = DRAFT_ROUTE_CODES.has(ride.routeCode);
   return (
     <View style={[styles.card, styles.suggested]}>
       <View style={styles.row}>
@@ -112,21 +114,25 @@ export function SuggestedRouteCard({
           <Text style={[typography.labelLg, { color: routeBadgeText }]}>{ride.routeCode}</Text>
         </View>
         <View style={styles.grow}>
-          <View style={styles.titleRow}>
-            <Text style={typography.headlineSm}>{routeName}</Text>
-            {best ? (
-              <View style={styles.best}>
-                <Text style={[typography.labelSm, styles.bestText]}>{strings.ride.bestMatch}</Text>
-              </View>
-            ) : null}
-          </View>
-          {DRAFT_ROUTE_CODES.has(ride.routeCode) ? <Chip label={strings.common.draft} /> : null}
+          <Text style={typography.headlineSm}>{routeName}</Text>
+          {/* Best match and Draft share one row under the name, each as wide as its text, so a long
+              name never pushes them onto lines of their own */}
+          {best || draft ? (
+            <View style={styles.tags}>
+              {best ? (
+                <View style={styles.best}>
+                  <Text style={[typography.labelSm, styles.bestText]}>{strings.ride.bestMatch}</Text>
+                </View>
+              ) : null}
+              {draft ? <Chip label={strings.common.draft} /> : null}
+            </View>
+          ) : null}
         </View>
       </View>
       <View style={styles.steps}>
         <View style={styles.step}>
           <Footprints color={colors.textSecondary} size={SMALL_ICON} />
-          <Text style={[typography.labelLg, styles.grow]} numberOfLines={1}>
+          <Text style={[typography.labelLg, styles.grow]} numberOfLines={2}>
             {strings.ride.boardAt(boardAt)}
           </Text>
           <View style={styles.walk}>
@@ -135,7 +141,7 @@ export function SuggestedRouteCard({
         </View>
         <View style={styles.step}>
           <MapIcon color={colors.textSecondary} size={SMALL_ICON} />
-          <Text style={[typography.labelLg, styles.grow]} numberOfLines={1}>
+          <Text style={[typography.labelLg, styles.grow]} numberOfLines={2}>
             {strings.ride.getOffAt(getOffAt)}
           </Text>
           <View style={styles.walk}>
@@ -212,11 +218,12 @@ const useStyles = makeStyles(({ colors }) => ({
     justifyContent: 'center',
     borderRadius: BADGE,
   },
-  titleRow: {
+  tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: spacing.sm,
+    marginTop: spacing.xs,
   },
   best: {
     paddingHorizontal: spacing.sm,

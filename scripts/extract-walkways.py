@@ -1,0 +1,149 @@
+# Walking along streets (Emjay, 2026-10-26): pulls every street, path and footway out of the offline
+# map (assets/map/butuan_v2.pmtiles) so My Rides can draw the walk to and from the multicab along the
+# roads instead of in a straight line. Writes src/data/seed/walkways.generated.ts. Standard library
+# only; no network. Run again whenever the tile file is replaced:
+#   python scripts/extract-walkways.py
+#
+# Positions are whole pixels of the zoom-15 tiles (4096 to a tile, about 0.3 m here). Neighbouring
+# tiles share that grid, so a street cut at a tile edge joins up again exactly where its points meet,
+# and so do streets that cross at a shared point.
+import os
+
+from mapTiles import layers, max_lat, max_lon, min_lat, min_lon, tile_xy
+
+ROOT = os.path.join(os.path.dirname(__file__), '..')
+OUT = os.path.join(ROOT, 'src', 'data', 'seed', 'walkways.generated.ts')
+ZOOM = 15
+EXTENT = 4096
+# Roads a person can walk on; ferries and runways are left out
+WALK_KINDS = {'highway', 'major_road', 'medium_road', 'minor_road', 'path', 'other'}
+
+x0, y0 = tile_xy(min_lon, max_lat, ZOOM)
+x1, y1 = tile_xy(max_lon, min_lat, ZOOM)
+segments = set()
+for tx in range(x0, x1 + 1):
+    for ty in range(y0, y1 + 1):
+        for name, features, extent in layers(ZOOM, tx, ty):
+            if name != 'roads':
+                continue
+            assert extent == EXTENT, f'tile {tx},{ty} has extent {extent}'
+            for tags, gtype, pieces in features:
+                if gtype != 2 or tags.get('kind') not in WALK_KINDS:
+                    continue
+                for piece in pieces:
+                    points = [(tx * EXTENT + px, ty * EXTENT + py) for px, py in piece]
+                    for a, b in zip(points, points[1:]):
+                        if a != b:
+                            segments.add((min(a, b), max(a, b)))
+
+# Loose street ends that lie on another street but share no point with it are joined to it: that
+# street is split at the loose end. A tile keeps its streets 64 pixels past its edge and cuts them
+# there, so most cut ends lie on the neighbouring tile's piece of the same street; the rest are
+# T-junctions a pixel or two apart after rounding.
+JOIN_PX = 3
+CELL = 128
+
+
+def cells_of(a, b):
+    for cx in range(min(a[0], b[0]) // CELL, max(a[0], b[0]) // CELL + 1):
+        for cy in range(min(a[1], b[1]) // CELL, max(a[1], b[1]) // CELL + 1):
+            yield cx, cy
+
+
+grid = {}
+for segment in segments:
+    for cell in cells_of(*segment):
+        grid.setdefault(cell, set()).add(segment)
+
+
+def distance_to(p, a, b):
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    t = max(0, min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)))
+    return ((a[0] + t * dx - p[0]) ** 2 + (a[1] + t * dy - p[1]) ** 2) ** 0.5
+
+
+degree = {}
+for a, b in segments:
+    degree[a] = degree.get(a, 0) + 1
+    degree[b] = degree.get(b, 0) + 1
+loose_ends = [p for p, d in degree.items() if d == 1]
+joined = 0
+for p in loose_ends:
+    nearby = grid.get((p[0] // CELL, p[1] // CELL), set())
+    best = min(
+        (s for s in nearby if p not in s),
+        key=lambda s: distance_to(p, *s),
+        default=None,
+    )
+    if best is None or distance_to(p, *best) > JOIN_PX:
+        continue
+    a, b = best
+    segments.discard(best)
+    for cell in cells_of(a, b):
+        grid[cell].discard(best)
+    for piece in ((min(a, p), max(a, p)), (min(p, b), max(p, b))):
+        if piece[0] != piece[1]:
+            segments.add(piece)
+            for cell in cells_of(*piece):
+                grid.setdefault(cell, set()).add(piece)
+    joined += 1
+print(f'Joined {joined} of {len(loose_ends)} loose street ends')
+
+# Join the segments back into as few lines as possible (one walk from each loose end), so each line
+# is stored as a start and small steps
+neighbours = {}
+for a, b in segments:
+    neighbours.setdefault(a, []).append(b)
+    neighbours.setdefault(b, []).append(a)
+unused = {segment for segment in segments}
+
+
+def take(a, b):
+    key = (min(a, b), max(a, b))
+    if key in unused:
+        unused.remove(key)
+        return True
+    return False
+
+
+lines = []
+starts = sorted(point for point, near in neighbours.items() if len(near) != 2) + sorted(neighbours)
+for start in starts:
+    for first in neighbours[start]:
+        if not take(start, first):
+            continue
+        line = [start, first]
+        while True:
+            here = line[-1]
+            ahead = next((n for n in neighbours[here] if (min(here, n), max(here, n)) in unused), None)
+            if ahead is None or len(neighbours[here]) != 2:
+                break
+            take(here, ahead)
+            line.append(ahead)
+        lines.append(line)
+
+base_x = min(p[0] for p in neighbours)
+base_y = min(p[1] for p in neighbours)
+
+
+def encode(line):
+    values = [line[0][0] - base_x, line[0][1] - base_y]
+    for (ax, ay), (bx, by) in zip(line, line[1:]):
+        values += [bx - ax, by - ay]
+    return "'" + ','.join(str(v) for v in values) + "'"
+
+
+out = [
+    '// GENERATED by scripts/extract-walkways.py from assets/map/butuan_v2.pmtiles. Do not edit by hand.',
+    '// The streets, paths and footways of the offline map, for drawing a walk along the roads. Each line',
+    '// is "x,y,dx,dy,dx,dy..." in zoom-15 tile pixels (4096 to a tile) from WALKWAY_BASE. Street',
+    '// geometry is from OpenStreetMap (ODbL).',
+    '',
+    f'export const WALKWAY_BASE = {{ x: {base_x}, y: {base_y}, zoom: {ZOOM}, extent: {EXTENT} }} as const;',
+    '',
+    'export const WALKWAY_LINES: readonly string[] = [',
+]
+out += [f'  {encode(line)},' for line in lines]
+out += ['];', '']
+open(OUT, 'w', encoding='utf-8', newline='\n').write('\n'.join(out))
+print(f'Wrote {OUT}: {len(lines)} lines, {len(segments)} segments, {len(neighbours)} points, {os.path.getsize(OUT) // 1024} KB')

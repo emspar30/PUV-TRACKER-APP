@@ -1,4 +1,4 @@
-import { Bus, Crosshair, MapPin, Navigation, Radio, ShieldAlert, Users, X } from 'lucide-react-native';
+import { Bus, Crosshair, MapPin, MapPinOff, Navigation, Radio, ShieldAlert, Users, X } from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 
 import { Button, IconTile, StatusPill } from '@/components';
@@ -18,6 +18,10 @@ type VehicleCardProps = {
   // How far the vehicle is from the commuter (PRD 7.4), or null without a position
   distanceKm: number | null;
   onTrack: () => void;
+  // No phone location and no simulated one: Track is greyed out, with a button that turns it on
+  // (Emjay, 2026-10-26)
+  locationOff?: boolean;
+  onTurnOnLocation?: () => void;
   // CF1: drawn at an estimated position (silent 90 s to 5 minutes)
   estimated?: boolean;
   onClose: () => void;
@@ -30,7 +34,7 @@ const SMALL_ICON = spacing.md;
 // and how far from the commuter (PRD 7.4, "Seen 40 s ago, 1.4 km from you"). The ETA shows only
 // after Track opens the tracking panel (L2; Emjay, 2026-10-24). A live vehicle the server has not
 // verified says "Prototype data, unverified" (PRD 0.7).
-export function VehicleCard({ vehicle, nowMs, nextStop, stopped, distanceKm, onTrack, estimated = false, onClose }: VehicleCardProps) {
+export function VehicleCard({ vehicle, nowMs, nextStop, stopped, distanceKm, onTrack, locationOff = false, onTurnOnLocation, estimated = false, onClose }: VehicleCardProps) {
   const styles = useStyles();
   const { colors, typography, mapPaint, elevation } = useTheme();
   const free = Math.max(0, VEHICLE_CAPACITY_SEATS - vehicle.seatsTaken);
@@ -85,7 +89,10 @@ export function VehicleCard({ vehicle, nowMs, nextStop, stopped, distanceKm, onT
         ) : null}
       </View>
       <View style={styles.track}>
-        <Button label={strings.live.vehicle.track} leadingIcon={Crosshair} onPress={onTrack} />
+        <Button label={strings.live.vehicle.track} leadingIcon={Crosshair} onPress={onTrack} disabled={locationOff} />
+        {locationOff && onTurnOnLocation ? (
+          <Button label={strings.live.tracking.turnOnToTrack} leadingIcon={MapPinOff} variant="text" onPress={onTurnOnLocation} />
+        ) : null}
       </View>
     </View>
   );
@@ -140,6 +147,7 @@ const useStyles = makeStyles(({ colors }) => ({
     gap: spacing.xs,
   },
   track: {
+    gap: spacing.xs,
     marginRight: spacing.sm + spacing.xs,
   },
   dot: {

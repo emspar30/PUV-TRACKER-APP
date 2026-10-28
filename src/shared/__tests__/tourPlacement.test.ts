@@ -31,7 +31,7 @@ describe('tips tour placement (ST2-D)', () => {
     expect(place.arrowLeft).toBeGreaterThanOrEqual(ARROW);
   });
 
-  it('has nine steps, each once', () => {
+  it('has ten steps, each once', () => {
     expect(TOUR_STEPS).toHaveLength(10);
     expect(new Set(TOUR_STEPS).size).toBe(TOUR_STEPS.length);
   });
