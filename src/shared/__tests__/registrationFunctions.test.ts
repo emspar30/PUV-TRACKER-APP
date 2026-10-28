@@ -7,6 +7,7 @@ import {
   handleDriverRegistration,
   handleRegister,
   handleSetup,
+  secondsUntilResend,
   type CheckStartArgs,
   type CollectedSetup,
   type RegistrationDeps,
@@ -50,6 +51,7 @@ function fake(overrides: Partial<RegistrationDeps> = {}): Fake {
     startCheck: async (args) => {
       started.push(args);
     },
+    lastCheckAtMs: async () => null,
     verifyCheck: async (_phone, code) => (code === '042917' ? CHECK : null),
     uploadLinks: async (check) => ({ id: `https://upload/${check}/id.jpg`, vehicle: `https://upload/${check}/vehicle.jpg` }),
     submit: async (args) => {
@@ -112,6 +114,26 @@ describe('driver-register start', () => {
   it.each(['too_soon', 'number_limit', 'daily_limit'])('answers the database refusal %s with 429', async (reason) => {
     const response = await handleRegister(post({ action: 'start', phone: '09171234567' }), fake({ startCheck: refusing(reason) }));
     expect(response).toEqual({ status: 429, body: { ok: false, error: reason } });
+  });
+
+  it('says how many seconds are left when a check comes too soon, so the app can count down', async () => {
+    const lastCheckAtMs = async () => NOW - 200_000;
+    const response = await handleRegister(post({ action: 'start', phone: '09171234567' }), fake({ startCheck: refusing('too_soon'), lastCheckAtMs }));
+    expect(response).toEqual({ status: 429, body: { ok: false, error: 'too_soon', retryAfterS: 400 } });
+  });
+
+  it('keeps the plain too_soon refusal when the newest check cannot be read', async () => {
+    const response = await handleRegister(
+      post({ action: 'start', phone: '09171234567' }),
+      fake({ startCheck: refusing('too_soon'), lastCheckAtMs: refusing('connection lost') }),
+    );
+    expect(response).toEqual({ status: 429, body: { ok: false, error: 'too_soon' } });
+  });
+
+  it('counts the seconds to the next allowed check, never below 1', () => {
+    expect(secondsUntilResend(NOW, NOW)).toBe(600);
+    expect(secondsUntilResend(NOW - 599_500, NOW)).toBe(1);
+    expect(secondsUntilResend(NOW - 700_000, NOW)).toBe(1);
   });
 
   it('lets any other database error through as a server error', async () => {

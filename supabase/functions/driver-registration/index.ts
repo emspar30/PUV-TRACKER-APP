@@ -49,6 +49,11 @@ const deps: RegistrationDeps = {
       per_day: args.perDay,
     });
   },
+  lastCheckAtMs: async (phone) => {
+    const { data, error } = await admin.from('registration_checks').select('created_at').eq('phone_e164', phone).order('created_at', { ascending: false }).limit(1);
+    if (error) throw new Error(error.message);
+    return data.length > 0 ? Date.parse(data[0].created_at) : null;
+  },
   verifyCheck: (phone, code, maxTries) => rpc<string | null>('registration_check_verify', { phone, code, max_tries: maxTries }),
   uploadLinks: async (check) => {
     const links: string[] = [];

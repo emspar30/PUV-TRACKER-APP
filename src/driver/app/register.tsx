@@ -274,6 +274,8 @@ function NumberStep({ onChecked }: { onChecked: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  // When the server refused a check as too soon: the time it allows the next one
+  const [waitUntilMs, setWaitUntilMs] = useState<number | null>(null);
   const checking = useRef(false);
 
   const verify = useCallback(
@@ -305,6 +307,17 @@ function NumberStep({ onChecked }: { onChecked: () => void }) {
     };
   }, [phone, verify]);
 
+  // While a too-soon refusal lasts: count down to the time the server gave, then allow sending again
+  useEffect(() => {
+    if (waitUntilMs === null) return undefined;
+    const tick = setInterval(() => {
+      const now = Date.now();
+      setNowMs(now);
+      if (now >= waitUntilMs) setWaitUntilMs(null);
+    }, MS_PER_S);
+    return () => clearInterval(tick);
+  }, [waitUntilMs]);
+
   const send = async () => {
     const target = normalizePhNumber(number);
     if (!target) return setError(errorText('invalid_number'));
@@ -312,14 +325,25 @@ function NumberStep({ onChecked }: { onChecked: () => void }) {
     setError(null);
     const result = await startCheck(target);
     setBusy(false);
-    if (!result.ok) return setError(errorText(result.error));
+    if (!result.ok) {
+      if (result.error === 'too_soon' && result.retryAfterS) {
+        setWaitUntilMs(Date.now() + result.retryAfterS * MS_PER_S);
+        setNowMs(Date.now());
+        return;
+      }
+      return setError(errorText(result.error));
+    }
+    setWaitUntilMs(null);
     setPhone(target);
     setSentAtMs(Date.now());
     setNowMs(Date.now());
   };
 
   const resendAtMs = sentAtMs === null ? 0 : sentAtMs + REGISTRATION_CHECK_RESEND_MIN * MS_PER_MIN;
-  const resendIn = Math.ceil((resendAtMs - nowMs) / MS_PER_MIN);
+  // Seconds until the next check may go: after this screen's own send, or as the server said
+  const waitS = Math.max(0, Math.ceil(((waitUntilMs ?? 0) - nowMs) / MS_PER_S));
+  const resendIn = Math.max(waitS, Math.ceil((resendAtMs - nowMs) / MS_PER_S));
+  const tooSoon = waitS > 0 ? <Notice tone="warning" icon={Clock} title={text.tooSoon} body={text.tooSoonWait(waitS)} /> : null;
 
   if (!phone) {
     return (
@@ -330,7 +354,11 @@ function NumberStep({ onChecked }: { onChecked: () => void }) {
           <TextInput
             style={[typography.bodyLg, styles.inputText]}
             value={number}
-            onChangeText={setNumber}
+            onChangeText={(value) => {
+              setNumber(value);
+              // The wait belongs to the number that was refused
+              setWaitUntilMs(null);
+            }}
             placeholder={text.numberPlaceholder}
             placeholderTextColor={colors.textTertiary}
             keyboardType="phone-pad"
@@ -338,8 +366,9 @@ function NumberStep({ onChecked }: { onChecked: () => void }) {
             accessibilityLabel={text.numberTitle}
           />
         </View>
+        {tooSoon}
         {error ? <Notice tone="danger" icon={CircleAlert} title={error} /> : null}
-        <Button label={text.sendCode} leadingIcon={Send} disabled={busy} onPress={() => void send()} />
+        <Button label={waitS > 0 ? text.sendCodeIn(waitS) : text.sendCode} leadingIcon={Send} disabled={busy || waitS > 0} onPress={() => void send()} />
       </>
     );
   }
@@ -365,6 +394,7 @@ function NumberStep({ onChecked }: { onChecked: () => void }) {
           accessibilityLabel={text.codePlaceholder}
         />
       </View>
+      {tooSoon}
       {error ? <Notice tone="danger" icon={CircleAlert} title={error} /> : null}
       <Button label={text.checkCode} disabled={busy || !isCheckCode(code)} onPress={() => void verify(phone, code)} />
       <Button

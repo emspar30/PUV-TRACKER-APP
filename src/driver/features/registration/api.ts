@@ -5,9 +5,10 @@ import { encodeProvisioning, parseProvisioning, type DriverProvisioning } from '
 // driver-registration Edge Function, with a plain fetch and the publishable key. The driver app has
 // no Supabase library and no account. Every call answers { ok: true, ... } or { ok: false, error }:
 // the function's refusal (too_soon, wrong_code, ...), or offline (no answer), not_configured (a
-// build without the project's address) or server_error.
+// build without the project's address) or server_error. A too_soon refusal also says how many seconds
+// are left (retryAfterS), when the server knows.
 
-export type ApiResult<T> = ({ ok: true } & T) | { ok: false; error: string };
+export type ApiResult<T> = ({ ok: true } & T) | { ok: false; error: string; retryAfterS?: number };
 
 const BASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const KEY = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -27,7 +28,8 @@ export async function callRegistration<T>(body: Record<string, unknown>): Promis
     const parsed = (await response.json().catch(() => null)) as Record<string, unknown> | null;
     if (parsed && parsed.ok === true) return parsed as { ok: true } & T;
     const error = parsed && typeof parsed.error === 'string' ? parsed.error : 'server_error';
-    return { ok: false, error };
+    const retryAfterS = parsed && typeof parsed.retryAfterS === 'number' && parsed.retryAfterS > 0 ? parsed.retryAfterS : undefined;
+    return retryAfterS === undefined ? { ok: false, error } : { ok: false, error, retryAfterS };
   } catch {
     return { ok: false, error: 'offline' };
   } finally {

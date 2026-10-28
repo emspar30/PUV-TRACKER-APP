@@ -16,6 +16,12 @@ const WALK_STEP_M = 10;
 const METERS_PER_KM = 1000;
 const SECONDS_PER_MINUTE = 60;
 
+// A countdown as minutes and seconds: "7:05"
+const clock = (seconds: number) => {
+  const whole = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(whole / SECONDS_PER_MINUTE)}:${String(whole % SECONDS_PER_MINUTE).padStart(2, '0')}`;
+};
+
 // "120 m", to the nearest 10 m, because a walking distance is an estimate
 const meters = (value: number) => {
   if (value < WALK_STEP_M) return 'under 10 m';
@@ -1292,7 +1298,10 @@ export const en = {
       codePlaceholder: '6 digits',
       checkCode: 'Check',
       sendAgain: 'Send again',
-      sendAgainIn: (minutes: number) => `Send again in ${minutes} min`,
+      sendAgainIn: (seconds: number) => `Send again in ${clock(seconds)}`,
+      sendCodeIn: (seconds: number) => `Send the check in ${clock(seconds)}`,
+      tooSoon: 'A check was sent to this number less than 10 minutes ago.',
+      tooSoonWait: (seconds: number) => `You can send another in ${clock(seconds)}.`,
       changeNumber: 'Change the number',
       vehicleTitle: 'Your multicab',
       plateLabel: 'Plate number',

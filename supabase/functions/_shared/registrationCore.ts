@@ -101,6 +101,8 @@ export type RegistrationDeps = {
   newToken(): string;
   sha256Hex(text: string): Promise<string>;
   startCheck(args: CheckStartArgs): Promise<void>;
+  // When the newest number check to this number was made, or null if none (for the too_soon countdown)
+  lastCheckAtMs(phone: string): Promise<number | null>;
   // The check id on a match, or null
   verifyCheck(phone: string, code: string, maxTries: number): Promise<string | null>;
   // Short-lived upload links for the check's two photos
@@ -180,8 +182,22 @@ async function start(body: Record<string, unknown>, deps: RegistrationDeps): Pro
       invalid_number: refused(HTTP_BAD_REQUEST, 'invalid_number'),
     },
   );
-  if (isResponse(result)) return result;
+  if (isResponse(result)) return result.body.error === 'too_soon' ? withRetryAfter(result, phone, deps) : result;
   return ok({ phone, codeValidS: REGISTRATION_CHECK_TTL_MIN * S_PER_MIN, resendAfterS: REGISTRATION_CHECK_RESEND_MIN * S_PER_MIN });
+}
+
+// Seconds until a number can be sent another check, given its newest one (at least 1: the database
+// just refused it)
+export function secondsUntilResend(lastCheckAtMs: number, nowMs: number): number {
+  return Math.max(1, Math.ceil((lastCheckAtMs + REGISTRATION_CHECK_RESEND_MIN * S_PER_MIN * MS_PER_S - nowMs) / MS_PER_S));
+}
+
+// A too_soon refusal also says how long is left, so the app can count down. Without it (the newest
+// check could not be read) the refusal stands as it is.
+async function withRetryAfter(refusal: RegistrationResponse, phone: string, deps: RegistrationDeps): Promise<RegistrationResponse> {
+  const last = await deps.lastCheckAtMs(phone).catch(() => null);
+  if (last === null) return refusal;
+  return { status: refusal.status, body: { ...refusal.body, retryAfterS: secondsUntilResend(last, deps.nowMs()) } };
 }
 
 async function verify(body: Record<string, unknown>, deps: RegistrationDeps): Promise<RegistrationResponse> {
