@@ -90,6 +90,33 @@ export function signHeatmap(message: HeatmapMessage, key: string): string {
   return `${signedPart}|${computeMac(signedPart, key)}`;
 }
 
+// The retire notice (owner, 2026-10-28): when an admin retires a driver phone, the database signs this
+// with the phone's own key, just before the key is wiped, and the gateway texts it; the phone then
+// says it was removed. Signed as heatmap messages are, and only for its own device id, so a text from
+// anyone else, or a copy of another phone's notice, does nothing.
+//   HM2|RETIRED|<device id>|<mac>
+// The database builds the same text in console_retire (20261028000000_retire_notice.sql).
+const RETIRED_RE = /^HM2\|RETIRED\|([A-Z0-9-]{1,24})\|([0-9A-F]{8})$/;
+const DEVICE_ID_RE = /^[A-Z0-9-]{1,24}$/;
+
+export function signRetiredNotice(deviceId: string, key: string): string {
+  if (!DEVICE_ID_RE.test(deviceId)) throw new RangeError(`invalid device id: ${deviceId}`);
+  const signedPart = `${PREFIX}|RETIRED|${deviceId}`;
+  return `${signedPart}|${computeMac(signedPart, key)}`;
+}
+
+export function isRetiredNotice(sms: string): boolean {
+  return RETIRED_RE.test(sms.trim());
+}
+
+// The device id a retire notice is for, when it is signed with this key; null otherwise
+export function verifiedRetiredNotice(sms: string, key: string): string | null {
+  const text = sms.trim();
+  const match = RETIRED_RE.exec(text);
+  if (!match) return null;
+  return computeMac(text.slice(0, text.lastIndexOf('|')), key) === match[2] ? match[1] : null;
+}
+
 // Validate the whole message with one regex, then split the station list.
 // (A repeated capture group would keep only the last station.)
 export function parseHeatmap(sms: string): ParsedHeatmap | null {

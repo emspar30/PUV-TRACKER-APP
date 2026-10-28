@@ -1,3 +1,5 @@
+import { createHmac } from 'node:crypto';
+
 import { bytesToHex } from '@noble/hashes/utils.js';
 
 import { DATA_SMS_PORT, SMS_STALE_HEATMAP_MIN } from '../config';
@@ -5,7 +7,7 @@ import { emptyHeatmap } from '../driver/heatmap';
 import { heatmapView } from '../driver/heatmapView';
 import { processEntry, processInbox, type InboxEntry } from '../driver/inbox';
 import { encodeHeatmapBinary } from '../sms/binary';
-import { HEATMAP_TEXT_PREFIX, manilaMinuteOfDay, signHeatmap, type HeatmapNode } from '../sms/protocol';
+import { HEATMAP_TEXT_PREFIX, manilaMinuteOfDay, signHeatmap, signRetiredNotice, verifiedRetiredNotice, type HeatmapNode } from '../sms/protocol';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { DATA_SMS_PORT: PLUGIN_PORT } = require('../../../plugins/withDriverAndroid');
@@ -15,7 +17,8 @@ const { DATA_SMS_PORT: PLUGIN_PORT } = require('../../../plugins/withDriverAndro
 
 const KEY = 'a'.repeat(64);
 const GATEWAY = '+639171234567';
-const CONTEXT = { key: KEY, gatewayNumbers: [GATEWAY] };
+const DEVICE = 'DRV-0011';
+const CONTEXT = { key: KEY, gatewayNumbers: [GATEWAY], deviceId: DEVICE };
 // 12:00 Asia/Manila
 const NOON_MS = Date.UTC(2026, 9, 12, 4, 0);
 const MS_PER_MIN = 60_000;
@@ -105,6 +108,35 @@ describe('driver inbox (DR5)', () => {
 
   it('takes no clock sample from a message without a carrier time', () => {
     expect(processEntry(start, entry(text(3, [{ code: 'SMB', count: 1 }]), { smscMs: 0 }), CONTEXT).driftS).toBeNull();
+  });
+
+  it('takes a retire notice signed for this phone, and leaves the heatmap as it is', () => {
+    const counted = processEntry(start, entry(text(4, [{ code: 'SMB', count: 2 }])), CONTEXT).state;
+    const result = processEntry(counted, entry(signRetiredNotice(DEVICE, KEY), { receivedMs: NOON_MS + MS_PER_MIN }), CONTEXT);
+    expect(result.outcome).toEqual({ ok: true, seq: null, retired: true });
+    expect(result.state).toBe(counted);
+    expect(processInbox(start, [entry(signRetiredNotice(DEVICE, KEY))], CONTEXT).retired).toBe(true);
+    expect(processInbox(start, [entry(text(1, [{ code: 'SMB', count: 1 }]))], CONTEXT).retired).toBe(false);
+  });
+
+  it('ignores a retire notice for another phone, signed with another key, tampered, or from another number', () => {
+    expect(reasonOf(processEntry(start, entry(signRetiredNotice('DRV-0012', KEY)), CONTEXT))).toBe('bad_signature');
+    expect(reasonOf(processEntry(start, entry(signRetiredNotice(DEVICE, 'b'.repeat(64))), CONTEXT))).toBe('bad_signature');
+    const tampered = signRetiredNotice(DEVICE, KEY).replace('DRV-0011', 'DRV-0099');
+    expect(reasonOf(processEntry(start, entry(tampered), CONTEXT))).toBe('bad_signature');
+    expect(reasonOf(processEntry(start, entry(signRetiredNotice(DEVICE, KEY), { sender: '+639998887777' }), CONTEXT))).toBe('wrong_sender');
+    expect(processInbox(start, [entry(tampered)], CONTEXT).retired).toBe(false);
+  });
+
+  it('builds the retire notice the database builds (HM2|RETIRED|<device>|<8 hex>), and reads it back', () => {
+    const notice = signRetiredNotice(DEVICE, KEY);
+    expect(notice).toMatch(/^HM2|RETIRED|DRV-0011|[0-9A-F]{8}$/);
+    expect(notice.startsWith(HEATMAP_TEXT_PREFIX)).toBe(true);
+    expect(verifiedRetiredNotice(notice, KEY)).toBe(DEVICE);
+    expect(() => signRetiredNotice('drv 11', KEY)).toThrow(RangeError);
+    // As pgcrypto's hmac(text, text, 'sha256') in console_retire: key and text as their UTF-8 bytes
+    const pgcrypto = createHmac('sha256', KEY).update('HM2|RETIRED|DRV-0011').digest('hex').slice(0, 8).toUpperCase();
+    expect(notice).toBe(`HM2|RETIRED|DRV-0011|${pgcrypto}`);
   });
 
   it('listens on the same data port in the manifest as in the config', () => {

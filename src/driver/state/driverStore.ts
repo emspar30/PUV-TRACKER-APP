@@ -16,15 +16,18 @@ export type DriverSetup = Pick<
 type Stored = {
   setup: DriverSetup | null;
   beaconEnabled: boolean;
+  // When a signed retire notice for this phone arrived (an admin retired it), or null
+  retiredAtMs: number | null;
 };
 
 type DriverState = Stored & {
   setSetup: (setup: DriverSetup) => void;
   setBeaconEnabled: (on: boolean) => void;
+  setRetired: (atMs: number) => void;
   resetDriver: () => void;
 };
 
-const DEFAULTS: Stored = { setup: null, beaconEnabled: false };
+const DEFAULTS: Stored = { setup: null, beaconEnabled: false, retiredAtMs: null };
 
 const deviceStorage = createJSONStorage<Stored>(() => ({
   getItem: (key) => Storage.getItemSync(key),
@@ -65,12 +68,14 @@ export const useDriverStore = create<DriverState>()(
       ...DEFAULTS,
       setSetup: (setup) => set({ setup }),
       setBeaconEnabled: (beaconEnabled) => set({ beaconEnabled }),
+      // The first notice counts; a repeat does not move the time
+      setRetired: (atMs) => set((state) => ({ retiredAtMs: state.retiredAtMs ?? atMs, beaconEnabled: false })),
       resetDriver: () => set(DEFAULTS),
     }),
     {
       name: 'driver',
       storage: deviceStorage,
-      partialize: ({ setup, beaconEnabled }) => ({ setup, beaconEnabled }),
+      partialize: ({ setup, beaconEnabled, retiredAtMs }) => ({ setup, beaconEnabled, retiredAtMs }),
       // A damaged or old saved value falls back to "not set up", never to a half setup
       merge: (persisted, current) => {
         const saved = (persisted ?? {}) as Partial<Stored>;
@@ -78,6 +83,7 @@ export const useDriverStore = create<DriverState>()(
           ...current,
           setup: validSetup(saved.setup),
           beaconEnabled: typeof saved.beaconEnabled === 'boolean' ? saved.beaconEnabled : current.beaconEnabled,
+          retiredAtMs: typeof saved.retiredAtMs === 'number' ? saved.retiredAtMs : null,
         };
       },
     },

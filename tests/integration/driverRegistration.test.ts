@@ -16,6 +16,8 @@ import { parseEnv } from 'node:util';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { verifiedRetiredNotice } from '../../src/shared/sms/protocol';
+
 const ENV_FILE = path.join(__dirname, '..', '..', '.env');
 const env: Record<string, string | undefined> = fs.existsSync(ENV_FILE) ? parseEnv(fs.readFileSync(ENV_FILE, 'utf8')) : {};
 
@@ -231,7 +233,13 @@ live('DRG2 driver registration, live project', () => {
 
     const drivers = (await writer.rpc('console_drivers')).data as { device_id: string; plate: string }[];
     expect(drivers.find((row) => row.device_id === setup.device_id)).toMatchObject({ plate: PLATE });
-    expect((await writer.rpc('console_retire', { device: setup.device_id })).data).toBe(true);
+    // The retire notice (20261028000000_retire_notice.sql), expiring at once: nothing is sent
+    expect((await writer.rpc('console_retire', { device: setup.device_id, notice_ttl_min: 0 })).data).toBe(true);
+    const notice = await admin.from('sms_outbox').select('body_text').eq('to_e164', PHONE).like('body_text', 'HM2|RETIRED|%');
+    expect(notice.data).toHaveLength(1);
+    expect(verifiedRetiredNotice(notice.data![0].body_text, setup.sms_key as string)).toBe(setup.device_id);
+    // The first console_retire (no notice) can no longer be called
+    expect((await writer.rpc('console_retire', { device: setup.device_id })).error).not.toBeNull();
   }, TIMEOUT_MS);
 
   it('rejects only with a reason, which the driver then sees', async () => {

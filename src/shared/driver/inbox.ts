@@ -1,7 +1,7 @@
 import { hexToBytes } from '@noble/hashes/utils.js';
 
 import { decodeHeatmapBinary } from '../sms/binary';
-import { manilaMinuteOfDay, validateHeatmap, type RejectReason } from '../sms/protocol';
+import { isRetiredNotice, manilaMinuteOfDay, validateHeatmap, verifiedRetiredNotice, type RejectReason } from '../sms/protocol';
 import { driftSample } from './drift';
 import { applyMessage, type HeatmapState } from './heatmap';
 import { normalizePhNumber } from './phone';
@@ -11,8 +11,10 @@ import { normalizePhNumber } from './phone';
 // everything else is decided here:
 //   1. the sender must be one of the phone's gateway numbers (wrong_sender);
 //   2. a data SMS is turned back into the canonical text (malformed if it is not one);
-//   3. validateHeatmap: signature, time window, sequence number;
-//   4. the message must be for this phone's route (wrong_route), then it is applied.
+//   3. a retire notice (protocol.ts) counts only when it is signed for this phone (bad_signature
+//      otherwise); it says the admin retired the phone;
+//   4. validateHeatmap: signature, time window, sequence number;
+//   5. the message must be for this phone's route (wrong_route), then it is applied.
 // The time checks use when the phone received the message, not when the app read it, so a message
 // that waited in the inbox while the app was closed is judged as it arrived. Every message with a
 // carrier timestamp gives a clock sample, accepted or not: a wrong clock is exactly when messages
@@ -29,12 +31,15 @@ export type InboxEntry = {
 
 export type InboxRejectReason = RejectReason | 'wrong_route';
 
-export type InboxOutcome = { ok: true; seq: number } | { ok: false; reason: InboxRejectReason };
+// An accepted heatmap message carries its sequence number; an accepted retire notice has none
+export type InboxOutcome = { ok: true; seq: number } | { ok: true; seq: null; retired: true } | { ok: false; reason: InboxRejectReason };
 
 export type InboxContext = {
   // The SMS key from the phone's setup (64 hex characters)
   key: string;
   gatewayNumbers: readonly string[];
+  // This phone's device id, the only one a retire notice may name
+  deviceId: string;
 };
 
 export type ProcessedEntry = {
@@ -47,6 +52,8 @@ export type ProcessedEntry = {
 export type ProcessedInbox = {
   state: HeatmapState;
   results: (Omit<ProcessedEntry, 'state'> & { entry: InboxEntry })[];
+  // A valid retire notice for this phone was among the messages
+  retired: boolean;
 };
 
 function textOf(entry: InboxEntry): string | null {
@@ -69,6 +76,11 @@ export function processEntry(state: HeatmapState, entry: InboxEntry, context: In
   const text = textOf(entry);
   if (text === null) return reject('malformed');
 
+  if (isRetiredNotice(text)) {
+    if (verifiedRetiredNotice(text, context.key) !== context.deviceId) return reject('bad_signature');
+    return { state, outcome: { ok: true, seq: null, retired: true }, driftS };
+  }
+
   const result = validateHeatmap(text, {
     key: context.key,
     lastSeq: state.lastSeq,
@@ -85,10 +97,12 @@ export function processInbox(state: HeatmapState, entries: readonly InboxEntry[]
   const ordered = [...entries].sort((a, b) => a.receivedMs - b.receivedMs);
   const results: ProcessedInbox['results'] = [];
   let current = state;
+  let retired = false;
   for (const entry of ordered) {
     const { state: next, outcome, driftS } = processEntry(current, entry, context);
     current = next;
+    if (outcome.ok && outcome.seq === null) retired = true;
     results.push({ entry, outcome, driftS });
   }
-  return { state: current, results };
+  return { state: current, results, retired };
 }

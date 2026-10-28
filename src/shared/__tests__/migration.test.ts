@@ -13,10 +13,11 @@ const FILES = fs
   .readdirSync(MIGRATIONS)
   .filter((name) => name.endsWith('.sql'))
   .sort();
-// DR3's migration and its later fixes, and DRG2's driver registration
+// DR3's migration and its later fixes, DRG2's driver registration, and the retire notice
 const DRIVER_SIDE = '20261013000000_driver_side.sql';
 const DRIVER_REGISTRATION = '20261027000000_driver_registration.sql';
-const DRIVER_SIDE_FILES = FILES.filter((name) => name.startsWith('20261013') || name === DRIVER_REGISTRATION);
+const RETIRE_NOTICE = '20261028000000_retire_notice.sql';
+const DRIVER_SIDE_FILES = FILES.filter((name) => name.startsWith('20261013') || name === DRIVER_REGISTRATION || name === RETIRE_NOTICE);
 
 const read = (names: string[]) =>
   names

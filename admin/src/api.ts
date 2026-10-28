@@ -98,8 +98,9 @@ export function consoleApi(client: SupabaseClient) {
 
     drivers: () => rpc<ConsoleDriver[]>('console_drivers'),
 
-    // Retires the phone and gives its vehicle a new beacon secret nobody holds
-    retire: (deviceId: string) => rpc<boolean>('console_retire', { device: deviceId }),
+    // Retires the phone and gives its vehicle a new beacon secret nobody holds; first it queues one
+    // text, a notice signed with the phone's key, so the driver app says it was removed
+    retire: (deviceId: string) => rpc<boolean>('console_retire', { device: deviceId, notice_ttl_min: REGISTRATION_NOTICE_TTL_MIN }),
 
     pinIsSet: () => rpc<boolean>('console_pin_is_set'),
 

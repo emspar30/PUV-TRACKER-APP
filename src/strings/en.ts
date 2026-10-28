@@ -1205,6 +1205,10 @@ export const en = {
     charging: 'Charging',
     holdForAdmin: 'Hold here 3 s for admin',
     resetNeeded: 'This phone must be set up again.',
+    // Owner, 2026-10-28: a signed text from the gateway says an admin retired this phone
+    retiredTitle: 'This phone was removed from Tunton.',
+    retiredBody: 'An admin retired it, so the beacon and the waiting counts have stopped. To drive with Tunton again, register this phone again.',
+    registerAgain: 'Register again',
     beaconError: {
       not_provisioned: 'Not set up',
       no_permission: 'Nearby devices permission is off',
@@ -1599,7 +1603,7 @@ export const en = {
       noNumber: 'Not recorded',
       retire: 'Retire',
       confirmRetire: (device: string, plate: string) =>
-        `Retire ${device} (${plate})?\n\nThe phone stops working at once, and the multicab gets a new beacon secret. To use the app again, the driver registers again.`,
+        `Retire ${device} (${plate})?\n\nThe phone stops working at once, and the multicab gets a new beacon secret. This sends the phone one text, so the driver app says it was removed. To use the app again, the driver registers again.`,
       retired: (device: string) => `${device} is retired.`,
     },
     settings: {

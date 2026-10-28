@@ -1,9 +1,10 @@
 import { Redirect, router } from 'expo-router';
-import { Clock, MessageSquareOff, Smartphone, TriangleAlert } from 'lucide-react-native';
+import { Ban, Clock, MessageSquareOff, RotateCcw, Smartphone, TriangleAlert } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/Button';
 import { LineBadge } from '@/components/Pills';
 import { DRIVER_COMPACT_HEIGHT_DP } from '@/shared/config';
 import { driftStatus } from '@/shared/driver/drift';
@@ -19,6 +20,7 @@ import { HeatmapLegend } from '../features/heatmap/HeatmapLegend';
 import { HeatmapList } from '../features/heatmap/HeatmapList';
 import { HeatmapMap } from '../features/heatmap/HeatmapMap';
 import { driverRoute } from '../features/heatmap/routeStops';
+import { clearSetup } from '../features/setup/clearSetup';
 import { useHeatmapInbox } from '../features/heatmap/useHeatmapInbox';
 import { StatusStrip } from '../features/status/StatusStrip';
 import { useDriverStore } from '../state/driverStore';
@@ -56,6 +58,8 @@ function useNow(): number {
 export default function DriverHome() {
   const setup = useDriverStore((state) => state.setup);
   const beaconEnabled = useDriverStore((state) => state.beaconEnabled);
+  // An admin retired this phone (a signed notice came by text): the beacon is off for good
+  const retired = useDriverStore((state) => state.retiredAtMs) !== null;
   const heatmap = useHeatmapStore((state) => state.heatmap);
   const driftSamples = useHeatmapStore((state) => state.driftSamples);
   const status = useBeaconStatus();
@@ -91,7 +95,7 @@ export default function DriverHome() {
   const forRoute = heatmap && setup && heatmap.route === setup.routeCode ? heatmap : null;
   const view = useMemo(() => heatmapView(forRoute, route?.stops ?? [], now), [forRoute, route, now]);
 
-  // DRG4: a phone without a setup registers (the setup QR stays one tap away there)
+  // DRG4: a phone without a setup registers
   if (!setup || !route) return <Redirect href="/register" />;
 
   const update = describeUpdate(view);
@@ -129,6 +133,18 @@ export default function DriverHome() {
               ) : null}
             </View>
           </View>
+          {retired ? (
+            <Notice tone="danger" icon={Ban} title={strings.driver.retiredTitle} body={strings.driver.retiredBody}>
+              <Button
+                label={strings.driver.registerAgain}
+                leadingIcon={RotateCcw}
+                onPress={async () => {
+                  await clearSetup();
+                  router.replace('/register');
+                }}
+              />
+            </Notice>
+          ) : null}
           {lostSecrets ? <Notice tone="warning" icon={Smartphone} title={strings.driver.resetNeeded} body={strings.driver.askAdmin} strongBody /> : null}
           {smsOff ? <Notice tone="warning" icon={MessageSquareOff} title={strings.driver.smsMissing} body={strings.driver.askAdmin} strongBody /> : null}
           {/* Owner, 2026-10-18: no clock pill in the strip; the warning still shows when the clock is off

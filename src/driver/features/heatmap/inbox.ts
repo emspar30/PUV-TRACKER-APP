@@ -4,7 +4,7 @@ import { HEATMAP_TEXT_PREFIX } from '@/shared/sms/protocol';
 
 import { useDriverStore } from '../../state/driverStore';
 import { useHeatmapStore } from '../../state/heatmapStore';
-import { getSmsKey, isBeaconAvailable } from '../../../../modules/tunton-beacon';
+import { getSmsKey, isBeaconAvailable, stopAdvertising } from '../../../../modules/tunton-beacon';
 import { configureInbox, drainInbox, isInboxConfigured, isSmsAvailable } from '../../../../modules/tunton-sms';
 
 // DR5: moves heatmap messages from the native inbox into the heatmap. The native receiver stores
@@ -36,7 +36,13 @@ async function drainOnce(): Promise<number> {
   const entries = await drainInbox();
   if (entries.length === 0) return 0;
   const store = useHeatmapStore.getState();
-  const processed = processInbox(store.ensureRoute(setup.routeCode), entries, { key, gatewayNumbers: setup.gatewayNumbers });
+  const processed = processInbox(store.ensureRoute(setup.routeCode), entries, { key, gatewayNumbers: setup.gatewayNumbers, deviceId: setup.deviceId });
   store.record(processed);
+  // An admin retired this phone: its beacon is no longer accepted, so stop it, and the home screen
+  // says so (with Register again)
+  if (processed.retired) {
+    useDriverStore.getState().setRetired(Date.now());
+    await stopAdvertising().catch(() => undefined);
+  }
   return entries.length;
 }

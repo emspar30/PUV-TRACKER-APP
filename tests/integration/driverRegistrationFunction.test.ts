@@ -15,6 +15,7 @@ import { parseEnv } from 'node:util';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { encodeProvisioning, parseProvisioning, type DriverProvisioning } from '../../src/shared/driver/provisioning';
+import { verifiedRetiredNotice } from '../../src/shared/sms/protocol';
 
 const ENV_FILE = path.join(__dirname, '..', '..', '.env');
 const env: Record<string, string | undefined> = fs.existsSync(ENV_FILE) ? parseEnv(fs.readFileSync(ENV_FILE, 'utf8')) : {};
@@ -153,6 +154,10 @@ live('DRG3 driver-registration function, live project', () => {
 
     expect((await call({ action: 'collect', token })).body.error).toBe('not_approved');
     expect((await call({ action: 'status', token })).body.status).toBe('collected');
-    expect((await writer.rpc('console_retire', { device: setup.deviceId })).data).toBe(true);
+    // Retiring queues a notice signed with this phone's key, which the app accepts (it expires unsent)
+    expect((await writer.rpc('console_retire', { device: setup.deviceId, notice_ttl_min: 0 })).data).toBe(true);
+    const notice = await admin.from('sms_outbox').select('body_text').eq('to_e164', PHONE).like('body_text', 'HM2|RETIRED|%');
+    expect(notice.data).toHaveLength(1);
+    expect(verifiedRetiredNotice(notice.data![0].body_text, setup.smsKey)).toBe(setup.deviceId);
   }, TIMEOUT_MS);
 });
