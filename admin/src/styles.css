@@ -166,7 +166,8 @@ a {
   align-items: center;
   gap: 10px;
   height: 38px;
-  padding: 0 12px;
+  padding: 0 12px 0 9px;
+  border-left: 3px solid transparent;
   border-radius: 8px;
   color: var(--textSecondary);
   font-weight: 500;
@@ -178,16 +179,18 @@ a {
   color: var(--textPrimary);
 }
 
-/* The open section: the whole item filled, as the strongest mark in the navigation */
+/* The open section, as the owner's reference (Stitch's active item): a periwinkle fill, deep blue
+   text and a deep blue bar on the left */
 .sidenav-link[aria-current='page'] {
-  background: var(--primary);
-  color: var(--onPrimary);
+  border-left-color: #0041a2;
+  background: #dae2ff;
+  color: #0040a1;
   font-weight: 600;
 }
 
 .sidenav-link[aria-current='page'] .count {
-  background: var(--onPrimary);
-  color: var(--primary);
+  background: #0041a2;
+  color: #ffffff;
 }
 
 .count {
