@@ -1217,36 +1217,17 @@ export const en = {
       title: 'Tunton beacon on',
       text: 'Commuters can tell this multicab is theirs.',
     },
-    provision: {
-      title: 'Set up this phone',
-      scanTitle: 'Scan the setup code',
-      scanBody: 'Point the camera at the code on the admin computer.',
-      cameraNeeded: 'The camera is needed to read the setup code.',
-      cameraBlocked: 'The camera is off for this app. Open settings, Permissions, Camera, and allow it.',
-      allowCamera: 'Allow camera',
-      invalid: {
-        malformed: 'That is not a Tunton driver setup code.',
-        wrong_kind: 'That code is for the gateway phone, not a driver phone.',
-        wrong_version: 'That code is from another version. Ask for a new one.',
-        expired: 'That code has expired. Ask for a new one.',
-        insecure_url: 'That is not a Tunton driver setup code.',
-      },
-      confirmTitle: 'Is this the multicab?',
-      confirmBody: 'This phone stays in this multicab.',
-      vehicle: (id: string) => `Vehicle ${id}`,
-      yes: 'Yes, set up',
-      scanAgain: 'Scan again',
-      permissionsTitle: 'Two permissions',
+    // The phone-side setup steps the registration screens share: permissions, the SMS restricted-setting
+    // fix and the beacon (the setup QR they came from is gone: owner, 2026-10-28)
+    setup: {
       nearbyTitle: 'Nearby devices',
       nearbyBody: 'Lets commuters’ phones find this multicab.',
       notificationsTitle: 'Notifications',
       notificationsBody: 'Shows that the beacon is on.',
       allow: 'Continue',
       permissionDenied: 'Nearby devices was not allowed. The beacon cannot start without it.',
-      smsTitle: 'Text messages',
       smsWhy: 'To receive waiting counts by text',
       smsPrivacy: 'Tunton reads only its own messages, never personal texts.',
-      smsAllow: 'Allow text messages',
       // Android 13+ blocks SMS permissions for an app installed outside the Play Store until this is
       // allowed in the app's settings (Stitch 3.9: the fix as three steps)
       smsDeniedTitle: 'Text messages were not allowed.',
@@ -1257,16 +1238,11 @@ export const en = {
         allow: 'Tap ⋮ (top right), then “Allow restricted settings”. No ⋮? Tap “Remove restriction” on the banner, then enter the screen lock.',
         back: 'Come back here and tap Try again.',
       },
-      smsSkip: 'Skip for now',
       openSettings: 'Open settings',
       tryAgain: 'Try again',
-      checking: 'Checking this phone…',
       cannotBeacon: 'This phone cannot act as a beacon. Use another phone model.',
       bluetoothFirst: 'Turn on Bluetooth, then try again.',
       failed: 'Setup failed. Try again.',
-      doneTitle: 'Beacon on',
-      doneBody: 'Check with a second phone that the beacon is seen, then tap Done.',
-      done: 'Done',
     },
     // DRG4: registering this phone (PRD 9.5). The driver needs internet now and once after approval.
     register: {
@@ -1278,7 +1254,6 @@ export const en = {
       needId: 'Your CTTDM driver ID',
       needVehicle: 'Your multicab, to photograph its plate',
       start: 'Register this phone',
-      useCode: 'Use a setup code instead',
       // Permissions first, so nothing is left to allow after approval
       permissionsTitle: 'Allow these first',
       permissionsBody: 'The waiting counts arrive by text message, and the beacon needs Bluetooth. Allow them now, so nothing is left after approval.',

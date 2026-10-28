@@ -117,7 +117,7 @@ Migration `20261013000000_driver_side.sql`; design in `docs/IMPLEMENTATION_PLAN_
 | Order | Command | Does |
 | --- | --- | --- |
 | 1 | `npx tsx scripts/provision-gateway.ts --gateway GW-01 --phone 09… --worker-url https://…` | Saves the gateway, prints its setup QR (a new token each run) |
-| 2 | `npx tsx scripts/provision-driver.ts --vehicle R4-001 --plate "ABC 123" --route R4 --phone 09…` | Creates or updates the vehicle, new beacon secret, new device and SMS key; prints the driver setup QR. `--replace` for a new or reset phone |
+| (removed) | `scripts/provision-driver.ts` | Removed 2026-10-28 (owner): driver phones register in the driver app and are approved in the admin console (section 9, PRD 9.5) |
 | — | `npx tsx scripts/retire-device.ts DRV-0001` | Stops texts to a phone and replaces its vehicle's beacon secret |
 
 **Energy (2026-10-12):** the live project already has `20261012000000_energy_on` (tracking costs Energy); it stays in `supabase/migrations`, Emjay's choice. A migration applied live must stay in this folder under its name: otherwise `db push` refuses to run ("Remote migration versions not found in local migrations directory").

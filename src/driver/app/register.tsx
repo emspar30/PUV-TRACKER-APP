@@ -14,7 +14,6 @@ import {
   MessageSquare,
   Pencil,
   RotateCcw,
-  ScanQrCode,
   Send,
   Settings,
   ShieldCheck,
@@ -121,12 +120,7 @@ export default function Register() {
           {error ? <Notice tone="danger" icon={CircleAlert} title={error} /> : null}
         </>
       );
-      actions = (
-        <>
-          <Button label={text.start} icon={ArrowRight} onPress={() => go({ kind: 'permissions', denied: null })} />
-          <Button label={text.useCode} leadingIcon={ScanQrCode} variant="text" onPress={() => router.push('/provision')} />
-        </>
-      );
+      actions = <Button label={text.start} icon={ArrowRight} onPress={() => go({ kind: 'permissions', denied: null })} />;
       break;
 
     case 'permissions':
@@ -234,7 +228,7 @@ export default function Register() {
 function PermissionsBody({ denied }: { denied: 'nearby' | 'sms' | null }) {
   const styles = useStyles();
   const text = strings.driver.register;
-  const setupText = strings.driver.provision;
+  const setupText = strings.driver.setup;
   return (
     <>
       <Intro title={text.permissionsTitle} body={text.permissionsBody} />
@@ -256,7 +250,7 @@ function PermissionsBody({ denied }: { denied: 'nearby' | 'sms' | null }) {
 }
 
 function PermissionsActions({ denied, onAllow }: { denied: 'nearby' | 'sms' | null; onAllow: () => Promise<void> }) {
-  const setupText = strings.driver.provision;
+  const setupText = strings.driver.setup;
   if (!denied) return <Button label={setupText.allow} icon={ArrowRight} onPress={() => void onAllow()} />;
   return (
     <>
@@ -442,7 +436,7 @@ function PhotosStep({ onDone, onExpired }: { onDone: () => void; onExpired: () =
         {camera?.granted ? (
           <Button label={text.capture} leadingIcon={Camera} onPress={() => void capture(taking)} />
         ) : cameraBlocked ? (
-          <Button label={strings.driver.provision.openSettings} leadingIcon={Settings} onPress={() => void Linking.openSettings()} />
+          <Button label={strings.driver.setup.openSettings} leadingIcon={Settings} onPress={() => void Linking.openSettings()} />
         ) : (
           <Button label={text.allowCamera} leadingIcon={Camera} onPress={() => void requestCamera()} />
         )}
@@ -503,7 +497,7 @@ function WaitingStep({ onDone, onAgain }: { onDone: () => void; onAgain: () => v
     // A setup can be collected once: the phone must be able to take it first
     const block = setupBlock();
     if (block) {
-      setError(block === 'bluetooth_off' ? strings.driver.provision.bluetoothFirst : strings.driver.provision.cannotBeacon);
+      setError(block === 'bluetooth_off' ? strings.driver.setup.bluetoothFirst : strings.driver.setup.cannotBeacon);
       return;
     }
     collecting.current = true;
@@ -521,7 +515,7 @@ function WaitingStep({ onDone, onAgain }: { onDone: () => void; onAgain: () => v
       onDone();
       return;
     }
-    setError(strings.driver.provision.failed);
+    setError(strings.driver.setup.failed);
   }, [token, onDone, text.notReady]);
 
   const check = useCallback(async () => {
