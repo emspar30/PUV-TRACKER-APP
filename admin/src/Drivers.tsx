@@ -94,7 +94,7 @@ export function Drivers({ api, registrations }: { api: ConsoleApi; registrations
       )}
 
       {!rows ? (
-        !error && <p className="muted">{text.loading}</p>
+        !error && <DriversSkeleton />
       ) : rows.length === 0 ? (
         <div className="card empty-state">
           <span className="empty-icon">
@@ -186,5 +186,36 @@ export function Drivers({ api, registrations }: { api: ConsoleApi; registrations
       )}
       {viewing && <DriverDetails driver={viewing} registration={driverRegistration(viewing, registrations ?? [])} onClose={() => setViewing(null)} />}
     </>
+  );
+}
+
+// The shape of the table while the first load is on its way
+const SKELETON_ROWS = 4;
+
+function DriversSkeleton() {
+  return (
+    <div className="card table-card" aria-busy="true">
+      <span className="visually-hidden">{text.loading}</span>
+      <div className="table-toolbar" aria-hidden="true">
+        <span className="skeleton box" />
+        <div className="toolbar-text skeleton-lines">
+          <span className="skeleton line wide" />
+          <span className="skeleton line" />
+        </div>
+        <span className="skeleton field" />
+      </div>
+      <div className="skeleton-rows" aria-hidden="true">
+        {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+          <div key={index} className="skeleton-row">
+            <span className="skeleton line" />
+            <span className="skeleton line" />
+            <span className="skeleton line short" />
+            <span className="skeleton line" />
+            <span className="skeleton line" />
+            <span className="skeleton button-shape" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

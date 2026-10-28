@@ -22,10 +22,8 @@ export function DriverDetails({ driver, registration, onClose }: { driver: Conso
     [t.plate, driver.plate],
     [t.route, driver.route_id],
     [t.number, driver.phone_e164 ? localPhNumber(driver.phone_e164) : t.notRecorded],
-    [t.vehicle, driver.vehicle_id],
     [t.registered, registration ? text.whenFull(registration.created_at) : t.notRecorded],
     [t.approved, registration?.decided_at ? text.whenFull(registration.decided_at) : t.notRecorded],
-    [t.lastChange, text.whenFull(driver.provisioned_at)],
   ];
 
   return (
