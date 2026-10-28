@@ -55,6 +55,8 @@ export const motion = {
   // CA1.1: a sheet sliding off the screen when closed; a label sliding open or shut (Ask Tunie)
   sheetOutMs: 220,
   labelMs: 260,
+  // Driver registration: each step slides in, from the right going on and from the left going back
+  stepMs: 240,
 } as const;
 
 // Type scale of docs/DESIGN.md, in dp, set in the Android system font (Roboto)

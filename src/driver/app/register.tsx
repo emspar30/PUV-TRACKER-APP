@@ -24,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, AppState, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import Animated, { SlideInLeft, SlideInRight } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
@@ -36,7 +37,7 @@ import { localPhDigits, localPhNumber, normalizePhNumber } from '@/shared/driver
 import { normalizePlate } from '@/shared/driver/registration';
 import { checkFresh, mayCollect, mustRegisterAgain, pickPictureSize, resumeStep, waitingStatus, type WaitingStatus } from '@/shared/driver/registrationFlow';
 import { strings } from '@/strings';
-import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
+import { makeStyles, MIN_TOUCH_TARGET, motion, radii, spacing, useTheme } from '@/theme';
 
 import { Notice } from '../components/Notice';
 import { requestBeaconPermissions } from '../features/beacon/beacon';
@@ -89,6 +90,8 @@ export default function Register() {
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Which way the next step slides in: from the right going on, from the left going back
+  const [backwards, setBackwards] = useState(false);
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const text = strings.driver.register;
@@ -96,6 +99,7 @@ export default function Register() {
   const go = (next: Step) => {
     setError(null);
     setBusy(false);
+    setBackwards(STEP_NUMBER[next.kind] < STEP_NUMBER[step.kind]);
     setStep(next);
   };
 
@@ -231,10 +235,13 @@ export default function Register() {
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
       <StepHeader title={text.title} onBack={previous ? () => go(previous) : undefined} step={{ current: STEP_NUMBER[step.kind], total: STEP_COUNT }} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {body}
-      </ScrollView>
-      {actions ? <View style={styles.actions}>{actions}</View> : null}
+      {/* A new step slides in under the fixed header; a change within a step (keyed the same) does not */}
+      <Animated.View key={step.kind} entering={(backwards ? SlideInLeft : SlideInRight).duration(motion.stepMs)} style={styles.grow}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {body}
+        </ScrollView>
+        {actions ? <View style={styles.actions}>{actions}</View> : null}
+      </Animated.View>
     </SafeAreaView>
   );
 }
