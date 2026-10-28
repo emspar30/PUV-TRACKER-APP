@@ -149,7 +149,7 @@ Migration `20261027000000_driver_registration.sql`; design in `docs/IMPLEMENTATI
 - **Live test:** `npm run test:live -- tests/integration/driverRegistration.test.ts` sends no SMS (its texts expire at once) and removes its own rows.
   Do not run `tests/integration/driverSide.test.ts` while the real gateway is sending: it queues heatmap texts to a made-up number.
 
-**Retire notice (2026-10-28, migration `20261028000000_retire_notice.sql`):** `console_retire(device, notice_ttl_min)` queues one text to the phone, `HM2|RETIRED|<device>|<mac>` signed with its SMS key, before retiring it; the old one-argument `console_retire` is revoked (migrations never drop). Not live until pushed (ask first; the partner's two pending migrations are set aside again, as for DRG2).
+**Retire notice (2026-10-28, migration `20261028000000_retire_notice.sql`):** `console_retire(device, notice_ttl_min)` queues one text to the phone, `HM2|RETIRED|<device>|<mac>` signed with its SMS key, before retiring it; the old one-argument `console_retire` is revoked (migrations never drop). **Applied live 2026-10-28, alone** (the partner's two pending migrations set aside again, as for DRG2); live tests 3 of 3 and 8 of 8, no SMS.
 
 **Edge Function `driver-registration` (DRG3), deployed 2026-10-27** with
 `npx supabase functions deploy driver-registration --no-verify-jwt --use-api` (no account calls it, so no JWT check; `--use-api`
