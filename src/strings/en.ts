@@ -1496,6 +1496,8 @@ export const en = {
     sections: 'Sections',
     when: (iso: string) => new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
     time: (ms: number) => new Date(ms).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }),
+    whenFull: (iso: string) =>
+      new Date(iso).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
     updated: (time: string) => `Updated ${time}`,
     notConfigured:
       'This copy of the console has no Supabase address. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY, then build it again.',
@@ -1517,6 +1519,8 @@ export const en = {
     failed: (detail: string) => `That did not work: ${detail}`,
     loading: 'Loading…',
     refresh: 'Refresh',
+    // The route filter on Registrations and Drivers; each option is the route's code (R4)
+    routeFilter: { label: 'Route', all: 'All routes' },
     tabs: {
       registrations: 'Registrations',
       drivers: 'Drivers',
@@ -1534,6 +1538,8 @@ export const en = {
       // The tabs by status (approved includes approved and already set up; expired shows only under All)
       tabsLabel: 'Registrations by status',
       tabs: { pending: 'Pending', approved: 'Approved', rejected: 'Rejected', all: 'All applications' },
+      routeEmpty: (route: string) => `Nothing here on ${route}.`,
+      clearRoute: 'Show all routes',
       tabEmpty: {
         pending: 'Nothing to review.',
         approved: 'No approved registrations yet.',
@@ -1590,17 +1596,33 @@ export const en = {
         shown === total ? (total === 1 ? 'Showing 1 phone' : `Showing ${total} phones`) : `Showing ${shown} of ${total} phones`,
       searchLabel: 'Search plate number',
       searchPlaceholder: 'Plate number',
-      routeLabel: 'Route',
-      allRoutes: 'All routes',
-      routeOption: (route: string) => `Route ${route}`,
       noMatch: 'No driver phone matches. Change the route or the plate number searched.',
       clearFilters: 'Clear',
       emptyHeading: 'No driver phones yet',
       none: 'No driver phone is set up yet. Approved registrations appear here once the phone collects its setup.',
       viewRegistrations: 'View registrations',
       dismiss: 'Dismiss',
-      columns: { device: 'Phone', plate: 'Plate', route: 'Route', number: 'Number', since: 'Set up' },
+      columns: { device: 'Driver ID', plate: 'Plate', route: 'Route', number: 'Number', since: 'Set up' },
       noNumber: 'Not recorded',
+      view: 'View',
+      viewLabel: (device: string) => `View ${device}`,
+      // The driver's details, opened with View
+      details: {
+        title: 'Driver details',
+        status: 'Status',
+        active: 'Active',
+        driverId: 'Driver ID',
+        plate: 'Plate',
+        route: 'Route',
+        number: 'Mobile number',
+        vehicle: 'Vehicle ID',
+        registered: 'Registered',
+        approved: 'Approved',
+        lastChange: 'Last change (set up)',
+        notRecorded: 'Not recorded',
+        noRegistration: 'No registration is on record for this phone. It was set up before registration, or its registration is older than the console lists.',
+        close: 'Close',
+      },
       retire: 'Retire',
       confirmRetire: (device: string, plate: string) =>
         `Retire ${device} (${plate})?\n\nThe phone stops working at once, and the multicab gets a new beacon secret. This sends the phone one text, so the driver app says it was removed. To use the app again, the driver registers again.`,

@@ -97,7 +97,7 @@ function Console({ api, email, onSignOut }: { api: ConsoleApi; email: string; on
       <main className="workspace">
         <div className="workspace-inner">
           {tab === 'registrations' && <Registrations api={api} state={registrations} />}
-          {tab === 'drivers' && <Drivers api={api} />}
+          {tab === 'drivers' && <Drivers api={api} registrations={registrations.rows} />}
           {tab === 'settings' && <Settings api={api} email={email} />}
         </div>
       </main>

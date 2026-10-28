@@ -1196,3 +1196,125 @@ tbody tr:hover td {
     padding: 24px;
   }
 }
+
+/* The status tabs and the route filter on one row (Registrations) */
+
+.tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tab-bar select {
+  height: 46px;
+}
+
+.route-empty {
+  align-items: center;
+}
+
+.route-empty .button {
+  margin-left: auto;
+}
+
+/* View and Retire side by side in a table row (Drivers) */
+
+.row-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+/* A driver phone's details (Drivers, View) */
+
+.details-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--textPrimary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.details-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.details-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.details-head .toolbar-text {
+  min-width: 0;
+}
+
+.details-head h2 {
+  font-size: 16px;
+}
+
+.details-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.details-list {
+  display: grid;
+  margin: 0;
+  padding: 4px 20px;
+}
+
+.details-list div {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.details-list div + div {
+  border-top: 1px solid var(--line);
+}
+
+.details-list dt {
+  color: var(--textSecondary);
+}
+
+.details-list dd {
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.details-note {
+  margin: 0 20px 4px;
+  font-size: 13px;
+}
+
+.details-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--surfaceLow);
+}
+
+@media (max-width: 600px) {
+  .tab-bar .select,
+  .tab-bar select {
+    width: 100%;
+  }
+
+  .details-list div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

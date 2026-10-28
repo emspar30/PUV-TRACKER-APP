@@ -1,10 +1,12 @@
 import { REGISTRATION_REASON_MAX_CHARS } from '../config';
 import { localPhDigits, normalizePhNumber } from '../driver/phone';
 import {
-  driverRoutes,
+  driverRegistration,
   filterDrivers,
   inTab,
+  listedRoutes,
   localPhNumber,
+  onRoute,
   photosLeft,
   REGISTRATION_TABS,
   rejectionReason,
@@ -160,6 +162,49 @@ describe('the Drivers filters', () => {
   });
 
   it('offers the routes on the list in route order', () => {
-    expect(driverRoutes(phones)).toEqual(['R2', 'R4', 'R14']);
+    expect(listedRoutes(phones)).toEqual(['R2', 'R4', 'R14']);
+  });
+});
+
+describe('the route filter on Registrations', () => {
+  const rows = [row('a', 'pending', '2026-10-28T00:00:00.000Z'), { ...row('b', 'rejected', '2026-10-27T00:00:00.000Z'), route_id: 'R14' }];
+
+  it('keeps one route, or every route', () => {
+    expect(onRoute(rows, 'R14').map((r) => r.registration_id)).toEqual(['b']);
+    expect(onRoute(rows, null)).toEqual(rows);
+  });
+
+  it('offers the routes registered on, in route order', () => {
+    expect(listedRoutes(rows)).toEqual(['R4', 'R14']);
+  });
+});
+
+describe('driverRegistration', () => {
+  const driver: ConsoleDriver = {
+    device_id: 'DRV-0011',
+    vehicle_id: 'R4-ABC1234',
+    plate: 'ABC 1234',
+    route_id: 'R4',
+    phone_e164: '+639171234567',
+    provisioned_at: '2026-10-28T06:00:00.000Z',
+  };
+  const collected = (id: string, createdAt: string) => ({ ...row(id, 'collected', createdAt), decided_at: createdAt });
+
+  it('finds the newest set-up registration of the same multicab and number', () => {
+    const rows = [collected('old', '2026-10-20T00:00:00.000Z'), collected('new', '2026-10-28T00:00:00.000Z'), row('waiting', 'pending', '2026-10-28T05:00:00.000Z')];
+    expect(driverRegistration(driver, rows)?.registration_id).toBe('new');
+  });
+
+  it('skips another number, another multicab, and a registration not set up', () => {
+    const rows = [
+      { ...collected('other number', '2026-10-28T00:00:00.000Z'), phone_e164: '+639998887777' },
+      { ...collected('other multicab', '2026-10-28T00:00:00.000Z'), vehicle_id: 'R4-XYZ5678' },
+      { ...row('approved', 'approved', '2026-10-28T00:00:00.000Z'), decided_at: '2026-10-28T00:00:00.000Z' },
+    ];
+    expect(driverRegistration(driver, rows)).toBeNull();
+  });
+
+  it('finds none for a phone set up without a recorded number', () => {
+    expect(driverRegistration({ ...driver, phone_e164: null }, [collected('a', '2026-10-28T00:00:00.000Z')])).toBeNull();
   });
 });

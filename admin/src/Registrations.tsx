@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import {
+  listedRoutes,
   localPhNumber,
+  onRoute,
   REGISTRATION_TABS,
   rowsInTab,
   splitRegistrations,
@@ -16,6 +18,7 @@ import { errorText } from './errors';
 import { Icon } from './Icon';
 import { PageHeader } from './PageHeader';
 import { RegistrationCard } from './RegistrationCard';
+import { RouteSelect } from './RouteSelect';
 import type { RegistrationsState } from './useRegistrations';
 
 const text = strings.adminConsole;
@@ -31,11 +34,13 @@ const STATUS_TONE: Record<ConsoleRegistration['status'], string> = {
 };
 
 // The registrations by status (PRD 9.5 "Review"): Pending is the review queue, the other tabs are
-// lists. The list itself is loaded by useRegistrations in the console shell, which keeps it current on
+// lists, and the route filter narrows every tab (the heading still counts every route). The list itself is loaded by useRegistrations in the console shell, which keeps it current on
 // every page.
 export function Registrations({ api, state }: { api: ConsoleApi; state: RegistrationsState }) {
   const { rows, pinSet, error, updatedAt, load } = state;
   const [tab, setTab] = useState<RegistrationTab>('pending');
+  // One route (null: every route)
+  const [route, setRoute] = useState<string | null>(null);
   const reload = () => void load();
 
   if (!rows) {
@@ -54,11 +59,27 @@ export function Registrations({ api, state }: { api: ConsoleApi; state: Registra
     );
   }
 
-  const { waiting } = splitRegistrations(rows);
-  const counts = tabCounts(rows);
+  const routes = listedRoutes(rows);
+  // A route chosen before its last registration left the list no longer filters
+  const routeShown = route !== null && routes.includes(route) ? route : null;
+  const onThisRoute = onRoute(rows, routeShown);
+  const { waiting } = splitRegistrations(onThisRoute);
+  const counts = tabCounts(onThisRoute);
+  const empty = (tabEmpty: string) =>
+    routeShown === null ? (
+      <p className="muted">{tabEmpty}</p>
+    ) : (
+      <div className="callout route-empty">
+        <Icon name="info" />
+        <span>{t.routeEmpty(routeShown)}</span>
+        <button type="button" className="button secondary" onClick={() => setRoute(null)}>
+          {t.clearRoute}
+        </button>
+      </div>
+    );
   return (
     <>
-      <PageHeader title={t.title} subtitle={t.waitingHeading(waiting.length)} updatedAt={updatedAt} onRefresh={reload} />
+      <PageHeader title={t.title} subtitle={t.waitingHeading(splitRegistrations(rows).waiting.length)} updatedAt={updatedAt} onRefresh={reload} />
       {error && (
         <p className="notice error" role="alert">
           <Icon name="error" />
@@ -74,31 +95,38 @@ export function Registrations({ api, state }: { api: ConsoleApi; state: Registra
         </p>
       )}
 
-      <div className="segmented" role="tablist" aria-label={t.tabsLabel}>
-        {REGISTRATION_TABS.map((name) => (
-          <button
-            key={name}
-            type="button"
-            role="tab"
-            id={`registrations-tab-${name}`}
-            aria-selected={tab === name}
-            aria-controls="registrations-panel"
-            className="segment"
-            onClick={() => setTab(name)}>
-            {t.tabs[name]}
-            <span className="segment-count">{counts[name]}</span>
-          </button>
-        ))}
+      <div className="tab-bar">
+        <div className="segmented" role="tablist" aria-label={t.tabsLabel}>
+          {REGISTRATION_TABS.map((name) => (
+            <button
+              key={name}
+              type="button"
+              role="tab"
+              id={`registrations-tab-${name}`}
+              aria-selected={tab === name}
+              aria-controls="registrations-panel"
+              className="segment"
+              onClick={() => setTab(name)}>
+              {t.tabs[name]}
+              <span className="segment-count">{counts[name]}</span>
+            </button>
+          ))}
+        </div>
+        <RouteSelect routes={routes} value={routeShown} onChange={setRoute} />
       </div>
 
       <section role="tabpanel" id="registrations-panel" aria-labelledby={`registrations-tab-${tab}`} className="stack">
         {tab !== 'pending' ? (
-          <RegistrationTable rows={rowsInTab(rows, tab)} empty={t.tabEmpty[tab]} />
+          <RegistrationTable rows={rowsInTab(onThisRoute, tab)} empty={empty(t.tabEmpty[tab])} />
         ) : waiting.length === 0 ? (
-          <p className="callout">
-            <Icon name="info" />
-            {t.none}
-          </p>
+          routeShown === null ? (
+            <p className="callout">
+              <Icon name="info" />
+              {t.none}
+            </p>
+          ) : (
+            empty(t.tabEmpty.pending)
+          )
         ) : (
           <>
             <p className="callout">
@@ -120,8 +148,8 @@ export function Registrations({ api, state }: { api: ConsoleApi; state: Registra
 }
 
 // One tab's registrations as a table, newest change first
-function RegistrationTable({ rows, empty }: { rows: ConsoleRegistration[]; empty: string }) {
-  if (rows.length === 0) return <p className="muted">{empty}</p>;
+function RegistrationTable({ rows, empty }: { rows: ConsoleRegistration[]; empty: ReactNode }) {
+  if (rows.length === 0) return empty;
   return (
     <div className="card table-card">
       <div className="table-scroll">

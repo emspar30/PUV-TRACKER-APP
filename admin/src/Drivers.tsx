@@ -1,19 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { driverRoutes, filterDrivers, localPhNumber, type ConsoleDriver } from '@/shared/driver/registrationConsole';
+import {
+  driverRegistration,
+  filterDrivers,
+  listedRoutes,
+  localPhNumber,
+  type ConsoleDriver,
+  type ConsoleRegistration,
+} from '@/shared/driver/registrationConsole';
 import { strings } from '@/strings';
 
 import type { ConsoleApi } from './api';
+import { DriverDetails } from './DriverDetails';
 import { errorText } from './errors';
 import { Icon } from './Icon';
 import { PageHeader } from './PageHeader';
+import { RouteSelect } from './RouteSelect';
 
 const text = strings.adminConsole;
 const t = text.drivers;
 
 // The active driver phones, newest set up first, by route and by plate, with Retire (PRD 9.5 "After
-// setup"), as scripts/retire-device.ts does
-export function Drivers({ api }: { api: ConsoleApi }) {
+// setup"), as scripts/retire-device.ts does, and View for one phone's details. The registrations (loaded
+// by the console shell) give the details when each phone's registration was sent and approved.
+export function Drivers({ api, registrations }: { api: ConsoleApi; registrations: ConsoleRegistration[] | null }) {
   const [rows, setRows] = useState<ConsoleDriver[] | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +32,7 @@ export function Drivers({ api }: { api: ConsoleApi }) {
   // The filters: one route (null: every route) and a plate search
   const [route, setRoute] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [viewing, setViewing] = useState<ConsoleDriver | null>(null);
 
   const load = useCallback(async () => {
     const result = await api.drivers();
@@ -58,7 +69,7 @@ export function Drivers({ api }: { api: ConsoleApi }) {
     setSearch('');
   };
 
-  const routes = rows ? driverRoutes(rows) : [];
+  const routes = rows ? listedRoutes(rows) : [];
   // A route chosen before the last phone on it was retired no longer filters
   const routeShown = route !== null && routes.includes(route) ? route : null;
   const shown = rows ? filterDrivers(rows, routeShown, search) : [];
@@ -112,17 +123,7 @@ export function Drivers({ api }: { api: ConsoleApi }) {
                 <Icon name="search" size={16} />
                 <input type="search" value={search} placeholder={t.searchPlaceholder} onChange={(event) => setSearch(event.target.value)} />
               </label>
-              <label className="select">
-                <span className="visually-hidden">{t.routeLabel}</span>
-                <select value={routeShown ?? ''} onChange={(event) => setRoute(event.target.value || null)}>
-                  <option value="">{t.allRoutes}</option>
-                  {routes.map((code) => (
-                    <option key={code} value={code}>
-                      {t.routeOption(code)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <RouteSelect routes={routes} value={routeShown} onChange={setRoute} />
             </div>
           </div>
           {shown.length === 0 ? (
@@ -163,10 +164,16 @@ export function Drivers({ api }: { api: ConsoleApi }) {
                       <td className="nowrap number">{driver.phone_e164 ? localPhNumber(driver.phone_e164) : t.noNumber}</td>
                       <td className="nowrap muted">{text.when(driver.provisioned_at)}</td>
                       <td className="end">
-                        <button type="button" className="button danger-soft" disabled={retiring !== null} onClick={() => void retire(driver)}>
-                          <Icon name="retire" size={16} />
-                          {t.retire}
-                        </button>
+                        <span className="row-actions">
+                          <button type="button" className="button secondary" aria-label={t.viewLabel(driver.device_id)} onClick={() => setViewing(driver)}>
+                            <Icon name="idCard" size={16} />
+                            {t.view}
+                          </button>
+                          <button type="button" className="button danger-soft" disabled={retiring !== null} onClick={() => void retire(driver)}>
+                            <Icon name="retire" size={16} />
+                            {t.retire}
+                          </button>
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -177,6 +184,7 @@ export function Drivers({ api }: { api: ConsoleApi }) {
           <p className="table-foot">{t.showing(shown.length, rows.length)}</p>
         </div>
       )}
+      {viewing && <DriverDetails driver={viewing} registration={driverRegistration(viewing, registrations ?? [])} onClose={() => setViewing(null)} />}
     </>
   );
 }

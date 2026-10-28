@@ -129,6 +129,15 @@ const PATHS = {
       <path d="m2 2 20 20" />
     </>
   ),
+  idCard: (
+    <>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <circle cx="9" cy="11" r="2" />
+      <path d="M6.17 15a3 3 0 0 1 5.66 0" />
+      <path d="M16 10h2" />
+      <path d="M16 14h2" />
+    </>
+  ),
   eye: (
     <>
       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />

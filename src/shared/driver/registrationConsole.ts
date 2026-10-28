@@ -88,15 +88,32 @@ export function rowsInTab(rows: readonly ConsoleRegistration[], tab: Registratio
   return rows.filter((row) => inTab(row, tab)).sort((a, b) => (b.decided_at ?? b.created_at).localeCompare(a.decided_at ?? a.created_at));
 }
 
+// --- The route filter, on both pages
+
+// The routes the listed rows are on, in route order (R2 before R14)
+export function listedRoutes(rows: readonly { route_id: string }[]): string[] {
+  const number = (route: string) => Number(route.replace(/\D/g, ''));
+  return [...new Set(rows.map((row) => row.route_id))].sort((a, b) => number(a) - number(b) || a.localeCompare(b));
+}
+
+// The rows on one route (null: every route)
+export function onRoute<T extends { route_id: string }>(rows: readonly T[], route: string | null): T[] {
+  return route === null ? [...rows] : rows.filter((row) => row.route_id === route);
+}
+
 // --- The Drivers page: by route and by plate, newest set up first
 
 // A plate as compared in a search: no spaces, upper case ("tst 001" finds "TST 001" and "TST001")
 const plateKey = (plate: string) => plate.replace(/\s+/g, '').toUpperCase();
 
-// The routes the listed phones are on, in route order (R2 before R14)
-export function driverRoutes(rows: readonly Pick<ConsoleDriver, 'route_id'>[]): string[] {
-  const number = (route: string) => Number(route.replace(/\D/g, ''));
-  return [...new Set(rows.map((row) => row.route_id))].sort((a, b) => number(a) - number(b) || a.localeCompare(b));
+// The registration a driver phone was set up from, for its details: the newest one set up for the same
+// multicab and number. None for a phone set up before registration, or without a recorded number.
+export function driverRegistration(driver: ConsoleDriver, rows: readonly ConsoleRegistration[]): ConsoleRegistration | null {
+  if (driver.phone_e164 === null) return null;
+  const matches = rows.filter(
+    (row) => row.status === 'collected' && row.vehicle_id === driver.vehicle_id && row.phone_e164 === driver.phone_e164,
+  );
+  return matches.sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
 }
 
 // The phones on a route (null: every route) whose plate contains the search, newest set up first
