@@ -6,21 +6,24 @@ import { strings } from '@/strings';
 
 import type { ConsoleApi } from './api';
 import { errorText } from './errors';
+import { Icon } from './Icon';
 
 const text = strings.adminConsole;
 const t = text.registrations;
 
 type Props = {
   row: ConsoleRegistration;
+  // "Registration 1 of 2"
+  position: string;
   api: ConsoleApi;
   // Off while no admin PIN is set: an approved phone could not collect its setup
   canApprove: boolean;
   onDecided: () => void;
 };
 
-// One registration waiting for review: the ID photo, the multicab photo with the typed plate under
-// it (the two must match), and the decision
-export function RegistrationCard({ row, api, canApprove, onDecided }: Props) {
+// One registration waiting for review: the ID photo, the multicab photo with the typed plate under it
+// (the two must match), the details and the decision. Rejecting opens the reason panel underneath.
+export function RegistrationCard({ row, position, api, canApprove, onDecided }: Props) {
   const [links, setLinks] = useState<Record<string, string> | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
@@ -58,72 +61,134 @@ export function RegistrationCard({ row, api, canApprove, onDecided }: Props) {
     if (window.confirm(question)) void decide(true);
   }
 
+  function cancelRejecting() {
+    setRejecting(false);
+    setReason('');
+  }
+
   return (
-    <article className="review" aria-label={`${row.plate}, ${t.route(row.route_id)}`}>
-      <figure className="photo-cell">
-        <h3>{t.idPhoto}</h3>
-        <Photo label={t.idPhoto} path={idPath} links={links} />
-      </figure>
+    <article className="card review" aria-label={`${row.plate}, ${t.route(row.route_id)}`}>
+      {row.active_device && (
+        <p className="review-warning">
+          <Icon name="warning" size={20} />
+          {t.replaces(row.active_device)}
+        </p>
+      )}
+      <div className="review-head">
+        <span>{position}</span>
+        <span className="with-icon">
+          <Icon name="send" size={14} />
+          {t.sent(text.when(row.created_at))}
+        </span>
+      </div>
 
-      <figure className="photo-cell">
-        <h3>{t.vehiclePhoto}</h3>
-        <Photo label={t.vehiclePhoto} path={vehiclePath} links={links} />
-        <figcaption className="typed-plate">
-          <span className="plate">{row.plate}</span>
-          <span className="plate-caption">{t.typedPlate}</span>
-        </figcaption>
-      </figure>
+      <div className="review-body">
+        <div className="review-col">
+          <div className="col-head">
+            <h3>{t.idPhoto}</h3>
+            <span className="hint">
+              <Icon name="zoom" size={14} />
+              {t.enlargeHint}
+            </span>
+          </div>
+          <Photo label={t.idPhoto} path={idPath} links={links} />
+        </div>
 
-      <div className="facts">
-        <p className="route">{t.route(row.route_id)}</p>
-        <p className="phone">{phone}</p>
-        <p className="muted small">{t.sent(text.when(row.created_at))}</p>
-        {row.active_device && <p className="notice warning">{t.replaces(row.active_device)}</p>}
-        {error && (
-          <p className="notice error" role="alert">
-            {errorText(error)}
-          </p>
-        )}
+        <div className="review-col">
+          <div className="col-head">
+            <h3>{t.vehiclePhoto}</h3>
+            <span className="hint">
+              <Icon name="zoom" size={14} />
+              {t.enlargeHint}
+            </span>
+          </div>
+          <Photo label={t.vehiclePhoto} path={vehiclePath} links={links} />
+          <div className="plate-panel">
+            <span className="plate">{row.plate}</span>
+            <span className="caption">{t.typedPlate}</span>
+          </div>
+        </div>
 
-        {rejecting ? (
-          <div className="reject">
-            <label htmlFor={reasonId}>{t.reasonLabel}</label>
-            <div className="picks">
-              {t.reasonPicks.map((pick) => (
-                <button key={pick} type="button" className="chip" aria-pressed={reason === pick} onClick={() => setReason(pick)}>
-                  {pick}
+        <div className="review-col details">
+          <div>
+            <p className="detail-label">{t.routeLabel}</p>
+            <p className="route-value">{row.route_id}</p>
+          </div>
+          <div className="detail-divided">
+            <p className="detail-label">{t.numberLabel}</p>
+            <p className="phone-value">
+              <Icon name="drivers" />
+              {phone}
+            </p>
+          </div>
+          {error && (
+            <p className="notice error" role="alert">
+              <Icon name="error" />
+              {errorText(error)}
+            </p>
+          )}
+          <div className="review-actions">
+            {rejecting ? (
+              <p className="muted small">{t.rejectingNote}</p>
+            ) : (
+              <>
+                <button type="button" className="button primary grow" disabled={busy || !canApprove} onClick={approve}>
+                  <Icon name="check" />
+                  {busy ? t.saving : t.approve}
                 </button>
-              ))}
-            </div>
-            <textarea id={reasonId} rows={3} maxLength={REGISTRATION_REASON_MAX_CHARS} value={reason} onChange={(event) => setReason(event.target.value)} />
-            <p className="muted small">{t.reasonLength(reason.trim().length, REGISTRATION_REASON_MAX_CHARS)}</p>
-            <div className="actions">
-              <button type="button" className="button danger" disabled={busy || reasonToSend === null} onClick={() => void decide(false)}>
-                {busy ? t.saving : t.sendRejection}
+                <button type="button" className="button secondary" disabled={busy} onClick={() => setRejecting(true)}>
+                  <span className="danger-ink">
+                    <Icon name="close" />
+                  </span>
+                  {t.reject}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {rejecting && (
+        <div className="reject-panel">
+          <div className="reject-head">
+            <h3 id={`${reasonId}-label`} className="with-icon">
+              <span className="danger-ink">
+                <Icon name="block" size={20} />
+              </span>
+              {t.reasonLabel}
+            </h3>
+            <span className="muted small">{t.driverSeesIt}</span>
+          </div>
+          <div className="picks">
+            {t.reasonPicks.map((pick) => (
+              <button key={pick} type="button" className="pick" aria-pressed={reason === pick} onClick={() => setReason(pick)}>
+                <span>{pick}</span>
+                <Icon name="checkCircle" />
               </button>
-              <button
-                type="button"
-                className="button quiet"
-                disabled={busy}
-                onClick={() => {
-                  setRejecting(false);
-                  setReason('');
-                }}>
+            ))}
+          </div>
+          <textarea
+            id={reasonId}
+            aria-labelledby={`${reasonId}-label`}
+            rows={2}
+            maxLength={REGISTRATION_REASON_MAX_CHARS}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <div className="reject-foot">
+            <span className="muted small">{t.reasonLength(reason.trim().length, REGISTRATION_REASON_MAX_CHARS)}</span>
+            <div className="actions">
+              <button type="button" className="button text" disabled={busy} onClick={cancelRejecting}>
                 {t.cancel}
               </button>
+              <button type="button" className="button danger" disabled={busy || reasonToSend === null} onClick={() => void decide(false)}>
+                <Icon name="block" />
+                {busy ? t.saving : t.sendRejection}
+              </button>
             </div>
           </div>
-        ) : (
-          <div className="actions">
-            <button type="button" className="button primary" disabled={busy || !canApprove} onClick={approve}>
-              {busy ? t.saving : t.approve}
-            </button>
-            <button type="button" className="button outline" disabled={busy} onClick={() => setRejecting(true)}>
-              {t.reject}
-            </button>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </article>
   );
 }
@@ -154,7 +219,8 @@ function Photo({ label, path, links }: { label: string; path: string | null; lin
         }}>
         <img src={url} alt={label} />
         <form method="dialog">
-          <button type="submit" className="button">
+          <button type="submit" className="button secondary">
+            <Icon name="close" />
             {t.close}
           </button>
         </form>

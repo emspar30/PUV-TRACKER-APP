@@ -6,6 +6,9 @@ import { strings } from '@/strings';
 
 import type { ConsoleApi } from './api';
 import { errorText } from './errors';
+import { Icon } from './Icon';
+import { PageHeader } from './PageHeader';
+import { SecretInput } from './SecretInput';
 
 const text = strings.adminConsole;
 const t = text.settings;
@@ -58,26 +61,42 @@ export function Settings({ api, email }: { api: ConsoleApi; email: string }) {
     setAgain('');
   }
 
+  function clear() {
+    setPin('');
+    setAgain('');
+    setSaved(false);
+  }
+
   return (
-    <section aria-labelledby="pin-heading" className="settings">
+    <>
+      <PageHeader title={t.title} subtitle={t.subtitle} />
       <form
-        className="card"
+        className="card form-card"
+        aria-labelledby="pin-heading"
         onSubmit={(event) => {
           event.preventDefault();
           if (ready) void save();
         }}>
-        <h2 id="pin-heading">{t.pinHeading}</h2>
-        <p className="muted">{t.pinBody}</p>
-        {pinSet !== null && <p className={pinSet ? 'notice' : 'notice warning'}>{pinSet ? t.pinSet : t.pinNotSet}</p>}
+        <div>
+          <h2 id="pin-heading">{t.pinHeading}</h2>
+          <p className="muted">{t.pinBody}</p>
+        </div>
+        {pinSet !== null && (
+          <p className={pinSet ? 'callout' : 'notice warning'}>
+            <Icon name={pinSet ? 'info' : 'warning'} />
+            {pinSet ? t.pinSet : t.pinNotSet}
+          </p>
+        )}
         <div className="field">
           <label htmlFor="pin">{t.newPin(ADMIN_PIN_DIGITS)}</label>
-          <input
+          <SecretInput
             id="pin"
-            type="password"
             inputMode="numeric"
             autoComplete="off"
             maxLength={ADMIN_PIN_DIGITS}
             value={pin}
+            showLabel={t.showPin}
+            hideLabel={t.hidePin}
             onChange={(event) => {
               setPin(digitsOnly(event.target.value));
               setSaved(false);
@@ -86,35 +105,48 @@ export function Settings({ api, email }: { api: ConsoleApi; email: string }) {
         </div>
         <div className="field">
           <label htmlFor="pin-again">{t.pinAgain}</label>
-          <input
+          <SecretInput
             id="pin-again"
-            type="password"
             inputMode="numeric"
             autoComplete="off"
             maxLength={ADMIN_PIN_DIGITS}
             value={again}
+            showLabel={t.showPin}
+            hideLabel={t.hidePin}
             onChange={(event) => {
               setAgain(digitsOnly(event.target.value));
               setSaved(false);
             }}
           />
         </div>
-        {problem && <p className="notice warning">{problem}</p>}
+        {problem && (
+          <p className="notice warning">
+            <Icon name="warning" />
+            {problem}
+          </p>
+        )}
         {error && (
           <p className="notice error" role="alert">
+            <Icon name="error" />
             {errorText(error)}
           </p>
         )}
         {saved && (
           <p className="notice ok" role="status">
+            <Icon name="checkCircle" />
             {t.pinSaved}
           </p>
         )}
-        <button type="submit" className="button primary" disabled={busy || !ready}>
-          {busy ? text.registrations.saving : t.savePin}
-        </button>
+        <div className="actions">
+          <button type="submit" className="button primary" disabled={busy || !ready}>
+            {busy ? text.registrations.saving : t.savePin}
+          </button>
+          <button type="button" className="button text" disabled={busy || (pin === '' && again === '')} onClick={clear}>
+            {t.clear}
+          </button>
+        </div>
       </form>
       {email && <p className="muted small">{t.account(email)}</p>}
-    </section>
+    </>
   );
 }

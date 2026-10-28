@@ -3,6 +3,9 @@ import { useState } from 'react';
 
 import { strings } from '@/strings';
 
+import { Icon } from './Icon';
+import { SecretInput } from './SecretInput';
+
 const text = strings.adminConsole;
 
 // The admin account's email and password (D4: one account, made in Supabase; admin/README.md)
@@ -29,40 +32,52 @@ export function SignIn({ client }: { client: SupabaseClient }) {
   }
 
   return (
-    <main className="page narrow signin">
-      <h1 className="brand">{text.title}</h1>
-      <form
-        className="card"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void signIn();
-        }}>
-        <h2>{text.signIn.heading}</h2>
-        <p className="muted">{text.signIn.body}</p>
-        <div className="field">
-          <label htmlFor="email">{text.signIn.email}</label>
-          <input id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} />
+    <main className="signin-page">
+      <div className="signin">
+        <div className="signin-brand">
+          <span className="logo large">
+            <Icon name="vehicle" size={28} />
+          </span>
+          <h1>{text.title}</h1>
+          <p className="muted">{text.signIn.place}</p>
         </div>
-        <div className="field">
-          <label htmlFor="password">{text.signIn.password}</label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </div>
-        {error && (
-          <p className="notice error" role="alert">
-            {error}
-          </p>
-        )}
-        <button type="submit" className="button primary" disabled={busy}>
-          {busy ? text.signIn.busy : text.signIn.submit}
-        </button>
-      </form>
+        <form
+          className="card form-card"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void signIn();
+          }}>
+          <div>
+            <h2>{text.signIn.heading}</h2>
+            <p className="muted">{text.signIn.body}</p>
+          </div>
+          {error && (
+            <p className="notice error" role="alert">
+              <Icon name="error" />
+              {error}
+            </p>
+          )}
+          <div className="field">
+            <label htmlFor="email">{text.signIn.email}</label>
+            <input id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="password">{text.signIn.password}</label>
+            <SecretInput
+              id="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              showLabel={text.signIn.showPassword}
+              hideLabel={text.signIn.hidePassword}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </div>
+          <button type="submit" className="button primary block" disabled={busy}>
+            {busy ? text.signIn.busy : text.signIn.submit}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }
