@@ -12,6 +12,9 @@
   --control: #c3c6d6;
   --tableHead: #eef1f5;
   --primaryHover: #0947b0;
+  /* Loading placeholders and the light band that sweeps across them */
+  --skeleton: #d9d9d9;
+  --skeletonShine: #ebebeb;
   --sidebar: 248px;
 }
 
@@ -1342,54 +1345,47 @@ tbody tr:hover td {
   }
 }
 
-/* Loading placeholders (Drivers) */
+/* Loading placeholders (Drivers), after the owner's reference (2026-10-28): neutral grey pills and
+   a lighter band sweeping across them, left to right */
 
 .skeleton {
   display: block;
-  border-radius: 6px;
-  background: linear-gradient(90deg, var(--surfaceHigh) 25%, var(--surface) 50%, var(--surfaceHigh) 75%) 0 0 / 200% 100%;
-  animation: shimmer 1.4s linear infinite;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(100deg, var(--skeleton) 40%, var(--skeletonShine) 50%, var(--skeleton) 60%) 150% 0 / 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
 }
 
-.skeleton.box {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+.skeleton.circle {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.skeleton.title {
+  width: 200px;
+  height: 18px;
+}
+
+.skeleton.subtitle {
+  width: min(360px, 100%);
 }
 
 .skeleton.field {
   width: 220px;
   height: 38px;
-  border-radius: 8px;
 }
 
-.skeleton.line {
-  height: 12px;
-}
-
-.skeleton.line.wide {
-  width: 180px;
-  height: 16px;
-}
-
-.skeleton.line.short {
-  width: 40px;
-}
-
-.skeleton.button-shape {
+.skeleton.pill-button {
   justify-self: end;
-  width: 160px;
+  width: 170px;
   height: 38px;
-  border-radius: 8px;
 }
 
 .skeleton-lines {
   display: grid;
-  gap: 8px;
-}
-
-.skeleton-lines .line:not(.wide) {
-  width: min(380px, 100%);
+  gap: 10px;
 }
 
 .skeleton-row {
@@ -1407,7 +1403,7 @@ tbody tr:hover td {
 
 @keyframes shimmer {
   to {
-    background-position: -200% 0;
+    background-position: -50% 0;
   }
 }
 

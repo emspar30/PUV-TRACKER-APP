@@ -189,30 +189,34 @@ export function Drivers({ api, registrations }: { api: ConsoleApi; registrations
   );
 }
 
-// The shape of the table while the first load is on its way
-const SKELETON_ROWS = 4;
+// The shape of the table while the first load is on its way. The bars' lengths (percent of each
+// column) vary from row to row, as real plates, numbers and dates do.
+const SKELETON_ROWS = [
+  [70, 80, 50, 85, 75],
+  [60, 70, 50, 75, 65],
+  [75, 80, 50, 80, 70],
+  [65, 70, 50, 70, 75],
+];
 
 function DriversSkeleton() {
   return (
     <div className="card table-card" aria-busy="true">
       <span className="visually-hidden">{text.loading}</span>
       <div className="table-toolbar" aria-hidden="true">
-        <span className="skeleton box" />
+        <span className="skeleton circle" />
         <div className="toolbar-text skeleton-lines">
-          <span className="skeleton line wide" />
-          <span className="skeleton line" />
+          <span className="skeleton title" />
+          <span className="skeleton subtitle" />
         </div>
         <span className="skeleton field" />
       </div>
-      <div className="skeleton-rows" aria-hidden="true">
-        {Array.from({ length: SKELETON_ROWS }, (_, index) => (
-          <div key={index} className="skeleton-row">
-            <span className="skeleton line" />
-            <span className="skeleton line" />
-            <span className="skeleton line short" />
-            <span className="skeleton line" />
-            <span className="skeleton line" />
-            <span className="skeleton button-shape" />
+      <div aria-hidden="true">
+        {SKELETON_ROWS.map((widths, row) => (
+          <div key={row} className="skeleton-row">
+            {widths.map((width, column) => (
+              <span key={column} className="skeleton" style={{ width: `${width}%` }} />
+            ))}
+            <span className="skeleton pill-button" />
           </div>
         ))}
       </div>
