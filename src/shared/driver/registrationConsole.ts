@@ -56,10 +56,5 @@ export function rejectionReason(text: string): string | null {
   return reason.length > 0 && reason.length <= REGISTRATION_REASON_MAX_CHARS ? reason : null;
 }
 
-const PH_E164 = /^\+63(9\d{2})(\d{3})(\d{4})$/;
-
-// +639171234567 as 0917 123 4567, the way the number is written on a phone; anything else as given
-export function localPhNumber(e164: string): string {
-  const parts = PH_E164.exec(e164);
-  return parts ? `0${parts[1]} ${parts[2]} ${parts[3]}` : e164;
-}
+// The local way of writing a number, shared with the driver app
+export { localPhNumber } from './phone';

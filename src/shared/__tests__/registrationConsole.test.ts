@@ -1,4 +1,5 @@
 import { REGISTRATION_REASON_MAX_CHARS } from '../config';
+import { localPhDigits, normalizePhNumber } from '../driver/phone';
 import { localPhNumber, photosLeft, rejectionReason, splitRegistrations, type ConsoleRegistration } from '../driver/registrationConsole';
 
 // DRG5: the admin console's rules (src/shared/driver/registrationConsole.ts)
@@ -80,5 +81,17 @@ describe('localPhNumber', () => {
   it('leaves anything else as given', () => {
     expect(localPhNumber('+12025550123')).toBe('+12025550123');
     expect(localPhNumber('')).toBe('');
+  });
+});
+
+describe('localPhDigits', () => {
+  it('gives the saved number back as the driver typed it, starting 09', () => {
+    expect(localPhDigits('+639951546412')).toBe('09951546412');
+    expect(normalizePhNumber(localPhDigits('+639951546412'))).toBe('+639951546412');
+  });
+
+  it('leaves anything else (or nothing saved) as given', () => {
+    expect(localPhDigits('')).toBe('');
+    expect(localPhDigits('0917')).toBe('0917');
   });
 });

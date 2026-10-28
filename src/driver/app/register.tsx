@@ -32,7 +32,7 @@ import { OptionRow } from '@/components/OptionRow';
 import { LineBadge } from '@/components/Pills';
 import { StepHeader } from '@/components/StepHeader';
 import { REGISTRATION_PHOTO_QUALITY, REGISTRATION_STATUS_POLL_S } from '@/shared/config';
-import { normalizePhNumber } from '@/shared/driver/phone';
+import { localPhDigits, localPhNumber, normalizePhNumber } from '@/shared/driver/phone';
 import { normalizePlate } from '@/shared/driver/registration';
 import { checkFresh, mayCollect, mustRegisterAgain, pickPictureSize, resumeStep, waitingStatus, type WaitingStatus } from '@/shared/driver/registrationFlow';
 import { strings } from '@/strings';
@@ -162,7 +162,7 @@ export default function Register() {
             {/* One Edit, top right: it goes back through the number, the plate and route, and the photos,
                 each filled in, to this page */}
             <View style={styles.reviewHead}>
-              <Row label={text.reviewNumber} value={progress.phone ?? ''} />
+              <Row label={text.reviewNumber} value={localPhNumber(progress.phone ?? '')} />
               <Pressable
                 style={styles.edit}
                 onPress={() => go({ kind: 'number' })}
@@ -282,7 +282,8 @@ function NumberStep({ onChecked }: { onChecked: () => void }) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const text = strings.driver.register;
-  const [number, setNumber] = useState(useRegistrationStore.getState().phone ?? '');
+  // The saved number (E.164) shown back the way it was typed, 09…
+  const [number, setNumber] = useState(localPhDigits(useRegistrationStore.getState().phone ?? ''));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
