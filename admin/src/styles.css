@@ -1345,22 +1345,22 @@ tbody tr:hover td {
   }
 }
 
-/* Loading placeholders (Drivers), after the owner's reference (2026-10-28): neutral grey pills and
-   a lighter band sweeping across them, left to right */
+/* Loading placeholders (Drivers), after the owner's reference (2026-10-28): neutral grey rounded
+   rectangles and a lighter band sweeping across them, left to right */
 
 .skeleton {
   display: block;
   height: 14px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: linear-gradient(100deg, var(--skeleton) 40%, var(--skeletonShine) 50%, var(--skeleton) 60%) 150% 0 / 200% 100%;
   animation: shimmer 1.6s ease-in-out infinite;
 }
 
-.skeleton.circle {
+.skeleton.box {
   flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
 }
 
 .skeleton.title {
@@ -1375,12 +1375,14 @@ tbody tr:hover td {
 .skeleton.field {
   width: 220px;
   height: 38px;
+  border-radius: 8px;
 }
 
-.skeleton.pill-button {
+.skeleton.button-shape {
   justify-self: end;
   width: 170px;
   height: 38px;
+  border-radius: 8px;
 }
 
 .skeleton-lines {

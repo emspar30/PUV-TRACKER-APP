@@ -203,7 +203,7 @@ function DriversSkeleton() {
     <div className="card table-card" aria-busy="true">
       <span className="visually-hidden">{text.loading}</span>
       <div className="table-toolbar" aria-hidden="true">
-        <span className="skeleton circle" />
+        <span className="skeleton box" />
         <div className="toolbar-text skeleton-lines">
           <span className="skeleton title" />
           <span className="skeleton subtitle" />
@@ -216,7 +216,7 @@ function DriversSkeleton() {
             {widths.map((width, column) => (
               <span key={column} className="skeleton" style={{ width: `${width}%` }} />
             ))}
-            <span className="skeleton pill-button" />
+            <span className="skeleton button-shape" />
           </div>
         ))}
       </div>
