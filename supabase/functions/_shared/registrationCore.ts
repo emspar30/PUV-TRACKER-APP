@@ -4,31 +4,36 @@
 //
 // They are served by one Edge Function, driver-registration (handleDriverRegistration). The driver
 // app calls it without an account (it has none), with a JSON body { action, ... }:
-//   registering  start  { phone }                        a number check SMS is queued
-//                verify { phone, code }                  the check id and two photo upload links
+//   registering  start  { phone }                        the check id and two photo upload links
 //                submit { check, plate, route }          a pending registration, and its install token
 //   setup        status  { token }                       pending, approved, rejected (reason), ...
 //                collect { token }                       the setup, once (the QR's payload)
 // The install token is made here at submission and returned once, to the submitting phone only (the
 // app has no secure random source of its own); the server keeps only its SHA-256. The database functions
 // (20261027000000_driver_registration.sql) enforce the limits; a refusal comes back as its reason.
+//
+// The number is taken as typed: no SMS checks it (owner decision, 2026-10-28). "start" still goes
+// through the database's number check, with a code it confirms at once and a text that expires before
+// the gateway could send it, so the check row keeps carrying the photo folder, the daily limits and
+// the hour within which the registration must be submitted.
 
 import { normalizePhNumber } from './phone.ts';
-import { checkText, encodeCheckData, isCheckCode, isInstallToken, isRouteCode, normalizePlate } from './registrationRules.ts';
+import { checkText, isInstallToken, isRouteCode, normalizePlate } from './registrationRules.ts';
 import {
   PROVISIONING_QR_TTL_MIN,
   REGISTRATION_CHECK_MAX_TRIES,
-  REGISTRATION_CHECK_RESEND_MIN,
   REGISTRATION_CHECK_TTL_MIN,
   REGISTRATION_CHECKS_PER_DAY,
   REGISTRATION_CHECKS_PER_NUMBER_PER_DAY,
   REGISTRATION_SETUP_TTL_DAYS,
   REGISTRATION_SUBMIT_WITHIN_MIN,
-  REGISTRATION_TEST_PHONE_PREFIX,
 } from './serverConfig.ts';
 
 const MS_PER_S = 1000;
 const S_PER_MIN = 60;
+// No wait between two starts for the same number, and no text: nothing is sent
+const NO_RESEND_WAIT_MIN = 0;
+const NO_SMS_TTL_MIN = 0;
 const BODY_MAX_BYTES = 4096;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -93,16 +98,12 @@ export type DriverSetupPayload = {
 // check_not_verified, not_approved, ...); any other error is a server error.
 export type RegistrationDeps = {
   nowMs(): number;
-  // How the gateway sends the number check (the worker's SMS_PRIMARY_ENCODING)
-  encoding: SmsEncoding;
   // Six random digits
   newCode(): string;
   // 32 random bytes as base64url (43 characters)
   newToken(): string;
   sha256Hex(text: string): Promise<string>;
   startCheck(args: CheckStartArgs): Promise<void>;
-  // When the newest number check to this number was made, or null if none (for the too_soon countdown)
-  lastCheckAtMs(phone: string): Promise<number | null>;
   // The check id on a match, or null
   verifyCheck(phone: string, code: string, maxTries: number): Promise<string | null>;
   // Short-lived upload links for the check's two photos
@@ -150,12 +151,11 @@ function readBody(request: RegistrationRequest): Record<string, unknown> | Regis
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
 
-function toBase64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes));
-}
-
 // --- driver-register
 
+// Records the typed number (see the top of this file: no SMS) and returns the check id with its two
+// photo upload links. The daily limits still apply: per number and in total, they bound how often the
+// photo bucket can be written to.
 async function start(body: Record<string, unknown>, deps: RegistrationDeps): Promise<RegistrationResponse> {
   const phone = normalizePhNumber(text(body.phone));
   if (!phone) return refused(HTTP_BAD_REQUEST, 'invalid_number');
@@ -165,50 +165,26 @@ async function start(body: Record<string, unknown>, deps: RegistrationDeps): Pro
       deps.startCheck({
         phone,
         code,
-        encoding: deps.encoding,
+        encoding: 'text',
         bodyText: checkText(code),
-        bodyB64: deps.encoding === 'data' ? toBase64(encodeCheckData(code)) : null,
+        bodyB64: null,
         ttlMin: REGISTRATION_CHECK_TTL_MIN,
-        // The live tests' made-up numbers are never texted
-        smsTtlMin: phone.startsWith(REGISTRATION_TEST_PHONE_PREFIX) ? 0 : REGISTRATION_CHECK_TTL_MIN,
-        resendMin: REGISTRATION_CHECK_RESEND_MIN,
+        smsTtlMin: NO_SMS_TTL_MIN,
+        resendMin: NO_RESEND_WAIT_MIN,
         perNumber: REGISTRATION_CHECKS_PER_NUMBER_PER_DAY,
         perDay: REGISTRATION_CHECKS_PER_DAY,
       }),
     {
-      too_soon: refused(HTTP_TOO_MANY, 'too_soon'),
       number_limit: refused(HTTP_TOO_MANY, 'number_limit'),
       daily_limit: refused(HTTP_TOO_MANY, 'daily_limit'),
       invalid_number: refused(HTTP_BAD_REQUEST, 'invalid_number'),
     },
   );
-  if (isResponse(result)) return result.body.error === 'too_soon' ? withRetryAfter(result, phone, deps) : result;
-  return ok({ phone, codeValidS: REGISTRATION_CHECK_TTL_MIN * S_PER_MIN, resendAfterS: REGISTRATION_CHECK_RESEND_MIN * S_PER_MIN });
-}
-
-// Seconds until a number can be sent another check, given its newest one (at least 1: the database
-// just refused it)
-export function secondsUntilResend(lastCheckAtMs: number, nowMs: number): number {
-  return Math.max(1, Math.ceil((lastCheckAtMs + REGISTRATION_CHECK_RESEND_MIN * S_PER_MIN * MS_PER_S - nowMs) / MS_PER_S));
-}
-
-// A too_soon refusal also says how long is left, so the app can count down. Without it (the newest
-// check could not be read) the refusal stands as it is.
-async function withRetryAfter(refusal: RegistrationResponse, phone: string, deps: RegistrationDeps): Promise<RegistrationResponse> {
-  const last = await deps.lastCheckAtMs(phone).catch(() => null);
-  if (last === null) return refusal;
-  return { status: refusal.status, body: { ...refusal.body, retryAfterS: secondsUntilResend(last, deps.nowMs()) } };
-}
-
-async function verify(body: Record<string, unknown>, deps: RegistrationDeps): Promise<RegistrationResponse> {
-  const phone = normalizePhNumber(text(body.phone));
-  if (!phone) return refused(HTTP_BAD_REQUEST, 'invalid_number');
-  const code = text(body.code);
-  if (!isCheckCode(code)) return refused(HTTP_BAD_REQUEST, 'wrong_code');
+  if (isResponse(result)) return result;
   const check = await deps.verifyCheck(phone, code, REGISTRATION_CHECK_MAX_TRIES);
-  if (!check) return refused(HTTP_BAD_REQUEST, 'wrong_code');
+  if (!check) throw new Error('the new number check did not confirm');
   const uploads = await deps.uploadLinks(check);
-  return ok({ check, uploads, submitWithinS: REGISTRATION_SUBMIT_WITHIN_MIN * S_PER_MIN });
+  return ok({ phone, check, uploads, submitWithinS: REGISTRATION_SUBMIT_WITHIN_MIN * S_PER_MIN });
 }
 
 async function submit(body: Record<string, unknown>, deps: RegistrationDeps): Promise<RegistrationResponse> {
@@ -237,8 +213,6 @@ export async function handleRegister(request: RegistrationRequest, deps: Registr
   switch (body.action) {
     case 'start':
       return start(body, deps);
-    case 'verify':
-      return verify(body, deps);
     case 'submit':
       return submit(body, deps);
     default:

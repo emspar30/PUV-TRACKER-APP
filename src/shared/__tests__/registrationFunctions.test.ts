@@ -7,15 +7,12 @@ import {
   handleDriverRegistration,
   handleRegister,
   handleSetup,
-  secondsUntilResend,
   type CheckStartArgs,
   type CollectedSetup,
   type RegistrationDeps,
   type SubmitArgs,
 } from '../../../supabase/functions/_shared/registrationCore';
-import { CHECK_TEXT_PREFIX, decodeCheckData, readCheckCode } from '../driver/registration';
 import { encodeProvisioning, parseProvisioning } from '../driver/provisioning';
-import { HEATMAP_TEXT_PREFIX } from '../sms/protocol';
 
 // Made-up test values only
 const NOW = Date.UTC(2026, 9, 27, 2, 0);
@@ -44,14 +41,12 @@ function fake(overrides: Partial<RegistrationDeps> = {}): Fake {
     started,
     submitted,
     nowMs: () => NOW,
-    encoding: 'data',
     newCode: () => '042917',
     newToken: () => TOKEN,
     sha256Hex: async (text) => createHash('sha256').update(text).digest('hex'),
     startCheck: async (args) => {
       started.push(args);
     },
-    lastCheckAtMs: async () => null,
     verifyCheck: async (_phone, code) => (code === '042917' ? CHECK : null),
     uploadLinks: async (check) => ({ id: `https://upload/${check}/id.jpg`, vehicle: `https://upload/${check}/vehicle.jpg` }),
     submit: async (args) => {
@@ -80,81 +75,52 @@ describe('requests', () => {
   });
 });
 
-describe('driver-register start', () => {
-  it('queues a data check for the number in E.164, with the limits of D6', async () => {
+describe('driver-register start (the number as typed, no SMS)', () => {
+  it('records the number in E.164 with the limits of D6, confirms it at once and gives the two upload links', async () => {
     const deps = fake();
     const response = await handleRegister(post({ action: 'start', phone: '0917 123 4567' }), deps);
-    expect(response).toEqual({ status: 200, body: { ok: true, phone: '+639171234567', codeValidS: 600, resendAfterS: 600 } });
-    const [args] = deps.started;
-    expect(args).toMatchObject({ phone: '+639171234567', code: '042917', encoding: 'data', bodyText: 'HM2|V|042917', ttlMin: 10, smsTtlMin: 10, resendMin: 10, perNumber: 3, perDay: 20 });
-    expect(decodeCheckData(Uint8Array.from(Buffer.from(args.bodyB64!, 'base64')))).toBe('042917');
-    expect(readCheckCode({ kind: 'data', body: Buffer.from(args.bodyB64!, 'base64').toString('hex') })).toBe('042917');
+    expect(response).toEqual({
+      status: 200,
+      body: {
+        ok: true,
+        phone: '+639171234567',
+        check: CHECK,
+        uploads: { id: `https://upload/${CHECK}/id.jpg`, vehicle: `https://upload/${CHECK}/vehicle.jpg` },
+        submitWithinS: 3600,
+      },
+    });
+    expect(deps.started[0]).toMatchObject({ phone: '+639171234567', code: '042917', perNumber: 3, perDay: 20 });
   });
 
-  it('queues a text check when the gateway sends text, under the prefix the driver app already keeps', async () => {
-    const deps = fake({ encoding: 'text' });
-    await handleRegister(post({ action: 'start', phone: '+639171234567' }), deps);
-    expect(deps.started[0]).toMatchObject({ encoding: 'text', bodyText: 'HM2|V|042917', bodyB64: null });
-    expect(CHECK_TEXT_PREFIX.startsWith(HEATMAP_TEXT_PREFIX)).toBe(true);
-  });
-
-  it('never texts the live tests\' made-up numbers', async () => {
+  it('sends no text: the check\'s SMS expires at once, and there is no wait between two starts', async () => {
     const deps = fake();
-    await handleRegister(post({ action: 'start', phone: '+639990001001' }), deps);
-    expect(deps.started[0].smsTtlMin).toBe(0);
+    await handleRegister(post({ action: 'start', phone: '+639171234567' }), deps);
+    expect(deps.started[0]).toMatchObject({ smsTtlMin: 0, resendMin: 0, encoding: 'text', bodyB64: null });
   });
 
-  it('refuses a number that is not a Philippine mobile number, before anything is queued', async () => {
+  it('refuses a number that is not a Philippine mobile number, before anything is recorded', async () => {
     const deps = fake();
     expect((await handleRegister(post({ action: 'start', phone: '12345' }), deps)).body.error).toBe('invalid_number');
     expect((await handleRegister(post({ action: 'start' }), deps)).body.error).toBe('invalid_number');
     expect(deps.started).toEqual([]);
   });
 
-  it.each(['too_soon', 'number_limit', 'daily_limit'])('answers the database refusal %s with 429', async (reason) => {
+  it.each(['number_limit', 'daily_limit'])('answers the database refusal %s with 429', async (reason) => {
     const response = await handleRegister(post({ action: 'start', phone: '09171234567' }), fake({ startCheck: refusing(reason) }));
     expect(response).toEqual({ status: 429, body: { ok: false, error: reason } });
   });
 
-  it('says how many seconds are left when a check comes too soon, so the app can count down', async () => {
-    const lastCheckAtMs = async () => NOW - 200_000;
-    const response = await handleRegister(post({ action: 'start', phone: '09171234567' }), fake({ startCheck: refusing('too_soon'), lastCheckAtMs }));
-    expect(response).toEqual({ status: 429, body: { ok: false, error: 'too_soon', retryAfterS: 400 } });
-  });
-
-  it('keeps the plain too_soon refusal when the newest check cannot be read', async () => {
-    const response = await handleRegister(
-      post({ action: 'start', phone: '09171234567' }),
-      fake({ startCheck: refusing('too_soon'), lastCheckAtMs: refusing('connection lost') }),
-    );
-    expect(response).toEqual({ status: 429, body: { ok: false, error: 'too_soon' } });
-  });
-
-  it('counts the seconds to the next allowed check, never below 1', () => {
-    expect(secondsUntilResend(NOW, NOW)).toBe(600);
-    expect(secondsUntilResend(NOW - 599_500, NOW)).toBe(1);
-    expect(secondsUntilResend(NOW - 700_000, NOW)).toBe(1);
-  });
-
-  it('lets any other database error through as a server error', async () => {
+  it('lets any other database error through as a server error, including a check that does not confirm', async () => {
     await expect(handleRegister(post({ action: 'start', phone: '09171234567' }), fake({ startCheck: refusing('connection lost') }))).rejects.toThrow('connection lost');
+    await expect(handleRegister(post({ action: 'start', phone: '09171234567' }), fake({ verifyCheck: async () => null }))).rejects.toThrow();
+  });
+
+  it('has no verify action any more', async () => {
+    expect((await handleRegister(post({ action: 'verify', phone: '09171234567', code: '042917' }), fake())).body.error).toBe('unknown_action');
   });
 });
 
-describe('driver-register verify and submit', () => {
-  it('gives the check and the two upload links for the right code', async () => {
-    const response = await handleRegister(post({ action: 'verify', phone: '09171234567', code: '042917' }), fake());
-    expect(response).toEqual({
-      status: 200,
-      body: { ok: true, check: CHECK, uploads: { id: `https://upload/${CHECK}/id.jpg`, vehicle: `https://upload/${CHECK}/vehicle.jpg` }, submitWithinS: 3600 },
-    });
-  });
-
-  it('refuses a wrong or malformed code the same way', async () => {
-    expect((await handleRegister(post({ action: 'verify', phone: '09171234567', code: '000000' }), fake())).body.error).toBe('wrong_code');
-    expect((await handleRegister(post({ action: 'verify', phone: '09171234567', code: '42' }), fake())).body.error).toBe('wrong_code');
-  });
-
+describe('driver-register submit', () => {
   it('submits the plate in its stored form and the route, stores only the hash of the token it makes, and returns the token once', async () => {
     const deps = fake();
     const response = await handleRegister(post({ action: 'submit', check: CHECK, plate: 'abc-1234', route: 'R4' }), deps);

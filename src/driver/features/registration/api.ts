@@ -5,10 +5,9 @@ import { encodeProvisioning, parseProvisioning, type DriverProvisioning } from '
 // driver-registration Edge Function, with a plain fetch and the publishable key. The driver app has
 // no Supabase library and no account. Every call answers { ok: true, ... } or { ok: false, error }:
 // the function's refusal (too_soon, wrong_code, ...), or offline (no answer), not_configured (a
-// build without the project's address) or server_error. A too_soon refusal also says how many seconds
-// are left (retryAfterS), when the server knows.
+// build without the project's address) or server_error.
 
-export type ApiResult<T> = ({ ok: true } & T) | { ok: false; error: string; retryAfterS?: number };
+export type ApiResult<T> = ({ ok: true } & T) | { ok: false; error: string };
 
 const BASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const KEY = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -28,8 +27,7 @@ export async function callRegistration<T>(body: Record<string, unknown>): Promis
     const parsed = (await response.json().catch(() => null)) as Record<string, unknown> | null;
     if (parsed && parsed.ok === true) return parsed as { ok: true } & T;
     const error = parsed && typeof parsed.error === 'string' ? parsed.error : 'server_error';
-    const retryAfterS = parsed && typeof parsed.retryAfterS === 'number' && parsed.retryAfterS > 0 ? parsed.retryAfterS : undefined;
-    return retryAfterS === undefined ? { ok: false, error } : { ok: false, error, retryAfterS };
+    return { ok: false, error };
   } catch {
     return { ok: false, error: 'offline' };
   } finally {
@@ -37,10 +35,9 @@ export async function callRegistration<T>(body: Record<string, unknown>): Promis
   }
 }
 
-export const startCheck = (phone: string) => callRegistration<{ phone: string; codeValidS: number; resendAfterS: number }>({ action: 'start', phone });
-
-export const verifyCheck = (phone: string, code: string) =>
-  callRegistration<{ check: string; uploads: { id: string; vehicle: string }; submitWithinS: number }>({ action: 'verify', phone, code });
+// The typed number (no SMS checks it, owner 2026-10-28): the check id and the two photo upload links
+export const startRegistration = (phone: string) =>
+  callRegistration<{ phone: string; check: string; uploads: { id: string; vehicle: string }; submitWithinS: number }>({ action: 'start', phone });
 
 export const submitRegistration = (check: string, plate: string, route: string) =>
   callRegistration<{ plate: string; route: string; token: string }>({ action: 'submit', check, plate, route });

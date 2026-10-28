@@ -31,10 +31,10 @@ import { Card } from '@/components/Card';
 import { OptionRow } from '@/components/OptionRow';
 import { LineBadge } from '@/components/Pills';
 import { StepHeader } from '@/components/StepHeader';
-import { REGISTRATION_CHECK_RESEND_MIN, REGISTRATION_PHOTO_QUALITY, REGISTRATION_STATUS_POLL_S } from '@/shared/config';
+import { REGISTRATION_PHOTO_QUALITY, REGISTRATION_STATUS_POLL_S } from '@/shared/config';
 import { normalizePhNumber } from '@/shared/driver/phone';
-import { isCheckCode, normalizePlate } from '@/shared/driver/registration';
-import { mayCollect, mustRegisterAgain, pickPictureSize, resumeStep, waitingStatus, type WaitingStatus } from '@/shared/driver/registrationFlow';
+import { normalizePlate } from '@/shared/driver/registration';
+import { checkFresh, mayCollect, mustRegisterAgain, pickPictureSize, resumeStep, waitingStatus, type WaitingStatus } from '@/shared/driver/registrationFlow';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
@@ -43,8 +43,8 @@ import { requestBeaconPermissions } from '../features/beacon/beacon';
 import { ensureInboxConfigured } from '../features/heatmap/inbox';
 import { driverRoute, driverRouteCodes } from '../features/heatmap/routeStops';
 import { requestSmsPermission } from '../features/heatmap/smsPermission';
-import { collectSetup, registrationStatus, startCheck, submitRegistration, verifyCheck } from '../features/registration/api';
-import { uploadPhoto, watchForCheckCode } from '../features/registration/device';
+import { collectSetup, registrationStatus, startRegistration, submitRegistration } from '../features/registration/api';
+import { uploadPhoto } from '../features/registration/device';
 import { applySetup, setupBlock } from '../features/setup/applySetup';
 import { useRegistrationStore } from '../state/registrationStore';
 
@@ -77,7 +77,6 @@ const FIX_ICON = spacing.md + spacing.xs;
 const FIX_NUMBER = spacing.lg + spacing.xs;
 const ICON_SIZE = spacing.lg;
 const MS_PER_S = 1000;
-const MS_PER_MIN = 60000;
 
 const errorText = (error: string) => strings.driver.register.errors[error] ?? strings.driver.register.errors.unknown;
 
@@ -261,157 +260,50 @@ function PermissionsActions({ denied, onAllow }: { denied: 'nearby' | 'sms' | nu
   );
 }
 
-// --- The number, checked by one text the app reads by itself
+// --- The number, as typed (no SMS checks it: owner decision, 2026-10-28)
 
 function NumberStep({ onChecked }: { onChecked: () => void }) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const text = strings.driver.register;
   const [number, setNumber] = useState(useRegistrationStore.getState().phone ?? '');
-  const [phone, setPhone] = useState<string | null>(null);
-  const [sentAtMs, setSentAtMs] = useState<number | null>(null);
-  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  // When the server refused a check as too soon: the time it allows the next one
-  const [waitUntilMs, setWaitUntilMs] = useState<number | null>(null);
-  const checking = useRef(false);
 
-  const verify = useCallback(
-    async (target: string, found: string) => {
-      if (checking.current) return;
-      checking.current = true;
-      setBusy(true);
-      const result = await verifyCheck(target, found);
-      checking.current = false;
-      setBusy(false);
-      if (!result.ok) {
-        setError(errorText(result.error));
-        return;
-      }
-      useRegistrationStore.getState().setChecked(target, result.check, result.uploads, Date.now());
-      onChecked();
-    },
-    [onChecked],
-  );
-
-  // While a check is out: read its code from the inbox, and count down to "Send again"
-  useEffect(() => {
-    if (!phone) return undefined;
-    const stop = watchForCheckCode((found) => void verify(phone, found));
-    const tick = setInterval(() => setNowMs(Date.now()), MS_PER_S);
-    return () => {
-      stop();
-      clearInterval(tick);
-    };
-  }, [phone, verify]);
-
-  // While a too-soon refusal lasts: count down to the time the server gave, then allow sending again
-  useEffect(() => {
-    if (waitUntilMs === null) return undefined;
-    const tick = setInterval(() => {
-      const now = Date.now();
-      setNowMs(now);
-      if (now >= waitUntilMs) setWaitUntilMs(null);
-    }, MS_PER_S);
-    return () => clearInterval(tick);
-  }, [waitUntilMs]);
-
-  const send = async () => {
+  const next = async () => {
     const target = normalizePhNumber(number);
     if (!target) return setError(errorText('invalid_number'));
+    // The same number entered less than an hour ago: keep that start (each start counts against the
+    // daily limits)
+    const saved = useRegistrationStore.getState();
+    if (saved.phone === target && checkFresh(saved, Date.now())) return onChecked();
     setBusy(true);
     setError(null);
-    const result = await startCheck(target);
+    const result = await startRegistration(target);
     setBusy(false);
-    if (!result.ok) {
-      if (result.error === 'too_soon' && result.retryAfterS) {
-        setWaitUntilMs(Date.now() + result.retryAfterS * MS_PER_S);
-        setNowMs(Date.now());
-        return;
-      }
-      return setError(errorText(result.error));
-    }
-    setWaitUntilMs(null);
-    setPhone(target);
-    setSentAtMs(Date.now());
-    setNowMs(Date.now());
+    if (!result.ok) return setError(errorText(result.error));
+    useRegistrationStore.getState().setChecked(target, result.check, result.uploads, Date.now());
+    onChecked();
   };
-
-  const resendAtMs = sentAtMs === null ? 0 : sentAtMs + REGISTRATION_CHECK_RESEND_MIN * MS_PER_MIN;
-  // Seconds until the next check may go: after this screen's own send, or as the server said
-  const waitS = Math.max(0, Math.ceil(((waitUntilMs ?? 0) - nowMs) / MS_PER_S));
-  const resendIn = Math.max(waitS, Math.ceil((resendAtMs - nowMs) / MS_PER_S));
-  const tooSoon = waitS > 0 ? <Notice tone="warning" icon={Clock} title={text.tooSoon} body={text.tooSoonWait(waitS)} /> : null;
-
-  if (!phone) {
-    return (
-      <>
-        <Intro title={text.numberTitle} body={text.numberBody} />
-        <View style={styles.input}>
-          <Smartphone color={colors.textSecondary} size={ICON_SIZE} />
-          <TextInput
-            style={[typography.bodyLg, styles.inputText]}
-            value={number}
-            onChangeText={(value) => {
-              setNumber(value);
-              // The wait belongs to the number that was refused
-              setWaitUntilMs(null);
-            }}
-            placeholder={text.numberPlaceholder}
-            placeholderTextColor={colors.textTertiary}
-            keyboardType="phone-pad"
-            autoComplete="tel"
-            accessibilityLabel={text.numberTitle}
-          />
-        </View>
-        {tooSoon}
-        {error ? <Notice tone="danger" icon={CircleAlert} title={error} /> : null}
-        <Button label={waitS > 0 ? text.sendCodeIn(waitS) : text.sendCode} leadingIcon={Send} disabled={busy || waitS > 0} onPress={() => void send()} />
-      </>
-    );
-  }
 
   return (
     <>
-      <Intro title={text.numberTitle} body={phone} />
-      <Card style={styles.checking}>
-        <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={typography.headlineSm}>{text.waitingCode}</Text>
-        <Text style={[typography.bodyMd, styles.center, styles.muted]}>{text.waitingCodeBody}</Text>
-      </Card>
-      <Text style={[typography.bodyMd, styles.muted]}>{text.typeCode}</Text>
+      <Intro title={text.numberTitle} body={text.numberBody} />
       <View style={styles.input}>
+        <Smartphone color={colors.textSecondary} size={ICON_SIZE} />
         <TextInput
           style={[typography.bodyLg, styles.inputText]}
-          value={code}
-          onChangeText={(value) => setCode(value.replace(/\D/g, ''))}
-          placeholder={text.codePlaceholder}
+          value={number}
+          onChangeText={setNumber}
+          placeholder={text.numberPlaceholder}
           placeholderTextColor={colors.textTertiary}
-          keyboardType="number-pad"
-          maxLength={6}
-          accessibilityLabel={text.codePlaceholder}
+          keyboardType="phone-pad"
+          autoComplete="tel"
+          accessibilityLabel={text.numberTitle}
         />
       </View>
-      {tooSoon}
       {error ? <Notice tone="danger" icon={CircleAlert} title={error} /> : null}
-      <Button label={text.checkCode} disabled={busy || !isCheckCode(code)} onPress={() => void verify(phone, code)} />
-      <Button
-        label={resendIn > 0 ? text.sendAgainIn(resendIn) : text.sendAgain}
-        leadingIcon={RotateCcw}
-        variant="secondary"
-        disabled={busy || resendIn > 0}
-        onPress={() => void send()}
-      />
-      <Button
-        label={text.changeNumber}
-        variant="text"
-        onPress={() => {
-          setPhone(null);
-          setError(null);
-        }}
-      />
+      <Button label={busy ? text.numberSaving : text.next} icon={ArrowRight} disabled={busy} onPress={() => void next()} />
     </>
   );
 }

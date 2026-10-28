@@ -27,8 +27,6 @@ async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
 
 const deps: RegistrationDeps = {
   nowMs: () => Date.now(),
-  // As the worker's SMS_PRIMARY_ENCODING (data unless the gateway SIM needs text, as DITO did)
-  encoding: Deno.env.get('REGISTRATION_SMS_ENCODING') === 'text' ? 'text' : 'data',
   newCode: () => String(crypto.getRandomValues(new Uint32Array(1))[0] % CODE_RANGE).padStart(CODE_DIGITS, '0'),
   newToken: () => btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(TOKEN_BYTES)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
   sha256Hex: async (text) => {
@@ -48,11 +46,6 @@ const deps: RegistrationDeps = {
       per_number: args.perNumber,
       per_day: args.perDay,
     });
-  },
-  lastCheckAtMs: async (phone) => {
-    const { data, error } = await admin.from('registration_checks').select('created_at').eq('phone_e164', phone).order('created_at', { ascending: false }).limit(1);
-    if (error) throw new Error(error.message);
-    return data.length > 0 ? Date.parse(data[0].created_at) : null;
   },
   verifyCheck: (phone, code, maxTries) => rpc<string | null>('registration_check_verify', { phone, code, max_tries: maxTries }),
   uploadLinks: async (check) => {

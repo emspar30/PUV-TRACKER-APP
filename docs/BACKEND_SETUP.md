@@ -152,6 +152,6 @@ Migration `20261027000000_driver_registration.sql`; design in `docs/IMPLEMENTATI
 **Edge Function `driver-registration` (DRG3), deployed 2026-10-27** with
 `npx supabase functions deploy driver-registration --no-verify-jwt --use-api` (no account calls it, so no JWT check; `--use-api`
 bundles on Supabase's side, no Docker). Redeploy the same way after changing `supabase/functions/driver-registration/` or the
-`_shared` files it imports. Number checks go out as data SMS; if the gateway SIM needs text (as DITO did):
-`npx supabase secrets set REGISTRATION_SMS_ENCODING=text`. Live test: `npm run test:live -- tests/integration/driverRegistrationFunction.test.ts`
+`_shared` files it imports. Since 2026-10-28 it sends no number-check SMS (owner), so the old `REGISTRATION_SMS_ENCODING`
+secret is unused. Live test: `npm run test:live -- tests/integration/driverRegistrationFunction.test.ts`
 (made-up number, never texted; removes its rows).

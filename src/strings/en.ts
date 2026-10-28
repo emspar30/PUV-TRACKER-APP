@@ -16,12 +16,6 @@ const WALK_STEP_M = 10;
 const METERS_PER_KM = 1000;
 const SECONDS_PER_MINUTE = 60;
 
-// A countdown as minutes and seconds: "7:05"
-const clock = (seconds: number) => {
-  const whole = Math.max(0, Math.ceil(seconds));
-  return `${Math.floor(whole / SECONDS_PER_MINUTE)}:${String(whole % SECONDS_PER_MINUTE).padStart(2, '0')}`;
-};
-
 // "120 m", to the nearest 10 m, because a walking distance is an estimate
 const meters = (value: number) => {
   if (value < WALK_STEP_M) return 'under 10 m';
@@ -1285,24 +1279,13 @@ export const en = {
       needVehicle: 'Your multicab, to photograph its plate',
       start: 'Register this phone',
       useCode: 'Use a setup code instead',
-      // Permissions first: the number check arrives by text, so text messages must be allowed before it
+      // Permissions first, so nothing is left to allow after approval
       permissionsTitle: 'Allow these first',
-      permissionsBody: 'The phone checks your number with a text message, so text messages come first.',
+      permissionsBody: 'The waiting counts arrive by text message, and the beacon needs Bluetooth. Allow them now, so nothing is left after approval.',
       numberTitle: 'Your mobile number',
-      numberBody: 'The number of the SIM in this phone. Tunton sends it one text to check it.',
+      numberBody: 'The number of the SIM in this phone. The approval and the waiting counts are texted to it, so check it twice.',
       numberPlaceholder: '09XX XXX XXXX',
-      sendCode: 'Send the check',
-      waitingCode: 'Waiting for the text…',
-      waitingCodeBody: 'This takes up to a minute. Keep this screen open.',
-      typeCode: 'Got a text with 6 digits? Type them here.',
-      codePlaceholder: '6 digits',
-      checkCode: 'Check',
-      sendAgain: 'Send again',
-      sendAgainIn: (seconds: number) => `Send again in ${clock(seconds)}`,
-      sendCodeIn: (seconds: number) => `Send the check in ${clock(seconds)}`,
-      tooSoon: 'A check was sent to this number less than 10 minutes ago.',
-      tooSoonWait: (seconds: number) => `You can send another in ${clock(seconds)}.`,
-      changeNumber: 'Change the number',
+      numberSaving: 'Saving…',
       vehicleTitle: 'Your multicab',
       plateLabel: 'Plate number',
       platePlaceholder: 'ABC 1234',
@@ -1356,11 +1339,9 @@ export const en = {
         not_configured: 'This version of the app cannot register. Ask an admin.',
         server_error: 'Something went wrong. Try again in a minute.',
         invalid_number: 'That is not a Philippine mobile number. Use the 11 digits, starting 09.',
-        too_soon: 'A text was sent to this number less than 10 minutes ago. Wait, then send again.',
-        number_limit: 'This number got 3 checks today. Try again tomorrow.',
+        number_limit: 'This number was entered 3 times today. Try again tomorrow.',
         daily_limit: 'Too many registrations today. Try again tomorrow.',
-        wrong_code: 'That code is not right, or it has expired. Send the check again.',
-        check_not_verified: 'It has been over an hour since the number check. Start again.',
+        check_not_verified: 'It has been over an hour since the number was entered. Start again.',
         photos_missing: 'A photo did not arrive. Take it again.',
         invalid_plate: 'Type the plate as on the multicab, letters and numbers.',
         invalid_route: 'Pick your route.',

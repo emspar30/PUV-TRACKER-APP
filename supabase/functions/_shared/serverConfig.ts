@@ -40,22 +40,21 @@ export const PROVISIONING_QR_TTL_MIN = 15;
 // many pixels, as JPEG, and never more than this many bytes. They are deleted at the decision (D1).
 export const REGISTRATION_PHOTO_MAX_PX = 1600;
 export const REGISTRATION_PHOTO_MAX_BYTES = 1_000_000;
-// The number check: a code of this many digits, valid this long and sent again only after this long.
-// Each check is a text from the gateway SIM and anyone can start one, so they are limited per number
-// and in total per Manila day (D6), and a code allows only a few wrong tries.
+// The number check. Since 2026-10-28 (owner) no text is sent: the function confirms its own code at
+// once, so only the limits matter. Anyone can start a registration, and each start opens two photo
+// upload links, so starts are limited per number and in total per Manila day (D6). The code, its
+// lifetime, the resend wait and the wrong tries are kept for the database functions (and the SMS
+// check, should it come back).
 export const REGISTRATION_CODE_DIGITS = 6;
 export const REGISTRATION_CHECK_TTL_MIN = 10;
 export const REGISTRATION_CHECK_RESEND_MIN = 10;
 export const REGISTRATION_CHECK_MAX_TRIES = 5;
 export const REGISTRATION_CHECKS_PER_NUMBER_PER_DAY = 3;
 export const REGISTRATION_CHECKS_PER_DAY = 20;
-// After the number check, the photos and the submission must follow within this long
+// After the number is entered, the photos and the submission must follow within this long
 export const REGISTRATION_SUBMIT_WITHIN_MIN = 60;
 // An approved setup must be collected within this many days, or the driver registers again
 export const REGISTRATION_SETUP_TTL_DAYS = 7;
-// Numbers starting with this are the live tests' made-up numbers: their checks are recorded but
-// never texted
-export const REGISTRATION_TEST_PHONE_PREFIX = '+6399900010';
 // A plate has this many letters and digits (at least one of each); the database allows 16 characters
 export const PLATE_MIN_CHARS = 3;
 export const PLATE_MAX_CHARS = 10;

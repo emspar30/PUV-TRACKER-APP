@@ -2,11 +2,10 @@
 // calls it, against the LIVE project. Skipped, with a printed reason, until .env holds the service role
 // key and the test accounts, and until the function is deployed.
 //
-// It sends no SMS: its number is one of the live tests' made-up numbers, which the function records
-// but never texts (REGISTRATION_TEST_PHONE_PREFIX), and the "approved" notice expires at once. The
-// code is read from the database with the service role, standing in for the phone's inbox. It makes the
-// test account an admin only for the run, restores the admin PIN setting it found, retires the phone it
-// sets up, and removes its rows and photos at the end.
+// It sends no SMS: "start" texts nothing since the number check was dropped (owner, 2026-10-28), its
+// number is made up, and the "approved" notice expires at once. It makes the test account an admin only
+// for the run, restores the admin PIN setting it found, retires the phone it sets up, and removes its
+// rows and photos at the end.
 
 import { randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
@@ -107,24 +106,16 @@ live('DRG3 driver-registration function, live project', () => {
     await writer?.auth.signOut({ scope: 'local' });
   }, TIMEOUT_MS);
 
-  it('starts a number check for a made-up number without texting it', async () => {
+  it('takes the number as typed, texts nothing, and gives two upload links that take a JPEG', async () => {
     if (!deployed) return;
     const started = await call({ action: 'start', phone: '0999 000 1009' });
-    expect(started).toEqual({ status: 200, body: { ok: true, phone: PHONE, codeValidS: 600, resendAfterS: 600 } });
-    const queued = await admin.from('sms_outbox').select('kind, encoding, created_at, expires_at').eq('to_e164', PHONE);
-    expect(queued.data).toHaveLength(1);
-    expect(Date.parse(queued.data![0].expires_at)).toBeLessThanOrEqual(Date.parse(queued.data![0].created_at));
-    expect((await call({ action: 'start', phone: PHONE })).body.error).toBe('too_soon');
-  }, TIMEOUT_MS);
-
-  it('verifies the code and gives two upload links that take a JPEG', async () => {
-    if (!deployed) return;
-    expect((await call({ action: 'verify', phone: PHONE, code: '000000' })).body.error).toBe('wrong_code');
-    const code = ((await admin.from('registration_checks').select('code').eq('phone_e164', PHONE).single()).data as { code: string }).code;
-    const verified = await call({ action: 'verify', phone: PHONE, code });
-    expect(verified.status).toBe(200);
-    check = verified.body.check as string;
-    uploads = verified.body.uploads as typeof uploads;
+    expect(started.status).toBe(200);
+    expect(started.body).toMatchObject({ ok: true, phone: PHONE, submitWithinS: 3600 });
+    const queued = await admin.from('sms_outbox').select('created_at, expires_at').eq('to_e164', PHONE);
+    for (const row of queued.data ?? []) expect(Date.parse(row.expires_at)).toBeLessThanOrEqual(Date.parse(row.created_at));
+    expect((await call({ action: 'verify', phone: PHONE, code: '000000' })).body.error).toBe('unknown_action');
+    check = started.body.check as string;
+    uploads = started.body.uploads as typeof uploads;
     expect(uploads.id).toContain(`/${check}/id.jpg`);
     for (const url of [uploads.id, uploads.vehicle]) {
       const put = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' }, body: JPEG });

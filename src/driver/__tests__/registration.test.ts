@@ -1,14 +1,9 @@
 // DRG4: the driver app's registration wiring (native modules, storage and the network mocked). The
 // flow's rules are tested in src/shared/__tests__/registrationFlow.test.ts and the function's in
-// registrationFunctions.test.ts; this checks the store, the calls to the function, reading the check
-// from the inbox, the photo upload, and setting the phone up from a collected setup.
+// registrationFunctions.test.ts; this checks the store, the calls to the function, the photo upload,
+// and setting the phone up from a collected setup.
 
-import { bytesToHex } from '@noble/hashes/utils.js';
-
-import { encodeCheckData } from '@/shared/driver/registration';
 import type { DriverProvisioning } from '@/shared/driver/provisioning';
-
-import type { InboxEntry } from '../../../modules/tunton-sms';
 
 // jest.mock calls are hoisted above these imports
 
@@ -22,16 +17,10 @@ jest.mock('expo-sqlite/kv-store', () => ({
   },
 }));
 
-const mockInbox: { entries: InboxEntry[]; listener: (() => void) | null } = { entries: [], listener: null };
 jest.mock('../../../modules/tunton-sms', () => ({
   isSmsAvailable: () => true,
   isInboxConfigured: () => true,
   configureInbox: async () => undefined,
-  drainInbox: async () => mockInbox.entries.splice(0),
-  addHeatmapSmsListener: (listener: () => void) => {
-    mockInbox.listener = listener;
-    return { remove: () => (mockInbox.listener = null) };
-  },
 }));
 
 const mockBeacon = { bluetoothOn: true, provisioned: [] as unknown[][], advertising: 0 };
@@ -119,7 +108,6 @@ const answer = (status: number, body: unknown) => fetchMock.mockResolvedValueOnc
 
 beforeEach(() => {
   mockSaved.clear();
-  mockInbox.entries = [];
   mockBeacon.bluetoothOn = true;
   mockBeacon.provisioned = [];
   mockBeacon.advertising = 0;
@@ -133,8 +121,9 @@ beforeEach(() => {
 describe('calls to the registration function', () => {
   it('posts the action with the publishable key, and returns the answer', async () => {
     const { api } = load();
-    answer(200, { ok: true, phone: '+639171234567', codeValidS: 600, resendAfterS: 600 });
-    expect(await api.startCheck('+639171234567')).toEqual({ ok: true, phone: '+639171234567', codeValidS: 600, resendAfterS: 600 });
+    const started = { ok: true, phone: '+639171234567', check: CHECK, uploads: { id: 'https://upload/id', vehicle: 'https://upload/vehicle' }, submitWithinS: 3600 };
+    answer(200, started);
+    expect(await api.startRegistration('+639171234567')).toEqual(started);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('https://project.example/functions/v1/driver-registration');
     expect(init.method).toBe('POST');
@@ -144,17 +133,17 @@ describe('calls to the registration function', () => {
 
   it('passes on the function\'s refusal, and says offline when nothing answers', async () => {
     const { api } = load();
-    answer(429, { ok: false, error: 'too_soon' });
-    expect(await api.startCheck('+639171234567')).toEqual({ ok: false, error: 'too_soon' });
+    answer(429, { ok: false, error: 'number_limit' });
+    expect(await api.startRegistration('+639171234567')).toEqual({ ok: false, error: 'number_limit' });
     fetchMock.mockRejectedValueOnce(new TypeError('Network request failed'));
-    expect(await api.verifyCheck('+639171234567', '042917')).toEqual({ ok: false, error: 'offline' });
+    expect(await api.startRegistration('+639171234567')).toEqual({ ok: false, error: 'offline' });
     fetchMock.mockResolvedValueOnce({ status: 502, json: async () => Promise.reject(new SyntaxError('not JSON')) });
     expect(await api.registrationStatus(TOKEN)).toEqual({ ok: false, error: 'server_error' });
   });
 
   it('cannot register in a build without the project\'s address', async () => {
     const { api } = load(false);
-    expect(await api.startCheck('+639171234567')).toEqual({ ok: false, error: 'not_configured' });
+    expect(await api.startRegistration('+639171234567')).toEqual({ ok: false, error: 'not_configured' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -166,36 +155,6 @@ describe('calls to the registration function', () => {
     expect(await api.collectSetup(TOKEN)).toEqual({ ok: false, error: 'server_error' });
     answer(200, { ok: true, setup: { ...SETUP, exp: 1 } });
     expect(await api.collectSetup(TOKEN)).toEqual({ ok: false, error: 'server_error' });
-  });
-});
-
-describe('the number check from the inbox', () => {
-  const dataEntry = (hex: string): InboxEntry => ({ kind: 'data', sender: '+639171234567', body: hex, smscMs: 0, receivedMs: 0 });
-
-  it('finds the code in a data SMS or a text, once, and drops anything else', async () => {
-    const { device } = load();
-    const found: string[] = [];
-    mockInbox.entries = [dataEntry('48021234'), { ...dataEntry(''), kind: 'text', body: 'HM2|V|042917' }];
-    const stop = device.watchForCheckCode((code) => found.push(code));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    mockInbox.entries = [dataEntry(bytesToHex(encodeCheckData('111111')))];
-    mockInbox.listener?.();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    stop();
-    expect(found).toEqual(['042917']);
-  });
-
-  it('looks again when a new message arrives', async () => {
-    const { device } = load();
-    const found: string[] = [];
-    const stop = device.watchForCheckCode((code) => found.push(code));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    mockInbox.entries = [dataEntry(bytesToHex(encodeCheckData('042917')))];
-    mockInbox.listener?.();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    stop();
-    expect(found).toEqual(['042917']);
-    expect(mockInbox.listener).toBeNull();
   });
 });
 
