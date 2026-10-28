@@ -71,6 +71,12 @@ const PATHS = {
       <path d="M8 11h6" />
     </>
   ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
+    </>
+  ),
   send: (
     <>
       <path d="m22 2-7 20-4-9-9-4Z" />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { localPhNumber, type ConsoleDriver } from '@/shared/driver/registrationConsole';
+import { driverRoutes, filterDrivers, localPhNumber, type ConsoleDriver } from '@/shared/driver/registrationConsole';
 import { strings } from '@/strings';
 
 import type { ConsoleApi } from './api';
@@ -11,13 +11,17 @@ import { PageHeader } from './PageHeader';
 const text = strings.adminConsole;
 const t = text.drivers;
 
-// The active driver phones and Retire (PRD 9.5 "After setup"), as scripts/retire-device.ts does
+// The active driver phones, newest set up first, by route and by plate, with Retire (PRD 9.5 "After
+// setup"), as scripts/retire-device.ts does
 export function Drivers({ api }: { api: ConsoleApi }) {
   const [rows, setRows] = useState<ConsoleDriver[] | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [retiring, setRetiring] = useState<string | null>(null);
+  // The filters: one route (null: every route) and a plate search
+  const [route, setRoute] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     const result = await api.drivers();
@@ -48,6 +52,16 @@ export function Drivers({ api }: { api: ConsoleApi }) {
     setDone(t.retired(driver.device_id));
     void load();
   }
+
+  const clearFilters = () => {
+    setRoute(null);
+    setSearch('');
+  };
+
+  const routes = rows ? driverRoutes(rows) : [];
+  // A route chosen before the last phone on it was retired no longer filters
+  const routeShown = route !== null && routes.includes(route) ? route : null;
+  const shown = rows ? filterDrivers(rows, routeShown, search) : [];
 
   return (
     <>
@@ -88,52 +102,79 @@ export function Drivers({ api }: { api: ConsoleApi }) {
             <span className="toolbar-icon">
               <Icon name="drivers" />
             </span>
-            <div>
+            <div className="toolbar-text">
               <h2>{t.tableHeading}</h2>
               <p className="muted small">{t.tableBody}</p>
             </div>
+            <div className="filters">
+              <label className="search">
+                <span className="visually-hidden">{t.searchLabel}</span>
+                <Icon name="search" size={16} />
+                <input type="search" value={search} placeholder={t.searchPlaceholder} onChange={(event) => setSearch(event.target.value)} />
+              </label>
+              <label className="select">
+                <span className="visually-hidden">{t.routeLabel}</span>
+                <select value={routeShown ?? ''} onChange={(event) => setRoute(event.target.value || null)}>
+                  <option value="">{t.allRoutes}</option>
+                  {routes.map((code) => (
+                    <option key={code} value={code}>
+                      {t.routeOption(code)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">{t.columns.device}</th>
-                  <th scope="col">{t.columns.plate}</th>
-                  <th scope="col">{t.columns.route}</th>
-                  <th scope="col">{t.columns.number}</th>
-                  <th scope="col">{t.columns.since}</th>
-                  <td />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((driver) => (
-                  <tr key={driver.device_id}>
-                    <td className="nowrap">
-                      <span className="status ok">
-                        <span className="dot" aria-hidden="true" />
-                        <span className="code">{driver.device_id}</span>
-                      </span>
-                    </td>
-                    <td>
-                      <span className="plate small">{driver.plate}</span>
-                    </td>
-                    <td>
-                      <span className="chip-code">{driver.route_id}</span>
-                    </td>
-                    <td className="nowrap number">{driver.phone_e164 ? localPhNumber(driver.phone_e164) : t.noNumber}</td>
-                    <td className="nowrap muted">{text.when(driver.provisioned_at)}</td>
-                    <td className="end">
-                      <button type="button" className="button danger-soft" disabled={retiring !== null} onClick={() => void retire(driver)}>
-                        <Icon name="retire" size={16} />
-                        {t.retire}
-                      </button>
-                    </td>
+          {shown.length === 0 ? (
+            <div className="no-match">
+              <p className="muted">{t.noMatch}</p>
+              <button type="button" className="button secondary" onClick={clearFilters}>
+                {t.clearFilters}
+              </button>
+            </div>
+          ) : (
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">{t.columns.device}</th>
+                    <th scope="col">{t.columns.plate}</th>
+                    <th scope="col">{t.columns.route}</th>
+                    <th scope="col">{t.columns.number}</th>
+                    <th scope="col">{t.columns.since}</th>
+                    <td />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="table-foot">{t.showing(rows.length)}</p>
+                </thead>
+                <tbody>
+                  {shown.map((driver) => (
+                    <tr key={driver.device_id}>
+                      <td className="nowrap">
+                        <span className="status ok">
+                          <span className="dot" aria-hidden="true" />
+                          <span className="code">{driver.device_id}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <span className="plate small">{driver.plate}</span>
+                      </td>
+                      <td>
+                        <span className="chip-code">{driver.route_id}</span>
+                      </td>
+                      <td className="nowrap number">{driver.phone_e164 ? localPhNumber(driver.phone_e164) : t.noNumber}</td>
+                      <td className="nowrap muted">{text.when(driver.provisioned_at)}</td>
+                      <td className="end">
+                        <button type="button" className="button danger-soft" disabled={retiring !== null} onClick={() => void retire(driver)}>
+                          <Icon name="retire" size={16} />
+                          {t.retire}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="table-foot">{t.showing(shown.length, rows.length)}</p>
         </div>
       )}
     </>

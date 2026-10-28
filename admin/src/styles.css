@@ -800,6 +800,61 @@ textarea:focus-visible {
   padding: 8px;
 }
 
+/* Tabs by status (Registrations) */
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  justify-self: start;
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--textSecondary);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.segment:hover {
+  background: var(--surface);
+  color: var(--textPrimary);
+}
+
+.segment[aria-selected='true'] {
+  background: #dae2ff;
+  color: #0040a1;
+  font-weight: 600;
+}
+
+.segment-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surfaceHigh);
+  color: var(--textSecondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.segment[aria-selected='true'] .segment-count {
+  background: #0041a2;
+  color: #ffffff;
+}
+
 /* Tables */
 
 .table-card {
@@ -808,10 +863,78 @@ textarea:focus-visible {
 
 .table-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
   border-bottom: 1px solid var(--line);
+}
+
+.toolbar-text {
+  flex: 1;
+  min-width: 220px;
+}
+
+/* Search and route filter (Drivers) */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search .icon {
+  position: absolute;
+  left: 10px;
+  color: var(--textTertiary);
+  pointer-events: none;
+}
+
+.search input {
+  width: 220px;
+  height: 38px;
+  padding-left: 34px;
+}
+
+select {
+  height: 38px;
+  padding: 0 32px 0 12px;
+  border: 1px solid var(--control);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--textPrimary);
+  font: inherit;
+  cursor: pointer;
+}
+
+select:focus-visible {
+  border-color: var(--primary);
+  outline: 3px solid var(--primaryContainer);
+  outline-offset: 0;
+}
+
+.no-match {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 24px 20px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .toolbar-icon {
@@ -906,6 +1029,10 @@ tbody tr:hover td {
 
 .status.danger {
   color: var(--danger);
+}
+
+.status.warning {
+  color: var(--warning);
 }
 
 .status.muted {
@@ -1037,6 +1164,14 @@ tbody tr:hover td {
 }
 
 @media (max-width: 600px) {
+  .filters,
+  .search,
+  .search input,
+  .filters .select,
+  .filters select {
+    width: 100%;
+  }
+
   .account {
     display: none;
   }

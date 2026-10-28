@@ -1,6 +1,19 @@
 import { REGISTRATION_REASON_MAX_CHARS } from '../config';
 import { localPhDigits, normalizePhNumber } from '../driver/phone';
-import { localPhNumber, photosLeft, rejectionReason, splitRegistrations, type ConsoleRegistration } from '../driver/registrationConsole';
+import {
+  driverRoutes,
+  filterDrivers,
+  inTab,
+  localPhNumber,
+  photosLeft,
+  REGISTRATION_TABS,
+  rejectionReason,
+  rowsInTab,
+  splitRegistrations,
+  tabCounts,
+  type ConsoleDriver,
+  type ConsoleRegistration,
+} from '../driver/registrationConsole';
 
 // DRG5: the admin console's rules (src/shared/driver/registrationConsole.ts)
 
@@ -93,5 +106,60 @@ describe('localPhDigits', () => {
   it('leaves anything else (or nothing saved) as given', () => {
     expect(localPhDigits('')).toBe('');
     expect(localPhDigits('0917')).toBe('0917');
+  });
+});
+
+describe('the Registrations tabs', () => {
+  const rows = [
+    row('w', 'pending', '2026-10-28T03:00:00.000Z'),
+    { ...row('a', 'approved', '2026-10-26T03:00:00.000Z'), decided_at: '2026-10-26T05:00:00.000Z' },
+    { ...row('c', 'collected', '2026-10-27T03:00:00.000Z'), decided_at: '2026-10-27T05:00:00.000Z' },
+    { ...row('r', 'rejected', '2026-10-25T03:00:00.000Z'), decided_at: '2026-10-25T04:00:00.000Z' },
+    row('e', 'expired', '2026-10-20T03:00:00.000Z'),
+  ];
+
+  it('puts approved and set up together, and expired only under All', () => {
+    expect(tabCounts(rows)).toEqual({ pending: 1, approved: 2, rejected: 1, all: 5 });
+    expect(REGISTRATION_TABS.filter((tab) => inTab({ status: 'expired' }, tab))).toEqual(['all']);
+  });
+
+  it('lists a tab newest decision first, a waiting one by when it was sent', () => {
+    expect(rowsInTab(rows, 'approved').map((r) => r.registration_id)).toEqual(['c', 'a']);
+    expect(rowsInTab(rows, 'all').map((r) => r.registration_id)).toEqual(['w', 'c', 'a', 'r', 'e']);
+  });
+});
+
+describe('the Drivers filters', () => {
+  const phone = (device: string, plate: string, route: string, provisionedAt: string): ConsoleDriver => ({
+    device_id: device,
+    vehicle_id: `${route}-${plate.replace(' ', '')}`,
+    plate,
+    route_id: route,
+    phone_e164: '+639171234567',
+    provisioned_at: provisionedAt,
+  });
+  const phones = [
+    phone('DRV-0001', 'TEST 001', 'R4', '2026-10-20T00:00:00.000Z'),
+    phone('DRV-0002', 'ABC 1234', 'R14', '2026-10-27T00:00:00.000Z'),
+    phone('DRV-0003', 'TST 0099', 'R2', '2026-10-28T00:00:00.000Z'),
+    phone('DRV-0004', 'XYZ 5678', 'R4', '2026-10-25T00:00:00.000Z'),
+  ];
+
+  it('lists the newest set up first', () => {
+    expect(filterDrivers(phones, null, '').map((d) => d.device_id)).toEqual(['DRV-0003', 'DRV-0002', 'DRV-0004', 'DRV-0001']);
+  });
+
+  it('keeps one route', () => {
+    expect(filterDrivers(phones, 'R4', '').map((d) => d.device_id)).toEqual(['DRV-0004', 'DRV-0001']);
+  });
+
+  it('finds a plate whatever its spaces and case', () => {
+    expect(filterDrivers(phones, null, 'test0').map((d) => d.device_id)).toEqual(['DRV-0001']);
+    expect(filterDrivers(phones, null, ' t ').map((d) => d.device_id)).toEqual(['DRV-0003', 'DRV-0001']);
+    expect(filterDrivers(phones, 'R14', 'test')).toEqual([]);
+  });
+
+  it('offers the routes on the list in route order', () => {
+    expect(driverRoutes(phones)).toEqual(['R2', 'R4', 'R14']);
   });
 });

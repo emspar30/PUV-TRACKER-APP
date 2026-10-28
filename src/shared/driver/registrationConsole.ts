@@ -58,3 +58,51 @@ export function rejectionReason(text: string): string | null {
 
 // The local way of writing a number, shared with the driver app
 export { localPhNumber } from './phone';
+
+// --- The Registrations page's tabs: waiting for review, approved (set up or not yet), rejected, and
+// everything (an expired registration shows only there)
+export const REGISTRATION_TABS = ['pending', 'approved', 'rejected', 'all'] as const;
+export type RegistrationTab = (typeof REGISTRATION_TABS)[number];
+
+export function inTab(row: Pick<ConsoleRegistration, 'status'>, tab: RegistrationTab): boolean {
+  switch (tab) {
+    case 'pending':
+      return row.status === 'pending';
+    case 'approved':
+      return row.status === 'approved' || row.status === 'collected';
+    case 'rejected':
+      return row.status === 'rejected';
+    case 'all':
+      return true;
+  }
+}
+
+export function tabCounts(rows: readonly Pick<ConsoleRegistration, 'status'>[]): Record<RegistrationTab, number> {
+  const counts = { pending: 0, approved: 0, rejected: 0, all: 0 };
+  for (const row of rows) for (const tab of REGISTRATION_TABS) if (inTab(row, tab)) counts[tab] += 1;
+  return counts;
+}
+
+// A decided tab's rows, newest decision (or, still waiting, newest submission) first
+export function rowsInTab(rows: readonly ConsoleRegistration[], tab: RegistrationTab): ConsoleRegistration[] {
+  return rows.filter((row) => inTab(row, tab)).sort((a, b) => (b.decided_at ?? b.created_at).localeCompare(a.decided_at ?? a.created_at));
+}
+
+// --- The Drivers page: by route and by plate, newest set up first
+
+// A plate as compared in a search: no spaces, upper case ("tst 001" finds "TST 001" and "TST001")
+const plateKey = (plate: string) => plate.replace(/\s+/g, '').toUpperCase();
+
+// The routes the listed phones are on, in route order (R2 before R14)
+export function driverRoutes(rows: readonly Pick<ConsoleDriver, 'route_id'>[]): string[] {
+  const number = (route: string) => Number(route.replace(/\D/g, ''));
+  return [...new Set(rows.map((row) => row.route_id))].sort((a, b) => number(a) - number(b) || a.localeCompare(b));
+}
+
+// The phones on a route (null: every route) whose plate contains the search, newest set up first
+export function filterDrivers(rows: readonly ConsoleDriver[], route: string | null, plateSearch: string): ConsoleDriver[] {
+  const wanted = plateKey(plateSearch);
+  return rows
+    .filter((row) => (route === null || row.route_id === route) && plateKey(row.plate).includes(wanted))
+    .sort((a, b) => b.provisioned_at.localeCompare(a.provisioned_at));
+}
