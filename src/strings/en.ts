@@ -1291,7 +1291,7 @@ export const en = {
       reviewPhotos: 'Photos',
       reviewPhotosSent: 'Both sent',
       reviewEdit: 'Edit',
-      reviewEditLabel: (what: string) => `Edit ${what.toLowerCase()}`,
+      reviewEditAll: 'Edit your details',
       newNumberPhotos: 'A different number means taking the two photos again. The plate and route stay.',
       submit: 'Send for approval',
       sending: 'Sending…',
