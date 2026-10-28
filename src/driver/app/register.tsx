@@ -12,6 +12,7 @@ import {
   EllipsisVertical,
   IdCard,
   MessageSquare,
+  Pencil,
   RotateCcw,
   ScanQrCode,
   Send,
@@ -23,7 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, AppState, Image, Linking, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, AppState, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
@@ -76,6 +77,7 @@ const DONE_ICON = spacing.xl + spacing.md;
 const FIX_ICON = spacing.md + spacing.xs;
 const FIX_NUMBER = spacing.lg + spacing.xs;
 const ICON_SIZE = spacing.lg;
+const EDIT_ICON = spacing.md;
 const MS_PER_S = 1000;
 
 const errorText = (error: string) => strings.driver.register.errors[error] ?? strings.driver.register.errors.unknown;
@@ -97,6 +99,10 @@ export default function Register() {
     setBusy(false);
     setStep(next);
   };
+
+  // After the number, the plate and route, or the photos: the first step still to do, so an edit from
+  // "Check and send" comes back to it, and a new number goes on to new photos
+  const goOn = () => go({ kind: resumeStep(useRegistrationStore.getState(), Date.now()) });
 
   const previous: Step | null =
     step.kind === 'permissions' ? { kind: 'welcome' } : step.kind === 'photos' ? { kind: 'vehicle' } : step.kind === 'review' ? { kind: 'photos' } : null;
@@ -139,15 +145,15 @@ export default function Register() {
       break;
 
     case 'number':
-      body = <NumberStep onChecked={() => go({ kind: 'vehicle' })} />;
+      body = <NumberStep onChecked={goOn} />;
       break;
 
     case 'vehicle':
-      body = <VehicleStep onDone={() => go({ kind: 'photos' })} />;
+      body = <VehicleStep onDone={goOn} />;
       break;
 
     case 'photos':
-      body = <PhotosStep onDone={() => go({ kind: 'review' })} onExpired={() => go({ kind: 'welcome' })} />;
+      body = <PhotosStep onDone={goOn} onExpired={() => go({ kind: 'welcome' })} />;
       break;
 
     case 'review': {
@@ -156,10 +162,10 @@ export default function Register() {
         <>
           <Intro title={text.reviewTitle} />
           <Card>
-            <Row label={text.reviewNumber} value={progress.phone ?? ''} />
-            <Row label={text.reviewPlate} value={progress.plate ?? ''} />
-            <Row label={text.reviewRoute} value={route ? `${strings.driver.route(route.routeCode)} · ${route.name}` : ''} />
-            <Row label={text.reviewPhotos} value={text.reviewPhotosSent} />
+            <Row label={text.reviewNumber} value={progress.phone ?? ''} onEdit={() => go({ kind: 'number' })} />
+            <Row label={text.reviewPlate} value={progress.plate ?? ''} onEdit={() => go({ kind: 'vehicle' })} />
+            <Row label={text.reviewRoute} value={route ? `${strings.driver.route(route.routeCode)} · ${route.name}` : ''} onEdit={() => go({ kind: 'vehicle' })} />
+            <Row label={text.reviewPhotos} value={text.reviewPhotosSent} onEdit={() => go({ kind: 'photos' })} />
           </Card>
           {error ? <Notice tone="danger" icon={CircleAlert} title={error} /> : null}
         </>
@@ -286,6 +292,11 @@ function NumberStep({ onChecked }: { onChecked: () => void }) {
     onChecked();
   };
 
+  // Editing from "Check and send": a different number opens a new entry, and the photos sent belong to
+  // the old one
+  const saved = useRegistrationStore.getState();
+  const photosLost = (saved.uploaded.id || saved.uploaded.vehicle) && normalizePhNumber(number) !== saved.phone;
+
   return (
     <>
       <Intro title={text.numberTitle} body={text.numberBody} />
@@ -302,6 +313,7 @@ function NumberStep({ onChecked }: { onChecked: () => void }) {
           accessibilityLabel={text.numberTitle}
         />
       </View>
+      {photosLost ? <Notice tone="warning" icon={Camera} title={text.newNumberPhotos} /> : null}
       {error ? <Notice tone="danger" icon={CircleAlert} title={error} /> : null}
       <Button label={busy ? text.numberSaving : text.next} icon={ArrowRight} disabled={busy} onPress={() => void next()} />
     </>
@@ -595,13 +607,26 @@ function Intro({ title, body }: { title: string; body?: string }) {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+// One line of "Check and send", with Edit to go back to its step
+function Row({ label, value, onEdit }: { label: string; value: string; onEdit: () => void }) {
   const styles = useStyles();
-  const { typography } = useTheme();
+  const { colors, typography } = useTheme();
+  const text = strings.driver.register;
   return (
-    <View style={styles.row}>
-      <Text style={[typography.labelSm, styles.caps, styles.muted]}>{label}</Text>
-      <Text style={typography.bodyLg}>{value}</Text>
+    <View style={styles.editRow}>
+      <View style={styles.row}>
+        <Text style={[typography.labelSm, styles.caps, styles.muted]}>{label}</Text>
+        <Text style={typography.bodyLg}>{value}</Text>
+      </View>
+      <Pressable
+        style={styles.edit}
+        onPress={onEdit}
+        accessibilityRole="button"
+        accessibilityLabel={text.reviewEditLabel(label)}
+        hitSlop={spacing.xs}>
+        <Pencil color={colors.primary} size={EDIT_ICON} />
+        <Text style={[typography.labelLg, { color: colors.primary }]}>{text.reviewEdit}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -675,8 +700,21 @@ const useStyles = makeStyles(({ colors }) => ({
     borderRadius: radii.md,
   },
   row: {
+    flex: 1,
     gap: spacing.xs / 2,
     paddingVertical: spacing.xs,
+  },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  edit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: MIN_TOUCH_TARGET,
+    paddingHorizontal: spacing.sm,
   },
   checking: {
     alignItems: 'center',

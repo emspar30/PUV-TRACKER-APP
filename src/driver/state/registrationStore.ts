@@ -63,8 +63,10 @@ export const useRegistrationStore = create<RegistrationState>()(
   persist(
     (set) => ({
       ...EMPTY,
-      // A new check starts the photos and the vehicle over
-      setChecked: (phone, check, uploads, atMs) => set({ ...EMPTY, phone, check, uploads, checkedAtMs: atMs }),
+      // A new number (a new check) starts the photos over, since they are stored under the check; the
+      // plate and route typed before stay
+      setChecked: (phone, check, uploads, atMs) =>
+        set((state) => ({ ...EMPTY, phone, check, uploads, checkedAtMs: atMs, plate: state.plate, route: state.route })),
       setVehicle: (plate, route) => set({ plate, route }),
       setUploaded: (which) => set((state) => ({ uploaded: { ...state.uploaded, [which]: true } })),
       setToken: (token) => set({ token }),

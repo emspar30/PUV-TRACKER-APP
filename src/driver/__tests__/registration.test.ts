@@ -192,14 +192,20 @@ describe('the registration store', () => {
     expect(restarted).toMatchObject({ phone: '+639171234567', check: CHECK, checkedAtMs: 1000, plate: 'ABC 1234', route: 'R4', uploaded: { id: true, vehicle: false }, token: TOKEN });
   });
 
-  it('a new check starts the vehicle and photos over', () => {
+  it('a new number starts the photos over and keeps the plate and route (an edit from "Check and send")', () => {
     const { store } = load();
     const state = store.useRegistrationStore.getState();
     state.setChecked('+639171234567', CHECK, { id: 'a', vehicle: 'b' }, 1000);
     state.setVehicle('ABC 1234', 'R4');
     state.setUploaded('vehicle');
-    state.setChecked('+639171234567', CHECK, { id: 'c', vehicle: 'd' }, 2000);
-    expect(store.useRegistrationStore.getState()).toMatchObject({ plate: null, route: null, uploaded: { id: false, vehicle: false }, uploads: { id: 'c', vehicle: 'd' } });
+    state.setChecked('+639189876543', CHECK, { id: 'c', vehicle: 'd' }, 2000);
+    expect(store.useRegistrationStore.getState()).toMatchObject({
+      phone: '+639189876543',
+      plate: 'ABC 1234',
+      route: 'R4',
+      uploaded: { id: false, vehicle: false },
+      uploads: { id: 'c', vehicle: 'd' },
+    });
   });
 
   it('falls back to nothing done from a damaged saved value, and drops a malformed token', () => {
