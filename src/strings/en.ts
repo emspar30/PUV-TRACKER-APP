@@ -1367,7 +1367,7 @@ export const en = {
       turnOff: 'Turn beacon off',
       turnOn: 'Turn beacon on',
       setUpAgain: 'Set up again',
-      setUpAgainConfirm: 'This removes this phone’s setup. You need a new setup code.',
+      setUpAgainConfirm: 'This removes this phone’s setup. The phone then registers again, and an admin approves it again.',
       // DR5: what arrived by SMS (no message bodies are kept)
       smsTitle: 'Heatmap messages',
       accepted: (count: number) => `${count} accepted`,

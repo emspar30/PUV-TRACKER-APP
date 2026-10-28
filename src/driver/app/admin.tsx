@@ -21,6 +21,7 @@ import { drainAndApply, ensureInboxConfigured } from '../features/heatmap/inbox'
 import { requestSmsPermission } from '../features/heatmap/smsPermission';
 import { useDriverStore } from '../state/driverStore';
 import { useHeatmapStore } from '../state/heatmapStore';
+import { useRegistrationStore } from '../state/registrationStore';
 import { clearProvisioning, isBeaconAvailable, startAdvertising, stopAdvertising } from '../../../modules/tunton-beacon';
 import { canReceiveSms, disableInbox, inboxSize, isSmsAvailable } from '../../../modules/tunton-sms';
 
@@ -89,12 +90,16 @@ export default function DriverAdmin() {
     setBeaconEnabled(!beaconEnabled);
   };
 
+  // Clears the setup and starts registration over (PRD 9.5), from the beginning: an old registration's
+  // progress or install token must not be picked up again. The setup QR stays reachable from there
+  // ("Use a setup code instead").
   const setUpAgain = async () => {
     if (isBeaconAvailable()) await clearProvisioning();
     if (isSmsAvailable()) await disableInbox();
     resetDriver();
     resetHeatmap();
-    router.replace('/provision');
+    useRegistrationStore.getState().resetRegistration();
+    router.replace('/register');
   };
 
   if (!unlocked) {
