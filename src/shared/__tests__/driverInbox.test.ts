@@ -6,7 +6,8 @@ import { DATA_SMS_PORT, SMS_STALE_HEATMAP_MIN } from '../config';
 import { emptyHeatmap } from '../driver/heatmap';
 import { heatmapView } from '../driver/heatmapView';
 import { processEntry, processInbox, type InboxEntry } from '../driver/inbox';
-import { encodeHeatmapBinary } from '../sms/binary';
+import { retiredDialogDue } from '../driver/retireNotice';
+import { encodeHeatmapBinary, encodeRetiredNoticeBinary } from '../sms/binary';
 import { HEATMAP_TEXT_PREFIX, manilaMinuteOfDay, signHeatmap, signRetiredNotice, verifiedRetiredNotice, type HeatmapNode } from '../sms/protocol';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -128,6 +129,14 @@ describe('driver inbox (DR5)', () => {
     expect(processInbox(start, [entry(tampered)], CONTEXT).retired).toBe(false);
   });
 
+  it('takes a retire notice that came as a hidden data SMS, and only one for this phone', () => {
+    const asData = (notice: string) => entry(bytesToHex(encodeRetiredNoticeBinary(notice)), { kind: 'data' });
+    expect(processEntry(start, asData(signRetiredNotice(DEVICE, KEY)), CONTEXT).outcome).toEqual({ ok: true, seq: null, retired: true });
+    expect(processInbox(start, [asData(signRetiredNotice(DEVICE, KEY))], CONTEXT).retired).toBe(true);
+    expect(reasonOf(processEntry(start, asData(signRetiredNotice('DRV-0012', KEY)), CONTEXT))).toBe('bad_signature');
+    expect(reasonOf(processEntry(start, { ...asData(signRetiredNotice(DEVICE, KEY)), sender: '+639998887777' }, CONTEXT))).toBe('wrong_sender');
+  });
+
   it('builds the retire notice the database builds (HM2|RETIRED|<device>|<8 hex>), and reads it back', () => {
     const notice = signRetiredNotice(DEVICE, KEY);
     expect(notice).toMatch(/^HM2|RETIRED|DRV-0011|[0-9A-F]{8}$/);
@@ -141,6 +150,16 @@ describe('driver inbox (DR5)', () => {
 
   it('listens on the same data port in the manifest as in the config', () => {
     expect(Number(PLUGIN_PORT)).toBe(DATA_SMS_PORT);
+  });
+});
+
+describe('the retired pop-up (owner, 2026-10-29)', () => {
+  it('shows once for each retirement: not before a notice, not again once seen', () => {
+    expect(retiredDialogDue(null, null)).toBe(false);
+    expect(retiredDialogDue(NOON_MS, null)).toBe(true);
+    expect(retiredDialogDue(NOON_MS, NOON_MS)).toBe(false);
+    // Registered again and retired again later: a new retirement shows it again
+    expect(retiredDialogDue(NOON_MS + MS_PER_MIN, NOON_MS)).toBe(true);
   });
 });
 

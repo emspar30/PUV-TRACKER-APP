@@ -1,11 +1,15 @@
 import { DATA_SMS_MAX_BYTES } from '../config';
-import { parseHeatmap } from './protocol';
+import { parseHeatmap, parseRetiredNotice } from './protocol';
 
 // The data-SMS form of a heatmap message (PRD 9.3: "the same fields in a compact binary form";
 // docs/IMPLEMENTATION_PLAN_DRIVER.md section 6.2.4). It is only a transport encoding: the driver app
 // turns it back into the canonical text and validates that with validateHeatmap, so the signature
 // always covers the text and there is one signing rule.
 //   0x48 'H' | 0x02 | route number | seq (2) | minute of day (2) | n | n x [code length, code, count (2)] | mac (4)
+// The retire notice has a data form too (owner, 2026-10-29), so it no longer shows in the driver's
+// Messages app. Route byte 0 marks it (no route is R0); it decodes to the notice's text, checked by
+// verifiedRetiredNotice:
+//   0x48 'H' | 0x02 | 0x00 | id length | device id | mac (4)
 
 const MAGIC = 0x48;
 const FORMAT_VERSION = 0x02;
@@ -28,6 +32,14 @@ const AT_ROUTE = 2;
 const AT_SEQ = 3;
 const AT_MINUTE = 5;
 const AT_COUNT = 7;
+
+const NOTICE_ROUTE = 0;
+const AT_ID_LENGTH = 3;
+const NOTICE_HEADER_BYTES = 4;
+const DEVICE_ID_RE = /^[A-Z0-9-]{1,24}$/;
+
+const macBytes = (mac: string) => Array.from({ length: MAC_BYTES }, (_, i) => parseInt(mac.slice(i * HEX_PER_BYTE, (i + 1) * HEX_PER_BYTE), HEX_RADIX));
+const macHex = (bytes: Uint8Array) => Array.from(bytes, (byte) => byte.toString(HEX_RADIX).padStart(HEX_PER_BYTE, '0')).join('').toUpperCase();
 
 const pad = (value: number, digits: number) => String(value).padStart(digits, '0');
 
@@ -61,15 +73,36 @@ export function encodeHeatmapBinary(text: string): Uint8Array {
     view.setUint16(at, count);
     at += COUNT_BYTES;
   }
-  for (let i = 0; i < MAC_BYTES; i++) {
-    bytes[at + i] = parseInt(message.mac.slice(i * HEX_PER_BYTE, (i + 1) * HEX_PER_BYTE), HEX_RADIX);
-  }
+  bytes.set(macBytes(message.mac), at);
   return bytes;
 }
 
-// The canonical text, or null for bytes that are not a heatmap message in this format
+// Throws on a text that is not a well-formed retire notice
+export function encodeRetiredNoticeBinary(text: string): Uint8Array {
+  const notice = parseRetiredNotice(text);
+  if (!notice) throw new RangeError('not a retire notice');
+  const { deviceId, mac } = notice;
+  const bytes = new Uint8Array(NOTICE_HEADER_BYTES + deviceId.length + MAC_BYTES);
+  bytes.set([MAGIC, FORMAT_VERSION, NOTICE_ROUTE, deviceId.length]);
+  for (let i = 0; i < deviceId.length; i++) bytes[NOTICE_HEADER_BYTES + i] = deviceId.charCodeAt(i);
+  bytes.set(macBytes(mac), NOTICE_HEADER_BYTES + deviceId.length);
+  return bytes;
+}
+
+function decodeRetiredNotice(bytes: Uint8Array): string | null {
+  const length = bytes[AT_ID_LENGTH];
+  if (bytes.length !== NOTICE_HEADER_BYTES + length + MAC_BYTES) return null;
+  const deviceId = String.fromCharCode(...bytes.slice(NOTICE_HEADER_BYTES, NOTICE_HEADER_BYTES + length));
+  if (!DEVICE_ID_RE.test(deviceId)) return null;
+  return `HM2|RETIRED|${deviceId}|${macHex(bytes.slice(NOTICE_HEADER_BYTES + length))}`;
+}
+
+// The canonical text of a data SMS in this format: a heatmap message or a retire notice; null for
+// anything else
 export function decodeHeatmapBinary(bytes: Uint8Array): string | null {
-  if (bytes.length < HEADER_BYTES + MAC_BYTES || bytes[AT_MAGIC] !== MAGIC || bytes[AT_VERSION] !== FORMAT_VERSION) return null;
+  if (bytes.length < NOTICE_HEADER_BYTES || bytes[AT_MAGIC] !== MAGIC || bytes[AT_VERSION] !== FORMAT_VERSION) return null;
+  if (bytes[AT_ROUTE] === NOTICE_ROUTE) return decodeRetiredNotice(bytes);
+  if (bytes.length < HEADER_BYTES + MAC_BYTES) return null;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const route = bytes[AT_ROUTE];
   if (route < 1 || route > ROUTE_MAX) return null;
@@ -91,7 +124,7 @@ export function decodeHeatmapBinary(bytes: Uint8Array): string | null {
   }
   if (at + MAC_BYTES !== bytes.length) return null;
 
-  const mac = Array.from(bytes.slice(at), (byte) => byte.toString(HEX_RADIX).padStart(HEX_PER_BYTE, '0')).join('').toUpperCase();
+  const mac = macHex(bytes.slice(at));
   const hhmm = pad(Math.floor(minute / MINUTES_PER_HOUR), HOUR_DIGITS) + pad(minute % MINUTES_PER_HOUR, HOUR_DIGITS);
   const text = `HM2|R${route}|${pad(seq, SEQ_DIGITS)}|${hhmm}|${entries.join(',')}|${mac}`;
   // Anything out of range (a seq over 9999, a count over 999, a minute past midnight) fails here

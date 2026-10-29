@@ -16,6 +16,7 @@ import { parseEnv } from 'node:util';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { decodeHeatmapBinary } from '../../src/shared/sms/binary';
 import { verifiedRetiredNotice } from '../../src/shared/sms/protocol';
 
 const ENV_FILE = path.join(__dirname, '..', '..', '.env');
@@ -233,11 +234,15 @@ live('DRG2 driver registration, live project', () => {
 
     const drivers = (await writer.rpc('console_drivers')).data as { device_id: string; plate: string }[];
     expect(drivers.find((row) => row.device_id === setup.device_id)).toMatchObject({ plate: PLATE });
-    // The retire notice (20261028000000_retire_notice.sql), expiring at once: nothing is sent
+    // The retire notice, expiring at once: nothing is sent. Since 20261029000000_retire_notice_data.sql
+    // it is a data SMS, whose bytes the driver app turns back into the signed text
     expect((await writer.rpc('console_retire', { device: setup.device_id, notice_ttl_min: 0 })).data).toBe(true);
-    const notice = await admin.from('sms_outbox').select('body_text').eq('to_e164', PHONE).like('body_text', 'HM2|RETIRED|%');
+    const notice = await admin.from('sms_outbox').select('body_text, encoding, body_b64').eq('to_e164', PHONE).like('body_text', 'HM2|RETIRED|%');
     expect(notice.data).toHaveLength(1);
-    expect(verifiedRetiredNotice(notice.data![0].body_text, setup.sms_key as string)).toBe(setup.device_id);
+    const row = notice.data![0];
+    expect(verifiedRetiredNotice(row.body_text, setup.sms_key as string)).toBe(setup.device_id);
+    expect(row.encoding).toBe('data');
+    expect(decodeHeatmapBinary(new Uint8Array(Buffer.from(row.body_b64 as string, 'base64')))).toBe(row.body_text);
     // The first console_retire (no notice) can no longer be called
     expect((await writer.rpc('console_retire', { device: setup.device_id })).error).not.toBeNull();
   }, TIMEOUT_MS);

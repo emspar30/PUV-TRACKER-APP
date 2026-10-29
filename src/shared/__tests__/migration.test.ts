@@ -13,11 +13,14 @@ const FILES = fs
   .readdirSync(MIGRATIONS)
   .filter((name) => name.endsWith('.sql'))
   .sort();
-// DR3's migration and its later fixes, DRG2's driver registration, and the retire notice
+// DR3's migration and its later fixes, DRG2's driver registration, and the retire notice (text, then data)
 const DRIVER_SIDE = '20261013000000_driver_side.sql';
 const DRIVER_REGISTRATION = '20261027000000_driver_registration.sql';
 const RETIRE_NOTICE = '20261028000000_retire_notice.sql';
-const DRIVER_SIDE_FILES = FILES.filter((name) => name.startsWith('20261013') || name === DRIVER_REGISTRATION || name === RETIRE_NOTICE);
+const RETIRE_NOTICE_DATA = '20261029000000_retire_notice_data.sql';
+const DRIVER_SIDE_FILES = FILES.filter(
+  (name) => name.startsWith('20261013') || name === DRIVER_REGISTRATION || name === RETIRE_NOTICE || name === RETIRE_NOTICE_DATA,
+);
 
 const read = (names: string[]) =>
   names
@@ -521,6 +524,24 @@ describe('migration: driver registration (DRG2)', () => {
     const claim = body('worker_claim');
     expect(claim).toContain('coalesce(o.to_e164, d.phone_e164)');
     expect(claim).toContain('(o.device_id is null or d.active)');
+  });
+});
+
+describe('migration: retire notice as a data SMS (owner, 2026-10-29)', () => {
+  const dataSql = read([RETIRE_NOTICE_DATA]);
+
+  it('redefines the two-argument console_retire in place, admin first, without dropping anything', () => {
+    expect(dataSql).toContain('create or replace function public.console_retire(device text, notice_ttl_min integer)');
+    expect(dataSql).not.toMatch(/\bdrop\b/);
+    const code = dataSql.slice(dataSql.indexOf('as $$') + 'as $$'.length).replace(/^[\s\S]*?\bbegin\b/, '').trim();
+    expect(code.startsWith("if not public.is_admin() then raise exception 'admins only'")).toBe(true);
+    expect(dataSql).toContain('grant execute on function public.console_retire(text, integer) to authenticated');
+  });
+
+  it('queues the notice as data, on the bytes the phone decodes, and keeps its text for the log', () => {
+    expect(dataSql).toContain("values ('notice', phone, 'data', signed_part || '|' || mac,");
+    expect(dataSql).toContain("encode(decode('480200' || lpad(to_hex(length(device)), 2, '0') || encode(convert_to(device, 'utf8'), 'hex') || mac, 'hex'), 'base64')");
+    expect(dataSql).toContain('return public.admin_retire_device(device,');
   });
 });
 

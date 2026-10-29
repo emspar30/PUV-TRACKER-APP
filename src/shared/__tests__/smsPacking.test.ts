@@ -1,8 +1,8 @@
 import { SEED_STATIONS } from '../../data/seed/routes';
-import { decodeHeatmapBinary, encodeHeatmapBinary, fitsDataSms, heatmapBinarySize } from '../sms/binary';
+import { decodeHeatmapBinary, encodeHeatmapBinary, encodeRetiredNoticeBinary, fitsDataSms, heatmapBinarySize } from '../sms/binary';
 import { fitsSingleSms, gsm7Septets } from '../sms/gsm';
 import { buildHeatmapMessages, chunkHeatmapNodes } from '../sms/pack';
-import { parseHeatmap, validateHeatmap, type HeatmapNode } from '../sms/protocol';
+import { parseHeatmap, signRetiredNotice, validateHeatmap, verifiedRetiredNotice, type HeatmapNode } from '../sms/protocol';
 
 // Test-only key, in the form the worker uses (64 hex characters as text)
 const KEY = 'a1'.repeat(32);
@@ -76,6 +76,54 @@ describe('heatmap binary form (DR2)', () => {
   it('fits a data SMS up to 133 bytes', () => {
     expect(fitsDataSms(new Uint8Array(133))).toBe(true);
     expect(fitsDataSms(new Uint8Array(134))).toBe(false);
+  });
+});
+
+describe('retire notice binary form (owner, 2026-10-29)', () => {
+  const notice = signRetiredNotice('DRV-0019', KEY);
+  const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex').toUpperCase();
+
+  it('is H, version 2, route byte 0, the id after its length, then the 4-byte signature', () => {
+    const bytes = encodeRetiredNoticeBinary(notice);
+    expect(hex(bytes)).toBe(`48020008${Buffer.from('DRV-0019').toString('hex').toUpperCase()}${notice.slice(-8)}`);
+    expect(fitsDataSms(bytes)).toBe(true);
+  });
+
+  it('reads back as the same text, whose signature still verifies', () => {
+    const text = decodeHeatmapBinary(encodeRetiredNoticeBinary(notice));
+    expect(text).toBe(notice);
+    expect(verifiedRetiredNotice(text as string, KEY)).toBe('DRV-0019');
+  });
+
+  it('reads a one-character id, shorter than any heatmap message', () => {
+    const short = signRetiredNotice('A', KEY);
+    expect(encodeRetiredNoticeBinary(short)).toHaveLength(9);
+    expect(decodeHeatmapBinary(encodeRetiredNoticeBinary(short))).toBe(short);
+  });
+
+  it('refuses a cut, padded or mislabelled notice', () => {
+    const bytes = encodeRetiredNoticeBinary(notice);
+    expect(decodeHeatmapBinary(bytes.slice(0, bytes.length - 1))).toBeNull();
+    expect(decodeHeatmapBinary(new Uint8Array([...bytes, 0]))).toBeNull();
+    const longer = bytes.slice();
+    longer[3] = 9;
+    expect(decodeHeatmapBinary(longer)).toBeNull();
+    const lowerCase = bytes.slice();
+    lowerCase[4] = 'd'.charCodeAt(0);
+    expect(decodeHeatmapBinary(lowerCase)).toBeNull();
+    expect(decodeHeatmapBinary(new Uint8Array([0x48, 0x02, 0x00, 0x00, 1, 2, 3, 4]))).toBeNull();
+  });
+
+  it('refuses to encode a text that is not a retire notice', () => {
+    expect(() => encodeRetiredNoticeBinary('hello')).toThrow(RangeError);
+    expect(() => encodeRetiredNoticeBinary(notice.replace('DRV-0019', 'drv-0019'))).toThrow(RangeError);
+  });
+
+  it('is the base64 the database builds in console_retire (20261029000000_retire_notice_data.sql)', () => {
+    // As SQL: encode(decode('480200' || lpad(to_hex(length(device)), 2, '0') || encode(convert_to(device, 'UTF8'), 'hex') || mac, 'hex'), 'base64')
+    const device = 'DRV-0019';
+    const sqlHex = '480200' + device.length.toString(16).padStart(2, '0') + Buffer.from(device, 'utf8').toString('hex') + notice.slice(-8);
+    expect(Buffer.from(encodeRetiredNoticeBinary(notice)).toString('base64')).toBe(Buffer.from(sqlHex, 'hex').toString('base64'));
   });
 });
 

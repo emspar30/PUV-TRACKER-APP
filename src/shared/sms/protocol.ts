@@ -105,16 +105,22 @@ export function signRetiredNotice(deviceId: string, key: string): string {
   return `${signedPart}|${computeMac(signedPart, key)}`;
 }
 
+// The device id and signature of a well-formed retire notice (signed or not), or null
+export function parseRetiredNotice(sms: string): { deviceId: string; mac: string } | null {
+  const match = RETIRED_RE.exec(sms.trim());
+  return match ? { deviceId: match[1], mac: match[2] } : null;
+}
+
 export function isRetiredNotice(sms: string): boolean {
-  return RETIRED_RE.test(sms.trim());
+  return parseRetiredNotice(sms) !== null;
 }
 
 // The device id a retire notice is for, when it is signed with this key; null otherwise
 export function verifiedRetiredNotice(sms: string, key: string): string | null {
   const text = sms.trim();
-  const match = RETIRED_RE.exec(text);
-  if (!match) return null;
-  return computeMac(text.slice(0, text.lastIndexOf('|')), key) === match[2] ? match[1] : null;
+  const notice = parseRetiredNotice(text);
+  if (!notice) return null;
+  return computeMac(text.slice(0, text.lastIndexOf('|')), key) === notice.mac ? notice.deviceId : null;
 }
 
 // Validate the whole message with one regex, then split the station list.

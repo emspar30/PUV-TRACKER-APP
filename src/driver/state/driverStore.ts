@@ -18,16 +18,19 @@ type Stored = {
   beaconEnabled: boolean;
   // When a signed retire notice for this phone arrived (an admin retired it), or null
   retiredAtMs: number | null;
+  // The retiredAtMs whose pop-up was shown (shared/driver/retireNotice.ts), or null
+  retiredDialogSeenAtMs: number | null;
 };
 
 type DriverState = Stored & {
   setSetup: (setup: DriverSetup) => void;
   setBeaconEnabled: (on: boolean) => void;
   setRetired: (atMs: number) => void;
+  markRetiredDialogSeen: (retiredAtMs: number) => void;
   resetDriver: () => void;
 };
 
-const DEFAULTS: Stored = { setup: null, beaconEnabled: false, retiredAtMs: null };
+const DEFAULTS: Stored = { setup: null, beaconEnabled: false, retiredAtMs: null, retiredDialogSeenAtMs: null };
 
 const deviceStorage = createJSONStorage<Stored>(() => ({
   getItem: (key) => Storage.getItemSync(key),
@@ -70,12 +73,13 @@ export const useDriverStore = create<DriverState>()(
       setBeaconEnabled: (beaconEnabled) => set({ beaconEnabled }),
       // The first notice counts; a repeat does not move the time
       setRetired: (atMs) => set((state) => ({ retiredAtMs: state.retiredAtMs ?? atMs, beaconEnabled: false })),
+      markRetiredDialogSeen: (retiredAtMs) => set({ retiredDialogSeenAtMs: retiredAtMs }),
       resetDriver: () => set(DEFAULTS),
     }),
     {
       name: 'driver',
       storage: deviceStorage,
-      partialize: ({ setup, beaconEnabled, retiredAtMs }) => ({ setup, beaconEnabled, retiredAtMs }),
+      partialize: ({ setup, beaconEnabled, retiredAtMs, retiredDialogSeenAtMs }) => ({ setup, beaconEnabled, retiredAtMs, retiredDialogSeenAtMs }),
       // A damaged or old saved value falls back to "not set up", never to a half setup
       merge: (persisted, current) => {
         const saved = (persisted ?? {}) as Partial<Stored>;
@@ -84,6 +88,7 @@ export const useDriverStore = create<DriverState>()(
           setup: validSetup(saved.setup),
           beaconEnabled: typeof saved.beaconEnabled === 'boolean' ? saved.beaconEnabled : current.beaconEnabled,
           retiredAtMs: typeof saved.retiredAtMs === 'number' ? saved.retiredAtMs : null,
+          retiredDialogSeenAtMs: typeof saved.retiredDialogSeenAtMs === 'number' ? saved.retiredDialogSeenAtMs : null,
         };
       },
     },
