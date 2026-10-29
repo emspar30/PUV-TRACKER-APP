@@ -30,3 +30,7 @@ select cron.schedule('retention-sms-outbox', '41 3 * * *',
 
 select cron.schedule('retention-ops-alerts', '47 3 * * *',
   $$ delete from public.ops_alerts where created_at < now() - interval '30 days' $$);
+
+-- NM1: stop passages for the Night Mode stop view, 7 days.
+select cron.schedule('retention-node-events', '53 3 * * *',
+  $$ delete from public.node_events where passed_at < now() - interval '7 days' $$);

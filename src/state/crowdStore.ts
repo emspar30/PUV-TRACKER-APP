@@ -8,6 +8,7 @@ import type { CheckInResult, FlagResult, ReportInput, ReportResult } from '@/dat
 import { supabaseCrowdPort } from '@/services/crowd';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { newRequestKey } from '@/shared/backend/rules';
+import type { LatLon } from '@/shared/geo/haversine';
 import type { RelayPost } from '@/shared/relay/broadcast';
 import { DEMO_SEED } from '@/shared/config';
 
@@ -32,12 +33,13 @@ export function useCrowd(): CrowdRepositories {
 }
 
 // Checks in on the server (or the demo), then keeps the countdown on the phone with the server's
-// expiry. CA1.1: the check-in spends Energy, so the wallet is read again.
-export async function checkIn(routeCodes: readonly string[], stationCode: string): Promise<CheckInResult> {
+// expiry. CA1.1: the check-in spends Energy, so the wallet is read again. CA2b: `point`, where the
+// commuter stands, stays on the phone for "Did you board?"; the server gets only the stop.
+export async function checkIn(routeCodes: readonly string[], stationCode: string, point?: LatLon): Promise<CheckInResult> {
   const nowMs = Date.now();
   const result = await currentCrowd().checkins.checkIn(routeCodes, stationCode, newRequestKey('checkin', nowMs, Math.random()));
   if (result.ok) {
-    useCheckInStore.getState().checkInAt(routeCodes, stationCode, nowMs, result.expiresAtMs);
+    useCheckInStore.getState().checkInAt(routeCodes, stationCode, nowMs, result.expiresAtMs, point);
     // F5: counted on the phone for the badges
     useCountsStore.getState().addCheckIn();
     void refreshEnergy();

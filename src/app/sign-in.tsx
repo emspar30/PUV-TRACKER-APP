@@ -129,6 +129,9 @@ export default function SignInScreen() {
           style={styles.link}
           onPress={() => {
             setMode(mode === 'signIn' ? 'signUp' : 'signIn');
+            // Each form starts empty: a sign-in password never becomes the new account's password
+            setEmail('');
+            setPassword('');
             setConfirm('');
             setError(null);
             setNotice(null);

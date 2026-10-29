@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Bus, Check, ChevronDown, ChevronUp, Pencil, ShieldCheck, X, Zap } from 'lucide-react-native';
+import { Award, Bus, Check, ChevronDown, ChevronUp, Pencil, ShieldCheck, X, Zap } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
@@ -21,6 +21,7 @@ import {
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
 } from '@/shared/config';
+import { isRegular } from '@/shared/profile/badges';
 import { generalHistory } from '@/shared/profile/history';
 import { isTrusted } from '@/shared/profile/trust';
 import { badgeCountsOf, useCountsStore } from '@/state/countsStore';
@@ -236,6 +237,13 @@ export default function ProfileScreen() {
                 : strings.profilePage.trustProgress(trustPoints, TRUST_BADGE_POINTS)}
           </Text>
         </View>
+        {/* BG1: every badge earned; counted on this phone, so only the owner sees it for now */}
+        {isRegular(counts) ? (
+          <View style={styles.trustRow} accessible accessibilityLabel={strings.badges.regularLabel}>
+            <Award color={colors.primary} size={ICON_SIZE} />
+            <Text style={[typography.bodySm, styles.regular]}>{strings.badges.regular}</Text>
+          </View>
+        ) : null}
 
         <FareTypeDropdown />
       </Card>
@@ -364,6 +372,10 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   trusted: {
     color: colors.success,
+    fontWeight: '600',
+  },
+  regular: {
+    color: colors.primary,
     fontWeight: '600',
   },
   center: {

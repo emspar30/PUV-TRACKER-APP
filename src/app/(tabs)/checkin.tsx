@@ -19,13 +19,15 @@ import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { affordableRoutes, checkInCost } from '@/shared/backend/rules';
-import { checkInGeofence, type Place } from '@/shared/checkin/geofence';
+import { checkInAlongRoute, type Place } from '@/shared/checkin/geofence';
 import { formatCountdown, isActive, remainingMs } from '@/shared/checkin/localCheckin';
 import { mergeWaiting } from '@/shared/checkin/waiting';
 import {
   CHECKIN_COUNTS_REFRESH_S,
   CHECKIN_FAREWELL_S,
+  CHECKIN_LINE_M,
   CHECKIN_RADIUS_M,
+  CHECKIN_STOP_MAX_M,
   ENERGY_CHECKIN_ROUTE_COST,
   GPS_ACCURACY_GATE_CHECKIN_M,
   MAP_FOLLOW_ZOOM,
@@ -37,6 +39,7 @@ import { haversineMeters } from '@/shared/geo/haversine';
 import type { RouteDirection, RouteStop } from '@/shared/routing/types';
 import { routeCodesOf, routesAtStop, stopsForRoute, toggleRoute } from '@/shared/ui/routeVisibility';
 import { useCheckInStore } from '@/state/checkinStore';
+import { reportMockLocation } from '@/services/risk';
 import { checkIn as cloudCheckIn, endCheckIn, useCrowd } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
 import { useEnergyStore } from '@/state/energyStore';
@@ -229,22 +232,28 @@ export default function CheckInScreen() {
     if (!candidate || active || sendingRef.current || pinged.length === 0 || !affordable) return;
     const code = candidate.stop.code;
     // The fix's age is taken at the tap (G0: a stale fix is refused)
-    const fence = checkInGeofence(placeOf(commuter, fix, Date.now()), candidate.stop);
+    // CA2a: anywhere by the line of a pinged route, counted at this stop up to CHECKIN_STOP_MAX_M away
+    const pingedLines = lines.filter((line) => pinged.includes(line.routeCode)).map((line) => line.coordinates);
+    const fence = checkInAlongRoute(placeOf(commuter, fix, Date.now()), candidate.stop, pingedLines);
     if (!fence.ok) {
+      // RK1: the server hears of a mock location once per app session
+      if (fence.reason === 'mocked') reportMockLocation();
       showDialog({
         tone: 'warning',
-        icon: fence.reason === 'too_far' ? MapPinOff : LocateOff,
+        icon: fence.reason === 'too_far_from_line' || fence.reason === 'too_far_from_stop' ? MapPinOff : LocateOff,
         title: strings.checkin.notHereTitle,
         body:
-          fence.reason === 'too_far'
-            ? strings.checkin.tooFar(fence.distanceM, CHECKIN_RADIUS_M, code)
-            : fence.reason === 'inaccurate'
-              ? strings.checkin.inaccurate(GPS_ACCURACY_GATE_CHECKIN_M)
-              : fence.reason === 'mocked'
-                ? strings.checkin.mocked
-                : fence.reason === 'stale'
-                  ? strings.checkin.stale
-                  : strings.checkin.noPosition,
+          fence.reason === 'too_far_from_line'
+            ? strings.checkin.tooFarFromLine(fence.lineM, CHECKIN_LINE_M)
+            : fence.reason === 'too_far_from_stop'
+              ? strings.checkin.tooFarFromStop(fence.stopM, CHECKIN_STOP_MAX_M, code)
+              : fence.reason === 'inaccurate'
+                ? strings.checkin.inaccurate(GPS_ACCURACY_GATE_CHECKIN_M)
+                : fence.reason === 'mocked'
+                  ? strings.checkin.mocked
+                  : fence.reason === 'stale'
+                    ? strings.checkin.stale
+                    : strings.checkin.noPosition,
       });
       return;
     }
@@ -253,7 +262,8 @@ export default function CheckInScreen() {
     try {
       // The filtered route comes first, so it stays the check-in's main route
       const routes = filter && pinged.includes(filter) ? [filter, ...pinged.filter((value) => value !== filter)] : [...pinged];
-      const result = await cloudCheckIn(routes, code);
+      const standing = placeOf(commuter, fix, Date.now());
+      const result = await cloudCheckIn(routes, code, standing && standing.source !== 'pin' ? standing : undefined);
       if (!result.ok) {
         if (result.reason === 'sign_in') promptSignIn();
         else if (result.reason === 'not_enough_energy')
@@ -365,6 +375,7 @@ export default function CheckInScreen() {
           <StationCard
             name={candidate.stop.name}
             nearest={candidate.nearest}
+            counted={candidate.distanceM !== null && candidate.distanceM > CHECKIN_RADIUS_M && candidate.distanceM <= CHECKIN_STOP_MAX_M}
             meta={metaOf(candidate.stop.code, candidate.distanceM)}
             routes={badges(stopRoutes)}
             checkInLabel={strings.checkin.checkInAt(candidate.stop.code)}

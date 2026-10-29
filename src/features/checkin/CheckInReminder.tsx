@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { useRepositories } from '@/data/live/useRepositories';
 import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
-import { boardingCandidate, standingAtStop, type StandingSince } from '@/shared/checkin/boarding';
+import { boardingCandidate, boardingPlace, standingAtStop, type StandingSince } from '@/shared/checkin/boarding';
 import { formatCountdown, reminderAtMs, remainingMs } from '@/shared/checkin/localCheckin';
 import { CHECKIN_REMINDER_MIN } from '@/shared/config';
 import { endCheckIn } from '@/state/crowdStore';
@@ -52,7 +52,8 @@ export function CheckInReminder() {
   useEffect(() => {
     if (!checkIn || !stop || feed.nowMs === 0) return;
     if (watch.current.checkIn !== checkIn.createdAtMs) watch.current = { checkIn: checkIn.createdAtMs, since: {}, asked: [] };
-    const standing = standingAtStop(feed.vehicles, stop, checkIn.routeCodes, feed.nowMs);
+    // CA2b: near where the commuter checked in, which may be up to CHECKIN_STOP_MAX_M from the stop
+    const standing = standingAtStop(feed.vehicles, boardingPlace(checkIn, stop), checkIn.routeCodes, feed.nowMs);
     const { since, ask } = boardingCandidate(standing, watch.current.since, watch.current.asked, feed.nowMs);
     watch.current.since = since;
     if (!ask) return;

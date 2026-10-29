@@ -35,7 +35,7 @@ const deps: IngestDeps = {
   },
 
   getVehicle: async (vehicleId) => {
-    const { data, error } = await admin.from('vehicles').select('active').eq('vehicle_id', vehicleId).maybeSingle();
+    const { data, error } = await admin.from('vehicles').select('active, route_id').eq('vehicle_id', vehicleId).maybeSingle();
     if (error) throw error;
     return data;
   },
@@ -43,7 +43,7 @@ const deps: IngestDeps = {
   getLatest: async (vehicleId) => {
     const { data, error } = await admin
       .from('telemetry_latest')
-      .select('packet_ts, stopped_since')
+      .select('packet_ts, stopped_since, lat, lon')
       .eq('vehicle_id', vehicleId)
       .maybeSingle();
     if (error) throw error;
@@ -76,6 +76,27 @@ const deps: IngestDeps = {
       console.error('telemetry history insert failed', error.message);
       throw error;
     }
+  },
+
+  // NM1: stop passages for the Night Mode stop view (retention: supabase/cron)
+  recentPassages: async (vehicleId, sinceIso) => {
+    const { data, error } = await admin.from('node_events').select('stop_code, passed_at').eq('vehicle_id', vehicleId).gte('passed_at', sinceIso);
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  insertPassages: async (rows) => {
+    const { error } = await admin.from('node_events').insert(rows);
+    if (error) {
+      console.error('node events insert failed', error.message);
+      throw error;
+    }
+  },
+
+  // RK1: an impossible jump is booked against the sender; a failure is only reported
+  bookRisk: async (userId, kind, detail) => {
+    const { error } = await admin.rpc('book_risk', { uid: userId, risk_kind: kind, risk_detail: detail });
+    if (error) console.error('risk booking failed', error.message);
   },
 
   // The audit trail must never fail a request, so its errors are only reported

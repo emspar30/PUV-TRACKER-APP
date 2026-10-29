@@ -1,7 +1,7 @@
 // DR6: each route's stops in riding order, from the route data that ships with the apps
-// (src/data/seed), ordered the same way as the driver app's list (inRouteOrder). Every message lists
-// every stop of the route with its count, zeros included, so the driver phone can tell "nobody
-// waiting" from "no count yet" (plan section 6.2.2).
+// (src/data/seed), ordered the same way as the driver app's list (inRouteOrder). CA2-1: a v3 update
+// lists only the stops with someone waiting and says every other stop is 0, so the driver phone
+// can still tell "nobody waiting" from "no count yet" (plan section 6.2.2).
 
 import { SEED_LINES, SEED_STATIONS } from '../../../src/data/seed/routes';
 import { inRouteOrder } from '../../../src/shared/relay/broadcast';

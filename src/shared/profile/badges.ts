@@ -50,6 +50,18 @@ export function earnedBadges(counts: BadgeCounts): BadgeId[] {
     .map((badge) => badge.id);
 }
 
+// BG1 (Emjay, option a, 2026-10-27): every badge earned makes a "Tunton regular", a mark on the
+// Profile next to the Trusted commuter line. It says the person uses the app a lot; Trusted keeps
+// its own rule (reports nobody flagged), so the two never stand for each other.
+export function isRegular(counts: BadgeCounts): boolean {
+  return badgeStates(counts).every((badge) => badge.earned);
+}
+
+// True only for the change that earns the mark, so its notice shows once
+export function becameRegular(before: BadgeCounts, after: BadgeCounts): boolean {
+  return !isRegular(before) && isRegular(after);
+}
+
 // The badges earned by going from `before` to `after`, in order (for the "Badge earned" notice)
 export function newlyEarned(before: BadgeCounts, after: BadgeCounts): BadgeId[] {
   const had = new Set(earnedBadges(before));

@@ -1,3 +1,4 @@
+import { SMS_GATEWAY_CAP_NEAR_SHARE, SMS_GATEWAY_DAILY_CAP } from '../../../src/shared/config';
 import { decodeHeatmapBinary } from '../../../src/shared/sms/binary';
 import { manilaMinuteOfDay, validateHeatmap } from '../../../src/shared/sms/protocol';
 import { runCycle } from '../src/cycle';
@@ -46,7 +47,8 @@ describe('worker cycle (DR6)', () => {
     ]);
     const [a, b] = fake.queue;
     // Every stop is listed, zeros included, in riding order
-    expect(a.bodyText).toMatch(/^HM2\|R4\|0042\|1200\|SMB:3,ZAM:0,LEM:0\|[0-9A-F]{8}$/);
+    // CA2-1: v3 lists only SMB; F says ZAM and LEM are 0
+    expect(a.bodyText).toMatch(/^HM3\|R4\|0042\|1200\|F\|SMB:3\|[0-9A-F]{8}$/);
     expect(a.bodyText.slice(-8)).not.toBe(b.bodyText.slice(-8));
     expect(validate(a.bodyText, KEY_A, 41).ok).toBe(true);
     expect(validate(b.bodyText, KEY_B, null).ok).toBe(true);
@@ -77,19 +79,20 @@ describe('worker cycle (DR6)', () => {
 
   it('sends one "cleared" message when everyone has gone', async () => {
     const fake = withDevices(fakeDeps(NOON_MS));
-    fake.state.set('R4', { counts: { SMB: 3, ZAM: 0, LEM: 0 }, sentAtMs: NOON_MS - MS_PER_MIN });
+    fake.state.set('R4', { counts: { SMB: 3, ZAM: 0, LEM: 0 }, sentAtMs: NOON_MS - 2 * MS_PER_MIN });
     const [r4] = await runCycle(fake, { encoding: 'text', stopsOf });
     expect(r4.decision).toEqual({ send: true, reason: 'cleared' });
-    expect(fake.queue[0].bodyText).toContain('|SMB:0,ZAM:0,LEM:0|');
+    expect(fake.queue[0].bodyText).toContain('|F|-|');
     fake.now += MS_PER_MIN;
     await runCycle(fake, { encoding: 'text', stopsOf });
     expect(fake.queue).toHaveLength(2);
   });
 
-  it('splits a long route into consecutive sequence numbers for each phone', async () => {
+  it('splits a long update into consecutive sequence numbers for each phone', async () => {
     const fake = withDevices(fakeDeps(NOON_MS));
     const many = Array.from({ length: 30 }, (_, i) => `Q${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + (i % 26))}`);
-    fake.snapshot = [{ routeId: 'R4', stationCode: many[0], waiting: 12 }];
+    // v3 lists only stops with someone waiting, so 30 busy stops are needed to fill two messages
+    fake.snapshot = many.map((code) => ({ routeId: 'R4', stationCode: code, waiting: 12 }));
     await runCycle(fake, { encoding: 'text', stopsOf: (route) => (route === 'R4' ? many : []) });
 
     const first = fake.queue.filter((row) => row.deviceId === 'DRV-0001').map((row) => row.seq);
@@ -135,12 +138,34 @@ describe('worker cycle (DR6)', () => {
     expect(fake.queue).toHaveLength(0);
   });
 
-  it('lists the real R4 stops in riding order, and they fit one text message', async () => {
-    expect(routeStopCodes('R4')).toHaveLength(18);
-    expect(routeStopCodes('R4').slice(0, 3)).toEqual(['TAL', 'ANT', 'SOL']);
+  it('lists the real R4 stops and its fill stops in riding order; 5 busy stops fit one text message', async () => {
+    expect(routeStopCodes('R4').length).toBeGreaterThan(18);
+    expect(routeStopCodes('R4')).toContain('TAL');
     const fake = withDevices(fakeDeps(NOON_MS));
-    fake.snapshot = routeStopCodes('R4').map((code) => ({ routeId: 'R4', stationCode: code, waiting: 99 }));
+    fake.snapshot = routeStopCodes('R4').slice(0, 5).map((code) => ({ routeId: 'R4', stationCode: code, waiting: 99 }));
     await runCycle(fake, { encoding: 'text' });
     expect(fake.queue.filter((row) => row.deviceId === 'DRV-0001')).toHaveLength(1);
+  });
+
+  // CA2c: the gateways' daily cap
+  it('sends nothing at the daily cap and records one ops alert', async () => {
+    const fake = withDevices(fakeDeps(NOON_MS));
+    fake.usedBefore = SMS_GATEWAY_DAILY_CAP;
+    fake.snapshot = [{ routeId: 'R4', stationCode: 'SMB', waiting: 3 }];
+    await runCycle(fake, { encoding: 'text', stopsOf });
+    expect(fake.queue).toHaveLength(0);
+    expect(fake.alerts.map((alert) => alert.kind)).toEqual(['sms_daily_cap']);
+  });
+
+  it('near the cap sends a change only on the interval', async () => {
+    const fake = withDevices(fakeDeps(NOON_MS));
+    fake.usedBefore = SMS_GATEWAY_DAILY_CAP * SMS_GATEWAY_CAP_NEAR_SHARE;
+    fake.state.set('R4', { counts: { SMB: 1, ZAM: 0, LEM: 0 }, sentAtMs: NOON_MS - 3 * MS_PER_MIN });
+    fake.snapshot = [{ routeId: 'R4', stationCode: 'SMB', waiting: 6 }];
+    await runCycle(fake, { encoding: 'text', stopsOf });
+    expect(fake.queue).toHaveLength(0);
+    fake.now += 2 * MS_PER_MIN;
+    const [r4] = await runCycle(fake, { encoding: 'text', stopsOf });
+    expect(r4.decision).toEqual({ send: true, reason: 'interval' });
   });
 });

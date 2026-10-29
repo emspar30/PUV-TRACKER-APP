@@ -1,4 +1,5 @@
-import { dispatchDecision, inOperatingHours, type DispatchState } from '../sms/dispatch';
+import { SMS_DISPATCH_MIN_GAP_S, SMS_GATEWAY_CAP_NEAR_SHARE, SMS_GATEWAY_DAILY_CAP } from '../config';
+import { capLevel, dispatchDecision, inOperatingHours, manilaDayStartMs, type DispatchState } from '../sms/dispatch';
 
 // A time on 2026-10-12, Asia/Manila (UTC+8)
 const manila = (hours: number, minutes = 0, seconds = 0, day = 12) => Date.UTC(2026, 9, day, hours - 8, minutes, seconds);
@@ -32,25 +33,25 @@ describe('SMS dispatch rule (PRD 9.6; DR2)', () => {
 
   it('sends when a stop changes by 2 or more, not by 1', () => {
     const last = sent({ SMB: 3, ZAM: 1 }, manila(8));
-    expect(dispatchDecision(last, { SMB: 4, ZAM: 1 }, manila(8, 1))).toEqual({ send: false });
-    expect(dispatchDecision(last, { SMB: 5, ZAM: 1 }, manila(8, 1))).toEqual({ send: true, reason: 'change' });
-    expect(dispatchDecision(last, { SMB: 3, ZAM: 1, CSU: 2 }, manila(8, 1))).toEqual({ send: true, reason: 'change' });
+    expect(dispatchDecision(last, { SMB: 4, ZAM: 1 }, manila(8, 2))).toEqual({ send: false });
+    expect(dispatchDecision(last, { SMB: 5, ZAM: 1 }, manila(8, 2))).toEqual({ send: true, reason: 'change' });
+    expect(dispatchDecision(last, { SMB: 3, ZAM: 1, CSU: 2 }, manila(8, 2))).toEqual({ send: true, reason: 'change' });
     // A stop that drops out of the counts went to zero
-    expect(dispatchDecision(last, { ZAM: 1 }, manila(8, 1))).toEqual({ send: true, reason: 'change' });
+    expect(dispatchDecision(last, { ZAM: 1 }, manila(8, 2))).toEqual({ send: true, reason: 'change' });
   });
 
   // Owner, 2026-10-15 (backlog 113): a lone commuter at an empty stop is sent at once, not after up
-  // to 5 minutes (the DR6 run saw 3.5 min)
+  // to 5 minutes (the DR6 run saw 3.5 min); since CA2c, once the 120 s gap after the last message has passed
   it('sends at once when a stop the driver last saw empty gets someone', () => {
     const afterCleared = sent({ SMB: 0, ZAM: 0 }, manila(8));
-    expect(dispatchDecision(afterCleared, { SMB: 1, ZAM: 0 }, manila(8, 1))).toEqual({ send: true, reason: 'new_stop' });
+    expect(dispatchDecision(afterCleared, { SMB: 1, ZAM: 0 }, manila(8, 2))).toEqual({ send: true, reason: 'new_stop' });
     // A stop missing from the last counts was empty too
-    expect(dispatchDecision(sent({ ZAM: 2 }, manila(8)), { ZAM: 2, CSU: 1 }, manila(8, 1))).toEqual({ send: true, reason: 'new_stop' });
+    expect(dispatchDecision(sent({ ZAM: 2 }, manila(8)), { ZAM: 2, CSU: 1 }, manila(8, 2))).toEqual({ send: true, reason: 'new_stop' });
     // The second commuter at a stop the driver already sees waits for a change of 2 or the interval
-    const one = sent({ SMB: 1, ZAM: 0 }, manila(8, 1));
-    expect(dispatchDecision(one, { SMB: 2, ZAM: 0 }, manila(8, 2))).toEqual({ send: false });
+    const one = sent({ SMB: 1, ZAM: 0 }, manila(8, 2));
+    expect(dispatchDecision(one, { SMB: 2, ZAM: 0 }, manila(8, 4))).toEqual({ send: false });
     // From 0 to 2 or more it is still a change
-    expect(dispatchDecision(afterCleared, { SMB: 2, ZAM: 0 }, manila(8, 1))).toEqual({ send: true, reason: 'change' });
+    expect(dispatchDecision(afterCleared, { SMB: 2, ZAM: 0 }, manila(8, 2))).toEqual({ send: true, reason: 'change' });
   });
 
   it('sends every 5 minutes while anyone is waiting', () => {
@@ -61,9 +62,56 @@ describe('SMS dispatch rule (PRD 9.6; DR2)', () => {
 
   it('sends one "cleared" message when everyone has gone, then nothing', () => {
     const last = sent({ SMB: 1, ZAM: 0 }, manila(8));
-    expect(dispatchDecision(last, { SMB: 0, ZAM: 0 }, manila(8, 1))).toEqual({ send: true, reason: 'cleared' });
-    expect(dispatchDecision(last, {}, manila(8, 1))).toEqual({ send: true, reason: 'cleared' });
-    const afterCleared = sent({ SMB: 0, ZAM: 0 }, manila(8, 1));
+    expect(dispatchDecision(last, { SMB: 0, ZAM: 0 }, manila(8, 2))).toEqual({ send: true, reason: 'cleared' });
+    expect(dispatchDecision(last, {}, manila(8, 2))).toEqual({ send: true, reason: 'cleared' });
+    const afterCleared = sent({ SMB: 0, ZAM: 0 }, manila(8, 2));
     expect(dispatchDecision(afterCleared, { SMB: 0, ZAM: 0 }, manila(8, 30))).toEqual({ send: false });
+  });
+});
+
+// CA2c: a minimum gap between a route's messages, and the gateways' daily cap
+describe('SMS minimum gap and daily cap (CA2c)', () => {
+  const at = manila(9);
+  const last = sent({ SMB: 1, ZAM: 0 }, at);
+
+  it('holds a change inside the gap and sends it once the gap has passed', () => {
+    expect(dispatchDecision(last, { SMB: 5, ZAM: 0 }, at + (SMS_DISPATCH_MIN_GAP_S - 60) * 1000)).toEqual({ send: false });
+    expect(dispatchDecision(last, { SMB: 5, ZAM: 0 }, at + SMS_DISPATCH_MIN_GAP_S * 1000)).toEqual({ send: true, reason: 'change' });
+  });
+
+  it('collects two changes inside the gap into the one message after it', () => {
+    expect(dispatchDecision(last, { SMB: 5, ZAM: 0 }, at + 30_000)).toEqual({ send: false });
+    expect(dispatchDecision(last, { SMB: 5, ZAM: 3 }, at + 90_000)).toEqual({ send: false });
+    expect(dispatchDecision(last, { SMB: 5, ZAM: 3 }, at + SMS_DISPATCH_MIN_GAP_S * 1000)).toEqual({ send: true, reason: 'change' });
+  });
+
+  it('holds a newly filled stop and a clear inside the gap too', () => {
+    expect(dispatchDecision(last, { SMB: 1, ZAM: 1 }, at + 60_000)).toEqual({ send: false });
+    expect(dispatchDecision(last, { SMB: 0, ZAM: 0 }, at + 60_000)).toEqual({ send: false });
+    expect(dispatchDecision(last, { SMB: 0, ZAM: 0 }, at + SMS_DISPATCH_MIN_GAP_S * 1000)).toEqual({ send: true, reason: 'cleared' });
+  });
+
+  it('counts the cap per active gateway: near at 80 %, full at 100 %', () => {
+    expect(capLevel(SMS_GATEWAY_DAILY_CAP * SMS_GATEWAY_CAP_NEAR_SHARE - 1, 1)).toBe('ok');
+    expect(capLevel(SMS_GATEWAY_DAILY_CAP * SMS_GATEWAY_CAP_NEAR_SHARE, 1)).toBe('near');
+    expect(capLevel(SMS_GATEWAY_DAILY_CAP, 1)).toBe('full');
+    expect(capLevel(SMS_GATEWAY_DAILY_CAP, 2)).toBe('ok');
+    expect(capLevel(0, 0)).toBe('ok');
+  });
+
+  it('near the cap sends only on the interval; at the cap nothing', () => {
+    const change = { SMB: 6, ZAM: 0 };
+    expect(dispatchDecision(last, change, at + 3 * MIN, 'near')).toEqual({ send: false });
+    expect(dispatchDecision(last, change, at + 5 * MIN, 'near')).toEqual({ send: true, reason: 'interval' });
+    expect(dispatchDecision(last, change, at + 5 * MIN, 'full')).toEqual({ send: false });
+    expect(dispatchDecision(null, change, at, 'full')).toEqual({ send: false });
+    expect(dispatchDecision(last, change, at + 3 * MIN, 'ok')).toEqual({ send: true, reason: 'change' });
+  });
+
+  it('starts counting at Manila midnight, so the day rolls over at 00:00 Asia/Manila', () => {
+    expect(manilaDayStartMs(manila(9))).toBe(manila(0));
+    expect(manilaDayStartMs(manila(0))).toBe(manila(0));
+    expect(manilaDayStartMs(manila(23, 59, 59))).toBe(manila(0));
+    expect(manilaDayStartMs(manila(0, 0, 0, 13))).toBe(manila(0, 0, 0, 13));
   });
 });

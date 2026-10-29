@@ -13,6 +13,12 @@ const MS_PER_S = 1000;
 // When each multicab was first seen standing at the stop (epoch ms), by vehicle id
 export type StandingSince = Readonly<Record<string, number>>;
 
+// CA2b: where to look for the multicab: where the commuter checked in, else (an older record, or no
+// position then) the stop
+export function boardingPlace(checkIn: { point?: LatLon }, stop: LatLon): LatLon {
+  return checkIn.point ?? stop;
+}
+
 export function standingAtStop(
   vehicles: readonly VehicleSnapshot[],
   stop: LatLon,

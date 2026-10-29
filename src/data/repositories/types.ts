@@ -3,6 +3,7 @@
 // screens. Until then the "none" implementation stands in: it has no data, so screens say "No data".
 // Pure types: no React Native or Expo imports.
 
+import type { NightPassage } from '../../shared/demo/nightPassages';
 import type { EnergyKind, FeedPhrase } from '../../shared/backend/rules';
 import type { FeedPost } from '../../shared/demo/feed';
 import type { SeatTier } from '../../shared/telemetry/occupancy';
@@ -18,7 +19,12 @@ export type VehiclesRepository = {
   source: LiveSource;
   // Calls the listener at once and whenever the route's vehicles change, until unsubscribed
   subscribe(routeCode: string, listener: (vehicles: readonly VehicleSnapshot[]) => void): Unsubscribe;
+  // NM1 (PRD 10.4): the route's newest passage per stop for the Night Mode stop view, newest first;
+  // null when unknown (signed out, offline). Live: only during the night window, from the server.
+  nightPassages?(routeCode: string): Promise<readonly NightPassage[] | null>;
 };
+
+export type { NightPassage };
 
 // A failed cloud call: 'sign_in' when there is no account (live data), else the message
 export type CloudFailure = { ok: false; reason: 'sign_in' | 'error'; message?: string };

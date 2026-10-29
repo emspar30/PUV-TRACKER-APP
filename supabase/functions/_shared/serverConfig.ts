@@ -58,3 +58,15 @@ export const REGISTRATION_SETUP_TTL_DAYS = 7;
 // A plate has this many letters and digits (at least one of each); the database allows 16 characters
 export const PLATE_MIN_CHARS = 3;
 export const PLATE_MAX_CHARS = 10;
+
+// NM1 Night Mode stop view (PRD 10.4): an accepted position within NODE_PASS_RADIUS_M of a stop of the
+// vehicle's route records that the route passed the stop, at most once per vehicle and stop every
+// NODE_PASS_GAP_MIN. The stop view shows passages up to NIGHT_STOP_WINDOW_MIN old.
+export const NODE_PASS_RADIUS_M = 50;
+export const NODE_PASS_GAP_MIN = 10;
+export const NIGHT_STOP_WINDOW_MIN = 60;
+
+// RK1 (PRD 10.3): a position implying more than IMPOSSIBLE_SPEED_KMH from the vehicle's last one is
+// rejected and booked as a risk event; the first SPEED_JUMP_ALLOWANCE_M of a jump are GPS wander
+export const IMPOSSIBLE_SPEED_KMH = 120;
+export const SPEED_JUMP_ALLOWANCE_M = 50;

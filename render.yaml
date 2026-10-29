@@ -27,10 +27,10 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      # data or text, set in the Render dashboard (Environment) so a Blueprint sync never changes it:
-      # data normally; text was needed while the gateway sent from a DITO SIM (team test, 2026-10-25)
+      # data: data SMS stay out of the driver's Messages app (owner, 2026-10-18). Back from text
+      # (2026-10-25, a DITO SIM that did not receive data SMS) for the partner's driver-side tests, 2026-10-29
       - key: SMS_PRIMARY_ENCODING
-        sync: false
+        value: data
 
   # The admin console (DRG5), a static page built from admin/. See admin/README.md, "Hosted on Render".
   # Its two settings are public values (they ship in the apps too) but stay out of this file like the

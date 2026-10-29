@@ -1,6 +1,6 @@
 import { isValidUsername } from '../backend/rules';
 import { USERNAME_SUGGEST_DIGITS } from '../config';
-import { suggestUsername } from '../profile/usernameSuggest';
+import { introUsername, suggestUsername } from '../profile/usernameSuggest';
 
 // A repeatable random source that walks through [0, 1)
 function sequence(seed: number) {
@@ -27,5 +27,19 @@ describe('suggested username (ST2-B)', () => {
   it('stays valid at the edges of the random range', () => {
     expect(isValidUsername(suggestUsername(() => 0))).toBe(true);
     expect(isValidUsername(suggestUsername(() => 0.999999))).toBe(true);
+  });
+});
+
+describe('the username the introduction shows', () => {
+  it('is the suggestion on a new account', () => {
+    expect(introUsername(null, null, 'SunnyRider123')).toBe('SunnyRider123');
+  });
+
+  it('is the account username once it loads after sign-in, so a new phone does not rename it', () => {
+    expect(introUsername(null, 'JuanBiyahe', 'SunnyRider123')).toBe('JuanBiyahe');
+  });
+
+  it('is what the user typed, even after the account username loads', () => {
+    expect(introUsername('NewName', 'JuanBiyahe', 'SunnyRider123')).toBe('NewName');
   });
 });

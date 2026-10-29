@@ -5,6 +5,7 @@ import { GLYPH_FONT_MEDIUM } from '@/data/map/glyphset';
 import type { LineCoordinates } from '@/shared/geo/line';
 import { vehicleMarkerFeatures } from '@/shared/telemetry/markers';
 import type { VehicleSnapshot } from '@/shared/telemetry/vehicle';
+import type { StatusRelay } from '@/shared/telemetry/vehicleStatus';
 import { strings } from '@/strings';
 import { MAP_GEOMETRY, spacing, useTheme } from '@/theme';
 
@@ -12,7 +13,12 @@ import { useGhostClock } from './useGhostClock';
 
 const POINTS = 'vehicles';
 const ICON = 'puv';
-const ICON_IMAGES = { [ICON]: require('../../../assets/map/puv.png') };
+const ICON_IMAGES = {
+  [ICON]: require('../../../assets/map/puv.png'),
+  'status-stopped': require('../../../assets/map/status-stopped.png'),
+  'status-loading': require('../../../assets/map/status-loading.png'),
+  'status-traffic': require('../../../assets/map/status-traffic.png'),
+};
 
 type VehicleMarkersProps = {
   vehicles: readonly VehicleSnapshot[];
@@ -30,7 +36,11 @@ type VehicleMarkersProps = {
   othersOpacity?: number;
   // CF1: a vehicle's line by its id, so an Estimated marker moves along it
   lineOf?: (lineId: string) => LineCoordinates | undefined;
+  // VS1: recent relays naming a multicab, for its status mark
+  relays?: readonly StatusRelay[];
 };
+
+const NO_RELAYS: readonly StatusRelay[] = [];
 
 // Touch area around a marker, in dp
 const HITBOX = { top: spacing.lg, right: spacing.lg, bottom: spacing.lg, left: spacing.lg };
@@ -41,15 +51,16 @@ const HITBOX = { top: spacing.lg, right: spacing.lg, bottom: spacing.lg, left: s
 // ("DEMO 01" on simulated vehicles). Tapping one selects it; the selected one has a route-colour halo.
 // CF1: a vehicle silent for 90 s to 5 minutes moves along its line at its recent speed, fainter,
 // with "Estimated" after its plate; positions are worked out every second while one shows.
+// VS1: a mark at the top right says Stopped, Loading passengers or Heavy traffic, each its own shape.
 // The source keeps its id, so each refresh only replaces its data; the layers are never remounted.
-export function VehicleMarkers({ vehicles, nowMs, color, labels, selectedId = null, onPressVehicle, othersOpacity = 1, lineOf }: VehicleMarkersProps) {
+export function VehicleMarkers({ vehicles, nowMs, color, labels, selectedId = null, onPressVehicle, othersOpacity = 1, lineOf, relays = NO_RELAYS }: VehicleMarkersProps) {
   const { mapPaint, colors, baseMap } = useTheme();
   const g = MAP_GEOMETRY.vehicle;
   const clockMs = useGhostClock(vehicles, nowMs);
   // Points only: they do not depend on the zoom, so zooming never re-sends the vehicles to the map
   const points = useMemo(
-    () => vehicleMarkerFeatures(vehicles, clockMs, { lengthPx: g.coneLengthPx, halfAngleDeg: g.coneHalfAngleDeg, zoom: 0 }, lineOf).points,
-    [vehicles, clockMs, g.coneLengthPx, g.coneHalfAngleDeg, lineOf],
+    () => vehicleMarkerFeatures(vehicles, clockMs, { lengthPx: g.coneLengthPx, halfAngleDeg: g.coneHalfAngleDeg, zoom: 0 }, lineOf, relays).points,
+    [vehicles, clockMs, g.coneLengthPx, g.coneHalfAngleDeg, lineOf, relays],
   );
 
   // Paints are built once per theme and colour, so a refresh does not touch them
@@ -76,6 +87,16 @@ export function VehicleMarkers({ vehicles, nowMs, color, labels, selectedId = nu
           'icon-size': g.iconSize,
           'icon-rotate': ['get', 'heading'],
           'icon-rotation-alignment': 'map',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+        paint: { 'icon-opacity': fade },
+      },
+      status: {
+        layout: {
+          'icon-image': ['match', ['get', 'status'], 'stopped', 'status-stopped', 'loading', 'status-loading', 'status-traffic'],
+          'icon-size': g.statusIconSize,
+          'icon-offset': g.statusOffsetPx,
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
         },
@@ -120,6 +141,13 @@ export function VehicleMarkers({ vehicles, nowMs, color, labels, selectedId = nu
         />
         <Layer id={`${POINTS}-halo`} type="circle" paint={paints.halo as never} />
         <Layer id={`${POINTS}-icon`} type="symbol" layout={paints.icon.layout as never} paint={paints.icon.paint as never} />
+        <Layer
+          id={`${POINTS}-status`}
+          type="symbol"
+          filter={['!=', ['get', 'status'], 'moving'] as never}
+          layout={paints.status.layout as never}
+          paint={paints.status.paint as never}
+        />
         {labels ? <Layer id={`${POINTS}-label`} type="symbol" layout={paints.badge.layout as never} paint={paints.badge.paint as never} /> : null}
       </GeoJSONSource>
     </>

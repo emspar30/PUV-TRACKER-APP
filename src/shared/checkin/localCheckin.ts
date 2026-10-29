@@ -3,6 +3,7 @@
 // alone for a long time is simply expired.
 
 import { CHECKIN_LIFETIME_S } from '../config';
+import type { LatLon } from '../geo/haversine';
 
 const MS_PER_S = 1000;
 const S_PER_MIN = 60;
@@ -19,6 +20,10 @@ export type LocalCheckIn = {
   // Milliseconds since 1970
   createdAtMs: number;
   expiresAtMs: number;
+  // CA2b: where the commuter stood when checking in (up to CHECKIN_STOP_MAX_M from the stop), so
+  // "Did you board?" looks for a multicab there. Kept on the phone only, never sent. Absent in
+  // records from before CA2 and when there was no position; the stop is used then.
+  point?: LatLon;
 };
 
 // `expiresAtMs` is the server's expiry when the check-in is in the cloud (C1)
@@ -27,9 +32,11 @@ export function startCheckIn(
   stationCode: string,
   nowMs: number,
   expiresAtMs = nowMs + CHECKIN_LIFETIME_S * MS_PER_S,
+  point?: LatLon,
 ): LocalCheckIn {
   const routeCodes = typeof routes === 'string' ? [routes] : [...routes];
-  return { routeCode: routeCodes[0] ?? '', routeCodes, stationCode, createdAtMs: nowMs, expiresAtMs };
+  const at = point ? { point: { lat: point.lat, lon: point.lon } } : {};
+  return { routeCode: routeCodes[0] ?? '', routeCodes, stationCode, createdAtMs: nowMs, expiresAtMs, ...at };
 }
 
 export function remainingMs(checkIn: LocalCheckIn, nowMs: number): number {
@@ -65,7 +72,9 @@ export function parseStoredCheckIn(value: unknown): LocalCheckIn | null {
   // Stored before shared stops: one route
   const stored = Array.isArray(record.routeCodes) ? record.routeCodes.filter((code): code is string => typeof code === 'string') : [];
   const routeCodes = stored.length > 0 ? stored : [routeCode];
-  return { routeCode, routeCodes, stationCode, createdAtMs, expiresAtMs };
+  const point = record.point as Record<string, unknown> | undefined;
+  const at = point && Number.isFinite(point.lat) && Number.isFinite(point.lon) ? { point: { lat: point.lat as number, lon: point.lon as number } } : {};
+  return { routeCode, routeCodes, stationCode, createdAtMs, expiresAtMs, ...at };
 }
 
 // B3: when to remind the commuter of a running check-in, `minutes` after it started; null when the

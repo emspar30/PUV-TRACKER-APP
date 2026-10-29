@@ -42,7 +42,7 @@ import {
   type Classification,
 } from '@/shared/config';
 import { avatarSetFor } from '@/shared/profile/avatarPick';
-import { suggestUsername } from '@/shared/profile/usernameSuggest';
+import { introUsername, suggestUsername } from '@/shared/profile/usernameSuggest';
 import { routesNear } from '@/shared/routing/suggest';
 import { compareRouteCodes } from '@/shared/ui/routeVisibility';
 import { useDestinationsStore } from '@/state/destinationsStore';
@@ -93,8 +93,11 @@ export default function OnboardingScreen() {
   const setOnboarded = useProfileStore((state) => state.setOnboarded);
   const savedUsername = useUsernameStore((state) => state.username);
   const setUsername = useUsernameStore((state) => state.setUsername);
-  // ST2-B: never empty; without a saved username a suggested one is filled in, ready to edit
-  const [handle, setHandle] = useState(() => savedUsername ?? suggestUsername(Math.random));
+  // ST2-B: never empty; without a saved username a suggested one is filled in, ready to edit. The
+  // account's username, loaded after sign-in, replaces the suggestion, so it is never renamed here
+  const [suggested] = useState(() => suggestUsername(Math.random));
+  const [typed, setHandle] = useState<string | null>(null);
+  const handle = introUsername(typed, savedUsername, suggested);
 
   const index = STEPS.indexOf(step);
 

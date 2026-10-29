@@ -6,11 +6,15 @@
 //   3. when it says send: for each phone on the route, reserve its sequence numbers, sign the
 //      messages with that phone's key (shared/sms/pack.ts), encode them as data or text SMS, and
 //      queue the route's messages with its new state in one transaction (worker_enqueue).
+// CA2-1: the messages are v3, listing only the stops with someone waiting (the first says every
+// other stop is 0), so a route with its fill stops still fits one SMS; the driver app reads v2 too.
 // One phone's failure (a retired phone, a database error) does not stop the others.
+// CA2c: the gateways' daily cap (shared/sms/dispatch.ts capLevel) holds sends near and at it;
+// at the cap an ops alert is recorded.
 
-import { SMS_OUTBOX_TTL_MIN } from '../../../src/shared/config';
-import { dispatchDecision, type DispatchDecision } from '../../../src/shared/sms/dispatch';
-import { buildHeatmapMessages, chunkHeatmapNodes, type HeatmapEncoding } from '../../../src/shared/sms/pack';
+import { OPS_ALERT_QUIET_MIN, SMS_GATEWAY_DAILY_CAP, SMS_OUTBOX_TTL_MIN } from '../../../src/shared/config';
+import { capLevel, dispatchDecision, manilaDayStartMs, type DispatchDecision } from '../../../src/shared/sms/dispatch';
+import { buildHeatmapUpdate, heatmapUpdateSize, type HeatmapEncoding } from '../../../src/shared/sms/pack';
 import { manilaMinuteOfDay } from '../../../src/shared/sms/protocol';
 
 import type { QueuedMessage, WorkerDeps, WorkerDevice } from './deps';
@@ -29,7 +33,14 @@ const toBase64 = (bytes: Uint8Array) => Buffer.from(bytes).toString('base64');
 export async function runCycle(deps: WorkerDeps, options: CycleOptions): Promise<RouteCycleResult[]> {
   const stopsOf = options.stopsOf ?? routeStopCodes;
   const nowMs = deps.nowMs();
-  const [snapshot, devices, state] = await Promise.all([deps.demandSnapshot(), deps.devices(), deps.dispatchState()]);
+  const [snapshot, devices, state, usage] = await Promise.all([
+    deps.demandSnapshot(),
+    deps.devices(),
+    deps.dispatchState(),
+    deps.smsUsage(manilaDayStartMs(nowMs)),
+  ]);
+  // CA2c: today's messages so far, counted on as this cycle queues more
+  let used = usage.used;
 
   const byRoute = new Map<string, WorkerDevice[]>();
   for (const device of devices) byRoute.set(device.routeId, [...(byRoute.get(device.routeId) ?? []), device]);
@@ -46,7 +57,11 @@ export async function runCycle(deps: WorkerDeps, options: CycleOptions): Promise
       if (row.routeId === routeId && row.stationCode in counts) counts[row.stationCode] = row.waiting;
     }
 
-    const decision = dispatchDecision(state.get(routeId) ?? null, counts, nowMs);
+    const level = capLevel(used, usage.gateways);
+    const decision = dispatchDecision(state.get(routeId) ?? null, counts, nowMs, level);
+    if (level === 'full' && dispatchDecision(state.get(routeId) ?? null, counts, nowMs).send) {
+      await deps.alert('sms_daily_cap', { used, cap: SMS_GATEWAY_DAILY_CAP, gateways: usage.gateways }, OPS_ALERT_QUIET_MIN);
+    }
     if (!decision.send) {
       results.push({ routeId, decision, devices: routeDevices.length, queued: 0 });
       continue;
@@ -57,9 +72,9 @@ export async function runCycle(deps: WorkerDeps, options: CycleOptions): Promise
     const messages: QueuedMessage[] = [];
     for (const device of routeDevices) {
       try {
-        const n = chunkHeatmapNodes(routeId, nodes, options.encoding).length;
+        const n = heatmapUpdateSize(routeId, nodes, options.encoding);
         const firstSeq = await deps.nextSeq(device.deviceId, n);
-        for (const message of buildHeatmapMessages({ route: routeId, firstSeq, minuteOfDay, nodes }, device.smsKey, options.encoding)) {
+        for (const message of buildHeatmapUpdate({ route: routeId, firstSeq, minuteOfDay, nodes }, device.smsKey, options.encoding)) {
           messages.push({
             deviceId: device.deviceId,
             seq: message.seq,
@@ -77,6 +92,7 @@ export async function runCycle(deps: WorkerDeps, options: CycleOptions): Promise
       continue;
     }
     const queued = await deps.enqueue(routeId, counts, messages, SMS_OUTBOX_TTL_MIN);
+    used += queued;
     deps.log('info', 'queued', { routeId, reason: decision.reason, phones: routeDevices.length, messages: queued });
     results.push({ routeId, decision, devices: routeDevices.length, queued });
   }

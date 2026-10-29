@@ -19,6 +19,13 @@ export const supabaseVehiclesPort: LiveVehiclesPort = {
     return { vehicleIds, rows: latest.data as LiveRow[] };
   },
 
+  // NM1: the night stop view; open to every signed-in account, names no vehicle
+  async nightStops(routeCode) {
+    const result = await getSupabase().rpc('night_stop_updates', { route: routeCode });
+    if (result.error) throw new Error(result.error.message);
+    return (result.data ?? []) as { stop_code: string; passed_at: string }[];
+  },
+
   watch(vehicleIds, onRow) {
     if (vehicleIds.length === 0) return () => undefined;
     const supabase = getSupabase();

@@ -6,6 +6,7 @@ import { VEHICLE_CAPACITY_SEATS } from '@/shared/config';
 import { ageSeconds } from '@/shared/telemetry/coverage';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import type { VehicleSnapshot } from '@/shared/telemetry/vehicle';
+import type { VehicleStatus } from '@/shared/telemetry/vehicleStatus';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -14,7 +15,8 @@ type VehicleCardProps = {
   nowMs: number;
   // Stop code ahead of the vehicle, or null at the end of its line
   nextStop: string | null;
-  stopped: boolean;
+  // VS1: what it is doing; the pill names it (nothing while moving)
+  status: VehicleStatus;
   // How far the vehicle is from the commuter (PRD 7.4), or null without a position
   distanceKm: number | null;
   onTrack: () => void;
@@ -34,7 +36,7 @@ const SMALL_ICON = spacing.md;
 // and how far from the commuter (PRD 7.4, "Seen 40 s ago, 1.4 km from you"). The ETA shows only
 // after Track opens the tracking panel (L2; Emjay, 2026-10-24). A live vehicle the server has not
 // verified says "Prototype data, unverified" (PRD 0.7).
-export function VehicleCard({ vehicle, nowMs, nextStop, stopped, distanceKm, onTrack, locationOff = false, onTurnOnLocation, estimated = false, onClose }: VehicleCardProps) {
+export function VehicleCard({ vehicle, nowMs, nextStop, status, distanceKm, onTrack, locationOff = false, onTurnOnLocation, estimated = false, onClose }: VehicleCardProps) {
   const styles = useStyles();
   const { colors, typography, mapPaint, elevation } = useTheme();
   const free = Math.max(0, VEHICLE_CAPACITY_SEATS - vehicle.seatsTaken);
@@ -54,7 +56,7 @@ export function VehicleCard({ vehicle, nowMs, nextStop, stopped, distanceKm, onT
           </View>
           {nextStop ? <Text style={typography.bodySm}>{strings.live.vehicle.next(nextStop)}</Text> : null}
         </View>
-        {stopped ?<StatusPill label={strings.live.vehicle.stopped} tone="warning" /> : null}
+        {status !== 'moving' ? <StatusPill label={strings.live.vehicle[status]} tone="warning" /> : null}
         <Pressable style={styles.icon} onPress={onClose} accessibilityRole="button" accessibilityLabel={strings.live.vehicle.close}>
           <X color={colors.textSecondary} size={ICON_SIZE} />
         </Pressable>

@@ -97,6 +97,8 @@ Order: CA2-0, CA2-1, then CA2a to CA2e. Each step is one commit after approval. 
 
 ## 5. Decisions
 
+Answered by Emjay on 2026-10-29: D1 to D3 and D5 to D7 as suggested (CA2d left for later). D4 is not known yet, so `SMS_GATEWAY_DAILY_CAP` is a placeholder of 100 until the SIM's or promo's real limit is confirmed.
+
 | # | Question | Suggested |
 | --- | --- | --- |
 | D1 | Farthest a commuter can be from a route line (`CHECKIN_LINE_M`) | 40 m |
