@@ -1241,6 +1241,9 @@ export const en = {
     notification: {
       title: 'Tunton beacon on',
       text: 'Commuters can tell this multicab is theirs.',
+      // Backlog 134: posted by the phone when a retire notice arrives while the app is closed (the
+      // title is driver.retiredTitle)
+      retiredText: 'The beacon is off. Open Tunton Driver to register again.',
     },
     // The phone-side setup steps the registration screens share: permissions, the SMS restricted-setting
     // fix and the beacon (the setup QR they came from is gone: owner, 2026-10-28)

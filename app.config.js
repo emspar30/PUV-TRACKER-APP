@@ -53,6 +53,9 @@ const SETTINGS = {
     permissions: ['android.permission.POST_NOTIFICATIONS'],
     blocked: [...LOCATION, ...DRIVER_SMS_BLOCKED, ...COMMUTER_ONLY, ...NEVER],
     plugin: './plugins/withDriverAndroid',
+    // Backlog 128 (2026-10-28): Android's backup restored an old setup on reinstall, without its
+    // Keystore keys, so the phone looked set up but could not sign; the driver app is never backed up
+    allowBackup: false,
     // Owner, 2026-10-18: the commuter icon with its colours reversed (light square, dark bus)
     icon: './assets/driver-icon.png',
     adaptiveIcon: {
@@ -106,6 +109,7 @@ module.exports = ({ config }) => {
       adaptiveIcon: settings.adaptiveIcon ?? android.adaptiveIcon,
       permissions: settings.permissions ?? android.permissions,
       blockedPermissions: settings.blocked,
+      allowBackup: settings.allowBackup ?? android.allowBackup,
     },
     plugins: settings.plugin ? [...(config.plugins ?? []), settings.plugin] : config.plugins,
     extra: {

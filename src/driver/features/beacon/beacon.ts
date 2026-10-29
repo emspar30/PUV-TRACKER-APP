@@ -28,6 +28,8 @@ export function beaconOptions(): BeaconOptions {
     txPower: BEACON_TX_POWER,
     notificationTitle: strings.driver.notification.title,
     notificationText: strings.driver.notification.text,
+    retiredTitle: strings.driver.retiredTitle,
+    retiredText: strings.driver.notification.retiredText,
   };
 }
 

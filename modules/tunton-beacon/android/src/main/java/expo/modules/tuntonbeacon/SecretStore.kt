@@ -48,6 +48,16 @@ class SecretStore(context: Context) {
     get() = prefs.getBoolean(KEY_ENABLED, false)
     set(value) = prefs.edit().putBoolean(KEY_ENABLED, value).apply()
 
+  // The words of the notification RetireNoticeReceiver posts (src/strings), saved with the beacon
+  // settings (backlog 134); null until the app has started the beacon once
+  var retiredTitle: String?
+    get() = prefs.getString(KEY_RETIRED_TITLE, null)
+    set(value) = prefs.edit().putString(KEY_RETIRED_TITLE, value).apply()
+
+  var retiredText: String?
+    get() = prefs.getString(KEY_RETIRED_TEXT, null)
+    set(value) = prefs.edit().putString(KEY_RETIRED_TEXT, value).apply()
+
   var settings: BeaconSettings?
     get() {
       val uuid = prefs.getString(KEY_UUID, null) ?: return null
@@ -108,6 +118,8 @@ class SecretStore(context: Context) {
     private const val KEY_TX = "txPower"
     private const val KEY_TITLE = "notificationTitle"
     private const val KEY_TEXT = "notificationText"
+    private const val KEY_RETIRED_TITLE = "retiredTitle"
+    private const val KEY_RETIRED_TEXT = "retiredText"
 
     const val BEACON_SECRET = "beacon_secret"
     const val SMS_KEY = "sms_key"
