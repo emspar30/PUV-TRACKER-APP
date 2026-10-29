@@ -151,6 +151,8 @@ Migration `20261027000000_driver_registration.sql`; design in `docs/IMPLEMENTATI
 
 **Retire notice (2026-10-28, migration `20261028000000_retire_notice.sql`):** `console_retire(device, notice_ttl_min)` queues one text to the phone, `HM2|RETIRED|<device>|<mac>` signed with its SMS key, before retiring it; the old one-argument `console_retire` is revoked (migrations never drop). **Applied live 2026-10-28, alone** (the partner's two pending migrations set aside again, as for DRG2); live tests 3 of 3 and 8 of 8, no SMS.
 
+**Retire notice as a data SMS (2026-10-29, migration `20261029000000_retire_notice_data.sql`):** the same `console_retire(device, notice_ttl_min)`, replaced in place, now queues the notice as `encoding: 'data'` (bytes `0x48 0x02 0x00 | id length | id | mac`, which the driver app decodes to the signed text), so it no longer shows in the driver's Messages app; the text stays in `body_text`. **Applied live 2026-10-29, alone** (the partner's two pending migrations set aside again; `supabase migration list` shows it remote, theirs still not). The updated live test `driverRegistration.test.ts` (it checks the data notice decodes) has not been run yet.
+
 **Edge Function `driver-registration` (DRG3), deployed 2026-10-27** with
 `npx supabase functions deploy driver-registration --no-verify-jwt --use-api` (no account calls it, so no JWT check; `--use-api`
 bundles on Supabase's side, no Docker). Redeploy the same way after changing `supabase/functions/driver-registration/` or the
