@@ -92,6 +92,9 @@ export default function Register() {
   const [busy, setBusy] = useState(false);
   // Which way the next step slides in: from the right going on, from the left going back
   const [backwards, setBackwards] = useState(false);
+  // The first step drawn does not slide in (backlog 131): animated on the screen's first render,
+  // Reanimated placed it before the header had its height, about 34 dp too high, over the bar
+  const [moved, setMoved] = useState(false);
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const text = strings.driver.register;
@@ -100,6 +103,7 @@ export default function Register() {
     setError(null);
     setBusy(false);
     setBackwards(STEP_NUMBER[next.kind] < STEP_NUMBER[step.kind]);
+    setMoved(true);
     setStep(next);
   };
 
@@ -236,7 +240,7 @@ export default function Register() {
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
       <StepHeader title={text.title} onBack={previous ? () => go(previous) : undefined} step={{ current: STEP_NUMBER[step.kind], total: STEP_COUNT }} />
       {/* A new step slides in under the fixed header; a change within a step (keyed the same) does not */}
-      <Animated.View key={step.kind} entering={(backwards ? SlideInLeft : SlideInRight).duration(motion.stepMs)} style={styles.grow}>
+      <Animated.View key={step.kind} entering={moved ? (backwards ? SlideInLeft : SlideInRight).duration(motion.stepMs) : undefined} style={styles.grow}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {body}
         </ScrollView>
