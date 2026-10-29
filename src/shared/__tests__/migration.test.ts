@@ -13,9 +13,10 @@ const FILES = fs
   .readdirSync(MIGRATIONS)
   .filter((name) => name.endsWith('.sql'))
   .sort();
-// DR3's migration and its later fixes
+// DR3's migration and its later fixes, and driver registration with the retire notice (DRG2)
 const DRIVER_SIDE = '20261013000000_driver_side.sql';
-const DRIVER_SIDE_FILES = FILES.filter((name) => name.startsWith('20261013'));
+const DRIVER_REGISTRATION_FILES = ['20261027000000_driver_registration.sql', '20261028000000_retire_notice.sql', '20261029000000_retire_notice_data.sql'];
+const DRIVER_SIDE_FILES = FILES.filter((name) => name.startsWith('20261013') || DRIVER_REGISTRATION_FILES.includes(name));
 
 const read = (names: string[]) =>
   names
@@ -148,11 +149,12 @@ describe('migration: tables', () => {
       expect(sql).not.toContain(word);
     }
     // The driver side (20261013000000_driver_side) keeps the numbers of driver phones and SMS
-    // gateways, never a rider's: only those two tables have a phone column
+    // gateways, never a rider's; driver registration (20261027000000_driver_registration) keeps the
+    // number a registering driver checks: only those four tables have a phone column
     const withPhone = [...sql.matchAll(/create table (public\.\w+) \(([\s\S]*?)\);/g)]
       .filter((match) => match[2].includes('phone'))
       .map((match) => match[1]);
-    expect(withPhone).toEqual(['public.driver_devices', 'public.gateways']);
+    expect(withPhone).toEqual(['public.driver_devices', 'public.gateways', 'public.registration_checks', 'public.driver_registrations']);
     // Phone numbers exist only on the driver side (driver and gateway SIMs), never for riders
     expect(riderSql).not.toContain('phone');
   });
