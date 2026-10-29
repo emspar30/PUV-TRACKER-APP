@@ -79,6 +79,9 @@ type OfflineMapProps = {
   children?: ReactNode;
   // The (i) credit sits this far from the top on the left; by default, above the bottom inset
   attributionTop?: number;
+  // The middle of the map may reach the tile edge at any zoom, for a pin fixed in the middle; the
+  // screen edge may then pass the tiles. By default the screen edge stops at the tile edge.
+  centerToEdge?: boolean;
 };
 
 export function OfflineMap({
@@ -95,6 +98,7 @@ export function OfflineMap({
   topInset = 0,
   labelsDimmed = false,
   attributionTop,
+  centerToEdge = false,
   children,
 }: OfflineMapProps) {
   const styles = useStyles();
@@ -119,9 +123,10 @@ export function OfflineMap({
   // rounded so small moves keep it, and the map zooms out to the city at most
   const [viewKey, setViewKey] = useState(`${MAP_VIEW_START_DEG}x${MAP_VIEW_START_DEG}`);
   const maxBounds = useMemo(() => {
+    if (centerToEdge) return TILESET.bounds;
     const [lon, lat] = viewKey.split('x').map(Number);
     return panLimit(TILESET.bounds, [0, 0, lon, lat]);
-  }, [viewKey]);
+  }, [viewKey, centerToEdge]);
 
   // CA1.1: a move asked for (Locate, a route framed) first lifts the limit to the tile edge: zoomed
   // out, the limit is held near the middle of the map and the camera stopped there instead of at the
