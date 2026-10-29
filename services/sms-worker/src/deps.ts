@@ -44,6 +44,9 @@ export type WorkerDeps = {
   gatewayAuth(tokenHash: string): Promise<string | null>;
   heartbeat(gatewayId: string, status: Record<string, unknown>): Promise<boolean>;
   healthStats(sinceMs: number): Promise<HealthStats>;
+  // CA2c: messages queued since `sinceMs` that were not lost (queued, claimed, sent or delivered), and
+  // the active gateways, for the daily cap
+  smsUsage(sinceMs: number): Promise<{ used: number; gateways: number }>;
   // Records an alert unless the same kind is open from the last quietMin minutes; true if recorded
   alert(kind: string, detail: Record<string, unknown>, quietMin: number): Promise<boolean>;
   // Must not throw. Fields must already be masked (mask.ts).

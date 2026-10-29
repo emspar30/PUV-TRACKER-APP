@@ -13,6 +13,8 @@ import { ActiveRouteCard } from '@/features/live/ActiveRouteCard';
 import { CoverageNudge } from '@/features/live/CoverageNudge';
 import { TunieButton } from '@/features/assistant/TunieButton';
 import { RouteSelector, type RouteOption, type VehicleFilter } from '@/features/live/RouteSelector';
+import { NightStopsCard } from '@/features/live/NightStopsCard';
+import { useNightPassages } from '@/features/live/useNightPassages';
 import { VehicleCard } from '@/features/live/VehicleCard';
 import { BlueDot } from '@/features/map/BlueDot';
 import { LocationExplainer } from '@/features/map/LocationExplainer';
@@ -39,6 +41,7 @@ import { useVehicles } from '@/features/vehicles/useVehicles';
 import { useTourStore } from '@/state/tourStore';
 import { promptSignIn } from '@/features/auth/promptSignIn';
 import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
+import { useVehicleRelays } from '@/features/vehicles/useVehicleRelays';
 import {
   ENERGY_TRACKING_COST,
   MAP_FOLLOW_ZOOM,
@@ -69,7 +72,7 @@ import { ageSeconds, coverageOf, nudgeShown, routeCoverage } from '@/shared/tele
 import { displayPosition, isGhostAge } from '@/shared/telemetry/deadReckoning';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
-import { isStopped } from '@/shared/telemetry/stopped';
+import { vehicleStatus } from '@/shared/telemetry/vehicleStatus';
 import { crossedDistance, crossesAlert, etaDistanceKm, etaNow, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
 import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
@@ -131,6 +134,8 @@ export default function MapScreen() {
   const setMapRoute = useSettingsStore((store) => store.setMapRoute);
   useEffect(() => setMapRoute(selectedRoute), [selectedRoute, setMapRoute]);
   const seatFilter = useSettingsStore((store) => store.seatFilter);
+  // VS1: relays naming a multicab, for the status mark on its marker and the pill on its card
+  const relays = useVehicleRelays();
   const arrivalAlert = useSettingsStore((store) => store.arrivalAlert);
   const [filter, setFilter] = useState<VehicleFilter>(seatFilter ? 'seats' : 'all');
   // The Map tab stays mounted, so turning the Seat filter on or off in Settings is applied here when
@@ -236,6 +241,8 @@ export default function MapScreen() {
   // L1: at night the server shows only stopped multicabs (PRD 10.4), so an empty live route says
   // Night Mode rather than No data. The server decides; this only labels it.
   const night = repos.vehicles.source === 'live' && isNight(live.nowMs);
+  // NM1 (PRD 10.4): at night, live or demo, the picked route shows the stops its multicabs passed
+  const nightStops = useNightPassages(repos.vehicles, focused && selectedRoute && isNight(live.nowMs) ? selectedRoute : null);
   // Live vehicles are for team accounts only in v0; a signed-in account off the list is told why
   const offTeam = repos.vehicles.source === 'live' && teamAccount === false;
   // CF1 coverage nudge: the picked route has no Live multicab (whatever the seat filter), by day,
@@ -599,6 +606,7 @@ export default function MapScreen() {
             color={colors.primary}
             labels={state.tiles.glyphsUrl !== null}
             lineOf={lineOf}
+            relays={relays}
             onPressVehicle={(id) => {
               const picked = overviewVehicles.find((candidate) => candidate.id === id);
               if (!picked) return;
@@ -618,6 +626,7 @@ export default function MapScreen() {
             // CA1.1: one multicab picked (its card open) or tracked: the others fade, so it stands out
             othersOpacity={onTrackedRoute || selectedVehicle !== null ? TRACK_OTHERS_OPACITY : 1}
             lineOf={lineOf}
+            relays={relays}
             onPressVehicle={(id) => {
               if (onTrackedRoute) return;
               setSelectedVehicle(id);
@@ -677,6 +686,17 @@ export default function MapScreen() {
             </TourTarget>
           </Animated.View>
         )}
+        {nightStops && selectedOption ? (
+          <NightStopsCard
+            code={selectedOption.code}
+            passages={nightStops.passages}
+            nowMs={nightStops.nowMs}
+            stopName={(code) => {
+              const name = stops.find((candidate) => candidate.code === code)?.name;
+              return name ? (name.split(',')[0] ?? name) : code;
+            }}
+          />
+        ) : null}
         {nudgeOn && selectedOption ? (
           <CoverageNudge
             code={selectedOption.code}
@@ -778,7 +798,7 @@ export default function MapScreen() {
             vehicle={vehicle}
             nowMs={live.nowMs}
             nextStop={nextStopOf(vehicle, loopLines, layers.stops)?.code ?? null}
-            stopped={vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs)}
+            status={vehicleStatus(vehicle, relays, live.nowMs)}
             distanceKm={vehicleKm}
             onTrack={() => void startTracking(vehicle.id)}
             locationOff={trackLocation.status !== 'on'}

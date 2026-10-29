@@ -11,10 +11,12 @@ import { displayPosition } from './deadReckoning';
 import { seatTier, type SeatTier } from './occupancy';
 import { isStopped } from './stopped';
 import type { VehicleSnapshot } from './vehicle';
+import { vehicleStatus, type StatusRelay, type VehicleStatus } from './vehicleStatus';
 
 // label: the plate shown beside the marker ("DEMO 01" for demo vehicles)
 // heading: degrees clockwise from north, which the vehicle icon is rotated to
 // ghost: CF1, drawn at an estimated position (faded, labelled Estimated, no ETA)
+// status: VS1, the mark in the marker's corner (none while moving)
 export type MarkerProps = {
   id: string;
   label: string;
@@ -22,6 +24,7 @@ export type MarkerProps = {
   stale: boolean;
   ghost: boolean;
   stopped: boolean;
+  status: VehicleStatus;
   demo: boolean;
   heading: number;
 };
@@ -58,6 +61,8 @@ export function vehicleMarkerFeatures(
   cone: { lengthPx: number; halfAngleDeg: number; zoom: number },
   // The coordinates of a vehicle's line by its id, for Estimated positions; without it they stay at the last fix
   lineOf: (lineId: string) => LineCoordinates | undefined = () => undefined,
+  // VS1: recent relays, for Loading passengers and Heavy traffic
+  relays: readonly StatusRelay[] = [],
 ): MarkerFeatures {
   const points: Feature<Point, MarkerProps>[] = [];
   const cones: Feature<Polygon, MarkerProps>[] = [];
@@ -72,6 +77,7 @@ export function vehicleMarkerFeatures(
       stale: coverage === 'stale',
       ghost: at.ghost,
       stopped: vehicle.layover === true || isStopped(vehicle.recentSpeeds, vehicle.lastPacketMs),
+      status: vehicleStatus(vehicle, relays, nowMs),
       demo: vehicle.demo,
       heading: at.headingDeg,
     };

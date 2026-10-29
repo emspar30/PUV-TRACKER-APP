@@ -2,6 +2,7 @@ import { GeoJSONSource, Layer, type CircleLayerSpecification } from '@maplibre/m
 import type { FeatureCollection, Point } from 'geojson';
 import { useMemo } from 'react';
 
+import { isFillStopCode } from '@/shared/routing/fillStops';
 import type { RouteStop } from '@/shared/routing/types';
 import { MAP_GEOMETRY, spacing, useTheme } from '@/theme';
 
@@ -14,11 +15,11 @@ export const STOP_LAYER_ID = `${SOURCE}-dot`;
 // Extra touch area around a dot, so a small dot is still easy to tap
 const HITBOX = { top: spacing.md, right: spacing.md, bottom: spacing.md, left: spacing.md };
 
-// Dot radius grows with zoom; the selected stop is drawn larger
+// Dot radius grows with zoom; the selected stop is drawn larger, a fill stop (CA2-0) smaller
 function radiusRamp(): CirclePaint['circle-radius'] {
   const stops = MAP_GEOMETRY.stopRadiusStops.flatMap(([zoom, radius]) => [
     zoom,
-    ['case', ['get', 'selected'], radius * MAP_GEOMETRY.stopSelectedScale, radius],
+    ['case', ['get', 'selected'], radius * MAP_GEOMETRY.stopSelectedScale, ['get', 'fill'], radius * MAP_GEOMETRY.fillStopScale, radius],
   ]);
   return ['interpolate', ['linear'], ['zoom'], ...stops] as unknown as CirclePaint['circle-radius'];
 }
@@ -42,7 +43,7 @@ export function StopDots({ stops, selectedCode, onPressStop, color }: StopDotsPr
       type: 'FeatureCollection',
       features: stops.map((stop) => ({
         type: 'Feature',
-        properties: { code: stop.code, selected: stop.code === selectedCode },
+        properties: { code: stop.code, selected: stop.code === selectedCode, fill: isFillStopCode(stop.code) },
         geometry: { type: 'Point', coordinates: [stop.lon, stop.lat] },
       })),
     }),

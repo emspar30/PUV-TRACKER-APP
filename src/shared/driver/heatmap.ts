@@ -13,6 +13,8 @@ const MS_PER_MIN = 60_000;
 export type HeatmapState = {
   route: string;
   counts: Readonly<Record<string, number>>;
+  // CA2-1: a v3 F message has arrived, so a stop it did not list has nobody waiting (0), not unknown
+  whole?: boolean;
   // Sequence number of the last accepted message (validateHeatmap's lastSeq)
   lastSeq: number | null;
   lastAcceptedMs: number | null;
@@ -39,9 +41,10 @@ export function emptyHeatmap(route: string): HeatmapState {
 // Apply a message that validateHeatmap accepted. A message for another route changes nothing.
 export function applyMessage(state: HeatmapState, message: HeatmapMessage, receivedAtMs: number): HeatmapState {
   if (message.route !== state.route) return state;
-  const counts = { ...state.counts };
+  // v3 F: the listed stops are the only ones with anyone waiting
+  const counts: Record<string, number> = message.full ? {} : { ...state.counts };
   for (const { code, count } of message.nodes) counts[code] = count;
-  return { ...state, counts, lastSeq: message.seq, lastAcceptedMs: receivedAtMs };
+  return { ...state, counts, whole: state.whole === true || message.full === true, lastSeq: message.seq, lastAcceptedMs: receivedAtMs };
 }
 
 export function heatmapBand(count: number): HeatmapBand {
@@ -61,7 +64,7 @@ export function ageMinutes(state: HeatmapState, nowMs: number): number | null {
 }
 
 export function displayCount(state: HeatmapState, code: string, nowMs: number): StopDisplay {
-  const count = state.counts[code];
+  const count = state.counts[code] ?? (state.whole ? 0 : undefined);
   if (count === undefined) return { kind: 'unknown' };
   const bandsOnly = !DRIVER_SHOW_EXACT_COUNTS || (DRIVER_NIGHT_BANDS_ONLY && isNight(nowMs));
   return { kind: 'known', band: heatmapBand(count), exact: bandsOnly ? null : count };

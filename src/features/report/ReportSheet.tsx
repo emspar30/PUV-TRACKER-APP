@@ -21,7 +21,9 @@ import { demoBeacon, relayGate, type DemoMulticab, type RelayBeacon, type RelayG
 import type { SearchablePlace } from '@/shared/routing/placeSearch';
 import type { RouteStop } from '@/shared/routing/types';
 import type { SeatTier } from '@/shared/telemetry/occupancy';
+import { reportMockLocation } from '@/services/risk';
 import { sendReport } from '@/state/crowdStore';
+import { useLocationStore } from '@/state/locationStore';
 import { showDialog } from '@/state/dialogStore';
 import { useRelayStore } from '@/state/relayStore';
 import { useSettingsStore } from '@/state/settingsStore';
@@ -143,6 +145,11 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   const liveMapSaved = useSettingsStore((state) => state.relayLiveMap);
   const setLiveMapSaved = useSettingsStore((state) => state.setRelayLiveMap);
   const location = useRelayLocation();
+  // RK1: a mock (fake GPS) fix is refused for a relay; the server hears of it once per app session
+  const mocked = useLocationStore((state) => state.fix?.mocked === true);
+  useEffect(() => {
+    if (mocked) reportMockLocation();
+  }, [mocked]);
   const ble = useBleVehicle(!demoData);
   const found = ble.view?.kind === 'found' ? ble.view : null;
   const { stops } = useRouteData();

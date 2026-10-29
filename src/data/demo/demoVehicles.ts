@@ -3,6 +3,7 @@
 // Pure: no React Native or Expo imports, so it runs in plain Node tests.
 
 import { DEMO_EMPTY_ROUTES, DEMO_STRESS_MARKERS, DEMO_TICK_MS } from '../../shared/config';
+import { demoNightPassages } from '../../shared/demo/nightPassages';
 import { demoFleetConfig, demoSnapshot, planDemoFleet, type DemoVehiclePlan } from '../../shared/demo/simulate';
 import { withReturnLegs } from '../../shared/routing/loop';
 import type { DirectedLine, RouteStop } from '../../shared/routing/types';
@@ -53,6 +54,9 @@ export function createDemoVehicles(
 
   return {
     source: 'demo',
+    // NM1: the passages the demo multicabs made, worked out from their plans
+    nightPassages: async (routeCode) =>
+      demoNightPassages(plansFor(routeCode), stops.filter((stop) => stop.routeCodes?.includes(routeCode)), clock.now()),
     subscribe: (routeCode, listener) => {
       const fleet = plansFor(routeCode);
       const emit = () => {

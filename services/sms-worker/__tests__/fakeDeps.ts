@@ -19,6 +19,9 @@ export type Fake = WorkerDeps & {
   openAlerts: Set<string>;
   logs: { level: string; message: string; fields?: Record<string, unknown> }[];
   failSeqFor: Set<string>;
+  // CA2c: messages already sent today before the test's queue, and the active gateways
+  usedBefore: number;
+  gatewayCount: number;
 };
 
 export function fakeDeps(nowMs: number): Fake {
@@ -36,6 +39,8 @@ export function fakeDeps(nowMs: number): Fake {
     openAlerts: new Set(),
     logs: [],
     failSeqFor: new Set(),
+    usedBefore: 0,
+    gatewayCount: 1,
 
     nowMs: () => fake.now,
     demandSnapshot: async () => fake.snapshot,
@@ -91,6 +96,9 @@ export function fakeDeps(nowMs: number): Fake {
     },
 
     healthStats: async () => fake.stats,
+
+    // Every queued row counts as today's (the tests run within one day)
+    smsUsage: async () => ({ used: fake.usedBefore + fake.queue.filter((row) => row.status !== 'failed').length, gateways: fake.gatewayCount }),
 
     async alert(kind, detail, quietMin) {
       if (fake.openAlerts.has(kind)) return false;

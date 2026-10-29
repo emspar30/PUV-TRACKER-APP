@@ -133,6 +133,8 @@ export const MAP_GEOMETRY = {
     [18, 10],
   ],
   stopSelectedScale: 1.6,
+  // CA2-0: a fill stop (no real stop there, made to close a long stretch) is drawn smaller
+  fillStopScale: 0.7,
   stopStrokeWidth: 2,
   tripRideWidthScale: 1.2,
   tripWalkWidth: 2,
@@ -165,6 +167,9 @@ export const MAP_GEOMETRY = {
     selectedHaloRadius: 16,
     selectedHaloOpacity: 0.25,
     badgeHalo: 1.5,
+    // VS1: the status mark (assets/map/status-*.png, 16 dp) at the marker's top right, kept upright
+    statusIconSize: 1,
+    statusOffsetPx: [11, -11],
   },
 } as const;
 

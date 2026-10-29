@@ -86,7 +86,7 @@ describe('heatmap inbox (DR5)', () => {
     await ensureInboxConfigured();
     await ensureInboxConfigured();
     expect(mockConfigure).toHaveBeenCalledTimes(1);
-    expect(mockConfigure).toHaveBeenCalledWith('HM2|', 50);
+    expect(mockConfigure).toHaveBeenCalledWith('HM', 50);
   });
 
   it('applies valid messages and counts each rejection by reason', async () => {

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { parseStoredCheckIn, startCheckIn, type LocalCheckIn } from '@/shared/checkin/localCheckin';
+import type { LatLon } from '@/shared/geo/haversine';
 
 import { useRidesStore } from './ridesStore';
 
@@ -14,7 +15,7 @@ type StoredCheckIn = {
 };
 
 type CheckInState = StoredCheckIn & {
-  checkInAt: (routes: string | readonly string[], stationCode: string, nowMs: number, expiresAtMs?: number) => void;
+  checkInAt: (routes: string | readonly string[], stationCode: string, nowMs: number, expiresAtMs?: number, point?: LatLon) => void;
   // "I boarded" ends it and keeps the ride in My Rides' recent rides; "Cancel" only ends it
   boarded: (nowMs: number) => void;
   clear: () => void;
@@ -37,7 +38,7 @@ export const useCheckInStore = create<CheckInState>()(
         if (current) useRidesStore.getState().add({ routeCode: current.routeCode, stationCode: current.stationCode, atMs: nowMs, source: 'checkin' });
         set({ checkIn: null });
       },
-      checkInAt: (routes, stationCode, nowMs, expiresAtMs) => set({ checkIn: startCheckIn(routes, stationCode, nowMs, expiresAtMs) }),
+      checkInAt: (routes, stationCode, nowMs, expiresAtMs, point) => set({ checkIn: startCheckIn(routes, stationCode, nowMs, expiresAtMs, point) }),
       clear: () => set({ checkIn: null }),
     }),
     {

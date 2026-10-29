@@ -2,7 +2,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { newlyEarned, NO_COUNTS, type BadgeCounts, type BadgeId } from '@/shared/profile/badges';
+import { becameRegular, newlyEarned, NO_COUNTS, type BadgeCounts, type BadgeId } from '@/shared/profile/badges';
 import { strings } from '@/strings';
 
 import { useRidesStore, type RecentRide } from './ridesStore';
@@ -43,9 +43,10 @@ export function badgeCountsOf({ tripsPlanned, checkIns, reports, gpsReports }: B
 
 const countsOf = (counts: BadgeCounts): BadgeCounts => badgeCountsOf(counts, useRidesStore.getState().rides);
 
-// A short notice for each badge just earned (in-app only)
-function announce(ids: BadgeId[]): void {
+// A short notice for each badge just earned (in-app only), and BG1's for the Tunton regular mark
+function announce(ids: BadgeId[], regular: boolean): void {
   ids.forEach((id) => showToast({ title: strings.badges.earned(strings.badges.names[id]) }));
+  if (regular) showToast({ title: strings.badges.earned(strings.badges.regular) });
 }
 
 export const useCountsStore = create<CountsState>()(
@@ -54,7 +55,8 @@ export const useCountsStore = create<CountsState>()(
       const bump = (change: Partial<BadgeCounts> & { lastTripKey?: string | null }) => {
         const before = countsOf(get());
         set(change);
-        announce(newlyEarned(before, countsOf(get())));
+        const after = countsOf(get());
+        announce(newlyEarned(before, after), becameRegular(before, after));
       };
       return {
         ...NO_COUNTS,

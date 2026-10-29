@@ -38,6 +38,13 @@ const TRUSTED_SHARE = 0.4;
 const VEHICLE_SHARE = 0.7;
 const DEMO_VEHICLES_PER_ROUTE = 4;
 
+// VS1: the demo multicab a demo post names, so its status shows on the map: "R4-02" is the demo
+// multicab demo-R4-2 (one beyond the route's fleet names none). Any other id is returned as it is.
+export function demoVehicleIdOf(feedVehicleId: string): string {
+  const match = /^(.+)-0(\d)$/.exec(feedVehicleId);
+  return match ? `demo-${match[1]}-${match[2]}` : feedVehicleId;
+}
+
 // Posts younger than FEED_LIFETIME_MIN, newest first. stopsOf gives a route's stop codes, for "Near ..."
 export function demoFeed(
   routeCodes: readonly string[],

@@ -1,7 +1,8 @@
 import { SEED_STATIONS } from '../../data/seed/routes';
 import { decodeHeatmapBinary, encodeHeatmapBinary, fitsDataSms, heatmapBinarySize } from '../sms/binary';
 import { fitsSingleSms, gsm7Septets } from '../sms/gsm';
-import { buildHeatmapMessages, chunkHeatmapNodes } from '../sms/pack';
+import { applyMessage, displayCount, emptyHeatmap } from '../driver/heatmap';
+import { buildHeatmapMessages, buildHeatmapUpdate, chunkHeatmapNodes, heatmapUpdateSize } from '../sms/pack';
 import { parseHeatmap, validateHeatmap, type HeatmapNode } from '../sms/protocol';
 
 // Test-only key, in the form the worker uses (64 hex characters as text)
@@ -80,11 +81,14 @@ describe('heatmap binary form (DR2)', () => {
 });
 
 describe('packing a route into messages (DR2)', () => {
-  it.each(ROUTES)('fits %s in one text message and one data message with counts up to 99', (route) => {
+  // CA2-1: with the fill stops a whole route no longer fits one v2 message; v3 lists only the stops
+  // with someone waiting, so five busy stops of any route are one SMS
+  it.each(ROUTES)('fits %s with 5 stops waiting (up to 99 each) in one v3 text message and one data message', (route) => {
     const stops = stopsOf(route);
-    expect(stops.length).toBeGreaterThan(0);
-    expect(chunkHeatmapNodes(route, withCount(stops, 99), 'text')).toHaveLength(1);
-    expect(chunkHeatmapNodes(route, withCount(stops, 99), 'data')).toHaveLength(1);
+    expect(stops.length).toBeGreaterThan(5);
+    const update = stops.map((code, i) => ({ code, count: i < 5 ? 99 : 0 }));
+    expect(heatmapUpdateSize(route, update, 'text')).toBe(1);
+    expect(heatmapUpdateSize(route, update, 'data')).toBe(1);
   });
 
   it('signs messages the driver validates, in one SMS each', () => {
@@ -135,5 +139,56 @@ describe('packing a route into messages (DR2)', () => {
 
   it('sends nothing for no stops', () => {
     expect(buildHeatmapMessages({ route: 'R4', firstSeq: 1, minuteOfDay: MINUTE, nodes: [] }, KEY, 'text')).toEqual([]);
+  });
+});
+
+describe('v3: only the stops with someone waiting (CA2-1)', () => {
+  const nodes = [
+    { code: 'SMB', count: 3 },
+    { code: 'ZAM', count: 0 },
+    { code: 'CSU', count: 2 },
+  ];
+
+  it('lists only the waiting stops, marks the update whole, and validates', () => {
+    const [message] = buildHeatmapUpdate({ route: 'R4', firstSeq: 5, minuteOfDay: MINUTE, nodes }, KEY, 'text');
+    expect(message.text.startsWith('HM3|R4|0005|1930|F|SMB:3,CSU:2|')).toBe(true);
+    const parsed = validateHeatmap(message.text, { key: KEY, lastSeq: 4, nowMinuteOfDay: MINUTE });
+    expect(parsed).toMatchObject({ ok: true, message: { full: true, nodes: [{ code: 'SMB', count: 3 }, { code: 'CSU', count: 2 }] } });
+  });
+
+  it('round-trips through the data form, whole flag and all', () => {
+    for (const update of [nodes, nodes.map((node) => ({ ...node, count: 0 }))]) {
+      const [message] = buildHeatmapUpdate({ route: 'R4', firstSeq: 5, minuteOfDay: MINUTE, nodes: update }, KEY, 'data');
+      expect(decodeHeatmapBinary(message.data as Uint8Array)).toBe(message.text);
+      expect(validateHeatmap(message.text, { key: KEY, lastSeq: 4, nowMinuteOfDay: MINUTE }).ok).toBe(true);
+    }
+  });
+
+  it('nobody waiting is one message with an empty list, which clears every stop on the driver phone', () => {
+    const [message] = buildHeatmapUpdate({ route: 'R4', firstSeq: 9, minuteOfDay: MINUTE, nodes: nodes.map((node) => ({ ...node, count: 0 })) }, KEY, 'text');
+    expect(message.text.startsWith('HM3|R4|0009|1930|F|-|')).toBe(true);
+    const parsed = parseHeatmap(message.text);
+    expect(parsed?.nodes).toEqual([]);
+    const before = applyMessage(emptyHeatmap('R4'), { route: 'R4', seq: 1, minuteOfDay: MINUTE, nodes: [{ code: 'SMB', count: 4 }] }, 1);
+    const after = applyMessage(before, parsed as NonNullable<typeof parsed>, 2);
+    expect(displayCount(after, 'SMB', 2)).toMatchObject({ kind: 'known', band: 0 });
+    expect(displayCount(after, 'ZAM', 2)).toMatchObject({ kind: 'known', band: 0 });
+  });
+
+  it('a long update is F then P: the second part adds to the first instead of clearing it', () => {
+    const many = synthetic(40).map((code) => ({ code, count: 5 }));
+    const messages = buildHeatmapUpdate({ route: 'R2', firstSeq: 100, minuteOfDay: MINUTE, nodes: many }, KEY, 'text');
+    expect(messages.length).toBeGreaterThan(1);
+    expect(messages.map((message) => parseHeatmap(message.text)?.full)).toEqual(messages.map((_, i) => i === 0));
+    let state = emptyHeatmap('R2');
+    for (const message of messages) state = applyMessage(state, parseHeatmap(message.text) as NonNullable<ReturnType<typeof parseHeatmap>>, 1);
+    expect(Object.keys(state.counts)).toHaveLength(40);
+  });
+
+  it('the driver phone still reads v2, where the stops not listed keep their value', () => {
+    const [v2] = buildHeatmapMessages({ route: 'R4', firstSeq: 1, minuteOfDay: MINUTE, nodes: [{ code: 'SMB', count: 1 }] }, KEY, 'text');
+    expect(validateHeatmap(v2.text, { key: KEY, lastSeq: null, nowMinuteOfDay: MINUTE }).ok).toBe(true);
+    const state = applyMessage(emptyHeatmap('R4'), parseHeatmap(v2.text) as NonNullable<ReturnType<typeof parseHeatmap>>, 1);
+    expect(displayCount(state, 'ZAM', 1)).toEqual({ kind: 'unknown' });
   });
 });

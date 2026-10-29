@@ -107,6 +107,15 @@ export function supabaseDeps(url: string, serviceRoleKey: string, log = consoleL
       return value<boolean>(await db.rpc('worker_heartbeat', { gateway: gatewayId, status }), 'heartbeat');
     },
 
+    async smsUsage(sinceMs) {
+      const since = new Date(sinceMs).toISOString();
+      const used = await db.from('sms_outbox').select('id', { count: 'exact', head: true }).gte('created_at', since).in('status', ['queued', 'claimed', 'sent', 'delivered']);
+      if (used.error) throw new Error(`sms usage: ${used.error.message}`);
+      const gateways = await db.from('gateways').select('gateway_id', { count: 'exact', head: true }).eq('active', true);
+      if (gateways.error) throw new Error(`gateways: ${gateways.error.message}`);
+      return { used: used.count ?? 0, gateways: gateways.count ?? 0 };
+    },
+
     async healthStats(sinceMs): Promise<HealthStats> {
       const since = new Date(sinceMs).toISOString();
       const gateways = rows<{ gateway_id: string; last_heartbeat_at: string | null }>(

@@ -35,7 +35,7 @@ describe('vehicle marker features', () => {
   it('carries the plate label, the seat tier, the stopped state the demo flag and the heading the icon turns to', () => {
     const stoppedSpeeds = Array.from({ length: 11 }, (_v, index) => ({ atMs: NOW - (50 - index * 5) * 1000, speedKmh: 0 }));
     const { points } = vehicleMarkerFeatures([vehicle('a', 0, { seatsTaken: 13, recentSpeeds: stoppedSpeeds })], NOW, cone);
-    expect(points.features[0].properties).toEqual({ id: 'a', label: 'DEMO 01', tier: 'red', stale: false, ghost: false, stopped: true, demo: true, heading: 90 });
+    expect(points.features[0].properties).toEqual({ id: 'a', label: 'DEMO 01', tier: 'red', stale: false, ghost: false, stopped: true, status: 'stopped', demo: true, heading: 90 });
   });
 
   it('the cone points along the heading (east here) and is 22 px long on screen', () => {

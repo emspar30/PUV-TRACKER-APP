@@ -302,6 +302,11 @@ export const en = {
       night: 'Night Mode',
       // Beside Night Mode on an empty route; beside the count when stopped ones show
       nightHidden: 'Moving ones hidden',
+      // NM1 (PRD 10.4): the Night Mode stop view, instead of moving markers
+      nightStopsTitle: (code: string) => `Where ${code} has been`,
+      nightStopsEmpty: (code: string) => `No ${code} multicab passed a stop in the last hour.`,
+      nightPassed: (stop: string, minutes: number) => (minutes <= 1 ? `Passed ${stop} · 1 min ago` : `Passed ${stop} · ${minutes} min ago`),
+      nightStopsNote: 'At night we show stops a multicab passed, a few minutes late, not where it is now.',
       // Beside No data for a signed-in account not on the team list (live vehicles are team-only in v0)
       teamOnly: 'Team accounts only for now',
     },
@@ -374,6 +379,9 @@ export const en = {
       estimated: 'Estimated position, moved at its last speed',
       demo: (age: string) => `Demo · ${age}`,
       stopped: 'Stopped',
+      // VS1: from a recent relay about this multicab
+      loading: 'Loading passengers',
+      traffic: 'Heavy traffic',
       close: 'Close multicab details',
       track: 'Track',
     },
@@ -617,6 +625,11 @@ export const en = {
     notHereTitle: 'Check in at the station',
     tooFar: (distanceM: number, radiusM: number, code: string) =>
       `You are ${distanceM} m from ${code}. Check in within ${radiusM} m of the station.`,
+    // CA2a: check in anywhere along a route
+    tooFarFromLine: (lineM: number, limitM: number) => `You are ${lineM} m from the route. Stand by the road the multicab takes (within ${limitM} m) and try again.`,
+    tooFarFromStop: (stopM: number, limitM: number, code: string) =>
+      `You are ${stopM} m from ${code}. Walk closer, to within ${limitM} m, or tap a nearer stop on the map.`,
+    countedAtOverline: 'Your check-in counts at',
     inaccurate: (gateM: number) => `Your location is not precise enough yet (needs ${gateM} m or better). Wait a moment outdoors and try again.`,
     // G0: a mock location app is on, or the last fix is too old
     mocked: 'Your phone reports a mock location. Turn off any mock location app to check in.',
@@ -1030,7 +1043,11 @@ export const en = {
 
   // F5: badges from the user's own counts (D8); no ranking
   badges: {
-    title: (earned: number, total: number) => `Trust Badges (${earned}/${total})`,
+    // BG1: not "Trust Badges": the Trusted commuter shield has its own rule
+    title: (earned: number, total: number) => `Badges (${earned}/${total})`,
+    // BG1: every badge earned
+    regular: 'Tunton regular',
+    regularLabel: 'Tunton regular: every badge earned',
     names: {
       first_trip: 'First trip planned',
       first_checkin: 'First check-in',

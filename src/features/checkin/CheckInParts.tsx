@@ -58,6 +58,8 @@ type StationCardProps = {
   name: string;
   // True for the nearest station, false for one tapped on the map
   nearest: boolean;
+  // CA2a: the commuter is away from the stop, on its route: the check-in counts here ("Counted at")
+  counted?: boolean;
   // "RCA · 120 m · 2 min walk · 3 waiting"
   meta: string;
   // The routes that stop here, with their badge colours
@@ -71,7 +73,7 @@ type StationCardProps = {
 
 // B3: the station, after Google Maps' place sheet: what it is and how far, the routes that stop
 // there, then one full-width action
-export function StationCard({ name, nearest, meta, routes, checkInLabel, disabled, onCheckIn, children }: StationCardProps) {
+export function StationCard({ name, nearest, counted = false, meta, routes, checkInLabel, disabled, onCheckIn, children }: StationCardProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   return (
@@ -79,7 +81,7 @@ export function StationCard({ name, nearest, meta, routes, checkInLabel, disable
       <View style={styles.row}>
         <IconTile icon={nearest ? Navigation : MapPin} />
         <View style={styles.grow}>
-          <Text style={[typography.labelSm, styles.overline]}>{nearest ? strings.checkin.nearest : strings.checkin.picked}</Text>
+          <Text style={[typography.labelSm, styles.overline]}>{counted ? strings.checkin.countedAtOverline : nearest ? strings.checkin.nearest : strings.checkin.picked}</Text>
           <Text style={typography.headlineSm} numberOfLines={2}>
             {name}
           </Text>

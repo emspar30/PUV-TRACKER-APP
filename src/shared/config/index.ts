@@ -6,15 +6,22 @@
 //   ENABLE_VERIFICATION (PRD 0.7; read in one place only: verifyReport), STATIONARY_SPEED_KMH (7.3),
 //   PACKET_MAX_AGE_S and PACKET_MAX_FUTURE_S (0.3), VEHICLE_CAPACITY_SEATS (7.3),
 //   PACKET_MAX_BYTES (8.4), INGEST_LOG_RETENTION_DAYS, PACKET_MAX_SPEED_KMH, and the T1 batch limits
-//   TELEMETRY_BATCH_MAX_POINTS, TELEMETRY_BATCH_MAX_BYTES and PACKET_BACKLOG_MAX_AGE_S.
+//   TELEMETRY_BATCH_MAX_POINTS, TELEMETRY_BATCH_MAX_BYTES and PACKET_BACKLOG_MAX_AGE_S; NM1's
+//   NODE_PASS_RADIUS_M, NODE_PASS_GAP_MIN and NIGHT_STOP_WINDOW_MIN; RK1's IMPOSSIBLE_SPEED_KMH and
+//   SPEED_JUMP_ALLOWANCE_M.
 export {
   ENABLE_VERIFICATION,
+  IMPOSSIBLE_SPEED_KMH,
   INGEST_LOG_RETENTION_DAYS,
+  NIGHT_STOP_WINDOW_MIN,
+  NODE_PASS_GAP_MIN,
+  NODE_PASS_RADIUS_M,
   PACKET_BACKLOG_MAX_AGE_S,
   PACKET_MAX_AGE_S,
   PACKET_MAX_BYTES,
   PACKET_MAX_FUTURE_S,
   PACKET_MAX_SPEED_KMH,
+  SPEED_JUMP_ALLOWANCE_M,
   STATIONARY_SPEED_KMH,
   TELEMETRY_BATCH_MAX_BYTES,
   TELEMETRY_BATCH_MAX_POINTS,
@@ -210,6 +217,14 @@ export const ROUTE_STOP_MAX_DISTANCE_M = 150;
 // within this is moved onto the nearest point of the line; one farther still is left out until its
 // coordinates are corrected
 export const ROUTE_STOP_SNAP_MAX_M = 500;
+// CA2 (Emjay's D1, D2, D6, 2026-10-29): check in anywhere along a route. A check-in counts at a stop
+// of the route no farther than CHECKIN_STOP_MAX_M, from a phone within CHECKIN_LINE_M of the line.
+// Fill stops (scripts/fill-stops.ts) close every stretch of line farther than that from a stop,
+// spaced at most FILL_STOP_GAP_M apart; one within FILL_STOP_MERGE_M of another stop is shared.
+export const CHECKIN_LINE_M = 40;
+export const CHECKIN_STOP_MAX_M = 300;
+export const FILL_STOP_GAP_M = 600;
+export const FILL_STOP_MERGE_M = 100;
 export const ROUTE_SIMPLIFY_TOLERANCE_M = 5;
 // Route import (RR1, scripts/import-route.ts). Run on the PC, never at app runtime.
 // A line with more points than this after simplification is reported
@@ -314,6 +329,14 @@ export const DEMO_LAYOVER_S = 30;
 export const DEMO_RESTART_FADE_S = 1;
 // How often demo positions are refreshed on screen
 export const DEMO_TICK_MS = 1000;
+// NM1 with demo data: the demo multicabs' stop passages are worked out from their positions this often
+export const DEMO_PASSAGE_SAMPLE_S = 5;
+// NM1 (PRD 10.4): at night stop-level updates show at least this late (server: app_config.night_feed_delay_min)
+export const NIGHT_FEED_DELAY_MIN = 2;
+// NM1: the Map reads the night stop view again this often
+export const NIGHT_STOPS_REFRESH_S = 60;
+// NM1: the night card lists at most this many stops, newest first
+export const NIGHT_STOPS_SHOWN = 4;
 // Speeds kept per vehicle for the stopped check, this far apart
 export const DEMO_SPEED_SAMPLE_S = 5;
 // Demo feed (Crowdsource tab, restyle): one slot of this many minutes holds 0 to DEMO_FEED_SLOT_MAX posts
@@ -383,9 +406,11 @@ export const CHECKIN_LIFETIME_S = 900;
 export const CHECKIN_REMINDER_S = 300;
 // CA1.1 (Emjay, 2026-10-22): "Did you board?" as soon as a Live multicab of a pinged route stands
 // (under STATIONARY_SPEED_KMH) this close to the check-in's stop for this long, before the 5-minute
-// reminder (which asks the same). Demo multicabs stand 8 to 20 s at a stop.
+// reminder (which asks the same). Demo multicabs stand 8 to 20 s at a stop, and a quick stop to
+// let someone on can be shorter still (Emjay, 2026-10-29: 10 s missed the short stops at Tiniwisan),
+// so the dwell stays below DEMO_STOP_MIN_S with a tick to spare (a test checks it).
 export const CHECKIN_BOARD_NEAR_M = 60;
-export const CHECKIN_BOARD_DWELL_S = 10;
+export const CHECKIN_BOARD_DWELL_S = 5;
 
 // --- Night Mode window (PRD 10.4). Setting only in v0.
 export const NIGHT_MODE_START = '21:00';
@@ -423,6 +448,9 @@ export const ENERGY_COUNTDOWN_TICK_S = 30;
 export const CHECKIN_COUNTS_REFRESH_S = 30;
 export const FEED_READ_LIMIT = 50;
 export const FEED_LIFETIME_MIN = 60;
+// VS1 (Emjay, V3, 2026-10-29): a relay's "Loading passengers", "Heavy traffic" or "Not moving" shows
+// on that multicab's marker while the relay is in the feed, for at most this long
+export const VEHICLE_STATUS_RELAY_MAX_MIN = 10;
 export const FEED_FLAG_HIDE_COUNT = 3;
 // N1: the neutral author badges cycle through this many theme colours (PRD 19 D2)
 export const FEED_BADGE_COLOR_COUNT = 6;
@@ -579,6 +607,15 @@ export const SMS_DISPATCH_MIN_CHANGE = 2;
 export const SMS_DISPATCH_INTERVAL_MIN = 5;
 export const SMS_OPERATING_START_MIN = 0;
 export const SMS_OPERATING_END_MIN = 1440;
+// CA2c (Emjay's D3, 2026-10-29): a change or a newly filled stop waits until this long after the
+// route's last message (changes meanwhile go in the next one), so check-ins in and out cannot make
+// the worker text a route every cycle
+export const SMS_DISPATCH_MIN_GAP_S = 120;
+// CA2c (D4): messages one gateway SIM may send in a Manila day. TODO(placeholder): 100 until Emjay
+// confirms the SIM's or promo's real limit. Past SMS_GATEWAY_CAP_NEAR_SHARE of it a route is texted
+// only on the interval; at the cap nothing more is sent that day and an ops alert is raised.
+export const SMS_GATEWAY_DAILY_CAP = 100;
+export const SMS_GATEWAY_CAP_NEAR_SHARE = 0.8;
 // The gateway waits this long between two sends (PRD 16 risk 3: carrier spam filters). DR5's
 // carrier test uses it; the gateway service in DR7 too.
 export const GATEWAY_SEND_GAP_MS = 1500;

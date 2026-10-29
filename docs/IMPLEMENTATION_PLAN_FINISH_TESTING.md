@@ -71,6 +71,8 @@ The partner's route data also has to come in: the R14 return leg, a re-check of 
 | --- | --- | --- | --- | --- |
 | VS1 | The pure status rule, the dot on the marker, the name on the card | `shared/telemetry/vehicleStatus.ts`, `shared/config`, `features/map/` marker, `features/live/VehicleCard.tsx`, `strings/en.ts` | U: stopped, layover, relay loading, relay traffic, relay too old, two relays (newest wins), moving. E with Demo data | S |
 
+Answered by Emjay on 2026-10-29: V1 to V3 as suggested.
+
 | # | Question | Suggested |
 | --- | --- | --- |
 | V1 | Which statuses to show | Stopped, Loading passengers, Heavy traffic |

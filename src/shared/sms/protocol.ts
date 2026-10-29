@@ -6,16 +6,27 @@ import { MANILA_UTC_OFFSET_MIN, SMS_MAX_AGE_MIN, SMS_SEQ_MODULUS, SMS_SEQ_NEWER_
 
 // SMS payload protocol v2 (PRD 12.3):
 //   HM2|<route>|<seq>|<HHMM>|<code>:<count>,<code>:<count>,...|<mac>
+// The listed stops update; the others keep their value.
+// v3 (CA2-1, Emjay's D7, 2026-10-29): only the stops with someone waiting, so a route with fill stops
+// still fits one SMS:
+//   HM3|<route>|<seq>|<HHMM>|<F or P>|<code>:<count>,...  or  -|<mac>
+// F (full): every stop not listed is 0. P (part): the next message of the same update; listed stops
+// update as in v2. "-" is an empty list: nobody waiting anywhere on the route.
 // mac = first 4 bytes (8 hex characters) of HMAC-SHA256(key, everything before the last pipe).
 
 const MESSAGE_RE =
   /^HM2\|(R\d{1,2})\|(\d{4})\|(\d{4})\|([A-Z]{2,4}:\d{1,3}(?:,[A-Z]{2,4}:\d{1,3})*)\|([0-9A-F]{8})$/;
+const MESSAGE_V3_RE =
+  /^HM3\|(R\d{1,2})\|(\d{4})\|(\d{4})\|([FP])\|(-|[A-Z]{2,4}:\d{1,3}(?:,[A-Z]{2,4}:\d{1,3})*)\|([0-9A-F]{8})$/;
+const EMPTY_LIST = '-';
 const ROUTE_RE = /^R\d{1,2}$/;
 const CODE_RE = /^[A-Z]{2,4}$/;
 
 const PREFIX = 'HM2';
-// DR5: the driver phone's SMS receiver keeps a text only if it starts with this
-export const HEATMAP_TEXT_PREFIX = `${PREFIX}|`;
+const PREFIX_V3 = 'HM3';
+// DR5: the driver phone's SMS receiver keeps a text only if it starts with this (v2 and v3 alike);
+// anything else that starts so is still refused as malformed here
+export const HEATMAP_TEXT_PREFIX = 'HM';
 const SEQ_DIGITS = 4;
 const MAC_BYTES = 4;
 const MAX_COUNT = 999;
@@ -36,6 +47,9 @@ export type HeatmapMessage = {
   // Minutes after midnight, Asia/Manila
   minuteOfDay: number;
   nodes: HeatmapNode[];
+  // v3 only: true when every stop not listed is 0 (F), false for the next part of an update (P).
+  // Absent: a v2 message, where the stops not listed keep their value.
+  full?: boolean;
 };
 
 export type ParsedHeatmap = HeatmapMessage & {
@@ -79,14 +93,17 @@ export function signHeatmap(message: HeatmapMessage, key: string): string {
   if (!Number.isInteger(minuteOfDay) || minuteOfDay < 0 || minuteOfDay >= MINUTES_PER_DAY) {
     throw new RangeError(`invalid minuteOfDay: ${minuteOfDay}`);
   }
-  if (nodes.length === 0) throw new RangeError('at least one station is required');
+  const v3 = message.full !== undefined;
+  // v3 may list nothing (nobody waiting anywhere); v2 lists at least one stop
+  if (nodes.length === 0 && !v3) throw new RangeError('at least one station is required');
   for (const { code, count } of nodes) {
     if (!CODE_RE.test(code)) throw new RangeError(`invalid station code: ${code}`);
     if (!Number.isInteger(count) || count < 0 || count > MAX_COUNT) throw new RangeError(`invalid count: ${count}`);
   }
 
   const list = nodes.map(({ code, count }) => `${code}:${count}`).join(',');
-  const signedPart = [PREFIX, route, String(seq).padStart(SEQ_DIGITS, '0'), formatHhmm(minuteOfDay), list].join('|');
+  const head = [v3 ? PREFIX_V3 : PREFIX, route, String(seq).padStart(SEQ_DIGITS, '0'), formatHhmm(minuteOfDay)];
+  const signedPart = (v3 ? [...head, message.full ? 'F' : 'P', list || EMPTY_LIST] : [...head, list]).join('|');
   return `${signedPart}|${computeMac(signedPart, key)}`;
 }
 
@@ -94,15 +111,23 @@ export function signHeatmap(message: HeatmapMessage, key: string): string {
 // (A repeated capture group would keep only the last station.)
 export function parseHeatmap(sms: string): ParsedHeatmap | null {
   const text = sms.trim();
-  const match = MESSAGE_RE.exec(text);
-  if (!match) return null;
-  const [, route, seq, hhmm, list, mac] = match;
+  const v2 = MESSAGE_RE.exec(text);
+  const v3 = v2 ? null : MESSAGE_V3_RE.exec(text);
+  let parts: string[];
+  let full: { full?: boolean } = {};
+  if (v2) parts = v2.slice(1);
+  else if (v3) {
+    const [, r, q, t, mode, l, m] = v3;
+    parts = [r, q, t, l, m];
+    full = { full: mode === 'F' };
+  } else return null;
+  const [route, seq, hhmm, list, mac] = parts;
 
   const hours = Number(hhmm.slice(0, HOUR_DIGITS));
   const minutes = Number(hhmm.slice(HOUR_DIGITS));
   if (hours * MINUTES_PER_HOUR >= MINUTES_PER_DAY || minutes >= MINUTES_PER_HOUR) return null;
 
-  const nodes = list.split(',').map((entry) => {
+  const nodes = (list === EMPTY_LIST ? [] : list.split(',')).map((entry) => {
     const [code, count] = entry.split(':');
     return { code, count: Number(count) };
   });
@@ -113,6 +138,7 @@ export function parseHeatmap(sms: string): ParsedHeatmap | null {
     hhmm,
     minuteOfDay: hours * MINUTES_PER_HOUR + minutes,
     nodes,
+    ...full,
     mac,
     signedPart: text.slice(0, text.lastIndexOf('|')),
   };

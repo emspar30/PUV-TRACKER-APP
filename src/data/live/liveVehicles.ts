@@ -15,6 +15,8 @@ export type LiveVehiclesPort = {
   load(routeCode: string): Promise<{ vehicleIds: string[]; rows: LiveRow[] }>;
   // Every insert or update of telemetry_latest for these vehicles
   watch(vehicleIds: readonly string[], onRow: (row: LiveRow) => void): Unsubscribe;
+  // NM1: night_stop_updates(route); rejects on a network or permission error
+  nightStops?(routeCode: string): Promise<{ stop_code: string; passed_at: string }[]>;
 };
 
 const MS_PER_S = 1000;
@@ -32,6 +34,15 @@ export function createLiveVehicles(
 ): VehiclesRepository {
   return {
     source: 'live',
+    async nightPassages(routeCode) {
+      if (!port.nightStops) return null;
+      try {
+        const rows = await port.nightStops(routeCode);
+        return rows.map((row) => ({ stopCode: row.stop_code, passedAtMs: Date.parse(row.passed_at) })).sort((a, b) => b.passedAtMs - a.passedAtMs);
+      } catch {
+        return null;
+      }
+    },
     subscribe: (routeCode, listener) => {
       let closed = false;
       let vehicleIds: string[] = [];

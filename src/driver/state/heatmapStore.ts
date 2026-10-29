@@ -57,7 +57,7 @@ function validHeatmap(value: unknown): HeatmapState | null {
     if (!isNumber(count)) return null;
     counts[code] = count;
   }
-  return { route: h.route, counts, lastSeq: h.lastSeq as number | null, lastAcceptedMs: h.lastAcceptedMs as number | null };
+  return { route: h.route, counts, whole: h.whole === true, lastSeq: h.lastSeq as number | null, lastAcceptedMs: h.lastAcceptedMs as number | null };
 }
 
 function validLog(value: unknown): HeatmapLogEntry[] {

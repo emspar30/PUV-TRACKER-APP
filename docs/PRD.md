@@ -448,6 +448,7 @@ The commuter app has five modules. Routing, fares and self-tracking work fully o
 
 - **Flow:** at a recognized terminal, the user picks a route and taps Check-In.
 - **Geofence:** distance to the station must be within the station's configured radius (default 60 m, adjustable per terminal), and GPS accuracy must be 25 m or better. The v1.0 value of 40 m is too tight for large terminals where GPS error is 10 to 20 m.
+- **Check in anywhere along a route (CA2, Emjay 2026-10-27 and 2026-10-29):** multicabs pick people up anywhere on their route, so a commuter may also check in within 40 m of the line of a route they ping, and is counted at the nearest stop of that route, at most 300 m away. Long stretches of line with no stop get fill stops (generated from the map places, four-letter codes, reviewed by hand), so every point of every line is within 300 m of a stop. The phone decides; the server still receives only the stop code, never coordinates (section 15). The point where the commuter stood stays on the phone, and the boarding prompt looks for a multicab there. Accepted risk: someone living beside a route can check in from home; Energy, one active check-in and the trust signals keep that to 1 at one stop for at most 15 minutes.
 - **Anti-fraud:** one active check-in per user; check-in is refused if activity recognition reports `IN_VEHICLE`.
 - **Lifecycle:** each check-in has an `expires_at` of 15 minutes. A local reminder at 5 minutes asks *Have you boarded yet?*. **Boarding prompt (CA1.1, 2026-10-22):** the app asks *Did you board R4 · DEMO 01?* on any tab as soon as a Live multicab of a pinged route stands at the stop (0.3), each multicab once, and the 5-minute reminder asks the same; *Yes, I boarded* ends the check-in as boarded, *Not yet* keeps waiting. In-app only for now. Heatmap counts only include rows where `expires_at` is in the future, so counts are accurate even if cleanup is delayed. A cron job deletes expired rows every minute.
 - **Auto-cancel:** when a verified boarding on the same route is detected, the check-in is cancelled immediately and the heatmap count drops.
@@ -576,6 +577,7 @@ An admin provisions each driver device once, in person:
 
 - **Gateway app:** a small custom Kotlin app on a dedicated phone on mains power, with a UPS or power bank for outages. It pulls queued messages from the Node.js worker over HTTPS and sends them by SMS.
 - **Dispatch policy:** send only when a terminal's count changes by 2 or more, when a terminal that had nobody waiting gets someone, or every 5 minutes while any count is above zero. This limits volume while a lone commuter at an empty terminal still reaches the driver within a minute (owner decision, 2026-10-15).
+- **Minimum gap and daily cap (CA2c, 2026-10-29):** a change, a newly filled stop or a clear waits until 120 s after the route's last message; changes meanwhile go in the next one. Each gateway SIM sends at most a daily cap (100 until the real SIM or promo limit is confirmed): past 80 % a route is texted only on the 5-minute interval, and at the cap nothing more that day, with an ops alert.
 - **Operating hours:** all day (owner decision, 2026-10-18, so the app can be tested at any hour; the plan's Q6 was 05:00 to 21:00). Whether the pilot keeps 24/7 is decided before the pilot.
 - **Volume planning:** at one message per 5 minutes over 14 operating hours, a vehicle receives about 170 messages a day (more if the pilot runs all day while people wait at night). A 10-vehicle pilot is then about 1,700 messages a day, which the SMS plan must be confirmed to allow.
 - **Telco terms:** consumer "unlimited SMS" promos usually have fair-use rules. The project must either confirm written allowance, use several SIMs, or move to a licensed SMS provider before the pilot. This is a key risk (section 16).
@@ -756,6 +758,8 @@ Row Level Security is on for every table. Users can read only what their role al
 | `route_versions` | version, changed\_routes, published\_at | Drives OTA route sync |
 
 ### 12.3 SMS payload protocol v2 (heatmap)
+
+**v3 (CA2-1, 2026-10-29):** with the fill stops a route has up to about 50 stops, too many for one message with zeros, so the worker sends v3, which lists only the stops with someone waiting: `HM3|R4|0042|1930|F|SM:12,CSU:5|9F2C41AB`. `F` means every stop not listed is 0; a long update continues in `P` messages, which only add. An empty list is `-`. The data-SMS form has format byte `0x03` and one flag byte. The driver app reads v2 and v3. The rest of this section describes v2.
 
 The message is ASCII and well under the 160-character single-SMS limit. Each message carries a sequence number, a local time, the demand counts and a truncated HMAC signature.
 

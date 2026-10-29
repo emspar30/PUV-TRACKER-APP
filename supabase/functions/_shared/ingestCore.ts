@@ -1,11 +1,15 @@
 // The rules of the telemetry ingest endpoint, with every database and auth call passed in.
 // Pure TypeScript: the Edge Function wires it to Supabase, and unit tests wire it to fakes.
 
+import { newPassages, type PassStop } from './nodePassage.ts';
 import { isBatch, validateBatch, validatePacket, type PacketError, type TelemetryPacket } from './packet.ts';
-import { PACKET_MAX_AGE_S, PACKET_MAX_BYTES, STATIONARY_SPEED_KMH, TELEMETRY_BATCH_MAX_BYTES } from './serverConfig.ts';
+import { ROUTE_STOPS } from './routeStops.generated.ts';
+import { isImpossibleJump, type TimedPoint } from './speedJump.ts';
+import { NODE_PASS_GAP_MIN, PACKET_MAX_AGE_S, PACKET_MAX_BYTES, STATIONARY_SPEED_KMH, TELEMETRY_BATCH_MAX_BYTES } from './serverConfig.ts';
 import { verifyReport } from './verifyReport.ts';
 
 const MS_PER_S = 1000;
+const MS_PER_MIN = 60_000;
 const BEARER_RE = /^Bearer\s+(\S+)$/i;
 
 export type TelemetryLatestRow = {
@@ -46,8 +50,10 @@ export type IngestDeps = {
   getUserId(accessToken: string): Promise<string | null>;
   // Whether the user is on the team allowlist of telemetry writers
   isAllowedWriter(userId: string): Promise<boolean>;
-  getVehicle(vehicleId: string): Promise<{ active: boolean } | null>;
-  getLatest(vehicleId: string): Promise<Pick<TelemetryLatestRow, 'packet_ts' | 'stopped_since'> | null>;
+  // route_id: for NM1's stop passages (absent in older fakes: no passages are recorded)
+  getVehicle(vehicleId: string): Promise<{ active: boolean; route_id?: string } | null>;
+  // lat and lon: for RK1's speed jump check (absent in older fakes: no check)
+  getLatest(vehicleId: string): Promise<(Pick<TelemetryLatestRow, 'packet_ts' | 'stopped_since'> & Partial<Pick<TelemetryLatestRow, 'lat' | 'lon'>>) | null>;
   upsertLatest(row: TelemetryLatestRow): Promise<void>;
   // The newest packet_ts in the vehicle's history, or null when it has none
   getHistoryNewest(vehicleId: string): Promise<string | null>;
@@ -55,7 +61,16 @@ export type IngestDeps = {
   insertHistory(rows: TelemetryHistoryRow[]): Promise<void>;
   // Audit trail of allowlisted writers only; must not throw
   log(entry: IngestLogEntry): Promise<void>;
+  // NM1: the vehicle's passages since `sinceIso`, and new ones to store (node_events). Optional: a
+  // deployment without them records none. Their failure never fails a request.
+  recentPassages?(vehicleId: string, sinceIso: string): Promise<{ stop_code: string; passed_at: string }[]>;
+  insertPassages?(rows: NodeEventRow[]): Promise<void>;
+  // RK1: books an impossible_speed risk event against the sender (book_risk). Optional; must not throw.
+  bookRisk?(userId: string, kind: 'impossible_speed', detail: Record<string, unknown>): Promise<void>;
 };
+
+// One row of node_events: a route passed a stop (no rider, no position)
+export type NodeEventRow = { vehicle_id: string; route_id: string; stop_code: string; passed_at: string };
 
 export type IngestRequest = {
   method: string;
@@ -71,6 +86,7 @@ export type IngestError =
   | 'packet_too_large'
   | 'invalid_json'
   | 'unknown_vehicle'
+  | 'impossible_speed'
   | PacketError;
 
 // What a batch did to the marker: moved it, or not, because its newest position is not newer than the
@@ -117,6 +133,35 @@ function latestRow(packet: TelemetryPacket, stoppedSince: string | null): Teleme
     verified: verification.status === 'verified',
     verification_reasons: verification.reasons,
   };
+}
+
+const pointOf = (packet: TelemetryPacket): TimedPoint => ({ lat: packet.lat, lon: packet.lon, atMs: packet.ts * MS_PER_S });
+
+// The marker's position, when the stored row has one
+function markerPoint(latest: { packet_ts: string; lat?: number; lon?: number } | null): TimedPoint | null {
+  if (!latest || typeof latest.lat !== 'number' || typeof latest.lon !== 'number') return null;
+  return { lat: latest.lat, lon: latest.lon, atMs: new Date(latest.packet_ts).getTime() };
+}
+
+// NM1: records the stops these accepted positions passed. Best effort: the marker has moved already.
+async function recordPassages(deps: IngestDeps, vehicleId: string, routeId: string | undefined, packets: readonly TelemetryPacket[]): Promise<void> {
+  const stops: PassStop[] | undefined = routeId ? ROUTE_STOPS[routeId] : undefined;
+  if (!stops || packets.length === 0 || !deps.recentPassages || !deps.insertPassages) return;
+  try {
+    const sinceIso = new Date(packets[0].ts * MS_PER_S - NODE_PASS_GAP_MIN * MS_PER_MIN).toISOString();
+    const last: Record<string, number> = {};
+    for (const row of await deps.recentPassages(vehicleId, sinceIso)) {
+      last[row.stop_code] = Math.max(last[row.stop_code] ?? 0, new Date(row.passed_at).getTime());
+    }
+    const points = packets.map((packet) => ({ lat: packet.lat, lon: packet.lon, atMs: packet.ts * MS_PER_S }));
+    const passages = newPassages(points, stops, last);
+    if (passages.length === 0) return;
+    await deps.insertPassages(
+      passages.map((passage) => ({ vehicle_id: vehicleId, route_id: routeId as string, stop_code: passage.stopCode, passed_at: new Date(passage.atMs).toISOString() })),
+    );
+  } catch {
+    // Reported by the Edge Function
+  }
 }
 
 type Reject = (
@@ -173,6 +218,12 @@ export async function handleIngest(request: IngestRequest, deps: IngestDeps): Pr
     return { status: 200, body: { status: 'ignored', reason: 'not_newer' } };
   }
 
+  // RK1: a position the vehicle could not have reached from its last one is refused and booked
+  if (isImpossibleJump(markerPoint(latest), pointOf(packet))) {
+    await deps.bookRisk?.(userId, 'impossible_speed', { vehicle_id: packet.vehicle_id });
+    return reject(400, 'impossible_speed', packet.vehicle_id);
+  }
+
   // 5. Stopped tracking: remember when the current run of stopped packets began
   const row = latestRow(packet, stoppedSinceAfter(latest?.stopped_since ?? null, [packet]));
   await deps.upsertLatest(row);
@@ -183,6 +234,7 @@ export async function handleIngest(request: IngestRequest, deps: IngestDeps): Pr
   } catch {
     // Reported by the Edge Function
   }
+  await recordPassages(deps, packet.vehicle_id, vehicle.route_id, [packet]);
   await deps.log({ user_id: userId, vehicle_id: packet.vehicle_id, accepted: true, reason: 'accepted' });
 
   return {
@@ -204,17 +256,31 @@ async function handleBatch(
 ): Promise<IngestResponse> {
   const validation = validateBatch(parsed, nowMs / MS_PER_S);
   if (!validation.ok) return reject(400, validation.error, null, validation.field);
-  const { vehicle_id: vehicleId, points } = validation.batch;
+  const { vehicle_id: vehicleId, points: sent } = validation.batch;
 
   const vehicle = await deps.getVehicle(vehicleId);
   if (!vehicle || !vehicle.active) return reject(404, 'unknown_vehicle', vehicleId);
+
+  // RK1: positions the vehicle could not have reached from the one before (or from the marker) are
+  // dropped, and the sender is booked once
+  const latest = await deps.getLatest(vehicleId);
+  const marker = markerPoint(latest);
+  const points: TelemetryPacket[] = [];
+  let previous: TimedPoint | null = null;
+  for (const point of sent) {
+    const from = previous ?? (marker && marker.atMs < point.ts * MS_PER_S ? marker : null);
+    if (isImpossibleJump(from, pointOf(point))) continue;
+    points.push(point);
+    previous = pointOf(point);
+  }
+  if (points.length < sent.length) await deps.bookRisk?.(userId, 'impossible_speed', { vehicle_id: vehicleId, dropped: sent.length - points.length });
 
   const historyNewest = await deps.getHistoryNewest(vehicleId);
   const historyNewestMs = historyNewest === null ? null : new Date(historyNewest).getTime();
   const fresh = points.filter((point) => historyNewestMs === null || point.ts * MS_PER_S > historyNewestMs);
   if (fresh.length > 0) await deps.insertHistory(fresh.map(historyRow));
+  await recordPassages(deps, vehicleId, vehicle.route_id, fresh);
 
-  const latest = await deps.getLatest(vehicleId);
   const latestMs = latest ? new Date(latest.packet_ts).getTime() : null;
   const newest = points.at(-1);
   let outcome: BatchLatest;
@@ -234,6 +300,6 @@ async function handleBatch(
   });
   return {
     status: 200,
-    body: { status: 'batch', stored: fresh.length, skipped: validation.tooOld + points.length - fresh.length, latest: outcome },
+    body: { status: 'batch', stored: fresh.length, skipped: validation.tooOld + sent.length - fresh.length, latest: outcome },
   };
 }
