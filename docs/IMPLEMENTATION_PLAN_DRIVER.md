@@ -1035,13 +1035,16 @@ DR1 ─▶ DR2 ─▶ DR3 ─▶ DR4 ─▶ DR5 ─▶ DR6 ─▶ DR7 ─▶ DR9
 
 These are written in full into `docs/BACKEND_SETUP.md` (worker and database) and `docs/PARTNER_BUILD_GUIDE.md` (phones) as the steps land. The outline is fixed here.
 
-### 11.1 Provision a driver phone
+### 11.1 Set up a driver phone (registration, since 2026-10-28)
 
-1. On the admin PC: `npx tsx scripts/provision-driver.ts --vehicle <id> --plate "<plate>" --route <R#> --phone <number>`. Enter the admin PIN when asked.
-2. On the phone: install the signed driver APK (check its checksum). Open it, scan the QR from the PC screen, confirm the vehicle and grant each permission.
-3. Self-test: the beacon is seen by a commuter test phone (or nRF Connect); a test SMS from the gateway arrives (`provision-driver.ts` queues one).
-4. Phone set-up (11.2). Mount it in the vehicle; check that it charges.
-5. Record the device id, vehicle and date in the pilot log. Close the terminal so the QR is gone.
+The setup QR and `provision-driver.ts` are gone (PRD 9.5, change 22); a driver phone is set up only by registering (`docs/IMPLEMENTATION_PLAN_DRIVER_REGISTRATION.md`; `device-tests.md` DRG6).
+
+1. Set up the gateway first (11.3): driver phones collect the gateway's number with their setup.
+2. On the phone: install the signed driver APK (check its checksum), with internet (Wi-Fi or data). Register: permissions, the phone's own number, plate and route, the CTTDM driver ID and plate photos, send. Bluetooth must be on for the last step.
+3. In the admin console: check the photos (the ID is a CTTDM driver ID, the plate matches), approve. One text goes to the phone. A plate that already has a phone shows a warning: approving replaces it.
+4. On the phone: Check now (or wait): "This phone is set up. The beacon is on."
+5. Phone set-up (11.2). Mount it in the vehicle; check that it charges. Record the device id (console, Drivers, View), vehicle and date in the pilot log.
+6. The worker reloads driver phones every 10 minutes: the first waiting counts reach the phone after that.
 
 ### 11.2 Driver phone set-up (once per phone)
 
@@ -1057,21 +1060,23 @@ These are written in full into `docs/BACKEND_SETUP.md` (worker and database) and
   1. On the PC: `npx tsx scripts/provision-gateway.ts --gateway GW-01 --phone <gateway SIM> --worker-url <https tunnel address>` (development over USB: `--worker-url http://localhost:8787`, with `adb reverse tcp:8787 tcp:8787`; only a development build accepts it).
   2. On the gateway phone, Tunton Gateway: scan the code, confirm; allow SMS, Phone and notifications (on Android 13 and later, if SMS is refused without a prompt: App info, ⋮, Allow restricted settings); allow it to run in the background (battery optimisation off); pick the Smart/TNT SIM; send a test text to a team phone; Start.
   3. Phone preparation: keep it on the charger; automatic date and time on; screen lock off (or screen pinning); Messages notifications off; on Xiaomi phones also Autostart on and the app locked in the recent apps (backlog 102).
-  4. Raise Android's outgoing-SMS limiter (approval; read both back with `settings get`):
+  4. The SIM (2026-10-28/29): it must have load or a promo; with none, every send fails with `errorCode 1` and the app only says "failed". On a dual-SIM phone pick the loaded SIM at the SIM step (it is never "phone default"). Keep Wi-Fi Calling off for that SIM until data SMS over Wi-Fi Calling is shown to work. When all sends fail, check the load first, then the phone's log (Xiaomi: `adb logcat -d | grep isSentSmsSuccess`, read `RAT` and `errorCode`).
+  5. If "Allow background" does not stick (vendor battery managers), `adb shell dumpsys deviceidle whitelist +com.tunton.gateway`.
+  6. Raise Android's outgoing-SMS limiter (approval; read both back with `settings get`):
      ```
      adb shell settings put global sms_outgoing_check_max_count 2000
      adb shell settings put global sms_outgoing_check_interval_ms 1800000
      ```
 - **Daily** (two minutes): open the gateway status screen; check that "sent today" is rising during service hours, failures are under 5 %, the battery is charging and the SIM has load. Check `ops_alerts` in the Supabase dashboard.
 
-### 11.4 Re-provision a driver phone (sequence resync, new phone, factory reset)
+### 11.4 Set up a driver phone again (sequence resync, new phone, factory reset)
 
-Run `provision-driver.ts` again for the same vehicle with `--replace`. This retires the old device and creates a new one with a new key and sequence. Scan the new QR on the phone (admin → Re-provision). The old QR and key stop working at once.
+Since 2026-10-28 (change 22): on the phone, Admin (hold the status strip, admin PIN) → Set up again, which clears the setup and opens registration; register and approve as in 11.1. Approving retires the old device for that plate and the new setup brings a new key and sequence. (Before registration, `provision-driver.ts --replace` did this; it is removed.) The old phone's key stops working at once.
 
 ### 11.5 Lost or stolen driver phone
 
 1. `npx tsx scripts/retire-device.ts DRV-xxxx`: the worker stops texting it within one cycle, and the vehicle's beacon secret is replaced, so the old phone's codes stop validating at once.
-2. Provision a replacement phone (11.1) with the new QR.
+2. Set up a replacement phone by registration (11.1). Console Retire does step 1 too and also texts the phone a signed notice (a hidden data SMS since 2026-10-29) so its app says it was removed; `retire-device.ts` sends nothing.
 3. Record the incident; if the phone held a pilot participant's number, follow the breach procedure in PRD 15.1.
 
 ### 11.6 Gateway outage
