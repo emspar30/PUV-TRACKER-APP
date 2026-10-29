@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, View, type AccessibilityActionEvent, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withSpring, withTiming, Extrapolation } from 'react-native-reanimated';
@@ -141,6 +141,12 @@ export function BottomSheet({
     setPosition((current) => ({ snap: request.snap, seq: current.seq + 1 }));
   }
 
+  // The screen's callbacks are usually new functions on every render. Read through effect events,
+  // they never re-run the effects below: a screen that closes itself at peek would otherwise loop,
+  // and a dismissed sheet would call onDismissed (router.back) more than once.
+  const snapChanged = useEffectEvent((settled: SnapName, visibleHeight: number) => onSnapChange?.(settled, visibleHeight));
+  const dismissed = useEffectEvent(() => onDismissed?.());
+
   // Animate to the chosen point, remember it, and tell the screen how much of the map it covers.
   // The first placement after layout jumps straight there.
   useEffect(() => {
@@ -153,8 +159,8 @@ export function BottomSheet({
       releaseSpeed.set(0);
     }
     if (keepSnap) remember(id, position.snap);
-    onSnapChange?.(position.snap, target);
-  }, [position, heights, height, releaseSpeed, remember, keepSnap, id, onSnapChange, slideIn]);
+    snapChanged(position.snap, target);
+  }, [position, heights, height, releaseSpeed, remember, keepSnap, id, slideIn]);
 
   // CA1.1: a dismiss request slides the sheet out, then the screen closes. Handled while rendering
   // (as `request`), the animation itself in an effect.
@@ -166,12 +172,13 @@ export function BottomSheet({
   }
   useEffect(() => {
     if (!dismissing) return;
+    const finish = () => dismissed();
     height.set(
       withTiming(0, { duration: motion.sheetOutMs, easing: Easing.in(Easing.cubic) }, (finished) => {
-        if (finished && onDismissed) scheduleOnRN(onDismissed);
+        if (finished) scheduleOnRN(finish);
       }),
     );
-  }, [dismissing, height, onDismissed]);
+  }, [dismissing, height]);
 
   const makePan = useCallback(
     (enabled: boolean) =>
