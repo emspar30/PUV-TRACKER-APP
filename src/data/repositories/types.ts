@@ -39,8 +39,9 @@ export type CheckinsRepository = {
   // People waiting per station code on a route (the caller included; a station with nobody is
   // left out), or null when unknown. The demo makes up counts for the route's `stationCodes`.
   waitingCounts(routeCode: string, stationCodes: readonly string[]): Promise<ReadonlyMap<string, number> | null>;
-  // One route, or several at a shared stop (each counted, and each driver's SMS, separately)
-  checkIn(routeCodes: readonly string[], stationCode: string, requestKey: string): Promise<CheckInResult>;
+  // One route, or several at a shared stop (each counted, and each driver's SMS, separately).
+  // CA3: `near`, checked in near the route and counted as near the stop (the driver sees it apart)
+  checkIn(routeCodes: readonly string[], stationCode: string, requestKey: string, near?: boolean): Promise<CheckInResult>;
   // "I boarded" or "Cancel": the caller's count drops at once
   end(): Promise<void>;
 };

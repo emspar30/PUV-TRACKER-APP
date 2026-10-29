@@ -12,19 +12,26 @@ import { MANILA_UTC_OFFSET_MIN, SMS_MAX_AGE_MIN, SMS_SEQ_MODULUS, SMS_SEQ_NEWER_
 //   HM3|<route>|<seq>|<HHMM>|<F or P>|<code>:<count>,...  or  -|<mac>
 // F (full): every stop not listed is 0. P (part): the next message of the same update; listed stops
 // update as in v2. "-" is an empty list: nobody waiting anywhere on the route.
+// v4 (CA3, Emjay, 2026-10-30): as v3, and a stop may carry how many checked in near it, apart from
+// those at it: <code>:<count>+<near> ("SMB:3+1": 3 at SM Butuan, 1 near it). Only sent when someone
+// is near, so a driver app that reads v3 only still gets every other update.
+//   HM4|<route>|<seq>|<HHMM>|<F or P>|<code>:<count>[+<near>],...  or  -|<mac>
 // mac = first 4 bytes (8 hex characters) of HMAC-SHA256(key, everything before the last pipe).
 
 const MESSAGE_RE =
   /^HM2\|(R\d{1,2})\|(\d{4})\|(\d{4})\|([A-Z]{2,4}:\d{1,3}(?:,[A-Z]{2,4}:\d{1,3})*)\|([0-9A-F]{8})$/;
 const MESSAGE_V3_RE =
   /^HM3\|(R\d{1,2})\|(\d{4})\|(\d{4})\|([FP])\|(-|[A-Z]{2,4}:\d{1,3}(?:,[A-Z]{2,4}:\d{1,3})*)\|([0-9A-F]{8})$/;
+const MESSAGE_V4_RE =
+  /^HM4\|(R\d{1,2})\|(\d{4})\|(\d{4})\|([FP])\|(-|[A-Z]{2,4}:\d{1,3}(?:\+\d{1,3})?(?:,[A-Z]{2,4}:\d{1,3}(?:\+\d{1,3})?)*)\|([0-9A-F]{8})$/;
 const EMPTY_LIST = '-';
 const ROUTE_RE = /^R\d{1,2}$/;
 const CODE_RE = /^[A-Z]{2,4}$/;
 
 const PREFIX = 'HM2';
 const PREFIX_V3 = 'HM3';
-// DR5: the driver phone's SMS receiver keeps a text only if it starts with this (v2 and v3 alike);
+const PREFIX_V4 = 'HM4';
+// DR5: the driver phone's SMS receiver keeps a text only if it starts with this (v2, v3, v4 alike);
 // anything else that starts so is still refused as malformed here
 export const HEATMAP_TEXT_PREFIX = 'HM';
 const SEQ_DIGITS = 4;
@@ -38,7 +45,10 @@ const HALF = 0.5;
 
 export type HeatmapNode = {
   code: string;
+  // At the stop (v4: not counting those near it)
   count: number;
+  // v4 (CA3): checked in near the stop, between it and the next; absent or 0 for nobody
+  near?: number;
 };
 
 export type HeatmapMessage = {
@@ -96,15 +106,29 @@ export function signHeatmap(message: HeatmapMessage, key: string): string {
   const v3 = message.full !== undefined;
   // v3 may list nothing (nobody waiting anywhere); v2 lists at least one stop
   if (nodes.length === 0 && !v3) throw new RangeError('at least one station is required');
-  for (const { code, count } of nodes) {
+  for (const { code, count, near = 0 } of nodes) {
     if (!CODE_RE.test(code)) throw new RangeError(`invalid station code: ${code}`);
     if (!Number.isInteger(count) || count < 0 || count > MAX_COUNT) throw new RangeError(`invalid count: ${count}`);
+    if (!Number.isInteger(near) || near < 0 || near > MAX_COUNT) throw new RangeError(`invalid near count: ${near}`);
   }
+  // Someone near a stop needs v4, which only an update (v3's F or P) can be
+  const v4 = hasNear(nodes);
+  if (v4 && !v3) throw new RangeError('near counts need an update message (full set)');
 
-  const list = nodes.map(({ code, count }) => `${code}:${count}`).join(',');
-  const head = [v3 ? PREFIX_V3 : PREFIX, route, String(seq).padStart(SEQ_DIGITS, '0'), formatHhmm(minuteOfDay)];
+  const list = nodes.map(entryText).join(',');
+  const head = [v4 ? PREFIX_V4 : v3 ? PREFIX_V3 : PREFIX, route, String(seq).padStart(SEQ_DIGITS, '0'), formatHhmm(minuteOfDay)];
   const signedPart = (v3 ? [...head, message.full ? 'F' : 'P', list || EMPTY_LIST] : [...head, list]).join('|');
   return `${signedPart}|${computeMac(signedPart, key)}`;
+}
+
+// True when any stop has someone near it (a v4 message)
+export function hasNear(nodes: readonly HeatmapNode[]): boolean {
+  return nodes.some((node) => (node.near ?? 0) > 0);
+}
+
+// "SMB:3", or "SMB:3+1" with someone near
+export function entryText({ code, count, near = 0 }: HeatmapNode): string {
+  return near > 0 ? `${code}:${count}+${near}` : `${code}:${count}`;
 }
 
 // Validate the whole message with one regex, then split the station list.
@@ -112,12 +136,12 @@ export function signHeatmap(message: HeatmapMessage, key: string): string {
 export function parseHeatmap(sms: string): ParsedHeatmap | null {
   const text = sms.trim();
   const v2 = MESSAGE_RE.exec(text);
-  const v3 = v2 ? null : MESSAGE_V3_RE.exec(text);
+  const update = v2 ? null : (MESSAGE_V3_RE.exec(text) ?? MESSAGE_V4_RE.exec(text));
   let parts: string[];
   let full: { full?: boolean } = {};
   if (v2) parts = v2.slice(1);
-  else if (v3) {
-    const [, r, q, t, mode, l, m] = v3;
+  else if (update) {
+    const [, r, q, t, mode, l, m] = update;
     parts = [r, q, t, l, m];
     full = { full: mode === 'F' };
   } else return null;
@@ -128,9 +152,12 @@ export function parseHeatmap(sms: string): ParsedHeatmap | null {
   if (hours * MINUTES_PER_HOUR >= MINUTES_PER_DAY || minutes >= MINUTES_PER_HOUR) return null;
 
   const nodes = (list === EMPTY_LIST ? [] : list.split(',')).map((entry) => {
-    const [code, count] = entry.split(':');
-    return { code, count: Number(count) };
+    const [code, counts] = entry.split(':');
+    const [count, near] = counts.split('+');
+    return near === undefined ? { code, count: Number(count) } : { code, count: Number(count), near: Number(near) };
   });
+  // A v4 message lists someone near; one that does not is not v4 (each text has one form)
+  if (text.startsWith(PREFIX_V4) !== hasNear(nodes)) return null;
 
   return {
     route,

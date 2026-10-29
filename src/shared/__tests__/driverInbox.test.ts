@@ -131,8 +131,8 @@ describe('driver heatmap screen (DR5)', () => {
   it('keeps a stop never sent unknown, never 0', () => {
     const view = heatmapView(applied, stops, NOON_MS);
     expect(view.rows.map((row) => row.display)).toEqual([
-      { kind: 'known', band: 2, exact: 7 },
-      { kind: 'known', band: 0, exact: 0 },
+      { kind: 'known', band: 2, exact: 7, near: 0 },
+      { kind: 'known', band: 0, exact: 0, near: 0 },
       { kind: 'unknown' },
     ]);
     expect(view.freshness).toBe('fresh');
@@ -151,7 +151,7 @@ describe('driver heatmap screen (DR5)', () => {
     const nightMs = Date.UTC(2026, 9, 12, 14, 0);
     const atNight = processEntry(emptyHeatmap(ROUTE), entry(text(1, [{ code: 'SMB', count: 7 }], nightMs), { smscMs: nightMs, receivedMs: nightMs }), CONTEXT).state;
     const view = heatmapView(atNight, stops, nightMs);
-    expect(view.rows[0].display).toEqual({ kind: 'known', band: 2, exact: null });
+    expect(view.rows[0].display).toEqual({ kind: 'known', band: 2, exact: null, near: 0 });
     expect(view.bandsOnly).toBe(true);
   });
 });

@@ -133,8 +133,6 @@ export const MAP_GEOMETRY = {
     [18, 10],
   ],
   stopSelectedScale: 1.6,
-  // CA2-0: a fill stop (no real stop there, made to close a long stretch) is drawn smaller
-  fillStopScale: 0.7,
   stopStrokeWidth: 2,
   tripRideWidthScale: 1.2,
   tripWalkWidth: 2,

@@ -13,6 +13,8 @@ const MS_PER_MIN = 60_000;
 export type HeatmapState = {
   route: string;
   counts: Readonly<Record<string, number>>;
+  // CA3 (v4): checked in near each stop, apart from `counts`; a stop not here has nobody near
+  near?: Readonly<Record<string, number>>;
   // CA2-1: a v3 F message has arrived, so a stop it did not list has nobody waiting (0), not unknown
   whole?: boolean;
   // Sequence number of the last accepted message (validateHeatmap's lastSeq)
@@ -32,6 +34,8 @@ export type StopDisplay =
       band: HeatmapBand;
       // The number for the list, or null where only the band may be shown (Q5, Q11)
       exact: number | null;
+      // CA3: checked in near the stop (0 for nobody); shown as a number only where `exact` is
+      near: number;
     };
 
 export function emptyHeatmap(route: string): HeatmapState {
@@ -43,8 +47,14 @@ export function applyMessage(state: HeatmapState, message: HeatmapMessage, recei
   if (message.route !== state.route) return state;
   // v3 F: the listed stops are the only ones with anyone waiting
   const counts: Record<string, number> = message.full ? {} : { ...state.counts };
-  for (const { code, count } of message.nodes) counts[code] = count;
-  return { ...state, counts, whole: state.whole === true || message.full === true, lastSeq: message.seq, lastAcceptedMs: receivedAtMs };
+  const near: Record<string, number> = message.full ? {} : { ...state.near };
+  for (const node of message.nodes) {
+    counts[node.code] = node.count;
+    // A listed stop without a near count has nobody near (v2, v3, or v4 with nobody near it)
+    if ((node.near ?? 0) > 0) near[node.code] = node.near ?? 0;
+    else delete near[node.code];
+  }
+  return { ...state, counts, near, whole: state.whole === true || message.full === true, lastSeq: message.seq, lastAcceptedMs: receivedAtMs };
 }
 
 export function heatmapBand(count: number): HeatmapBand {
@@ -67,5 +77,5 @@ export function displayCount(state: HeatmapState, code: string, nowMs: number): 
   const count = state.counts[code] ?? (state.whole ? 0 : undefined);
   if (count === undefined) return { kind: 'unknown' };
   const bandsOnly = !DRIVER_SHOW_EXACT_COUNTS || (DRIVER_NIGHT_BANDS_ONLY && isNight(nowMs));
-  return { kind: 'known', band: heatmapBand(count), exact: bandsOnly ? null : count };
+  return { kind: 'known', band: heatmapBand(count), exact: bandsOnly ? null : count, near: state.near?.[code] ?? 0 };
 }

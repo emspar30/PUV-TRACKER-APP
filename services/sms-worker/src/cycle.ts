@@ -7,7 +7,9 @@
 //      messages with that phone's key (shared/sms/pack.ts), encode them as data or text SMS, and
 //      queue the route's messages with its new state in one transaction (worker_enqueue).
 // CA2-1: the messages are v3, listing only the stops with someone waiting (the first says every
-// other stop is 0), so a route with its fill stops still fits one SMS; the driver app reads v2 too.
+// other stop is 0), so a busy route still fits one SMS; the driver app reads v2 too.
+// CA3: a stop's commuters checked in near it go apart (v4, "SMB:3+1"); for the dispatch rule they
+// count as a stop of their own (NEAR_KEY), so someone arriving near an empty stop is sent at once.
 // One phone's failure (a retired phone, a database error) does not stop the others.
 // CA2c: the gateways' daily cap (shared/sms/dispatch.ts capLevel) holds sends near and at it;
 // at the cap an ops alert is recorded.
@@ -29,6 +31,8 @@ export type CycleOptions = {
 };
 
 const toBase64 = (bytes: Uint8Array) => Buffer.from(bytes).toString('base64');
+// The dispatch state's key for those near a stop: not a stop code (codes are letters only)
+export const nearKey = (code: string) => `${code}+`;
 
 export async function runCycle(deps: WorkerDeps, options: CycleOptions): Promise<RouteCycleResult[]> {
   const stopsOf = options.stopsOf ?? routeStopCodes;
@@ -53,8 +57,15 @@ export async function runCycle(deps: WorkerDeps, options: CycleOptions): Promise
       continue;
     }
     const counts: Record<string, number> = Object.fromEntries(stops.map((code) => [code, 0]));
+    const near: Record<string, number> = {};
     for (const row of snapshot) {
-      if (row.routeId === routeId && row.stationCode in counts) counts[row.stationCode] = row.waiting;
+      if (row.routeId !== routeId || !(row.stationCode in counts)) continue;
+      const nearCount = Math.min(row.near ?? 0, row.waiting);
+      counts[row.stationCode] = row.waiting - nearCount;
+      if (nearCount > 0) {
+        near[row.stationCode] = nearCount;
+        counts[nearKey(row.stationCode)] = nearCount;
+      }
     }
 
     const level = capLevel(used, usage.gateways);
@@ -67,7 +78,7 @@ export async function runCycle(deps: WorkerDeps, options: CycleOptions): Promise
       continue;
     }
 
-    const nodes = stops.map((code) => ({ code, count: counts[code] }));
+    const nodes = stops.map((code) => (near[code] ? { code, count: counts[code], near: near[code] } : { code, count: counts[code] }));
     const minuteOfDay = manilaMinuteOfDay(new Date(nowMs));
     const messages: QueuedMessage[] = [];
     for (const device of routeDevices) {

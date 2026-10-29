@@ -13,6 +13,7 @@ import { showToast } from '@/state/toastStore';
 import { strings } from '@/strings';
 
 import { useActiveCheckIn } from './useActiveCheckIn';
+import { useLeaveEndsCheckIn } from './useLeaveEndsCheckIn';
 
 const NO_ROUTES: readonly string[] = [];
 
@@ -39,8 +40,10 @@ function askBoarded(title: string, body: string, boarded: () => void) {
 // B3, CA1.1 (Emjay, 2026-10-22): during a check-in the app asks "Did you board?", on every tab: as
 // soon as a Live multicab of a pinged route stands at the stop (each multicab once,
 // shared/checkin/boarding), and CHECKIN_REMINDER_MIN into the check-in in any case. In-app only;
-// nothing when the app was closed at that moment (no system notifications yet). Renders nothing.
+// nothing when the app was closed at that moment (no system notifications yet). CA3: also ends the
+// check-in when the commuter walks away (useLeaveEndsCheckIn). Renders nothing.
 export function CheckInReminder() {
+  useLeaveEndsCheckIn();
   const checkIn = useActiveCheckIn();
   const { stops } = useRouteData();
   const repos = useRepositories();

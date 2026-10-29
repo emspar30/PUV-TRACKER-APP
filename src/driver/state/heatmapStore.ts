@@ -57,7 +57,12 @@ function validHeatmap(value: unknown): HeatmapState | null {
     if (!isNumber(count)) return null;
     counts[code] = count;
   }
-  return { route: h.route, counts, whole: h.whole === true, lastSeq: h.lastSeq as number | null, lastAcceptedMs: h.lastAcceptedMs as number | null };
+  // CA3: saved before v4, or damaged: nobody near
+  const near: Record<string, number> = {};
+  if (typeof h.near === 'object' && h.near !== null) {
+    for (const [code, count] of Object.entries(h.near as Record<string, unknown>)) if (isNumber(count)) near[code] = count;
+  }
+  return { route: h.route, counts, near, whole: h.whole === true, lastSeq: h.lastSeq as number | null, lastAcceptedMs: h.lastAcceptedMs as number | null };
 }
 
 function validLog(value: unknown): HeatmapLogEntry[] {

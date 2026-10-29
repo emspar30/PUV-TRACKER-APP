@@ -29,7 +29,7 @@ describe('driver heatmap state (PRD 9.3, 9.4; DR2)', () => {
     expect(state.counts).toEqual({ SMB: 3, ZAM: 6, CSU: 1 });
     expect(state.lastSeq).toBe(2);
     expect(state.lastAcceptedMs).toBe(NOON + MIN);
-    expect(displayCount(state, 'ZAM', NOON + MIN)).toEqual({ kind: 'known', band: 2, exact: 6 });
+    expect(displayCount(state, 'ZAM', NOON + MIN)).toEqual({ kind: 'known', band: 2, exact: 6, near: 0 });
     expect(displayCount(state, 'TAL', NOON + MIN)).toEqual({ kind: 'unknown' });
   });
 
@@ -51,9 +51,9 @@ describe('driver heatmap state (PRD 9.3, 9.4; DR2)', () => {
 
   it('shows exact numbers by day and only bands from 21:00 (Q5, Q11)', () => {
     const state = applyMessage(emptyHeatmap('R4'), message(1, [['SMB', 1]]), manila(20, 55));
-    expect(displayCount(state, 'SMB', manila(20, 59))).toEqual({ kind: 'known', band: 1, exact: 1 });
-    expect(displayCount(state, 'SMB', manila(21))).toEqual({ kind: 'known', band: 1, exact: null });
-    expect(displayCount(state, 'SMB', manila(4, 30))).toEqual({ kind: 'known', band: 1, exact: null });
+    expect(displayCount(state, 'SMB', manila(20, 59))).toEqual({ kind: 'known', band: 1, exact: 1, near: 0 });
+    expect(displayCount(state, 'SMB', manila(21))).toEqual({ kind: 'known', band: 1, exact: null, near: 0 });
+    expect(displayCount(state, 'SMB', manila(4, 30))).toEqual({ kind: 'known', band: 1, exact: null, near: 0 });
   });
 });
 

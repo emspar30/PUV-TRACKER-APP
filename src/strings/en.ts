@@ -606,6 +606,16 @@ export const en = {
     minimize: 'Make the card smaller',
     expand: 'Show the whole card',
     compactActive: (code: string) => `Checked in at ${code}`,
+    // CA3: at a stop, or near the route (counted at the nearest stop)
+    compactNear: (code: string) => `Checked in near ${code}`,
+    modeStop: 'At a stop',
+    modeNear: 'Near the route',
+    modeLabel: (mode: string, on: boolean) => `Check in ${mode.toLowerCase()}${on ? ', selected' : ''}`,
+    nearCode: (code: string) => `Near ${code}`,
+    stayNear: (metres: number) => `Stay within ${metres} m of this spot, or your check-in ends.`,
+    stayAtStop: (metres: number) => `Stay within ${metres} m of the stop, or your check-in ends.`,
+    leftTitle: 'Check-in ended',
+    leftBody: (code: string) => `You moved away from ${code}, so drivers no longer count you there.`,
     farewellTitle: 'Safe travel!',
     farewellBody: (routes: string) => `Enjoy your ride on ${routes}. Your check-in has ended.`,
     farewellDone: 'Done',
@@ -625,11 +635,11 @@ export const en = {
     notHereTitle: 'Check in at the station',
     tooFar: (distanceM: number, radiusM: number, code: string) =>
       `You are ${distanceM} m from ${code}. Check in within ${radiusM} m of the station.`,
-    // CA2a: check in anywhere along a route
+    // CA2a, CA3: near the route
     tooFarFromLine: (lineM: number, limitM: number) => `You are ${lineM} m from the route. Stand by the road the multicab takes (within ${limitM} m) and try again.`,
     tooFarFromStop: (stopM: number, limitM: number, code: string) =>
-      `You are ${stopM} m from ${code}. Walk closer, to within ${limitM} m, or tap a nearer stop on the map.`,
-    countedAtOverline: 'Your check-in counts at',
+      `You are ${stopM} m from ${code}. Walk closer, to within ${limitM} m, or pick Near the route.`,
+    countedAtOverline: 'Near the route, counted near',
     inaccurate: (gateM: number) => `Your location is not precise enough yet (needs ${gateM} m or better). Wait a moment outdoors and try again.`,
     // G0: a mock location app is on, or the last fix is too old
     mocked: 'Your phone reports a mock location. Turn off any mock location app to check in.',
@@ -1205,6 +1215,10 @@ export const en = {
       unknownLabel: 'No count yet',
       bandsOnly: 'Ranges only at night',
       waiting: (count: number) => `${count} waiting`,
+      // CA3: checked in near the stop, on a line under it
+      near: '– Near',
+      nearLabel: (count: number) => `${count} near the stop`,
+      nearSomeone: '– Someone near',
       noStops: 'No stops for this route in this version of the app.',
       mapUnavailable: 'The map could not load. The list still works.',
       // The map's round buttons and the colour key over the list (owner's request 2026-10-14)

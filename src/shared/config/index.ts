@@ -217,14 +217,15 @@ export const ROUTE_STOP_MAX_DISTANCE_M = 150;
 // within this is moved onto the nearest point of the line; one farther still is left out until its
 // coordinates are corrected
 export const ROUTE_STOP_SNAP_MAX_M = 500;
-// CA2 (Emjay's D1, D2, D6, 2026-10-29): check in anywhere along a route. A check-in counts at a stop
-// of the route no farther than CHECKIN_STOP_MAX_M, from a phone within CHECKIN_LINE_M of the line.
-// Fill stops (scripts/fill-stops.ts) close every stretch of line farther than that from a stop,
-// spaced at most FILL_STOP_GAP_M apart; one within FILL_STOP_MERGE_M of another stop is shared.
+// CA3 (Emjay, 2026-10-30): two ways to check in. At a stop: within CHECKIN_STOP_MAX_M of it.
+// Near the route: within CHECKIN_LINE_M of a pinged route's line, counted as "near" the nearest stop
+// of those routes. The check-in ends by itself once the phone leaves: farther than CHECKIN_STOP_MAX_M
+// from the stop, or CHECKIN_LEAVE_M from where a near check-in was made, for CHECKIN_LEAVE_READINGS
+// GPS readings in a row (one jumpy reading does not end it).
 export const CHECKIN_LINE_M = 40;
 export const CHECKIN_STOP_MAX_M = 300;
-export const FILL_STOP_GAP_M = 600;
-export const FILL_STOP_MERGE_M = 100;
+export const CHECKIN_LEAVE_M = 70;
+export const CHECKIN_LEAVE_READINGS = 2;
 export const ROUTE_SIMPLIFY_TOLERANCE_M = 5;
 // Route import (RR1, scripts/import-route.ts). Run on the PC, never at app runtime.
 // A line with more points than this after simplification is reported

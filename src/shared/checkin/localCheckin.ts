@@ -20,10 +20,12 @@ export type LocalCheckIn = {
   // Milliseconds since 1970
   createdAtMs: number;
   expiresAtMs: number;
-  // CA2b: where the commuter stood when checking in (up to CHECKIN_STOP_MAX_M from the stop), so
-  // "Did you board?" looks for a multicab there. Kept on the phone only, never sent. Absent in
-  // records from before CA2 and when there was no position; the stop is used then.
+  // CA2b: where the commuter stood when checking in, so "Did you board?" looks for a multicab there,
+  // and (CA3) a near check-in ends when the commuter walks away from it. Kept on the phone only,
+  // never sent. Absent in records from before CA2 and when there was no position; the stop is used then.
   point?: LatLon;
+  // CA3: checked in near the route rather than at the stop (counted as "near" the stop)
+  near?: boolean;
 };
 
 // `expiresAtMs` is the server's expiry when the check-in is in the cloud (C1)
@@ -33,10 +35,11 @@ export function startCheckIn(
   nowMs: number,
   expiresAtMs = nowMs + CHECKIN_LIFETIME_S * MS_PER_S,
   point?: LatLon,
+  near = false,
 ): LocalCheckIn {
   const routeCodes = typeof routes === 'string' ? [routes] : [...routes];
   const at = point ? { point: { lat: point.lat, lon: point.lon } } : {};
-  return { routeCode: routeCodes[0] ?? '', routeCodes, stationCode, createdAtMs: nowMs, expiresAtMs, ...at };
+  return { routeCode: routeCodes[0] ?? '', routeCodes, stationCode, createdAtMs: nowMs, expiresAtMs, ...at, ...(near ? { near: true } : {}) };
 }
 
 export function remainingMs(checkIn: LocalCheckIn, nowMs: number): number {
@@ -74,7 +77,7 @@ export function parseStoredCheckIn(value: unknown): LocalCheckIn | null {
   const routeCodes = stored.length > 0 ? stored : [routeCode];
   const point = record.point as Record<string, unknown> | undefined;
   const at = point && Number.isFinite(point.lat) && Number.isFinite(point.lon) ? { point: { lat: point.lat as number, lon: point.lon as number } } : {};
-  return { routeCode, routeCodes, stationCode, createdAtMs, expiresAtMs, ...at };
+  return { routeCode, routeCodes, stationCode, createdAtMs, expiresAtMs, ...at, ...(record.near === true ? { near: true } : {}) };
 }
 
 // B3: when to remind the commuter of a running check-in, `minutes` after it started; null when the

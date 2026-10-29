@@ -1,7 +1,7 @@
 import { SMS_SEQ_MODULUS, SMS_TEXT_MAX_SEPTETS, DATA_SMS_MAX_BYTES } from '../config';
 import { encodeHeatmapBinary, heatmapBinarySize } from './binary';
 import { gsm7Septets } from './gsm';
-import { signHeatmap, type HeatmapNode } from './protocol';
+import { entryText, hasNear, signHeatmap, type HeatmapNode } from './protocol';
 
 // One route's waiting counts as signed messages for one driver phone (PRD 9.6, 12.3; DR6).
 // A message lists stops and their counts; the driver app merges them (listed stops update, others
@@ -33,12 +33,14 @@ const SEQ_STANDIN = '0000';
 const TIME_STANDIN = '0000';
 const MAC_STANDIN = '00000000';
 
-const capped = (nodes: readonly HeatmapNode[]) => nodes.map(({ code, count }) => ({ code, count: Math.min(count, MAX_COUNT) }));
+const capped = (nodes: readonly HeatmapNode[]) =>
+  nodes.map(({ code, count, near }) => (near ? { code, count: Math.min(count, MAX_COUNT), near: Math.min(near, MAX_COUNT) } : { code, count: Math.min(count, MAX_COUNT) }));
 
 function fits(route: string, nodes: readonly HeatmapNode[], encoding: HeatmapEncoding, v3: boolean): boolean {
-  if (encoding === 'data') return heatmapBinarySize(nodes.map((node) => node.code), v3) <= DATA_SMS_MAX_BYTES;
-  const list = nodes.map(({ code, count }) => `${code}:${count}`).join(',');
-  const head = v3 ? `HM3|${route}|${SEQ_STANDIN}|${TIME_STANDIN}|F` : `HM2|${route}|${SEQ_STANDIN}|${TIME_STANDIN}`;
+  if (encoding === 'data') return heatmapBinarySize(nodes, v3) <= DATA_SMS_MAX_BYTES;
+  const list = nodes.map(entryText).join(',');
+  // CA3: a chunk with someone near a stop is v4, the same length as v3 up to its entries
+  const head = v3 ? `${hasNear(nodes) ? 'HM4' : 'HM3'}|${route}|${SEQ_STANDIN}|${TIME_STANDIN}|F` : `HM2|${route}|${SEQ_STANDIN}|${TIME_STANDIN}`;
   const septets = gsm7Septets(`${head}|${list || '-'}|${MAC_STANDIN}`);
   return septets !== null && septets <= SMS_TEXT_MAX_SEPTETS;
 }
@@ -71,9 +73,10 @@ export function buildHeatmapMessages(batch: HeatmapBatch, key: string, encoding:
 
 // CA2-1 (v3): the whole route's counts, sending only the stops with someone waiting. The first
 // message is F (every stop not listed is 0), any next one P; nobody waiting anywhere is one F
-// message with an empty list. Stops keep the order given.
+// message with an empty list. Stops keep the order given. CA3: a stop with someone near it is
+// listed too (v4), even with nobody at it.
 function updateChunks(route: string, nodes: readonly HeatmapNode[], encoding: HeatmapEncoding): HeatmapNode[][] {
-  const waiting = nodes.filter((node) => node.count > 0);
+  const waiting = nodes.filter((node) => node.count > 0 || (node.near ?? 0) > 0);
   return waiting.length === 0 ? [[]] : chunkHeatmapNodes(route, waiting, encoding, true);
 }
 

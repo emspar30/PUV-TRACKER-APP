@@ -46,9 +46,9 @@ describe('heatmap binary form (DR2)', () => {
   });
 
   it('takes 8 + 6 bytes a three-letter stop + 4 (18 stops: 120 bytes)', () => {
-    expect(heatmapBinarySize(['SMB', 'ZAM', 'CSU'])).toBe(30);
+    expect(heatmapBinarySize(withCount(['SMB', 'ZAM', 'CSU'], 7))).toBe(30);
     expect(encodeHeatmapBinary(text).length).toBe(30);
-    expect(heatmapBinarySize(synthetic(18))).toBe(120);
+    expect(heatmapBinarySize(withCount(synthetic(18), 1))).toBe(120);
   });
 
   it('refuses bytes that are not a heatmap message', () => {
@@ -190,5 +190,56 @@ describe('v3: only the stops with someone waiting (CA2-1)', () => {
     expect(validateHeatmap(v2.text, { key: KEY, lastSeq: null, nowMinuteOfDay: MINUTE }).ok).toBe(true);
     const state = applyMessage(emptyHeatmap('R4'), parseHeatmap(v2.text) as NonNullable<ReturnType<typeof parseHeatmap>>, 1);
     expect(displayCount(state, 'ZAM', 1)).toEqual({ kind: 'unknown' });
+  });
+});
+
+describe('v4: commuters near a stop, apart from those at it (CA3)', () => {
+  const nodes: HeatmapNode[] = [
+    { code: 'SMB', count: 3, near: 1 },
+    { code: 'ZAM', count: 0 },
+    { code: 'CSU', count: 0, near: 2 },
+    { code: 'LEM', count: 1 },
+  ];
+
+  it('lists near counts after a plus, including a stop with someone only near it, and validates', () => {
+    const [message] = buildHeatmapUpdate({ route: 'R4', firstSeq: 5, minuteOfDay: MINUTE, nodes }, KEY, 'text');
+    expect(message.text.startsWith('HM4|R4|0005|1930|F|SMB:3+1,CSU:0+2,LEM:1|')).toBe(true);
+    const parsed = validateHeatmap(message.text, { key: KEY, lastSeq: 4, nowMinuteOfDay: MINUTE });
+    expect(parsed).toMatchObject({
+      ok: true,
+      message: { full: true, nodes: [{ code: 'SMB', count: 3, near: 1 }, { code: 'CSU', count: 0, near: 2 }, { code: 'LEM', count: 1 }] },
+    });
+  });
+
+  it('round-trips through the data form', () => {
+    const [message] = buildHeatmapUpdate({ route: 'R4', firstSeq: 5, minuteOfDay: MINUTE, nodes }, KEY, 'data');
+    const bytes = message.data as Uint8Array;
+    expect(bytes[1]).toBe(4);
+    expect(bytes.length).toBe(heatmapBinarySize(nodes.filter((node) => node.count > 0 || node.near), true));
+    expect(decodeHeatmapBinary(bytes)).toBe(message.text);
+  });
+
+  it('stays v3 while nobody is near, so an older driver app still reads it', () => {
+    const [message] = buildHeatmapUpdate({ route: 'R4', firstSeq: 5, minuteOfDay: MINUTE, nodes: nodes.map(({ code, count }) => ({ code, count })) }, KEY, 'data');
+    expect(message.text.startsWith('HM3|')).toBe(true);
+    expect((message.data as Uint8Array)[1]).toBe(3);
+  });
+
+  it('refuses a v4 text with nobody near, and a near count in a v3 text', () => {
+    expect(parseHeatmap('HM4|R4|0005|1930|F|SMB:3|0123ABCD')).toBeNull();
+    expect(parseHeatmap('HM3|R4|0005|1930|F|SMB:3+1|0123ABCD')).toBeNull();
+    expect(parseHeatmap('HM4|R4|0005|1930|F|SMB:3+1|0123ABCD')?.nodes).toEqual([{ code: 'SMB', count: 3, near: 1 }]);
+  });
+
+  it('the driver phone keeps near counts apart and clears them with the next update', () => {
+    const [first] = buildHeatmapUpdate({ route: 'R4', firstSeq: 5, minuteOfDay: MINUTE, nodes }, KEY, 'text');
+    let state = applyMessage(emptyHeatmap('R4'), parseHeatmap(first.text) as NonNullable<ReturnType<typeof parseHeatmap>>, 1);
+    expect(displayCount(state, 'SMB', 1)).toMatchObject({ kind: 'known', exact: 3, near: 1 });
+    expect(displayCount(state, 'CSU', 1)).toMatchObject({ kind: 'known', exact: 0, near: 2 });
+    expect(displayCount(state, 'ZAM', 1)).toMatchObject({ kind: 'known', exact: 0, near: 0 });
+    const [next] = buildHeatmapUpdate({ route: 'R4', firstSeq: 6, minuteOfDay: MINUTE, nodes: [{ code: 'SMB', count: 4 }] }, KEY, 'text');
+    state = applyMessage(state, parseHeatmap(next.text) as NonNullable<ReturnType<typeof parseHeatmap>>, 2);
+    expect(displayCount(state, 'SMB', 2)).toMatchObject({ exact: 4, near: 0 });
+    expect(displayCount(state, 'CSU', 2)).toMatchObject({ exact: 0, near: 0 });
   });
 });

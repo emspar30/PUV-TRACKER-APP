@@ -1,5 +1,5 @@
 import { DATA_SMS_MAX_BYTES } from '../config';
-import { parseHeatmap } from './protocol';
+import { entryText, hasNear, parseHeatmap, type HeatmapNode } from './protocol';
 
 // The data-SMS form of a heatmap message (PRD 9.3: "the same fields in a compact binary form";
 // docs/IMPLEMENTATION_PLAN_DRIVER.md section 6.2.4). It is only a transport encoding: the driver app
@@ -8,10 +8,12 @@ import { parseHeatmap } from './protocol';
 //   0x48 'H' | 0x02 | route number | seq (2) | minute of day (2) | n | n x [code length, code, count (2)] | mac (4)
 // v3 (CA2-1) adds one byte before n: 1 for F (stops not listed are 0), 0 for P (the next part):
 //   0x48 'H' | 0x03 | route number | seq (2) | minute of day (2) | F or P | n | stops | mac (4)
+// v4 (CA3) is v3 with a near count after each stop's count: [code length, code, count (2), near (2)]
 
 const MAGIC = 0x48;
 const FORMAT_VERSION = 0x02;
 const FORMAT_VERSION_V3 = 0x03;
+const FORMAT_VERSION_V4 = 0x04;
 const HEADER_BYTES = 8;
 const HEADER_BYTES_V3 = 9;
 const MAC_BYTES = 4;
@@ -37,9 +39,11 @@ const AT_COUNT_V3 = 8;
 
 const pad = (value: number, digits: number) => String(value).padStart(digits, '0');
 
-// Bytes a message with these stop codes takes (counts do not change the size); v3 has one more
-export function heatmapBinarySize(codes: readonly string[], v3 = false): number {
-  return (v3 ? HEADER_BYTES_V3 : HEADER_BYTES) + codes.reduce((sum, code) => sum + 1 + code.length + COUNT_BYTES, 0) + MAC_BYTES;
+// Bytes a message with these stops takes (counts do not change the size); v3 has one more, and v4
+// (someone near a stop, v3 only) two more for each stop
+export function heatmapBinarySize(nodes: readonly HeatmapNode[], v3 = false): number {
+  const perStop = v3 && hasNear(nodes) ? COUNT_BYTES + COUNT_BYTES : COUNT_BYTES;
+  return (v3 ? HEADER_BYTES_V3 : HEADER_BYTES) + nodes.reduce((sum, node) => sum + 1 + node.code.length + perStop, 0) + MAC_BYTES;
 }
 
 // Throws on a text that is not a well-formed heatmap message with a canonical route (R1 to R99)
@@ -51,10 +55,11 @@ export function encodeHeatmapBinary(text: string): Uint8Array {
   if (message.nodes.length > MAX_STOPS) throw new RangeError('too many stops');
 
   const v3 = message.full !== undefined;
-  const bytes = new Uint8Array(heatmapBinarySize(message.nodes.map((node) => node.code), v3));
+  const v4 = v3 && hasNear(message.nodes);
+  const bytes = new Uint8Array(heatmapBinarySize(message.nodes, v3));
   const view = new DataView(bytes.buffer);
   bytes[AT_MAGIC] = MAGIC;
-  bytes[AT_VERSION] = v3 ? FORMAT_VERSION_V3 : FORMAT_VERSION;
+  bytes[AT_VERSION] = v4 ? FORMAT_VERSION_V4 : v3 ? FORMAT_VERSION_V3 : FORMAT_VERSION;
   bytes[AT_ROUTE] = Number(route[1]);
   view.setUint16(AT_SEQ, message.seq);
   view.setUint16(AT_MINUTE, message.minuteOfDay);
@@ -62,12 +67,16 @@ export function encodeHeatmapBinary(text: string): Uint8Array {
   bytes[v3 ? AT_COUNT_V3 : AT_COUNT] = message.nodes.length;
 
   let at = v3 ? HEADER_BYTES_V3 : HEADER_BYTES;
-  for (const { code, count } of message.nodes) {
+  for (const { code, count, near = 0 } of message.nodes) {
     bytes[at] = code.length;
     for (let i = 0; i < code.length; i++) bytes[at + 1 + i] = code.charCodeAt(i);
     at += 1 + code.length;
     view.setUint16(at, count);
     at += COUNT_BYTES;
+    if (v4) {
+      view.setUint16(at, near);
+      at += COUNT_BYTES;
+    }
   }
   for (let i = 0; i < MAC_BYTES; i++) {
     bytes[at + i] = parseInt(message.mac.slice(i * HEX_PER_BYTE, (i + 1) * HEX_PER_BYTE), HEX_RADIX);
@@ -77,7 +86,8 @@ export function encodeHeatmapBinary(text: string): Uint8Array {
 
 // The canonical text, or null for bytes that are not a heatmap message in this format
 export function decodeHeatmapBinary(bytes: Uint8Array): string | null {
-  const v3 = bytes[AT_VERSION] === FORMAT_VERSION_V3;
+  const v4 = bytes[AT_VERSION] === FORMAT_VERSION_V4;
+  const v3 = bytes[AT_VERSION] === FORMAT_VERSION_V3 || v4;
   const header = v3 ? HEADER_BYTES_V3 : HEADER_BYTES;
   if (bytes.length < header + MAC_BYTES || bytes[AT_MAGIC] !== MAGIC || (bytes[AT_VERSION] !== FORMAT_VERSION && !v3)) return null;
   if (v3 && bytes[AT_FULL_V3] > 1) return null;
@@ -93,12 +103,16 @@ export function decodeHeatmapBinary(bytes: Uint8Array): string | null {
   for (let n = 0; n < stops; n++) {
     if (at >= bytes.length) return null;
     const length = bytes[at];
-    if (at + 1 + length + COUNT_BYTES > bytes.length - MAC_BYTES) return null;
+    const stopBytes = v4 ? COUNT_BYTES + COUNT_BYTES : COUNT_BYTES;
+    if (at + 1 + length + stopBytes > bytes.length - MAC_BYTES) return null;
     const code = String.fromCharCode(...bytes.slice(at + 1, at + 1 + length));
     if (!CODE_RE.test(code)) return null;
     at += 1 + length;
-    entries.push(`${code}:${view.getUint16(at)}`);
+    const count = view.getUint16(at);
     at += COUNT_BYTES;
+    const near = v4 ? view.getUint16(at) : 0;
+    if (v4) at += COUNT_BYTES;
+    entries.push(entryText({ code, count, near }));
   }
   if (at + MAC_BYTES !== bytes.length) return null;
 
@@ -106,9 +120,10 @@ export function decodeHeatmapBinary(bytes: Uint8Array): string | null {
   const hhmm = pad(Math.floor(minute / MINUTES_PER_HOUR), HOUR_DIGITS) + pad(minute % MINUTES_PER_HOUR, HOUR_DIGITS);
   const head = `R${route}|${pad(seq, SEQ_DIGITS)}|${hhmm}`;
   const text = v3
-    ? `HM3|${head}|${bytes[AT_FULL_V3] === 1 ? 'F' : 'P'}|${entries.join(',') || '-'}|${mac}`
+    ? `${v4 ? 'HM4' : 'HM3'}|${head}|${bytes[AT_FULL_V3] === 1 ? 'F' : 'P'}|${entries.join(',') || '-'}|${mac}`
     : `HM2|${head}|${entries.join(',')}|${mac}`;
-  // Anything out of range (a seq over 9999, a count over 999, a minute past midnight) fails here
+  // Anything out of range (a seq over 9999, a count over 999, a minute past midnight, a v4 with
+  // nobody near) fails here
   return parseHeatmap(text) ? text : null;
 }
 

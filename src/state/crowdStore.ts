@@ -34,12 +34,13 @@ export function useCrowd(): CrowdRepositories {
 
 // Checks in on the server (or the demo), then keeps the countdown on the phone with the server's
 // expiry. CA1.1: the check-in spends Energy, so the wallet is read again. CA2b: `point`, where the
-// commuter stands, stays on the phone for "Did you board?"; the server gets only the stop.
-export async function checkIn(routeCodes: readonly string[], stationCode: string, point?: LatLon): Promise<CheckInResult> {
+// commuter stands, stays on the phone for "Did you board?"; the server gets only the stop. CA3:
+// `near`, checked in near the route: the server gets the stop and that it is near.
+export async function checkIn(routeCodes: readonly string[], stationCode: string, point?: LatLon, near = false): Promise<CheckInResult> {
   const nowMs = Date.now();
-  const result = await currentCrowd().checkins.checkIn(routeCodes, stationCode, newRequestKey('checkin', nowMs, Math.random()));
+  const result = await currentCrowd().checkins.checkIn(routeCodes, stationCode, newRequestKey('checkin', nowMs, Math.random()), near);
   if (result.ok) {
-    useCheckInStore.getState().checkInAt(routeCodes, stationCode, nowMs, result.expiresAtMs, point);
+    useCheckInStore.getState().checkInAt(routeCodes, stationCode, nowMs, result.expiresAtMs, point, near);
     // F5: counted on the phone for the badges
     useCountsStore.getState().addCheckIn();
     void refreshEnergy();

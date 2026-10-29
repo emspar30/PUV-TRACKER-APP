@@ -2,7 +2,7 @@ import type { StopDisplay } from '../driver/heatmap';
 import { busiestStop, type HeatmapRow } from '../driver/heatmapView';
 
 const row = (code: string, display: StopDisplay): HeatmapRow => ({ code, name: `Stop ${code}`, display });
-const known = (band: number, exact: number | null): StopDisplay => ({ kind: 'known', band, exact });
+const known = (band: number, exact: number | null): StopDisplay => ({ kind: 'known', band, exact, near: 0 });
 
 describe('busiestStop (the "most waiting" line over the driver list)', () => {
   it('picks the highest count', () => {
