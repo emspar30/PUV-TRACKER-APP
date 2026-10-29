@@ -424,6 +424,20 @@ Run on 2026-10-29: **Vivo V2419** (Android 15) as the gateway (release `19a73c5a
 
 Found: the Render worker sends **plain text** (`encoding: text` on both heatmap rows), not data SMS, so the updates also land in the driver's Messages app. Its `SMS_PRIMARY_ENCODING` is set in the Render dashboard.
 
+## Retire notice: pop-up and hidden data SMS (2026-10-30)
+
+Needs: `20261029000000_retire_notice_data.sql` live; the driver app running the code from `0ec445c` or later (a development build reloaded from the server: a phone on older code drops the data notice as `malformed`, seen at 23:40 on 2026-10-29); the gateway on a SIM with load. Phones as in DRG6 (Vivo gateway on Smart SIM 2, driver on TNT SIM 1).
+
+| ID | Script | Expected | Result |
+| --- | --- | --- | --- |
+| RN-M1 | Console: Retire the driver phone while its app is open | One `notice` row, `encoding: data`, delivered; the pop-up "This phone was removed from Tunton." with Register again and Close; "Beacon off"; nothing new in Messages | Pass (DRV-0020): queued 00:34:32, sent and delivered 00:34:45; pop-up and "Beacon off" seen; no line in Messages (owner) |
+| RN-M2 | Close | The pop-up closes; the red card with Register again stays | Pass |
+| RN-M3 | Force-stop the driver app, open it again | No pop-up again; the card stays; the beacon stays off | Pass |
+| RN-M4 | Register again, approve | The phone is a driver phone again | Pass: DRV-0021, approval delivered 00:40:49 |
+| Earlier | Retire with the app on the old code (2026-10-29 23:40, DRV-0019) | — | The data notice was delivered (10 s) but dropped: Admin, "data · malformed". Old code cannot read the data form |
+
+Texts: 3 approvals or notices on 2026-10-30 (00:32, 00:34, 00:40) plus the dropped one on 2026-10-29.
+
 ## Emulator QA findings (2026-10-08, for ST2)
 
 Agent's run on the `Pixel_7` emulator (API 34), build R1a with the JavaScript at `523319f`. Seen working: the bundle refreshed (Energy hidden in the top bar and Profile); six routes on the real lines with demo vehicles; vehicle card with ETA, "km from you" and Demo label; tracking free, with ETA, "km by road" and the stop strip; demo check-in with countdown, tab dot and Cancel; live sign-in; live relay without GPS ("Update relayed", First relay badge) shown in Crowdsource with Trusted and "Near SM City Butuan"; Profile badges and places; Settings Privacy rows (contact address shown, the email link opens Gmail); My Rides SMB to BAN on R1, 6.2 km, ₱16.75 Student (₱21.00 regular); a saved old demo stop (MCA) falls back to SM City.
