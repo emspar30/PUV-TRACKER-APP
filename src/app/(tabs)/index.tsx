@@ -133,6 +133,13 @@ export default function MapScreen() {
   const seatFilter = useSettingsStore((store) => store.seatFilter);
   const arrivalAlert = useSettingsStore((store) => store.arrivalAlert);
   const [filter, setFilter] = useState<VehicleFilter>(seatFilter ? 'seats' : 'all');
+  // The Map tab stays mounted, so turning the Seat filter on or off in Settings is applied here when
+  // it changes (once, while rendering); a route's own filter chip still wins until the next change
+  const [appliedSeatFilter, setAppliedSeatFilter] = useState(seatFilter);
+  if (seatFilter !== appliedSeatFilter) {
+    setAppliedSeatFilter(seatFilter);
+    setFilter(seatFilter ? 'seats' : 'all');
+  }
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedStop, setSelectedStop] = useState<string | null>(null);
   // L2, B2: the tracked multicab and its alerts live in a store, so picking another route never
