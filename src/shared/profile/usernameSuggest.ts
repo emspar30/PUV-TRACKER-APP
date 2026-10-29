@@ -21,6 +21,12 @@ function digits(random: RandomSource): string {
   return out;
 }
 
+// The username the introduction shows: what the user typed, else the account's own username (it
+// arrives after sign-in, so a returning account keeps its name), else the suggestion
+export function introUsername(typed: string | null, saved: string | null, suggested: string): string {
+  return typed ?? saved ?? suggested;
+}
+
 export function suggestUsername(random: RandomSource): string {
   for (let attempt = 0; attempt < USERNAME_SUGGEST_ATTEMPTS; attempt += 1) {
     const name = `${pick(FIRST, random)}${pick(SECOND, random)}${digits(random)}`;
