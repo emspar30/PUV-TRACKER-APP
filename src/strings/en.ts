@@ -1512,8 +1512,8 @@ export const en = {
 
   // DRG5: the admin console (admin/), a web page for the research team (PRD 9.5)
   adminConsole: {
-    title: 'Tunton Admin',
-    brandSub: 'Driver registrations',
+    title: 'Admin Console',
+    brandSub: 'Driver Registrations',
     sections: 'Sections',
     when: (iso: string) => new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
     time: (ms: number) => new Date(ms).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }),
