@@ -27,6 +27,7 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      # text: the DITO SIM on the driver phone does not receive data SMS (team test, 2026-10-25)
+      # data: data SMS stay out of the driver's Messages app (owner, 2026-10-18). Back from text
+      # (2026-10-25, a DITO SIM that did not receive data SMS) for the partner's driver-side tests, 2026-10-29
       - key: SMS_PRIMARY_ENCODING
-        value: text
+        value: data

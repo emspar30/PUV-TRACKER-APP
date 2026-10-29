@@ -69,7 +69,7 @@ Instead of the team PC, the worker can run on Render (`render.yaml` at the repos
 5. Set up the gateway again with the new address: `npx tsx scripts/provision-gateway.ts --gateway GW-01 --phone <gateway number> --worker-url https://<service>.onrender.com`, and scan the QR with the gateway app. The old token stops working at once.
 6. Stop any worker still running on a PC: two workers would queue the same texts twice.
 
-`SMS_PRIMARY_ENCODING` is `text` there: the DITO SIM on the driver phone does not receive data SMS (team test, 2026-10-25). The logs are in the Render dashboard (Logs), one JSON line per event as below.
+`SMS_PRIMARY_ENCODING` is `data` there (back from `text` on 2026-10-29 for the driver-side tests; `text` was set on 2026-10-25 because a DITO SIM on the driver phone did not receive data SMS). The logs are in the Render dashboard (Logs), one JSON line per event as below.
 
 ## The gateway's API (plan section 6.4)
 
