@@ -407,6 +407,23 @@ Needs: `20261014000000_beacon_verify.sql` pushed (backlog 114); a commuter `deve
 | DR8-M5 | B, fresh install or Nearby devices revoked: open Relay, "Not now"; then Continue and Deny | The pickers work as before; "Not now" leaves a "Find my multicab by Bluetooth" link; after Deny twice, "Nearby devices is off for Tunton" with Open settings |
 | Also | Location off on B; Bluetooth off on B; the panel open for 15 min | "Turn on your phone's location…"; "Bluetooth is off…"; "Stopped looking…" (the scan ends after `ARMED_SCAN_MIN`). Record whether results arrive at all on B with location off but Nearby devices on (Android 12+): the code assumes they do not |
 
+## DRG6 driver self-registration, end to end (2026-10-29)
+
+Needs: migrations `20261027000000` and `20261028000000` live, the `driver-registration` Edge Function deployed, the admin PIN set in the console; a gateway on a SIM **with load**; the driver `development` build (`c950b2a1` or later) with `npm run start:driver` and `adb reverse tcp:8082 tcp:8082`; the commuter `development` build on a second phone with `npm start` and `adb reverse tcp:8081 tcp:8081`, signed in, Demo data off, Simulated location on and standing at the stop. The SMS worker refreshes its driver phones every 10 min (`WORKER_DEVICE_REFRESH_MIN`): check in at least 10 min after the driver phone collects its setup.
+
+Run on 2026-10-29: **Vivo V2419** (Android 15) as the gateway (release `19a73c5a`, sending from SIM 2 **Smart** 09681552712) and as the driver phone (number = its SIM 1 **TNT** 09510400009); the **Xiaomi** as the commuter (test account `writer@tunton.local`). Worker on Render. 3 texts in all.
+
+| ID | Script | Expected | Result |
+| --- | --- | --- | --- |
+| DRG6-M1 | `provision-gateway.ts --gateway GW-01 --phone <SIM> --worker-url https://tunton-sms-worker.onrender.com`; scan, permissions, background, the SIM, Start | Running; "Last check … s ago" under 10 s | Pass (owner scanned). Background allowed over adb (`dumpsys deviceidle whitelist +com.tunton.gateway`) |
+| DRG6-M2 | Driver app: register steps 1 to 6 (number, plate TEST 001, R4, two photos), Send for approval | Waiting for approval; no text at registration | Pass. Seen on a phone for the first time: the number as `0951 040 0009`, Edit on "Check and send", the back arrows. **Bug:** on step 1 only, "STEP 1 OF 7" and its bar overlap the title "Set up Tunton Driver" (Vivo, 720 px wide) |
+| DRG6-M3 | Console: approve (the plate already had DRV-0012) | The replace warning; 1 "approved" text | Pass. Notice queued 22:27:17, delivered (first gateway send since the 2026-10-28 failures: the Globe SIM had no load) |
+| DRG6-M4 | Driver app: Check now | "This phone is set up. The beacon is on." | Pass after turning Bluetooth on ("Turn on Bluetooth, then try again" first). DRV-0019 active on R4; DRV-0012 retired |
+| DRG6-M5 | Commuter: check in at Antongalon (ANT), ping R4 only | Within about 40 s the driver shows ANT waiting | Pass. Check-in 22:41:05, queued 22:41:30, sent 22:41:41, **delivered 22:41:42**; driver: "Updated just now", most waiting Antongalon 1–4 (ranges at night) |
+| DRG6-M6 | Commuter: Cancel check-in | One `cleared` update; the driver shows 0 | Pass. Queued 22:43:00, delivered 22:43:09; all stops 0 |
+
+Found: the Render worker sends **plain text** (`encoding: text` on both heatmap rows), not data SMS, so the updates also land in the driver's Messages app. Its `SMS_PRIMARY_ENCODING` is set in the Render dashboard.
+
 ## Emulator QA findings (2026-10-08, for ST2)
 
 Agent's run on the `Pixel_7` emulator (API 34), build R1a with the JavaScript at `523319f`. Seen working: the bundle refreshed (Energy hidden in the top bar and Profile); six routes on the real lines with demo vehicles; vehicle card with ETA, "km from you" and Demo label; tracking free, with ETA, "km by road" and the stop strip; demo check-in with countdown, tab dot and Cancel; live sign-in; live relay without GPS ("Update relayed", First relay badge) shown in Crowdsource with Trusted and "Near SM City Butuan"; Profile badges and places; Settings Privacy rows (contact address shown, the email link opens Gmail); My Rides SMB to BAN on R1, 6.2 km, ₱16.75 Student (₱21.00 regular); a saved old demo stop (MCA) falls back to SM City.
