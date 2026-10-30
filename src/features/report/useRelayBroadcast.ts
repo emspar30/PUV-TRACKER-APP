@@ -84,7 +84,7 @@ export function useRelayBroadcast(position: LatLon | null): RelayBroadcast | nul
         // The server no longer keeps it (hidden by flags, or lapsed too long ago): the relay is over
         if (up || useRelayStore.getState().session?.post !== post) return;
         stop();
-        showToast({ icon: RadioTower, title: strings.report.lapsedTitle, body: strings.report.lapsedBody });
+        showToast({ inbox: true, icon: RadioTower, title: strings.report.lapsedTitle, body: strings.report.lapsedBody });
       });
     }, RELAY_HEARTBEAT_MIN * MS_PER_MIN);
     return () => clearInterval(timer);
@@ -105,7 +105,7 @@ export function useRelayBroadcast(position: LatLon | null): RelayBroadcast | nul
     const toast = endToast(end, session);
     stop();
     Vibration.vibrate();
-    showToast(toast);
+    showToast({ ...toast, inbox: true });
   }, [session, end, stop]);
 
   return session;

@@ -38,11 +38,25 @@ const TRUSTED_SHARE = 0.4;
 const VEHICLE_SHARE = 0.7;
 const DEMO_VEHICLES_PER_ROUTE = 4;
 
+// A demo post's seats agree with its phrase: "Full" is always full, "Few seats left" never is
+function seatTierFor(phrase: FeedPost['phrase'], drawn: SeatTier | null): SeatTier | null {
+  if (phrase === 'full') return 'red';
+  if (phrase === 'few_seats' && drawn !== null) return 'amber';
+  return drawn;
+}
+
 // VS1: the demo multicab a demo post names, so its status shows on the map: "R4-02" is the demo
 // multicab demo-R4-2 (one beyond the route's fleet names none). Any other id is returned as it is.
 export function demoVehicleIdOf(feedVehicleId: string): string {
   const match = /^(.+)-0(\d)$/.exec(feedVehicleId);
   return match ? `demo-${match[1]}-${match[2]}` : feedVehicleId;
+}
+
+// The other way, for showing an id: the demo multicab demo-R4-2 reads "R4-02", as the demo posts
+// name it. Any other id is returned as it is.
+export function vehicleLabelOf(vehicleId: string): string {
+  const match = /^demo-(.+)-(\d)$/.exec(vehicleId);
+  return match ? `${match[1]}-0${match[2]}` : vehicleId;
 }
 
 // Posts younger than FEED_LIFETIME_MIN, newest first. stopsOf gives a route's stop codes, for "Near ..."
@@ -65,7 +79,7 @@ export function demoFeed(
       const postedMs = slot * slotMs + Math.floor(random.next() * slotMs);
       const routeCode = routeCodes[random.int(0, routeCodes.length - 1)];
       const phrase = FEED_PHRASES[random.int(0, FEED_PHRASES.length - 1)];
-      const seatTier = SEAT_TIERS[random.int(0, SEAT_TIERS.length - 1)];
+      const seatTier = seatTierFor(phrase, SEAT_TIERS[random.int(0, SEAT_TIERS.length - 1)]);
       const username = DEMO_HANDLES[random.int(0, DEMO_HANDLES.length - 1)];
       const liveMap = random.next() < LIVE_MAP_SHARE;
       const stops = stopsOf(routeCode);

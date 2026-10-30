@@ -61,11 +61,15 @@ export const ALTERNATIVE_NEARBY_M = 2000;
 // --- CA1 assistant (PRD 19.5): no model; rules over the data on the phone (CA1.1: online only)
 // The best match is answered at once; "Did you mean" chips offer at most this many places in all
 export const ASSISTANT_CHOICES_MAX = 3;
+// A name typed in part that fits several different places as well ("robinsons") is asked about
+// first, with at most this many places to pick from
+export const ASSISTANT_ASK_CHOICES_MAX = 5;
 // Places looked at when matching a name in a question
 export const ASSISTANT_SEARCH_LIMIT = 8;
 // The longest question that can be typed
 export const ASSISTANT_INPUT_MAX_CHARS = 120;
-// A trip's two ends closer than this are the same place: there is nothing to ride
+// A trip's two ends closer than this are the same place: there is nothing to ride (and places this
+// close are offered as one choice)
 export const ASSISTANT_SAME_PLACE_M = 50;
 // CA1.1 typo matching, used only when no name starts with what was typed: a typed word of at least
 // ASSISTANT_FUZZY_MIN_CHARS letters may differ from a word of the name by this many letters
@@ -119,6 +123,8 @@ export const TRACK_ARRIVED_M = 50;
 export const TRACK_ARRIVED_PASS_M = 200;
 // How long an in-app toast stays on screen
 export const TOAST_VISIBLE_MS = 4000;
+// The Notifications page keeps this many of the newest notices
+export const NOTIFICATIONS_KEEP = 30;
 // Other vehicles fade to this while one is tracked
 export const TRACK_OTHERS_OPACITY = 0.35;
 // Demo mode: the commuter waits at this stop, until "Use my location" (G0) gives a real position

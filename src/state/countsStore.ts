@@ -45,8 +45,8 @@ const countsOf = (counts: BadgeCounts): BadgeCounts => badgeCountsOf(counts, use
 
 // A short notice for each badge just earned (in-app only), and BG1's for the Tunton regular mark
 function announce(ids: BadgeId[], regular: boolean): void {
-  ids.forEach((id) => showToast({ title: strings.badges.earned(strings.badges.names[id]) }));
-  if (regular) showToast({ title: strings.badges.earned(strings.badges.regular) });
+  ids.forEach((id) => showToast({ inbox: true, title: strings.badges.earned(strings.badges.names[id]) }));
+  if (regular) showToast({ inbox: true, title: strings.badges.earned(strings.badges.regular) });
 }
 
 export const useCountsStore = create<CountsState>()(

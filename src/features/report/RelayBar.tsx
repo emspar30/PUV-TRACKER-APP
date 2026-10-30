@@ -5,6 +5,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { Button, IconTile } from '@/components';
 import { LIVE_UI_REFRESH_INTERVAL_S } from '@/shared/config';
+import { vehicleLabelOf } from '@/shared/demo/feed';
 import type { LatLon } from '@/shared/geo/haversine';
 import type { LineCoordinates } from '@/shared/geo/line';
 import type { RelayBroadcast } from '@/shared/relay/broadcast';
@@ -127,7 +128,7 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
           </Text>
           <Text style={typography.bodySm}>{t.info.route(session.routeCode, session.destination.name)}</Text>
           <Text style={typography.bodySm}>
-            {t.info.multicab(session.vehicleId, strings.crowdsource.seats[session.seatTier])}
+            {t.info.multicab(session.vehicleId && vehicleLabelOf(session.vehicleId), strings.crowdsource.seats[session.seatTier])}
           </Text>
           <Text style={typography.bodySm}>{t.info.shared(progress.sharedMin, progress.askInMin)}</Text>
         </Animated.View>

@@ -1,4 +1,4 @@
-// The demo Energy wallet (SB2, Demo data on): a ledger kept in memory on this phone, run by the same
+// The demo Energy wallet (SB2, Demo data on): a ledger kept on this phone (saved between app starts), run by the same
 // rules as the server (src/shared/backend/rules). It sends nothing. The passive refill is booked when
 // due. CA1.1: a fresh demo wallet starts full (the welcome Energy), and check-ins spend from it. Tracking costs Energy here only while ENERGY_ENABLED_DEMO is on (off by default, D1). Pure: no React Native or Expo imports.
 
@@ -25,13 +25,26 @@ export type DemoEnergy = EnergyRepository & {
   earn(kind: Exclude<EarnKind, 'passive'>, requestKey: string): number;
   // CA1.1: spends a check-in for `routeCount` routes; false when the wallet does not have it
   chargeCheckIn(routeCount: number, requestKey: string): boolean;
+  // Demo settings, "Reset app": back to a fresh wallet with only the welcome Energy
+  reset(): void;
 };
 
-export function createDemoEnergy(now: () => number = Date.now, enabled = ENERGY_ENABLED_DEMO): DemoEnergy {
-  const ledger: LedgerRow[] = [{ kind: 'welcome', amount: Math.min(ENERGY_WELCOME, ENERGY_WALLET_CAP), atMs: now(), requestKey: 'welcome-energy' }];
+// Where the ledger is kept between app starts (the phone's storage), so a restart does not refill
+// the wallet. Absent in tests: the ledger then lives in memory only.
+export type LedgerStorage = {
+  load(): LedgerRow[] | null;
+  save(rows: readonly LedgerRow[]): void;
+};
+
+export function createDemoEnergy(now: () => number = Date.now, enabled = ENERGY_ENABLED_DEMO, storage?: LedgerStorage): DemoEnergy {
+  const welcome = (): LedgerRow[] => [{ kind: 'welcome', amount: Math.min(ENERGY_WELCOME, ENERGY_WALLET_CAP), atMs: now(), requestKey: 'welcome-energy' }];
+  const saved = storage?.load();
+  const ledger: LedgerRow[] = saved && saved.length > 0 ? saved : welcome();
 
   const book = (row: LedgerRow) => {
-    if (row.amount !== 0) ledger.push(row);
+    if (row.amount === 0) return;
+    ledger.push(row);
+    storage?.save(ledger);
   };
 
   return {
@@ -65,6 +78,11 @@ export function createDemoEnergy(now: () => number = Date.now, enabled = ENERGY_
       if (!result.ok) return false;
       book({ kind: 'checkin', amount: -result.cost, atMs: now(), requestKey });
       return true;
+    },
+
+    reset() {
+      ledger.splice(0, ledger.length, ...welcome());
+      storage?.save(ledger);
     },
 
     async startTracking(requestKey) {

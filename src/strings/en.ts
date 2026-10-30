@@ -267,7 +267,8 @@ export const en = {
   notifications: {
     title: 'Notifications',
     empty: 'No notifications yet',
-    emptyBody: 'Arrival alerts and route news will show here.',
+    emptyBody: 'Arrival alerts, check-in and relay updates, and new badges will show here.',
+    clear: 'Clear all',
   },
 
   common: {
@@ -635,6 +636,8 @@ export const en = {
     // C1
     waiting: (count: number) => (count === 1 ? '1 waiting' : `${count} waiting`),
     notHereTitle: 'Check in at the station',
+    // CA3: the same refusal when checking in near the route
+    notNearTitle: 'Check in near the route',
     tooFar: (distanceM: number, radiusM: number, code: string) =>
       `You are ${distanceM} m from ${code}. Check in within ${radiusM} m of the station.`,
     // CA2a, CA3: near the route
@@ -988,6 +991,8 @@ export const en = {
     showingFor: (title: string) => `Showing results for ${title}:`,
     correctedFor: (title: string, typed: string) => `Did you mean ${title}? Showing results for it ("${typed}" not found):`,
     notFound: (text: string) => `I could not find "${text}". Try a stop, a building or a barangay.`,
+    // A name that fits several places: asked about before answering
+    whichPlace: (text: string) => `Which "${text}" do you mean?`,
     needPosition: 'I need to know where you are. Turn on location, or long-press the Map to drop a pin, then ask again.',
     needPositionFrom: 'Or name where you start: "from Libertad to CSU".',
     needDestination: 'Where are you going? For example "to SM City Butuan".',
@@ -1013,6 +1018,7 @@ export const en = {
       openMap: 'Open the Map',
       // CA1.1: another place that fits the name as well
       didYouMean: (title: string, near: string | undefined) => `Did you mean ${near ? `${title}, ${near}` : title}?`,
+      place: (title: string, near: string | undefined) => (near ? `${title}, ${near}` : title),
     },
   },
 

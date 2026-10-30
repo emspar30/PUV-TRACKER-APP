@@ -46,6 +46,14 @@ export const useUsernameStore = create<UsernameState>()(
   ),
 );
 
+// AU1: the username the signed-in account already holds, kept on this phone; null for a new account
+// (it gets one in the introduction) or on any error
+export async function takeAccountUsername(): Promise<string | null> {
+  const existing = await loadUsername();
+  if (existing) useUsernameStore.setState({ username: existing, synced: true, syncError: null });
+  return existing;
+}
+
 // SB2, for a signed-in user: sends a handle not yet on the server, or, when this phone has none,
 // takes the one the account already holds. Safe to call more than once.
 export async function syncUsername(): Promise<void> {

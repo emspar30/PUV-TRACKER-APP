@@ -31,6 +31,6 @@ export function useLeaveEndsCheckIn(): void {
     outside.current.count = result.outside;
     if (!result.leave) return;
     endCheckIn(false);
-    showToast({ icon: MapPinOff, title: strings.checkin.leftTitle, body: strings.checkin.leftBody(checkIn.stationCode) });
+    showToast({ inbox: true, icon: MapPinOff, title: strings.checkin.leftTitle, body: strings.checkin.leftBody(checkIn.stationCode) });
   }, [checkIn, stop, commuter, fix]);
 }

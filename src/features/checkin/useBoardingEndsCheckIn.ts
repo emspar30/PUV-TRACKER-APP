@@ -17,6 +17,6 @@ export function useBoardingEndsCheckIn(vehicle: BleVehicle | null): void {
   useEffect(() => {
     if (!vehicle || !boardingEndsCheckIn(checkIn, vehicle.routeCode, Date.now())) return;
     endCheckIn(true);
-    showToast({ icon: CircleCheck, title: strings.checkin.boardedTitle(vehicle.routeCode, vehicle.plate), body: strings.checkin.boardedBody });
+    showToast({ inbox: true, icon: CircleCheck, title: strings.checkin.boardedTitle(vehicle.routeCode, vehicle.plate), body: strings.checkin.boardedBody });
   }, [vehicle, checkIn]);
 }

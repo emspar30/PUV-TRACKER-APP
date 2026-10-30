@@ -255,7 +255,7 @@ export default function CheckInScreen() {
       showDialog({
         tone: 'warning',
         icon: fence.reason === 'too_far_from_line' || fence.reason === 'too_far' ? MapPinOff : LocateOff,
-        title: strings.checkin.notHereTitle,
+        title: near ? strings.checkin.notNearTitle : strings.checkin.notHereTitle,
         body:
           fence.reason === 'too_far_from_line'
             ? strings.checkin.tooFarFromLine(fence.lineM, CHECKIN_LINE_M)

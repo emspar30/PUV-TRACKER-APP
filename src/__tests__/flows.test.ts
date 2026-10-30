@@ -203,22 +203,21 @@ describe('CA1 flow: ask, answer, open in My Rides', () => {
     expect(replyOf(reply, intent, 'regular').chips[0]?.action).toEqual({ kind: 'openMap', route: 'R4' });
   });
 
-  it('CA1.1: a plain-English question with a partial name answers at once and says which place', () => {
+  it('a plain-English question naming several Robinsons asks which, and a picked chip answers', () => {
     const intent = parseQuery('what route should I board for robinsons?');
     const reply = answer(intent, context());
-    if (reply.kind !== 'trip') throw new Error(`expected a trip, got ${reply.kind}`);
+    if (reply.kind !== 'whichPlace') throw new Error(`expected which place, got ${reply.kind}`);
     const words = replyOf(reply, intent, 'regular');
-    expect(words.lines[0]).toBe(`Showing results for ${reply.to.title}:`);
-    expect(words.lines[1]).toMatch(/^Ride R\d+/);
-    expect(words.chips.some((chip) => chip.action.kind === 'openTrip')).toBe(true);
-    // The other Robinsons places that fit as well, as "Did you mean" chips that ask again
-    const runnerUp = words.chips.find((chip) => chip.label.startsWith('Did you mean'));
-    if (!runnerUp || runnerUp.action.kind !== 'ask') throw new Error('no runner-up chip');
-    const again = answer(runnerUp.action.intent, context());
+    expect(words.lines).toEqual(['Which "robinsons" do you mean?']);
+    expect(words.chips.length).toBe(reply.choices.length);
+    // Each place is a chip that asks the same question with that place
+    const mall = words.chips.find((chip) => chip.label.startsWith('Robinsons Place Butuan'));
+    if (!mall || mall.action.kind !== 'ask') throw new Error('no Robinsons Place chip');
+    const again = answer(mall.action.intent, context());
     expect(['trip', 'tripFail']).toContain(again.kind);
     if (again.kind === 'trip' || again.kind === 'tripFail') {
-      expect(again.to.title).toBe(runnerUp.action.question);
-      expect(replyOf(again, runnerUp.action.intent, 'regular').lines[0]).not.toMatch(/^Showing results/);
+      expect(again.to.title).toBe('Robinsons Place Butuan');
+      expect(replyOf(again, mall.action.intent, 'regular').lines[0]).not.toMatch(/^Showing results/);
     }
   });
 

@@ -1,10 +1,12 @@
+import Storage from 'expo-sqlite/kv-store';
 import { AppState } from 'react-native';
 import { create } from 'zustand';
 
-import { createDemoEnergy } from '@/data/demo/demoEnergy';
+import { createDemoEnergy, type LedgerStorage } from '@/data/demo/demoEnergy';
 import { createLiveEnergy } from '@/data/live/liveEnergy';
 import { selectEnergy } from '@/data/repositories/select';
 import type { EnergySnapshot, LiveSource, TrackingStart } from '@/data/repositories/types';
+import type { LedgerRow } from '@/shared/backend/rules';
 import { supabaseEnergyPort } from '@/services/energy';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { newRequestKey } from '@/shared/backend/rules';
@@ -23,8 +25,24 @@ type EnergyState = {
 
 export const useEnergyStore = create<EnergyState>(() => ({ source: 'none', snapshot: null, error: null }));
 
+const DEMO_LEDGER_KEY = 'demo-energy-ledger';
+
+// The demo wallet's ledger, kept on the phone so restarting the app does not refill it
+const demoLedgerStorage: LedgerStorage = {
+  load: () => {
+    try {
+      const raw = Storage.getItemSync(DEMO_LEDGER_KEY);
+      const rows: unknown = raw ? JSON.parse(raw) : null;
+      return Array.isArray(rows) ? (rows as LedgerRow[]) : null;
+    } catch {
+      return null;
+    }
+  },
+  save: (rows) => Storage.setItemSync(DEMO_LEDGER_KEY, JSON.stringify(rows)),
+};
+
 // Shared with the demo check-ins and reports (crowdStore), which earn into this wallet
-export const demoEnergy = createDemoEnergy();
+export const demoEnergy = createDemoEnergy(Date.now, undefined, demoLedgerStorage);
 const liveEnergy = isSupabaseConfigured() ? createLiveEnergy(supabaseEnergyPort) : null;
 
 const currentEnergy = () => selectEnergy(useSettingsStore.getState().demoData, demoEnergy, liveEnergy);

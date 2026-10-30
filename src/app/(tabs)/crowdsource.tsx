@@ -10,7 +10,7 @@ import { useRouteData } from '@/data/RouteDataProvider';
 import { promptSignIn } from '@/features/auth/promptSignIn';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { DEMO_SEED, FEED_FLAG_HIDE_COUNT, SKELETON_LONG_MS } from '@/shared/config';
-import { demoFeed, type FeedPost } from '@/shared/demo/feed';
+import { demoFeed, vehicleLabelOf, type FeedPost } from '@/shared/demo/feed';
 import { routeCodesOf } from '@/shared/ui/routeVisibility';
 import { flagPost, useCrowd, useFlaggedStore, useOwnPostsStore } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
@@ -189,7 +189,8 @@ function PostCard({ post, nowMs, color, stopName, mine }: { post: FeedPost; nowM
     ? { green: mapPaint.occupancyGreen, amber: mapPaint.occupancyAmber, red: mapPaint.occupancyRed }[post.seatTier]
     : null;
   const status = [post.seatTier ? strings.crowdsource.seats[post.seatTier] : null, post.phrase ? strings.crowdsource.phrases[post.phrase] : null]
-    .filter((part): part is string => part !== null)
+    // "Full" as both the seats and the phrase is said once
+    .filter((part, index, parts): part is string => part !== null && parts.indexOf(part) === index)
     .join(' · ');
   return (
     // B6: compact: route, multicab, time, then seats and status, then the stop it was sent near
@@ -199,7 +200,7 @@ function PostCard({ post, nowMs, color, stopName, mine }: { post: FeedPost; nowM
         <View style={styles.identity}>
           <LineBadge code={post.routeCode} color={color} />
           <Text style={[typography.labelLg, styles.shrink]} numberOfLines={1}>
-            {post.vehicleId ?? strings.crowdsource.noVehicle}
+            {post.vehicleId ? vehicleLabelOf(post.vehicleId) : strings.crowdsource.noVehicle}
           </Text>
           {post.trusted ? (
             <View style={styles.trusted} accessible accessibilityLabel={strings.crowdsource.trustedLabel}>

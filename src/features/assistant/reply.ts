@@ -73,6 +73,14 @@ export function replyOf(answer: Answer, intent: Intent, fareType: Classification
             : a.tripFail[answer.reason](from.title, to.title);
       return { lines: [...matchLines(answer.matches), line], chips: matchChips(answer.matches, intent) };
     }
+    case 'whichPlace':
+      return {
+        lines: [a.whichPlace(answer.text)],
+        chips: answer.choices.map((place) => ({
+          label: a.chips.place(place.title, place.near),
+          action: { kind: 'ask' as const, question: place.title, intent: withChoice(intent, answer.slot, place) },
+        })),
+      };
     case 'notFound':
       return { lines: [a.notFound(answer.text)], chips: [...STARTER_CHIPS] };
     case 'needPosition':

@@ -2,9 +2,11 @@ import { useAssistantStore } from './assistantStore';
 import { useCheckInStore } from './checkinStore';
 import { useCountsStore } from './countsStore';
 import { useDestinationsStore } from './destinationsStore';
+import { demoEnergy, refreshEnergy } from './energyStore';
 import { useHintsStore } from './hintsStore';
 import { useHistoryStore } from './historyStore';
 import { useLocationStore } from './locationStore';
+import { useNotificationsStore } from './notificationsStore';
 import { useProfileStore } from './profileStore';
 import { useRidesStore } from './ridesStore';
 import { useSettingsStore } from './settingsStore';
@@ -20,10 +22,14 @@ export function resetApp(): void {
   useCheckInStore.setState(useCheckInStore.getInitialState(), true);
   useCountsStore.setState(useCountsStore.getInitialState(), true);
   useDestinationsStore.setState(useDestinationsStore.getInitialState(), true);
+  // The demo Energy wallet starts full again
+  demoEnergy.reset();
+  void refreshEnergy();
   useHintsStore.setState(useHintsStore.getInitialState(), true);
   useHistoryStore.setState(useHistoryStore.getInitialState(), true);
   // G0: the location consent too; the permission is read again from Android, and the manual pin goes
   useLocationStore.setState({ consent: useLocationStore.getInitialState().consent, fix: null, explainer: 'idle', manualOrigin: null });
+  useNotificationsStore.setState(useNotificationsStore.getInitialState(), true);
   useRidesStore.setState(useRidesStore.getInitialState(), true);
   useTrustStore.setState(useTrustStore.getInitialState(), true);
   useUsernameStore.setState(useUsernameStore.getInitialState(), true);

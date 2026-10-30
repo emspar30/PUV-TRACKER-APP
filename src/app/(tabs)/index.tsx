@@ -313,6 +313,7 @@ export default function MapScreen() {
       stopTracking();
       Vibration.vibrate();
       showToast({
+        inbox: true,
         icon: CircleCheck,
         title: strings.live.tracking.arrivedTitle,
         body: trackedLabel ? strings.live.tracking.arrivedBody(trackedLabel) : undefined,
@@ -323,6 +324,7 @@ export default function MapScreen() {
     if (crossedM === null) return;
     Vibration.vibrate();
     showToast({
+      inbox: true,
       icon: BellRing,
       title: strings.live.tracking.nearTitle(strings.checkin.distance(crossedM)),
       body: trackedLabel ? strings.live.tracking.nearBody(trackedLabel) : undefined,

@@ -78,6 +78,8 @@ export type Answer =
       matches: PlaceMatch[];
     }
   | { kind: 'notFound'; text: string }
+  // A name typed in part that fits several places as well: which one, before answering
+  | { kind: 'whichPlace'; slot: PlaceSlotName; text: string; choices: SearchablePlace[] }
   | { kind: 'needPosition'; topic: 'trip' | 'nearest' }
   | { kind: 'needDestination' }
   | ({ kind: 'status'; routeCode: string; routeName: string; night: boolean; alternative: Alternative | null } & RouteStatus)
@@ -122,6 +124,7 @@ function pointOf(slot: PlaceSlot | null, which: PlaceSlotName, intent: Intent, c
   }
   const resolved = resolvePlace(slot, context.places);
   if (resolved.kind === 'none') return { kind: 'answer', answer: { kind: 'notFound', text: resolved.text } };
+  if (resolved.kind === 'ask') return { kind: 'answer', answer: { kind: 'whichPlace', slot: which, text: resolved.text, choices: resolved.choices } };
   const { place, how, others } = resolved;
   const match = how === 'exact' || !('text' in slot) ? null : { slot: which, typed: slot.text, title: place.title, how, others };
   return { kind: 'point', point: { lat: place.lat, lon: place.lon, title: place.title, mine: false }, match };

@@ -49,7 +49,8 @@ import { useDestinationsStore } from '@/state/destinationsStore';
 import { useFareType } from '@/state/fareType';
 import { useProfileStore } from '@/state/profileStore';
 import { useSessionStore } from '@/state/sessionStore';
-import { useUsernameStore } from '@/state/usernameStore';
+import { useTourStore } from '@/state/tourStore';
+import { takeAccountUsername, useUsernameStore } from '@/state/usernameStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -102,14 +103,27 @@ export default function OnboardingScreen() {
   const index = STEPS.indexOf(step);
 
   // ST2-A: sign-in opens over the welcome, which moves on only once someone is signed in; Back from
-  // sign-in returns to the welcome
+  // sign-in returns to the welcome. AU1: an account that already has a username went through the
+  // introduction before (on another phone, or before the app's storage was cleared), so it skips
+  // the introduction and the tips tour; a new account has no username until the profile step.
   const signingIn = useRef(false);
   useEffect(
     () =>
       useSessionStore.subscribe((state) => {
         if (signingIn.current && state.status === 'signed-in') {
           signingIn.current = false;
-          setStep('profile');
+          void takeAccountUsername().then((existing) => {
+            if (!existing) {
+              setStep('profile');
+              return;
+            }
+            useTourStore.getState().finish();
+            const profile = useProfileStore.getState();
+            profile.assignAvatar();
+            profile.setOnboarded(true);
+            if (router.canGoBack()) router.back();
+            else router.replace('/');
+          });
         }
       }),
     [],

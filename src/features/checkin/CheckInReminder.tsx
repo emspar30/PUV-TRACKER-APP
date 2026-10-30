@@ -62,7 +62,7 @@ export function CheckInReminder() {
     if (!ask) return;
     watch.current.asked = [...watch.current.asked, ask.id];
     askBoarded(strings.checkin.boardQuestion(ask.routeCode, ask.label), strings.checkin.boardStopped(ask.routeCode, ask.label, stop.name), () =>
-      showToast({ icon: CircleCheck, title: strings.checkin.boardedTitle(ask.routeCode, ask.label), body: strings.checkin.boardedBody }),
+      showToast({ inbox: true, icon: CircleCheck, title: strings.checkin.boardedTitle(ask.routeCode, ask.label), body: strings.checkin.boardedBody }),
     );
   }, [checkIn, stop, feed.vehicles, feed.nowMs]);
 
@@ -75,7 +75,7 @@ export function CheckInReminder() {
       askBoarded(
         strings.checkin.reminderTitle(checkIn.stationCode),
         strings.checkin.reminderBody(formatCountdown(remainingMs(checkIn, Date.now()))),
-        () => showToast({ icon: CircleCheck, title: strings.checkin.farewellTitle, body: strings.checkin.farewellBody(checkIn.routeCodes.join(', ')) }),
+        () => showToast({ inbox: true, icon: CircleCheck, title: strings.checkin.farewellTitle, body: strings.checkin.farewellBody(checkIn.routeCodes.join(', ')) }),
       );
     }, waitMs);
     return () => clearTimeout(timer);

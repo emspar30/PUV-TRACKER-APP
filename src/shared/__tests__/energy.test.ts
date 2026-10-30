@@ -1,11 +1,11 @@
 // SB2: the Energy wallet behind the Demo switch. The demo ledger follows the server's rules; the live
 // repository only maps the SB1 functions' answers. Fake ports and fixed clocks, no network.
 
-import { createDemoEnergy } from '../../data/demo/demoEnergy';
+import { createDemoEnergy, type LedgerStorage } from '../../data/demo/demoEnergy';
 import { createLiveEnergy, type EnergyPort } from '../../data/live/liveEnergy';
 import { noLiveEnergy } from '../../data/repositories/noLiveData';
 import { selectEnergy } from '../../data/repositories/select';
-import { formatRefillIn, newRequestKey, nextPassiveRefillMs, usernameIssue } from '../backend/rules';
+import { formatRefillIn, newRequestKey, nextPassiveRefillMs, usernameIssue, type LedgerRow } from '../backend/rules';
 import {
   ENERGY_ENABLED_DEMO,
   ENERGY_PASSIVE_AMOUNT,
@@ -74,6 +74,21 @@ describe('the demo wallet', () => {
     expect(energy.chargeCheckIn(2, 'checkin-aaaaaaaa')).toBe(true);
     expect(energy.chargeCheckIn(2, 'checkin-aaaaaaaa')).toBe(true);
     expect((await energy.refresh())?.balance).toBeCloseTo(ENERGY_WELCOME - ENERGY_TRACKING_COST - 0.6, 9);
+  });
+
+  it('keeps its ledger between app starts, and Reset app gives a fresh wallet', async () => {
+    let kept: LedgerRow[] | null = null;
+    const storage: LedgerStorage = { load: () => kept, save: (rows) => (kept = [...rows]) };
+    const first = createDemoEnergy(() => T0, true, storage);
+    await first.startTracking('track-aaaaaaaa');
+    const spent = ENERGY_WELCOME - ENERGY_TRACKING_COST;
+    expect((await first.refresh())?.balance).toBe(spent);
+    // The app starts again: a new wallet reads the saved ledger instead of the welcome Energy
+    const again = createDemoEnergy(() => T0 + MIN, true, storage);
+    expect((await again.refresh())?.balance).toBe(spent);
+    again.reset();
+    expect((await again.refresh())?.balance).toBe(ENERGY_WELCOME);
+    expect(createDemoEnergy(() => T0, true, storage).chargeCheckIn(1, 'checkin-aaaaaaaa')).toBe(true);
   });
 });
 

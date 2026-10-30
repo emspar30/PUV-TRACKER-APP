@@ -2,7 +2,7 @@
 // otherwise its own speeds decide Stopped or Moving.
 
 import { VEHICLE_STATUS_RELAY_MAX_MIN } from '../config';
-import { demoVehicleIdOf } from '../demo/feed';
+import { demoVehicleIdOf, vehicleLabelOf } from '../demo/feed';
 import { vehicleStatus, type StatusRelay } from '../telemetry/vehicleStatus';
 
 const NOW = 1_000_000_000;
@@ -44,6 +44,9 @@ describe('vehicle status', () => {
 
   it('a demo post names the demo multicab it is about', () => {
     expect(demoVehicleIdOf('R4-02')).toBe('demo-R4-2');
+    // and back, for showing it
+    expect(vehicleLabelOf('demo-R4-2')).toBe('R4-02');
+    expect(vehicleLabelOf('MC-1234')).toBe('MC-1234');
     expect(demoVehicleIdOf('R14-01')).toBe('demo-R14-1');
     expect(demoVehicleIdOf('a1b2-uuid')).toBe('a1b2-uuid');
   });

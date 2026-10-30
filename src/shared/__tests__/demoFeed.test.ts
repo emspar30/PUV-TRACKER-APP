@@ -30,6 +30,15 @@ describe('demo feed', () => {
     expect(later.filter((post) => kept.some((k) => k.id === post.id))).toEqual(kept);
   });
 
+  it('seats agree with the phrase: Full is always full, Few seats left never full or free', () => {
+    const many = Array.from({ length: 24 }, (_, hour) => demoFeed(['T1', 'T2'], NOW + hour * 60 * MS_PER_MIN, SEED)).flat();
+    expect(many.some((post) => post.phrase === 'full')).toBe(true);
+    for (const post of many) {
+      if (post.phrase === 'full') expect(post.seatTier).toBe('red');
+      if (post.phrase === 'few_seats') expect([null, 'amber']).toContain(post.seatTier);
+    }
+  });
+
   it('is empty with no routes', () => {
     expect(demoFeed([], NOW, SEED)).toEqual([]);
   });
