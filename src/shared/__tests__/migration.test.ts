@@ -269,11 +269,24 @@ describe('migration: row level security and grants', () => {
   it('night feed delay (PRD 10.4): a post naming a stop, posted at night, waits for others but not its author', () => {
     expect(sql).toMatch(/add column night_feed_delay_min int not null default 2/);
     const feed = statements.filter((s) => s.startsWith('alter policy "feed_posts:'));
-    expect(feed).toHaveLength(1);
-    expect(feed[0]).toContain('stop_code is null');
-    expect(feed[0]).toContain('user_id = (select auth.uid())');
-    expect(feed[0]).toContain('not public.is_night(created_at)');
-    expect(feed[0]).toContain('night_feed_delay_min');
+    expect(feed).toHaveLength(2);
+    for (const policy of feed) {
+      expect(policy).toContain('stop_code is null');
+      expect(policy).toContain('user_id = (select auth.uid())');
+      expect(policy).toContain('not public.is_night(created_at)');
+      expect(policy).toContain('night_feed_delay_min');
+    }
+  });
+
+  it('night Crowdsource (2026-10-31, option a): only authors who relayed before; live map and own posts untouched', () => {
+    expect(sql).toMatch(/add column author_relayed_before boolean not null default false/);
+    const feed = statements.filter((s) => s.startsWith('alter policy "feed_posts:')).pop()!;
+    expect(feed).toMatch(/live_map\s+or author_relayed_before\s+or user_id = \(select auth\.uid\(\)\)\s+or not public\.is_night\(now\(\)\)/);
+    // The newest trust_on_post keeps the badge and the point, and stamps the new flag from unhidden posts
+    const last = [...sql.matchAll(/create (?:or replace )?function public\.trust_on_post\(\)[^$]*\$\$([\s\S]*?)\$\$/g)].pop()![1];
+    expect(last).toContain('new.author_trusted');
+    expect(last).toContain('public.trust_award(new.user_id)');
+    expect(last).toMatch(/new\.author_relayed_before := exists[\s\S]*not f\.hidden/);
   });
 
   it('v0: the live map is for team accounts only again; the moving-vehicle night rule stays', () => {

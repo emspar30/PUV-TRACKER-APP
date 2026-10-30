@@ -125,7 +125,8 @@ const PLACES: SearchablePlace[] = [
   ...data.stops.map((stop) => ({ id: `stop-${stop.code}`, title: stop.name, code: stop.code, lat: stop.lat, lon: stop.lon, kind: 'stop' as const })),
   ...MAP_PLACES.map(([title, category, group, lat, lon, near], index) => ({ id: `map-${index}`, title, lat, lon, kind: group, category, near })),
 ];
-const NOW = 1_790_000_000_000;
+// 10:13 in Manila: by day, so Night Mode hides no demo multicab
+const NOW = 1_789_956_800_000;
 const MS = 1000;
 const fixedClock = (now: () => number): DemoClock => ({ now, setInterval: () => 0, clearInterval: () => undefined });
 

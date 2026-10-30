@@ -100,6 +100,8 @@ export default function CheckInScreen() {
   // B8: the top bar's height, so framed stations keep clear of it
   const [topHeight, setTopHeight] = useState(0);
   const [minimized, setMinimized] = useState(false);
+  // The station card's X hides it, the nearest station too, until a station or route is tapped
+  const [stationClosed, setStationClosed] = useState(false);
   // B3: the routes just boarded, while the "Safe travel" card shows
   const [farewell, setFarewell] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -199,6 +201,7 @@ export default function CheckInScreen() {
     const next = code === null ? null : toggleRoute(filter, code);
     setFilter(next);
     setStationCode(null);
+    setStationClosed(false);
     setPing(null);
     const ofRoute = next ? lines.filter((line) => line.routeCode === next) : lines;
     const bounds = clipBounds(boundsOfLines(ofRoute.map((line) => line.coordinates)), TILESET.bounds);
@@ -224,6 +227,7 @@ export default function CheckInScreen() {
   const pickStation = (code: string) => {
     setMode('stop');
     setStationCode(code);
+    setStationClosed(false);
     setMinimized(false);
     const stop = stops.find((candidateStop) => candidateStop.code === code);
     if (stop) setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center: stop }));
@@ -376,6 +380,7 @@ export default function CheckInScreen() {
           onPress={() => {
             setMode('near');
             setStationCode(null);
+            setStationClosed(false);
           }}
           accessibilityLabel={strings.checkin.modeLabel(strings.checkin.modeNear, mode === 'near')}
         />
@@ -399,7 +404,7 @@ export default function CheckInScreen() {
         ))}
       </ScrollView>
       {filter && shownStops.length === 0 ? <Text style={typography.bodyMd}>{strings.checkin.noStations}</Text> : null}
-      {candidate ? (
+      {candidate && !stationClosed ? (
         <Animated.View key={candidate.stop.code} entering={FadeInDown.duration(motion.cardMs)}>
           <StationCard
             name={candidate.stop.name}
@@ -410,6 +415,11 @@ export default function CheckInScreen() {
             checkInLabel={strings.checkin.checkInAt(candidate.stop.code)}
             disabled={sending || pinged.length === 0 || !affordable}
             onCheckIn={() => void doCheckIn()}
+            onClose={() => {
+              setStationCode(null);
+              setPing(null);
+              setStationClosed(true);
+            }}
           >
             {stopRoutes.length > 1 ? (
               <RoutePing

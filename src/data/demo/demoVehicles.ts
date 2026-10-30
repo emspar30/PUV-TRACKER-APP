@@ -2,11 +2,13 @@
 // DEMO_TICK_MS. It imports no service and sends nothing; everything is computed on the phone.
 // Pure: no React Native or Expo imports, so it runs in plain Node tests.
 
+import { shownByNightRule } from '../../shared/backend/rules';
 import { DEMO_EMPTY_ROUTES, DEMO_STRESS_MARKERS, DEMO_TICK_MS } from '../../shared/config';
 import { demoNightPassages } from '../../shared/demo/nightPassages';
 import { demoFleetConfig, demoSnapshot, planDemoFleet, type DemoVehiclePlan } from '../../shared/demo/simulate';
 import { withReturnLegs } from '../../shared/routing/loop';
 import type { DirectedLine, RouteStop } from '../../shared/routing/types';
+import type { VehicleSnapshot } from '../../shared/telemetry/vehicle';
 import type { VehiclesRepository } from '../repositories/types';
 
 export type DemoClock = {
@@ -57,15 +59,20 @@ export function createDemoVehicles(
     // NM1: the passages the demo multicabs made, worked out from their plans
     nightPassages: async (routeCode) =>
       demoNightPassages(plansFor(routeCode), stops.filter((stop) => stop.routeCodes?.includes(routeCode)), clock.now()),
-    subscribe: (routeCode, listener) => {
-      const fleet = plansFor(routeCode);
-      const emit = () => {
-        const now = clock.now();
-        listener(fleet.map((plan) => demoSnapshot(plan, now, config)));
-      };
-      emit();
-      const handle = clock.setInterval(emit, DEMO_TICK_MS);
-      return () => clock.clearInterval(handle);
-    },
+    // As on the server (PRD 10.4): at night no moving multicab is shown
+    subscribe: (routeCode, listener) => subscribeTo(routeCode, listener, true),
+    subscribeAll: (routeCode, listener) => subscribeTo(routeCode, listener, false),
   };
+
+  function subscribeTo(routeCode: string, listener: (vehicles: readonly VehicleSnapshot[]) => void, nightRule: boolean) {
+    const fleet = plansFor(routeCode);
+    const emit = () => {
+      const now = clock.now();
+      const all = fleet.map((plan) => demoSnapshot(plan, now, config));
+      listener(nightRule ? all.filter((vehicle) => shownByNightRule(vehicle.speedKmh, now)) : all);
+    };
+    emit();
+    const handle = clock.setInterval(emit, DEMO_TICK_MS);
+    return () => clock.clearInterval(handle);
+  }
 }

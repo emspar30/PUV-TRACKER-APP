@@ -235,6 +235,8 @@ export const en = {
     liveMapEarns: (amount: number) => `Your multicab moves on the live map until your stop. Earns +${amount.toFixed(1)} Energy (once a day).`,
     // D1: while Energy is hidden (tracking is free), the same line without the reward
     liveMapShares: 'Your multicab moves on the live map until your stop.',
+    // PRD 10.4: Night Mode publishes passed stops, not moving markers
+    liveMapNight: 'Night Mode (9 PM to 5 AM): your multicab shows as the stops it passed, not as a moving marker.',
     feedOnly: 'Off: your relay shows in Crowdsource until your stop. No location is sent.',
     liveMapTeamOnly: 'The live map is open to team accounts only for now. Your relay goes to Crowdsource.',
     unverified: 'Relays show as unverified for now.',
@@ -664,6 +666,7 @@ export const en = {
     pingLabel: (code: string, on: boolean) => `${code}, ${on ? 'pinged' : 'not pinged'}`,
     nearest: 'Nearest to you',
     picked: 'Selected station',
+    closeStation: 'Close this station',
     distance: (metres: number) => (metres < METERS_PER_KM ? `${metres} m` : km(metres / METERS_PER_KM)),
     // "RCA · 120 m · 2 waiting"; parts that are unknown are left out
     meta: (parts: readonly string[]) => parts.join(' · '),
@@ -756,6 +759,10 @@ export const en = {
     demo: 'Demo & simulation',
     about: 'About Tunton',
     replayIntro: 'Replay introduction',
+    feedback: 'Give feedback',
+    feedbackBody: 'A short survey about Tunton',
+    feedbackFailedTitle: 'Could not open the survey',
+    feedbackFailedBody: 'Check your connection and try again.',
     signIn: 'Sign in or create account',
     signOut: 'Sign out',
     signedInAs: (email: string) => `Signed in as ${email}`,

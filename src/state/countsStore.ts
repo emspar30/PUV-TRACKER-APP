@@ -19,7 +19,7 @@ type StoredCounts = BadgeCounts & {
 type CountsState = StoredCounts & {
   addTrip: (key: string) => void;
   addCheckIn: () => void;
-  addReport: (withGps: boolean) => void;
+  addReport: (liveMap: boolean) => void;
 };
 
 const deviceStorage = createJSONStorage<StoredCounts>(() => ({
@@ -66,7 +66,7 @@ export const useCountsStore = create<CountsState>()(
           bump({ tripsPlanned: get().tripsPlanned + 1, lastTripKey: key });
         },
         addCheckIn: () => bump({ checkIns: get().checkIns + 1 }),
-        addReport: (withGps) => bump({ reports: get().reports + 1, gpsReports: get().gpsReports + (withGps ? 1 : 0) }),
+        addReport: (liveMap) => bump({ reports: get().reports + 1, gpsReports: get().gpsReports + (liveMap ? 1 : 0) }),
       };
     },
     {

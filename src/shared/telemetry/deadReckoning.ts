@@ -11,6 +11,7 @@ import {
   GHOST_MAX_SPEED_KMH,
   STATIONARY_SPEED_KMH,
 } from '../config';
+import { isNight } from '../backend/rules';
 import { lineEndKm, pointAtChainage, type LineCoordinates } from '../geo/line';
 import { directionAtKm, vehicleChainageKm } from '../routing/progress';
 import { ageSeconds } from './coverage';
@@ -51,6 +52,8 @@ export function displayPosition(vehicle: VehicleSnapshot, coordinates: LineCoord
   const ageS = ageSeconds(vehicle.lastPacketMs, nowMs);
   const atFix: DisplayPosition = { lat: vehicle.lat, lon: vehicle.lon, headingDeg: vehicle.headingDeg, ghost: false };
   if (!isGhostAge(ageS)) return atFix;
+  // PRD 10.4: at night no marker moves, so an Estimated one stays where it was last heard
+  if (isNight(nowMs)) return { ...atFix, ghost: true };
   const speedKmh = ghostSpeedKmh(vehicle);
   if (!coordinates || coordinates.length === 0 || speedKmh === 0) return { ...atFix, ghost: true };
   const fromKm = vehicleChainageKm(coordinates, vehicle);

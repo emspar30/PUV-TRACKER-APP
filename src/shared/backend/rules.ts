@@ -18,6 +18,7 @@ import {
   MANILA_UTC_OFFSET_MIN,
   NIGHT_MODE_END,
   NIGHT_MODE_START,
+  STATIONARY_SPEED_KMH,
   USERNAME_BLOCKED_WORDS,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
@@ -53,6 +54,12 @@ export function inManilaWindow(atMs: number, start: string, end: string): boolea
 
 export function isNight(atMs: number, start = NIGHT_MODE_START, end = NIGHT_MODE_END): boolean {
   return inManilaWindow(atMs, start, end);
+}
+
+// The telemetry_latest rule: at night the map shows a multicab only while it stands (under
+// STATIONARY_SPEED_KMH), so no moving marker is published
+export function shownByNightRule(speedKmh: number, atMs: number): boolean {
+  return !isNight(atMs) || speedKmh < STATIONARY_SPEED_KMH;
 }
 
 // The Manila calendar day (YYYY-MM-DD), for the daily Energy caps

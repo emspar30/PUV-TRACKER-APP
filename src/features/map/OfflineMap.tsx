@@ -138,11 +138,20 @@ export function OfflineMap({
   }
 
   const padding = { ...PADDING, top: PADDING.top + topInset, bottom: PADDING.bottom + bottomInset };
+  // A spot given with the map (the simulated pin's) is where it opens: a camera move sent before the
+  // map has loaded is lost, so it would open on the whole city instead
+  const [firstFocus] = useState(focus);
+  const initialViewState =
+    firstFocus?.kind === 'center'
+      ? { center: [firstFocus.center.lon, firstFocus.center.lat] as [number, number], ...(firstFocus.zoom !== undefined ? { zoom: firstFocus.zoom } : {}) }
+      : { bounds: initialBounds, padding };
   // B8: the last area framed and when, to frame it again if the cards over the map change size
   const lastFit = useRef<{ bounds: MapFocusTarget & { kind: 'bounds' }; atMs: number } | null>(null);
 
   useEffect(() => {
-    if (!focus) return undefined;
+    // The first spot is the map's first view already; moving to it before the native map exists
+    // fails ("reactTag resolved to view null")
+    if (!focus || (focus === firstFocus && focus.kind === 'center')) return undefined;
     const animation = { duration: mapRoute.cameraAnimationMs };
     // One frame later, so the lifted limit has reached the native camera before it moves
     const frame = requestAnimationFrame(() => {
@@ -227,7 +236,7 @@ export function OfflineMap({
         {showLabels ? <MapLabels dimmed={labelsDimmed} /> : null}
         <Camera
           ref={camera}
-          initialViewState={{ bounds: initialBounds, padding }}
+          initialViewState={initialViewState}
           minZoom={MAP_MIN_ZOOM}
           maxZoom={TILESET.maxZoom + MAP_OVERZOOM_LEVELS}
           maxBounds={maxBounds}

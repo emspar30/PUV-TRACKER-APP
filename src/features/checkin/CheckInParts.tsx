@@ -1,4 +1,4 @@
-import { ChevronUp, Clock, Footprints, Heart, MapPin, Navigation } from 'lucide-react-native';
+import { ChevronUp, Clock, Footprints, Heart, MapPin, Navigation, X } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -67,13 +67,15 @@ type StationCardProps = {
   checkInLabel: string;
   disabled: boolean;
   onCheckIn: () => void;
+  // Closes the card until a station is tapped again
+  onClose: () => void;
   // The route ping, at a shared stop
   children?: ReactNode;
 };
 
 // B3: the station, after Google Maps' place sheet: what it is and how far, the routes that stop
 // there, then one full-width action
-export function StationCard({ name, nearest, counted = false, meta, routes, checkInLabel, disabled, onCheckIn, children }: StationCardProps) {
+export function StationCard({ name, nearest, counted = false, meta, routes, checkInLabel, disabled, onCheckIn, onClose, children }: StationCardProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   return (
@@ -92,6 +94,9 @@ export function StationCard({ name, nearest, counted = false, meta, routes, chec
             </Text>
           </View>
         </View>
+        <Pressable style={styles.close} onPress={onClose} accessibilityRole="button" accessibilityLabel={strings.checkin.closeStation}>
+          <X color={colors.textSecondary} size={CHEVRON_SIZE} />
+        </Pressable>
       </View>
       <View style={styles.routesRow} accessible accessibilityLabel={`${strings.checkin.routesHere}: ${routes.map((route) => route.code).join(', ')}`}>
         <Text style={typography.bodySm}>{strings.checkin.routesHere}</Text>
@@ -199,6 +204,13 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   grow: {
     flex: 1,
+  },
+  close: {
+    minWidth: MIN_TOUCH_TARGET,
+    minHeight: MIN_TOUCH_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
   },
   farewell: {
     alignItems: 'center',

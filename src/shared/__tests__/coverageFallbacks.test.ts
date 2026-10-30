@@ -3,7 +3,7 @@
 // picked one has no Live vehicle, and the demo route left empty so the nudge can be seen.
 
 import { createDemoVehicles, type DemoClock } from '../../data/demo/demoVehicles';
-import { DEMO_EMPTY_ROUTES, GHOST_MAX_DISTANCE_KM } from '../config';
+import { DEMO_EMPTY_ROUTES, GHOST_MAX_DISTANCE_KM, STATIONARY_SPEED_KMH } from '../config';
 import { haversineMeters } from '../geo/haversine';
 import { lineEndKm, projectOntoLine } from '../geo/line';
 import { bestAlternative, overlappingRoutes } from '../routing/alternatives';
@@ -13,7 +13,9 @@ import { vehicleMarkerFeatures } from '../telemetry/markers';
 import type { VehicleSnapshot } from '../telemetry/vehicle';
 import { FIXTURE_OUTBOUND, FIXTURE_STOPS, pointAt } from './fixtures/routeFixture';
 
-const NOW = 1_000_000_000;
+// 09:46 in Manila, by day; NIGHT is 21:46 the evening before (Night Mode, PRD 10.4)
+const NOW = 1_043_200_000;
+const NIGHT = NOW - 12 * 3600 * 1000;
 const LINE = FIXTURE_OUTBOUND.coordinates;
 const END_KM = lineEndKm(LINE);
 
@@ -102,6 +104,15 @@ describe('dead reckoning along the line', () => {
   it('after 5 minutes it is plain Stale, back at its last fix', () => {
     expect(displayPosition(vehicle(400), LINE, NOW)).toEqual({ ...pointAt(1), headingDeg: 90, ghost: false });
   });
+
+  it('at night (PRD 10.4) an Estimated marker stays at its last fix: no moving marker', () => {
+    // The same 2-minute silence at 30 km/h as by day, 12 hours earlier
+    const day = vehicle(120);
+    const shift = NOW - NIGHT;
+    const quiet = { ...day, lastPacketMs: day.lastPacketMs - shift, recentSpeeds: day.recentSpeeds.map((sample) => ({ ...sample, atMs: sample.atMs - shift })) };
+    expect(displayPosition(day, LINE, NOW)).not.toEqual({ ...pointAt(1), headingDeg: 90, ghost: true });
+    expect(displayPosition(quiet, LINE, NIGHT)).toEqual({ ...pointAt(1), headingDeg: 90, ghost: true });
+  });
 });
 
 describe('Estimated marker features', () => {
@@ -179,6 +190,7 @@ describe('smart alternatives', () => {
 });
 
 describe('demo empty route', () => {
+  // By day, so Night Mode hides no demo multicab
   const clock: DemoClock = { now: () => NOW, setInterval: () => 0, clearInterval: () => undefined };
   const R14: DirectedLine = { ...FIXTURE_OUTBOUND, id: 'R14-OUT', routeCode: 'R14' };
 
@@ -197,5 +209,20 @@ describe('demo empty route', () => {
     let count = 0;
     repository.subscribe('R14', (vehicles) => (count = vehicles.length));
     expect(count).toBeGreaterThan(0);
+  });
+
+  it('at night (PRD 10.4) only standing multicabs are shown, as on the server', () => {
+    const night: DemoClock = { now: () => NIGHT, setInterval: () => 0, clearInterval: () => undefined };
+    let day: readonly { speedKmh: number }[] = [];
+    let dark: readonly { speedKmh: number }[] = [];
+    createDemoVehicles([FIXTURE_OUTBOUND], FIXTURE_STOPS, { seed: 42, clock, stress: true }).subscribe('T1', (vehicles) => (day = vehicles));
+    createDemoVehicles([FIXTURE_OUTBOUND], FIXTURE_STOPS, { seed: 42, clock: night, stress: true }).subscribe('T1', (vehicles) => (dark = vehicles));
+    expect(day.some((vehicle) => vehicle.speedKmh >= STATIONARY_SPEED_KMH)).toBe(true);
+    expect(dark.length).toBeLessThan(day.length);
+    expect(dark.every((vehicle) => vehicle.speedKmh < STATIONARY_SPEED_KMH)).toBe(true);
+    // The demo beacon in Relay still hears every one of them
+    let heard: readonly unknown[] = [];
+    createDemoVehicles([FIXTURE_OUTBOUND], FIXTURE_STOPS, { seed: 42, clock: night, stress: true }).subscribeAll!('T1', (vehicles) => (heard = vehicles));
+    expect(heard.length).toBeGreaterThan(dark.length);
   });
 });

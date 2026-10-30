@@ -19,6 +19,9 @@ export type VehiclesRepository = {
   source: LiveSource;
   // Calls the listener at once and whenever the route's vehicles change, until unsubscribed
   subscribe(routeCode: string, listener: (vehicles: readonly VehicleSnapshot[]) => void): Unsubscribe;
+  // Demo only: as subscribe, with the multicabs Night Mode hides too, for the demo beacon in Relay
+  // (a real beacon is heard at any hour)
+  subscribeAll?(routeCode: string, listener: (vehicles: readonly VehicleSnapshot[]) => void): Unsubscribe;
   // NM1 (PRD 10.4): the route's newest passage per stop for the Night Mode stop view, newest first;
   // null when unknown (signed out, offline). Live: only during the night window, from the server.
   nightPassages?(routeCode: string): Promise<readonly NightPassage[] | null>;

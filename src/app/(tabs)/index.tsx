@@ -239,8 +239,9 @@ export default function MapScreen() {
   const uplink = useGpsBroadcast(relay?.mode === 'live' ? relay : null, repos.vehicles.source === 'live' && teamAccount === true);
 
   // L1: at night the server shows only stopped multicabs (PRD 10.4), so an empty live route says
-  // Night Mode rather than No data. The server decides; this only labels it.
-  const night = repos.vehicles.source === 'live' && isNight(live.nowMs);
+  // Night Mode rather than No data. The server decides; this only labels it. Demo data follows the
+  // same rule.
+  const night = isNight(live.nowMs);
   // NM1 (PRD 10.4): at night, live or demo, the picked route shows the stops its multicabs passed
   const nightStops = useNightPassages(repos.vehicles, focused && selectedRoute && isNight(live.nowMs) ? selectedRoute : null);
   // Live vehicles are for team accounts only in v0; a signed-in account off the list is told why

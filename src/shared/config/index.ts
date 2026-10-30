@@ -559,6 +559,8 @@ export const CONNECTION_PROBE_TIMEOUT_MS = 5000;
 
 // --- Privacy (PRD 15.1): the contact point for privacy questions and data requests (Emjay, 2026-10-08)
 export const PRIVACY_CONTACT_EMAIL = 'emspar30@gmail.com';
+// P1 (Emjay, 2026-10-30): the tester survey, opened from Menu, Give feedback. Empty hides the row.
+export const FEEDBACK_FORM_URL = '';
 
 // --- BLE (PRD 10.1, 12.4). Starting hypotheses, tuned by field experiments E1 and E2 (PRD 17.1).
 export const RSSI_SMOOTHING_ALPHA = 0.3;

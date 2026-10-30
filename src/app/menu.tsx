@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
-import { FlaskConical, Info, LogIn, LogOut, MessageCircleQuestionMark, PlayCircle, Settings, UserRound } from 'lucide-react-native';
-import { Text, View } from 'react-native';
+import { FlaskConical, Info, LogIn, LogOut, MessageCircleQuestionMark, MessageSquareText, PlayCircle, Settings, UserRound } from 'lucide-react-native';
+import { Linking, Text, View } from 'react-native';
 
 import { Logo, Screen, SettingsGroup, SettingsRow } from '@/components';
 import { signOut } from '@/services/auth';
+import { FEEDBACK_FORM_URL } from '@/shared/config';
+import { showDialog } from '@/state/dialogStore';
 import { useSessionStore } from '@/state/sessionStore';
 import { useUsernameStore } from '@/state/usernameStore';
 import { strings } from '@/strings';
@@ -11,7 +13,8 @@ import { makeStyles, spacing, useTheme } from '@/theme';
 
 const LOGO_SIZE = spacing.xl + spacing.sm;
 
-// The burger menu (restyle, B1): the account, then Profile, Settings, Ask Tunton (CA1), Demo & simulation, About, and
+// The burger menu (restyle, B1): the account, then Profile, Settings, Ask Tunton (CA1), Demo & simulation,
+// Give feedback (P1), About, and
 // sign in or out. A full page that slides in from the right, with no dimmed backdrop; Back from an
 // item returns here.
 export default function MenuScreen() {
@@ -44,7 +47,21 @@ export default function MenuScreen() {
         <SettingsRow icon={FlaskConical} tone="warning" title={strings.menu.demo} onPress={() => go('/demo-settings')} />
       </SettingsGroup>
       <SettingsGroup>
-        <SettingsRow first icon={Info} title={strings.menu.about} onPress={() => go('/about')} />
+        {FEEDBACK_FORM_URL ? (
+          <SettingsRow
+            first
+            icon={MessageSquareText}
+            tone="success"
+            title={strings.menu.feedback}
+            subtitle={strings.menu.feedbackBody}
+            onPress={() =>
+              void Linking.openURL(FEEDBACK_FORM_URL).catch(() =>
+                showDialog({ tone: 'warning', icon: MessageSquareText, title: strings.menu.feedbackFailedTitle, body: strings.menu.feedbackFailedBody }),
+              )
+            }
+          />
+        ) : null}
+        <SettingsRow first={!FEEDBACK_FORM_URL} icon={Info} title={strings.menu.about} onPress={() => go('/about')} />
         <SettingsRow icon={PlayCircle} title={strings.menu.replayIntro} onPress={() => go('/onboarding')} />
       </SettingsGroup>
       {status === 'signed-in' ? (

@@ -91,7 +91,8 @@ export async function sendReport(input: ReportInput): Promise<ReportResult> {
   if (result.ok) {
     void refreshEnergy();
     earnedTrust(nowMs);
-    useCountsStore.getState().addReport(input.withGps);
+    // First live relay counts relays on the live map; withGps is always true since RL2a
+    useCountsStore.getState().addReport(input.liveMap);
     if (result.postId) useOwnPostsStore.getState().add(result.postId);
   }
   return result;

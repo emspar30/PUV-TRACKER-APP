@@ -8,7 +8,7 @@ import { Button, Chip } from '@/components';
 import type { VehiclesRepository } from '@/data/repositories/types';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { useBoardingEndsCheckIn } from '@/features/checkin/useBoardingEndsCheckIn';
-import type { FeedPhrase } from '@/shared/backend/rules';
+import { isNight, type FeedPhrase } from '@/shared/backend/rules';
 import { promptSignIn } from '@/features/auth/promptSignIn';
 import { PlaceResults } from '@/features/search/PlaceResults';
 import { usePlaceMatches, useSearchablePlaces } from '@/features/search/useSearchablePlaces';
@@ -142,6 +142,8 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   const styles = useStyles();
   const { colors, typography } = useTheme();
   const demoData = useSettingsStore((state) => state.demoData);
+  // PRD 10.4: Night Mode as the sheet opens
+  const [night] = useState(() => isNight(Date.now()));
   const liveMapSaved = useSettingsStore((state) => state.relayLiveMap);
   const setLiveMapSaved = useSettingsStore((state) => state.setRelayLiveMap);
   const location = useRelayLocation();
@@ -174,7 +176,9 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   const startBroadcast = useRelayStore((store) => store.start);
 
   const routeCodes = useMemo(() => routes.map((option) => option.code), [routes]);
-  const demoFleet = useRoutesVehicles(vehicles, routeCodes, !demoData || demoFound !== null);
+  // The demo beacon hears every demo multicab, also those Night Mode hides on the map
+  const beaconFleet = useMemo<VehiclesRepository>(() => (vehicles.subscribeAll ? { ...vehicles, subscribe: vehicles.subscribeAll } : vehicles), [vehicles]);
+  const demoFleet = useRoutesVehicles(beaconFleet, routeCodes, !demoData || demoFound !== null);
   const multicabs = useMemo<DemoMulticab[]>(
     () => demoFleet.vehicles.map(({ id, label, routeCode, lat, lon }) => ({ id, label, routeCode, lat, lon })),
     [demoFleet.vehicles],
@@ -392,6 +396,8 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
               <View style={styles.grow}>
                 <Text style={typography.labelLg}>{strings.report.liveMap}</Text>
                 <Text style={typography.bodySm}>{liveMapHint}</Text>
+                {/* PRD 10.4: at night the relay still counts, but the map shows passed stops only */}
+                {liveMap && liveMapAllowed && night ? <Text style={[typography.bodySm, styles.night]}>{strings.report.liveMapNight}</Text> : null}
               </View>
               <Switch value={liveMap} onValueChange={setLiveMapSaved} disabled={!liveMapAllowed} accessibilityLabel={strings.report.liveMap} />
             </View>
@@ -499,6 +505,9 @@ const useStyles = makeStyles(({ colors }) => ({
     flexWrap: 'wrap',
     gap: spacing.sm,
     paddingBottom: spacing.xs,
+  },
+  night: {
+    color: colors.primary,
   },
   gpsRow: {
     minHeight: MIN_TOUCH_TARGET,
