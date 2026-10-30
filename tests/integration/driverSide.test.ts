@@ -314,6 +314,10 @@ live('DR8 boarding detection, live project', () => {
         live_map: liveMap,
         request_key: `rl2a-${randomBytes(6).toString('hex')}`,
       });
+    // RL2b: the test multicab's earlier relays are moved back past the 3-hour same-multicab gap
+    const forgetEarlierRelays = () =>
+      admin.from('feed_posts').update({ created_at: new Date(Date.now() - 4 * 60 * MIN).toISOString() }).eq('vehicle_id', BEACON_VEHICLE);
+    await forgetEarlierRelays();
     const refused = 'registered multicab beacon';
     expect((await relay(null, false)).error?.message).toContain(refused);
     expect((await relay(code(-2), false)).error?.message).toContain(refused);
@@ -339,7 +343,11 @@ live('DR8 boarding detection, live project', () => {
     await admin.from('feed_posts').update({ expires_at: new Date(Date.now() - 40 * MIN).toISOString() }).eq('id', feed.data);
     expect((await writer.rpc('renew_report', { post: feed.data })).data).toBe(false);
 
+    // RL2b: the same multicab again right away is refused
+    expect((await relay(code(0), true)).error?.message).toContain('you already relayed this multicab');
+
     // On the live map; ended by its author: gone now, and never renewed again
+    await forgetEarlierRelays();
     const live = await relay(code(0), true);
     expect(live.error).toBeNull();
     expect((await admin.from('feed_posts').select('live_map').eq('id', live.data).single()).data?.live_map).toBe(true);

@@ -1,26 +1,49 @@
 import { create } from 'zustand';
 
+import type { ReportInput } from '@/data/repositories/types';
 import type { RelayBroadcast } from '@/shared/relay/broadcast';
 import { renewedWatch, startWatch, type RelayWatch } from '@/shared/relay/limits';
+import type { RelayQueue } from '@/shared/relay/queue';
 
 // B4: the relay sent with GPS, shared until the rider reaches their destination. Outside the Map
 // screen's state so other tabs keep it going. Not saved: a restart of the app ends it.
 // RL1: with the watch that decides when it ends by itself (arrival countdown, idle, the 3-hour cap).
+// RL2c (D12): before that, the relay waits here, queued, until the multicab moves with the rider in it.
+
+// A relay queued after Send: what will be posted (the multicab and its beacon code are filled in on
+// release) and the session it starts
+export type QueuedRelay = {
+  queue: RelayQueue;
+  input: Omit<ReportInput, 'vehicleId' | 'beaconHex' | 'routeCode'>;
+  session: Omit<RelayBroadcast, 'post' | 'vehicleId' | 'routeCode' | 'startedMs'>;
+  // The multicab picked in the form, and whether the demo or the server takes the relay
+  vehicleId: string;
+  demo: boolean;
+};
+
 type RelayState = {
   session: RelayBroadcast | null;
   watch: RelayWatch;
+  queued: QueuedRelay | null;
   start: (session: RelayBroadcast) => void;
   stop: () => void;
   setWatch: (watch: RelayWatch) => void;
   // "Keep sharing": the 3-hour cap starts again
   renew: (nowMs: number) => void;
+  enqueue: (queued: QueuedRelay) => void;
+  setQueue: (queue: RelayQueue) => void;
+  dequeue: () => void;
 };
 
 export const useRelayStore = create<RelayState>((set) => ({
   session: null,
   watch: startWatch(0),
-  start: (session) => set({ session, watch: startWatch(session.startedMs) }),
+  queued: null,
+  start: (session) => set({ session, watch: startWatch(session.startedMs), queued: null }),
   stop: () => set({ session: null, watch: startWatch(0) }),
   setWatch: (watch) => set({ watch }),
   renew: (nowMs) => set((state) => (state.session ? { watch: renewedWatch(state.watch, nowMs) } : {})),
+  enqueue: (queued) => set({ queued }),
+  setQueue: (queue) => set((state) => (state.queued ? { queued: { ...state.queued, queue } } : {})),
+  dequeue: () => set({ queued: null }),
 }));

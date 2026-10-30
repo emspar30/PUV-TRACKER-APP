@@ -234,6 +234,25 @@ export const en = {
     // RL2b: every relay earns, the live map more
     liveMapEarns: (amount: number) => `Your multicab moves on the live map until your stop. Earns +${amount.toFixed(1)} Energy.`,
     feedEarns: (amount: number) => `Off: your relay shows in Crowdsource until your stop. No location is sent. Earns +${amount.toFixed(1)} Energy.`,
+    // RL2c (D12): a relay waits on the phone until the multicab moves with the rider in it
+    queue: {
+      queuedTitle: 'Relay queued',
+      queuedBody: (destination: string) =>
+        `It is sent once your multicab moves off with you in it, then it shares your ride until ${destination}. Stay close to the multicab.`,
+      barTitle: 'Relay queued',
+      barBody: (route: string, destination: string) => `Waiting for the multicab to move · ${route} to ${destination}`,
+      cancel: 'Cancel',
+      cancelLabel: 'Cancel the queued relay',
+      releasedTitle: (plate: string) => `Relay sent: ${plate}`,
+      endedTitle: 'Relay not sent',
+      ended: {
+        walked_away: (seconds: number) => `No multicab was heard for ${seconds} seconds, so you seem to have left it. Nothing was sent.`,
+        location_off: () => 'Your location went off. Nothing was sent.',
+        timed_out: (minutes: number) => `The multicab did not leave within ${minutes} minutes. Nothing was sent.`,
+        other_route: () => 'The multicab that left is on another route. Nothing was sent.',
+        same_vehicle: (hours: number) => `You already relayed this multicab in the last ${hours} hours. Nothing was sent.`,
+      },
+    },
     // RL2b: the same multicab within RELAY_SAME_VEHICLE_GAP_H
     sameVehicle: 'You already relayed this multicab.',
     sameVehicleBody: (hours: number) => `You can relay the same multicab once every ${hours} hours. Another multicab earns as usual.`,

@@ -54,7 +54,10 @@ function useBluetoothOn(watch: boolean): boolean {
 // wanted: false with demo data (its multicabs are made up), so nothing is scanned or checked. A build
 // without the scanner asks for nothing either: its manifest lacks Nearby devices, which Android
 // would then report as refused for good
-export function useBleVehicle(wanted: boolean): BleState {
+// RL2c: the queue listens without keeping a multicab it no longer hears, for up to RELAY_QUEUE_MAX_MIN
+export type BleOptions = { sticky: boolean; durationMin: number };
+
+export function useBleVehicle(wanted: boolean, options?: BleOptions): BleState {
   const nearby = useNearbyPermission(wanted && isScanAvailable());
   const foreground = useForeground();
   const scan = nearby.status === 'granted' && foreground;
@@ -62,17 +65,19 @@ export function useBleVehicle(wanted: boolean): BleState {
   // Bluetooth turned on or off starts a new session: a scan refused for Bluetooth off never starts
   // by itself, and Android ends a running scan when Bluetooth goes off
   const bluetoothOn = useBluetoothOn(scan);
+  const sticky = options?.sticky;
+  const durationMin = options?.durationMin;
 
   useEffect(() => {
     if (!scan) return undefined;
-    const session = createBleSession({ scanner: nativeScanner, verify: verifyBeaconCode, now: Date.now, onChange: setView });
+    const session = createBleSession({ scanner: nativeScanner, verify: verifyBeaconCode, now: Date.now, onChange: setView, sticky, durationMin });
     void session.start();
     return () => {
       session.dispose();
       // A later scan starts from nothing, not from this one's multicab
       setView(null);
     };
-  }, [scan, bluetoothOn]);
+  }, [scan, bluetoothOn, sticky, durationMin]);
 
   return { nearby, view: scan ? view : null };
 }

@@ -20,9 +20,10 @@ import { BlueDot } from '@/features/map/BlueDot';
 import { LocationExplainer } from '@/features/map/LocationExplainer';
 import { OfflineMap, type MapFocus } from '@/features/map/OfflineMap';
 import { OriginPin } from '@/features/map/OriginPin';
-import { RelayBar } from '@/features/report/RelayBar';
+import { QueuedRelayBar, RelayBar } from '@/features/report/RelayBar';
 import { useGpsBroadcast } from '@/features/report/useGpsBroadcast';
 import { useRelayBroadcast } from '@/features/report/useRelayBroadcast';
+import { useRelayQueue } from '@/features/report/useRelayQueue';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
 import { useCommuterPosition } from '@/features/map/useCommuterPosition';
@@ -201,7 +202,8 @@ export default function MapScreen() {
   // B2: each route with one stored leg also has its stand-in other leg, so ETAs follow a vehicle round
   const loopLines = useMemo(() => withReturnLegs(lines), [lines]);
   // CA1.1 relay details: the lines of the route being relayed, both directions
-  const relayRoute = useRelayStore((store) => store.session?.routeCode ?? null);
+  // RL2c: or of the relay queued, for how far the rider has moved along it
+  const relayRoute = useRelayStore((store) => store.session?.routeCode ?? store.queued?.queue.routeCode ?? null);
   const relayLines = useMemo(
     () => loopLines.filter((line) => line.routeCode === relayRoute).map((line) => line.coordinates),
     [loopLines, relayRoute],
@@ -234,6 +236,9 @@ export default function MapScreen() {
   const fix = useLocationStore((store) => store.fix);
   // B4: a relay runs until the rider reaches their destination
   const relay = useRelayBroadcast(commuter);
+  // RL2c (D12): a relay queued after Send, released once the multicab moves off with the rider
+  const queuedRelay = useRelayQueue(commuter, relayLines, repos.vehicles);
+  const cancelQueued = useRelayStore((store) => store.dequeue);
   // T1: a team account's relay on the live map moves its multicab's marker; buffered through dead
   // zones. RL2a: a Crowdsource relay sends no positions
   const uplink = useGpsBroadcast(relay?.mode === 'live' ? relay : null, repos.vehicles.source === 'live' && teamAccount === true);
@@ -754,6 +759,7 @@ export default function MapScreen() {
             </Pressable>
           </View>
         ) : null}
+        {queuedRelay && !relay ? <QueuedRelayBar queued={queuedRelay} onCancel={cancelQueued} /> : null}
         {relay ? (
           <RelayBar
             session={relay}

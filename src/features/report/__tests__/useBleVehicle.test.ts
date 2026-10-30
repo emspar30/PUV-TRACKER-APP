@@ -21,7 +21,7 @@ const flush = async () => {
   for (let i = 0; i < 5; i++) await Promise.resolve();
 };
 
-function setUp(scanResult: ScanStart = 'scanning', verdict: BeaconVerdict = R4) {
+function setUp(scanResult: ScanStart = 'scanning', verdict: BeaconVerdict = R4, sticky = true) {
   let nowMs = START_MS;
   let onReading: ((reading: BeaconReading) => void) | null = null;
   let onStopped: ((event: ScanStopped) => void) | null = null;
@@ -39,7 +39,7 @@ function setUp(scanResult: ScanStart = 'scanning', verdict: BeaconVerdict = R4) 
     }),
   };
   const verify = jest.fn(async (_payloadHex: string) => verdict);
-  const session = createBleSession({ scanner, verify, now: () => nowMs, onChange: (view) => views.push(view) });
+  const session = createBleSession({ scanner, verify, now: () => nowMs, onChange: (view) => views.push(view), sticky, durationMin: sticky ? undefined : 30 });
 
   const codeAt = (shortId: number, atMs: number) => payloadToHex(encodeBeacon({ shortId, slot: slotOf(atMs) }, SECRET));
   // Each beacon heard every STEP_MS for durationMs, at its signal strength
@@ -88,6 +88,20 @@ describe('useBleVehicle session (DR8)', () => {
     expect(verify).toHaveBeenCalledTimes(2);
     expect(verify.mock.calls[1][0]).not.toBe(verify.mock.calls[0][0]);
     expect(last()).toMatchObject({ kind: 'found', payloadHex: codeAt(7, now()) });
+  });
+
+  it('RL2c: the queue scan for 30 min drops a multicab it no longer hears, and sees a second one', async () => {
+    const { session, scanner, hear, last } = setUp('scanning', R4, false);
+    await session.start();
+    expect(scanner.start).toHaveBeenCalledWith(expect.objectContaining({ durationMs: 30 * 60_000 }));
+    await hear([{ shortId: 7, rssi: STRONG }], 5000);
+    expect(last()).toMatchObject({ kind: 'found' });
+    // Out of range for longer than BEACON_LOST_S: nothing heard now
+    await hear([], 12_000);
+    expect(last()).toEqual({ kind: 'searching' });
+    // Two beacons as strong: several, not the one found before
+    await hear([{ shortId: 7, rssi: STRONG }, { shortId: 9, rssi: STRONG }], 5000);
+    expect(last()).toEqual({ kind: 'ambiguous' });
   });
 
   it('never asks about a weak signal: the rider is not inside that multicab', async () => {

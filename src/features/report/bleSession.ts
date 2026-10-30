@@ -37,6 +37,11 @@ export type BleSessionDeps = {
   verify: (payloadHex: string) => Promise<BeaconVerdict>;
   now: () => number;
   onChange: (view: BleView) => void;
+  // The Relay panel keeps a verified multicab while it is open (sticky). RL2c's queue wants the
+  // beacons heard now: a multicab no longer picked is dropped, so leaving it reads as none.
+  sticky?: boolean;
+  // How long the scan runs (ARMED_SCAN_MIN for the panel)
+  durationMin?: number;
 };
 
 export type BleSession = {
@@ -46,7 +51,7 @@ export type BleSession = {
 
 type Code = { payloadHex: string; slotLow: number };
 
-export function createBleSession({ scanner, verify, now, onChange }: BleSessionDeps): BleSession {
+export function createBleSession({ scanner, verify, now, onChange, sticky = true, durationMin = ARMED_SCAN_MIN }: BleSessionDeps): BleSession {
   const tracks = new Map<number, BeaconTrack>();
   const latest = new Map<number, Code>();
   // The last answer per beacon, for the slot it was asked about
@@ -76,15 +81,21 @@ export function createBleSession({ scanner, verify, now, onChange }: BleSessionD
         asking.delete(key);
         if (disposed) return;
         verdicts.set(shortId, { slotLow: code.slotLow, verdict });
-        if (verdict.ok) found = { shortId, vehicle: verdict.vehicle };
+        if (verdict.ok && (sticky || currentPick() === shortId)) found = { shortId, vehicle: verdict.vehicle };
         evaluate();
       });
+  };
+
+  const currentPick = () => {
+    const pick = scanning ? pickBeacon(tracks, now()) : null;
+    return pick?.kind === 'one' ? pick.key : null;
   };
 
   const evaluate = () => {
     if (disposed) return;
     const pick = scanning ? pickBeacon(tracks, now()) : { kind: 'none' as const };
     let failure: BeaconFailure | null = null;
+    if (!sticky && found && (pick.kind !== 'one' || pick.key !== found.shortId)) found = null;
     if (pick.kind === 'one') {
       const code = latest.get(pick.key);
       const answer = verdicts.get(pick.key);
@@ -131,7 +142,7 @@ export function createBleSession({ scanner, verify, now, onChange }: BleSessionD
       for (const subscription of [scanner.onReading(onReading), scanner.onStopped(onStopped)]) {
         if (subscription) subscriptions.push(subscription);
       }
-      const result = await scanner.start({ serviceUuid: BEACON_SERVICE_UUID, mode: BEACON_SCAN_MODE, durationMs: ARMED_SCAN_MIN * MS_PER_MIN });
+      const result = await scanner.start({ serviceUuid: BEACON_SERVICE_UUID, mode: BEACON_SCAN_MODE, durationMs: durationMin * MS_PER_MIN });
       if (disposed) {
         if (result === 'scanning') void scanner.stop();
         return;

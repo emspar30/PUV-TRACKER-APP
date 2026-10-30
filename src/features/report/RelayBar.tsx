@@ -11,7 +11,7 @@ import type { LineCoordinates } from '@/shared/geo/line';
 import type { RelayBroadcast } from '@/shared/relay/broadcast';
 import { arrivalLeftS } from '@/shared/relay/limits';
 import { relayProgress } from '@/shared/relay/progress';
-import { useRelayStore } from '@/state/relayStore';
+import { useRelayStore, type QueuedRelay } from '@/state/relayStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
@@ -133,6 +133,31 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
           <Text style={typography.bodySm}>{t.info.shared(progress.sharedMin, progress.askInMin)}</Text>
         </Animated.View>
       ) : null}
+    </View>
+  );
+}
+
+// RL2c (D12): while a relay waits on the phone for the multicab to move, with Cancel
+export function QueuedRelayBar({ queued, onCancel }: { queued: QueuedRelay; onCancel: () => void }) {
+  const styles = useStyles();
+  const { typography, elevation } = useTheme();
+  const t = strings.report.queue;
+  return (
+    <View style={[styles.card, elevation.level3]} accessibilityLiveRegion="polite">
+      <View style={styles.bar}>
+        <View style={styles.summary}>
+          <IconTile icon={RadioTower} tone="warning" />
+          <View style={styles.grow}>
+            <Text style={typography.labelLg} numberOfLines={1}>
+              {t.barTitle}
+            </Text>
+            <Text style={typography.bodySm} numberOfLines={2}>
+              {t.barBody(queued.queue.routeCode, queued.session.destination.name)}
+            </Text>
+          </View>
+        </View>
+        <Button label={t.cancel} variant="secondary" onPress={onCancel} accessibilityLabel={t.cancelLabel} />
+      </View>
     </View>
   );
 }

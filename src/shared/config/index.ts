@@ -532,6 +532,15 @@ export const RELAY_STOP_AREA_M = 60;
 export const RELAY_HEARTBEAT_MIN = 5;
 export const RELAY_POST_GRACE_MIN = 15;
 export const RELAY_POST_REVIVE_MIN = 30;
+// RL2c (Emjay's D12, 2026-10-23): every relay is queued on the phone first and released (posted, or
+// put on the live map) when exactly one beacon is heard and the rider has moved RELAY_QUEUE_RELEASE_M
+// along the route line. It ends with nothing posted when no beacon is heard for
+// RELAY_QUEUE_BEACON_GONE_S (the rider walked away), location goes off, or RELAY_QUEUE_MAX_MIN pass.
+export const RELAY_QUEUE_RELEASE_M = 50;
+export const RELAY_QUEUE_BEACON_GONE_S = 30;
+export const RELAY_QUEUE_MAX_MIN = 30;
+// How often a queued relay looks at the beacons and the position
+export const RELAY_QUEUE_TICK_S = 2;
 // RL2a polish (Emjay, 2026-10-25): demo data has no beacons, so a moving demo multicab within
 // DEMO_BEACON_RANGE_M of the rider counts as heard, after the Relay form has searched for
 // DEMO_BEACON_FOUND_AFTER_S (demo only). Kept at ROUTE_SNAP_DISTANCE_M or less, so a multicab heard

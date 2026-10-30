@@ -1,12 +1,11 @@
 import { router } from 'expo-router';
 import { MapPin, Search, X } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 
 import { Button, Chip } from '@/components';
 import type { VehiclesRepository } from '@/data/repositories/types';
-import { useRouteData } from '@/data/RouteDataProvider';
 import { useBoardingEndsCheckIn } from '@/features/checkin/useBoardingEndsCheckIn';
 import { isNight, relayedRecently, type FeedPhrase } from '@/shared/backend/rules';
 import { promptSignIn } from '@/features/auth/promptSignIn';
@@ -16,18 +15,20 @@ import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
 import { DEMO_BEACON_RANGE_M, ENERGY_FEED_REPORT, ENERGY_LIVE_REPORT, ENERGY_UI_VISIBLE, RELAY_SAME_VEHICLE_GAP_H, FEED_PHRASES, MAX_WALK_PER_LEG_M, RELAY_BEACON_WAIT_S } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
 import type { LineCoordinates } from '@/shared/geo/line';
-import { destinationOptions, nearestDestination, relayStopCode, terminalsOf } from '@/shared/relay/broadcast';
+import { destinationOptions, nearestDestination, terminalsOf } from '@/shared/relay/broadcast';
+import { startQueue } from '@/shared/relay/queue';
 import { demoBeacon, relayGate, type DemoMulticab, type RelayBeacon, type RelayGate, type RelayVehicle } from '@/shared/relay/gate';
 import type { SearchablePlace } from '@/shared/routing/placeSearch';
 import type { RouteStop } from '@/shared/routing/types';
 import type { SeatTier } from '@/shared/telemetry/occupancy';
 import { reportMockLocation } from '@/services/risk';
-import { sendReport } from '@/state/crowdStore';
 import { useLocationStore } from '@/state/locationStore';
 import { useRecentRelaysStore } from '@/state/recentRelaysStore';
 import { showDialog } from '@/state/dialogStore';
 import { useRelayStore } from '@/state/relayStore';
+import { useSessionStore } from '@/state/sessionStore';
 import { useSettingsStore } from '@/state/settingsStore';
+import { useUsernameStore } from '@/state/usernameStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
@@ -155,7 +156,6 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   }, [mocked]);
   const ble = useBleVehicle(!demoData);
   const found = ble.view?.kind === 'found' ? ble.view : null;
-  const { stops } = useRouteData();
   const [openedMs] = useState(Date.now);
   const [nowMs, setNowMs] = useState(Date.now);
   // Demo data: the demo multicab heard, kept while the form is open (the rider rides with it)
@@ -172,9 +172,9 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   const [searchIssue, setSearchIssue] = useState<string | null>(null);
   const searchable = useSearchablePlaces({ saved: false });
   const matches = usePlaceMatches(query, searching, searchable);
-  const [sending, setSending] = useState(false);
-  const sendingRef = useRef(false);
-  const startBroadcast = useRelayStore((store) => store.start);
+  const enqueue = useRelayStore((store) => store.enqueue);
+  const signedOut = useSessionStore((state) => state.status !== 'signed-in');
+  const username = useUsernameStore((state) => state.username);
 
   const routeCodes = useMemo(() => routes.map((option) => option.code), [routes]);
   // The demo beacon hears every demo multicab, also those Night Mode hides on the map
@@ -239,72 +239,49 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   // RL2b: this phone relayed the multicab within RELAY_SAME_VEHICLE_GAP_H; the server decides too
   const recentRelays = useRecentRelaysStore((state) => state.relays);
   const sameVehicle = vehicle !== null && relayedRecently(recentRelays, vehicle.vehicleId, openedMs);
-  const ready = open && seatTier !== null && destination !== null && !sending && !sameVehicle;
+  const ready = open && seatTier !== null && destination !== null && !sameVehicle;
 
-  const send = async () => {
-    if (!vehicle || !seatTier || !destination || sendingRef.current) return;
-    if (!checkGps()) {
+  // RL2c (D12): Send queues the relay on the phone; it is sent once the multicab moves off with the
+  // rider in it (useRelayQueue), with the stop nearest the rider then (D11)
+  const send = () => {
+    if (!vehicle || !seatTier || !destination) return;
+    if (!checkGps() || !position) {
       showDialog({ tone: 'warning', title: strings.report.failedTitle, body: strings.report.gate.waitingFix });
       return;
     }
-    sendingRef.current = true;
-    setSending(true);
-    try {
-      // B6, D11: the stop nearest the rider when the relay is sent, as a code only
-      const stopCode = relayStopCode(stops, position);
-      const beaconHex = found?.payloadHex ?? null;
-      const result = await sendReport({
-        routeCode: vehicle.routeCode,
-        phrase,
-        seatTier,
-        vehicleId: vehicle.vehicleId,
-        stopCode,
-        withGps: true,
-        liveMap,
-        beaconHex,
-      });
-      if (result.ok) {
-        onClose();
-        startBroadcast({
-          mode: liveMap ? 'live' : 'feed',
-          post: result.postId ? { id: result.postId, demo: demoData } : null,
-          routeCode: vehicle.routeCode,
-          vehicleId: vehicle.vehicleId,
-          seatTier,
-          destination: { code: destination.code, name: destination.name, lat: destination.lat, lon: destination.lon },
-          startedMs: Date.now(),
-          startPoint: position ? { lat: position.lat, lon: position.lon } : null,
-          terminals: terminalsOf(stopsOf(vehicle.routeCode)),
-        });
-        showDialog({
-          tone: 'success',
-          title: strings.report.sentTitle,
-          body: liveMap ? strings.report.sentBodyGps(destination.name) : strings.report.sentBodyFeed(destination.name),
-        });
-      } else if (result.reason === 'sign_in') {
-        onClose();
-        promptSignIn();
-      } else if (result.reason === 'no_username') {
-        showDialog({
-          tone: 'warning',
-          title: strings.report.failedTitle,
-          body: strings.report.noUsername,
-          actions: [
-            { label: strings.report.openProfile, onPress: () => router.push('/profile') },
-            { label: strings.common.close, variant: 'secondary' },
-          ],
-        });
-      } else if (result.reason === 'no_beacon') {
-        showDialog({ tone: 'warning', title: strings.report.failedTitle, body: strings.report.gate.noBeacon });
-      } else if (result.reason === 'same_vehicle') {
-        showDialog({ tone: 'warning', title: strings.report.sameVehicle, body: strings.report.sameVehicleBody(RELAY_SAME_VEHICLE_GAP_H) });
-      } else {
-        showDialog({ tone: 'danger', title: strings.report.failedTitle, body: ('message' in result ? result.message : undefined) ?? strings.report.failedBody });
-      }
-    } finally {
-      sendingRef.current = false;
-      setSending(false);
+    if (!demoData && signedOut) {
+      onClose();
+      promptSignIn();
+      return;
     }
+    if (!username) {
+      showDialog({
+        tone: 'warning',
+        title: strings.report.failedTitle,
+        body: strings.report.noUsername,
+        actions: [
+          { label: strings.report.openProfile, onPress: () => router.push('/profile') },
+          { label: strings.common.close, variant: 'secondary' },
+        ],
+      });
+      return;
+    }
+    const nowMs = Date.now();
+    enqueue({
+      queue: startQueue(vehicle.routeCode, { lat: position.lat, lon: position.lon }, nowMs),
+      input: { phrase, seatTier, stopCode: null, withGps: true, liveMap },
+      session: {
+        mode: liveMap ? 'live' : 'feed',
+        seatTier,
+        destination: { code: destination.code, name: destination.name, lat: destination.lat, lon: destination.lon },
+        startPoint: { lat: position.lat, lon: position.lon },
+        terminals: terminalsOf(stopsOf(vehicle.routeCode)),
+      },
+      vehicleId: vehicle.vehicleId,
+      demo: demoData,
+    });
+    onClose();
+    showDialog({ tone: 'success', title: strings.report.queue.queuedTitle, body: strings.report.queue.queuedBody(destination.name) });
   };
 
   const colorOf = (code: string | undefined) => routes.find((option) => option.code === code)?.color ?? colors.primary;
@@ -417,7 +394,7 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
               {strings.report.sameVehicle} {strings.report.sameVehicleBody(RELAY_SAME_VEHICLE_GAP_H)}
             </Text>
           ) : null}
-          <Button label={sending ? strings.report.sending : strings.report.send} onPress={() => void send()} disabled={!ready} />
+          <Button label={strings.report.send} onPress={send} disabled={!ready} />
         </ScrollView>
       </Animated.View>
     </Animated.View>
