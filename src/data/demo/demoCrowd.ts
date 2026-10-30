@@ -3,7 +3,8 @@
 // without an account. Other people waiting are made up from the seed and the clock. Sends nothing.
 // Pure: no React Native or Expo imports.
 
-import { CHECKIN_LIFETIME_S, DEMO_CHECKIN_OTHERS_MAX, DEMO_CHECKIN_SLOT_MIN, RELAY_POST_GRACE_MIN, RELAY_POST_REVIVE_MIN } from '../../shared/config';
+import { relayEarnKind, relayedRecently } from '../../shared/backend/rules';
+import { CHECKIN_LIFETIME_S, DEMO_CHECKIN_OTHERS_MAX, DEMO_CHECKIN_SLOT_MIN, RELAY_POST_GRACE_MIN, RELAY_POST_REVIVE_MIN, RELAY_SAME_VEHICLE_GAP_H } from '../../shared/config';
 import type { FeedPost } from '../../shared/demo/feed';
 import { childSeed, seededRandom } from '../../shared/util/random';
 import type { CrowdRepositories } from '../repositories/select';
@@ -11,6 +12,7 @@ import type { DemoEnergy } from './demoEnergy';
 
 const MS_PER_S = 1000;
 const MS_PER_MIN = 60000;
+const MS_PER_HOUR = 3600000;
 
 type Mine = { routeCodes: readonly string[]; stationCode: string; expiresAtMs: number };
 
@@ -25,6 +27,8 @@ export function createDemoCrowd(
   // RL2a: when each of the user's posts lapses (moved on by keep, set to now by end), and the ended ones
   const expiresMs = new Map<string, number>();
   const ended = new Set<string>();
+  // RL2b: the multicabs the user relayed lately, for the same-multicab rule
+  let relayed: { vehicleId: string; atMs: number }[] = [];
 
   return {
     checkins: {
@@ -64,6 +68,9 @@ export function createDemoCrowd(
         // RL2a (D10): as the server, no relay without its multicab (picked by hand in the demo)
         if (!input.vehicleId) return { ok: false, reason: 'no_beacon' };
         const postedMs = now();
+        // RL2b: as the server, the same multicab within RELAY_SAME_VEHICLE_GAP_H is refused
+        if (relayedRecently(relayed, input.vehicleId, postedMs)) return { ok: false, reason: 'same_vehicle' };
+        relayed = [...relayed.filter((relay) => postedMs - relay.atMs < RELAY_SAME_VEHICLE_GAP_H * MS_PER_HOUR), { vehicleId: input.vehicleId, atMs: postedMs }];
         posts = [
           {
             id: requestKey,
@@ -81,8 +88,8 @@ export function createDemoCrowd(
           ...posts,
         ];
         expiresMs.set(requestKey, postedMs + RELAY_POST_GRACE_MIN * MS_PER_MIN);
-        // Until RL2b: the live map earns as a relay with GPS did (once a Manila day), Crowdsource nothing
-        energy.earn(input.liveMap ? 'gps_report' : 'no_gps_report', requestKey);
+        // RL2b: the live map earns ENERGY_LIVE_REPORT, Crowdsource ENERGY_FEED_REPORT, no daily limit
+        energy.earn(relayEarnKind(input.liveMap), requestKey);
         return { ok: true, postId: requestKey };
       },
 

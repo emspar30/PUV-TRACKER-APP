@@ -12,6 +12,7 @@ import {
   isPostVisible,
   manilaDay,
   passiveRefillDue,
+  relayedRecently,
   startTracking,
   type LedgerRow,
   isValidUsername,
@@ -95,6 +96,25 @@ describe('Energy', () => {
     expect(affordableRoutes(2.1, true)).toBe(7);
     expect(affordableRoutes(0.2, true)).toBe(0);
     expect(affordableRoutes(0, false)).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe('RL2b relays', () => {
+  const H = 3600000;
+  const at = manila(5, 8);
+
+  it('relay kinds earn every time, up to the cap', () => {
+    const ledger = [row('welcome', 2, at), row('live_report', 1, at), row('feed_report', 0.5, at)];
+    expect(energyEarn(ledger, 'live_report', at, 'k-new-1')).toBe(1);
+    expect(energyEarn(ledger, 'feed_report', at, 'k-new-2')).toBe(0.5);
+    expect(energyEarn([row('welcome', 4.8, at)], 'live_report', at, 'k-new-3')).toBe(0.2);
+  });
+
+  it('the same multicab within 3 hours, whatever came between; another multicab is fine', () => {
+    const relays = [{ vehicleId: 'A', atMs: at }, { vehicleId: 'B', atMs: at + 5 * 60000 }];
+    expect(relayedRecently(relays, 'A', at + 2 * H)).toBe(true);
+    expect(relayedRecently(relays, 'A', at + 3 * H)).toBe(false);
+    expect(relayedRecently(relays, 'C', at + 60000)).toBe(false);
   });
 });
 

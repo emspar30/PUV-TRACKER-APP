@@ -5,7 +5,9 @@
 
 import {
   ENERGY_CHECKIN_ROUTE_COST,
+  ENERGY_FEED_REPORT,
   ENERGY_GPS_REPORT,
+  ENERGY_LIVE_REPORT,
   ENERGY_NO_GPS_REPORT,
   ENERGY_PASSIVE_AMOUNT,
   ENERGY_PASSIVE_DAILY_MAX,
@@ -23,6 +25,7 @@ import {
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
   USERNAME_RESERVED,
+  RELAY_SAME_VEHICLE_GAP_H,
 } from '../config';
 
 const MS_PER_MIN = 60000;
@@ -69,16 +72,23 @@ export function manilaDay(atMs: number): string {
 
 // --- Energy (PRD 19, D1, D14)
 
-// CA1.1: 'checkin' is a spend now, and 'welcome' the Energy every account starts with
-export type EnergyKind = 'gps_report' | 'no_gps_report' | 'checkin' | 'passive' | 'tracking' | 'welcome';
-export type EarnKind = 'gps_report' | 'no_gps_report' | 'passive';
+// CA1.1: 'checkin' is a spend now, and 'welcome' the Energy every account starts with. RL2b: relays
+// earn as 'live_report' or 'feed_report'; 'gps_report' and 'no_gps_report' stay for earlier history.
+export type EnergyKind = 'gps_report' | 'no_gps_report' | 'live_report' | 'feed_report' | 'checkin' | 'passive' | 'tracking' | 'welcome';
+export type EarnKind = 'gps_report' | 'no_gps_report' | 'live_report' | 'feed_report' | 'passive';
 export type LedgerRow = { kind: EnergyKind; amount: number; atMs: number; requestKey: string };
 
 const EARN: Record<EarnKind, number> = {
   gps_report: ENERGY_GPS_REPORT,
   no_gps_report: ENERGY_NO_GPS_REPORT,
+  live_report: ENERGY_LIVE_REPORT,
+  feed_report: ENERGY_FEED_REPORT,
   passive: ENERGY_PASSIVE_AMOUNT,
 };
+
+// How often a kind may earn in a Manila day; RL2b's relay kinds have no daily limit
+const dailyLimitOf = (kind: EarnKind): number =>
+  kind === 'passive' ? ENERGY_PASSIVE_DAILY_MAX : kind === 'live_report' || kind === 'feed_report' ? Infinity : 1;
 
 // Energy amounts have one decimal
 const TENTHS = 10;
@@ -88,15 +98,30 @@ export function energyBalance(ledger: readonly LedgerRow[]): number {
   return Math.min(round1(ledger.reduce((sum, row) => sum + row.amount, 0)), ENERGY_WALLET_CAP);
 }
 
-// What one earning books: once per kind per Manila day (passive up to ENERGY_PASSIVE_DAILY_MAX),
-// never above the wallet cap, and nothing for a request key already booked
+// What one earning books: once per kind per Manila day (passive up to ENERGY_PASSIVE_DAILY_MAX,
+// RL2b's relay kinds without a limit), never above the wallet cap, and nothing for a request key
+// already booked
 export function energyEarn(ledger: readonly LedgerRow[], kind: EarnKind, atMs: number, requestKey: string): number {
   if (ledger.some((row) => row.requestKey === requestKey)) return 0;
   const day = manilaDay(atMs);
   const usedToday = ledger.filter((row) => row.kind === kind && manilaDay(row.atMs) === day).length;
-  if (usedToday >= (kind === 'passive' ? ENERGY_PASSIVE_DAILY_MAX : 1)) return 0;
+  if (usedToday >= dailyLimitOf(kind)) return 0;
   const total = round1(ledger.reduce((sum, row) => sum + row.amount, 0));
   return Math.max(0, round1(Math.min(EARN[kind], ENERGY_WALLET_CAP - total)));
+}
+
+// RL2b: the kind a relay earns as
+export const relayEarnKind = (liveMap: boolean): 'live_report' | 'feed_report' => (liveMap ? 'live_report' : 'feed_report');
+
+// RL2b: a relay on this multicab is refused when the rider relayed it within RELAY_SAME_VEHICLE_GAP_H,
+// whatever came between. `relays` are the rider's earlier relays.
+export function relayedRecently(
+  relays: readonly { vehicleId: string; atMs: number }[],
+  vehicleId: string,
+  atMs: number,
+  gapH = RELAY_SAME_VEHICLE_GAP_H,
+): boolean {
+  return relays.some((relay) => relay.vehicleId === vehicleId && atMs - relay.atMs < gapH * MS_PER_HOUR);
 }
 
 // The kinds that start the refill clock: a refill, and (CA1.1) the welcome Energy

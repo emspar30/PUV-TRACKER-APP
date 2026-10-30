@@ -449,6 +449,31 @@ describe('migration: boarding detection (DR8)', () => {
   });
 });
 
+describe('migration: Energy for relays (RL2b)', () => {
+  const rl2bSql = read(['20261101000000_relay_energy.sql']);
+  const body = (fn: string) => {
+    const from = rl2bSql.slice(rl2bSql.indexOf(`create or replace function public.${fn}`));
+    return from.slice(0, from.indexOf('$$;'));
+  };
+
+  it('the live map earns 1.0 and Crowdsource 0.5, with no daily limit for either', () => {
+    expect(rl2bSql).toMatch(/energy_live_report numeric\(4, 1\) not null default 1\.0/);
+    expect(rl2bSql).toMatch(/energy_feed_report numeric\(4, 1\) not null default 0\.5/);
+    expect(rl2bSql).toContain("'live_report', 'feed_report'");
+    expect(body('energy_earn')).toContain("if earn_kind not in ('live_report', 'feed_report') then");
+    expect(body('post_report')).toContain("case when post_report.live_map then 'live_report' else 'feed_report' end");
+  });
+
+  it('refuses the same multicab within relay_same_vehicle_gap_h, before anything is posted', () => {
+    expect(rl2bSql).toMatch(/relay_same_vehicle_gap_h smallint not null default 3/);
+    const post = body('post_report');
+    expect(post).toContain("raise exception 'you already relayed this multicab'");
+    expect(post.indexOf('you already relayed')).toBeLessThan(post.indexOf('insert into public.feed_posts'));
+    // Still the RL2a gate first
+    expect(post.indexOf('beacon_check')).toBeLessThan(post.indexOf('you already relayed'));
+  });
+});
+
 describe('migration: relay gate (RL2a)', () => {
   const gateSql = read(['20261023000000_relay_gate.sql']);
   const postReport = 'public.post_report(text, text, text, text, boolean, text, text, boolean, text)';

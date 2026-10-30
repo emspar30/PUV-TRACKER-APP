@@ -15,6 +15,7 @@ import { DEMO_SEED } from '@/shared/config';
 import { useCheckInStore } from './checkinStore';
 import { useCountsStore } from './countsStore';
 import { demoEnergy, refreshEnergy } from './energyStore';
+import { useRecentRelaysStore } from './recentRelaysStore';
 import { useSettingsStore } from './settingsStore';
 import { refreshTrust, useTrustStore } from './trustStore';
 import { useUsernameStore } from './usernameStore';
@@ -94,6 +95,8 @@ export async function sendReport(input: ReportInput): Promise<ReportResult> {
     // First live relay counts relays on the live map; withGps is always true since RL2a
     useCountsStore.getState().addReport(input.liveMap);
     if (result.postId) useOwnPostsStore.getState().add(result.postId);
+    // RL2b: so the form can warn before relaying the same multicab again
+    if (input.vehicleId) useRecentRelaysStore.getState().add(input.vehicleId, nowMs);
   }
   return result;
 }

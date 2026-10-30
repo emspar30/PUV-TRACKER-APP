@@ -231,8 +231,12 @@ export const en = {
     cappedBody: 'No answer to "Still riding?". Relay again if you are still riding.',
     // RL2a (Emjay's D9): one switch, off by default and remembered
     liveMap: 'Show me on the live map',
-    // CA1.1: only a relay on the live map earns Energy for now (RL2b changes it)
-    liveMapEarns: (amount: number) => `Your multicab moves on the live map until your stop. Earns +${amount.toFixed(1)} Energy (once a day).`,
+    // RL2b: every relay earns, the live map more
+    liveMapEarns: (amount: number) => `Your multicab moves on the live map until your stop. Earns +${amount.toFixed(1)} Energy.`,
+    feedEarns: (amount: number) => `Off: your relay shows in Crowdsource until your stop. No location is sent. Earns +${amount.toFixed(1)} Energy.`,
+    // RL2b: the same multicab within RELAY_SAME_VEHICLE_GAP_H
+    sameVehicle: 'You already relayed this multicab.',
+    sameVehicleBody: (hours: number) => `You can relay the same multicab once every ${hours} hours. Another multicab earns as usual.`,
     // D1: while Energy is hidden (tracking is free), the same line without the reward
     liveMapShares: 'Your multicab moves on the live map until your stop.',
     // PRD 10.4: Night Mode publishes passed stops, not moving markers
@@ -854,11 +858,13 @@ export const en = {
     energyKinds: {
       gps_report: 'Report with GPS',
       no_gps_report: 'Report without GPS',
+      live_report: 'Relay on the live map',
+      feed_report: 'Relay in Crowdsource',
       checkin: 'Check-in',
       passive: 'Refill',
       tracking: 'Tracked a multicab',
       welcome: 'Welcome Energy',
-    } as Record<'gps_report' | 'no_gps_report' | 'checkin' | 'passive' | 'tracking' | 'welcome', string>,
+    } as Record<'gps_report' | 'no_gps_report' | 'live_report' | 'feed_report' | 'checkin' | 'passive' | 'tracking' | 'welcome', string>,
     energyAmount: (amount: number) => `${amount > 0 ? '+' : '−'}${Math.abs(amount).toFixed(1)}`,
     handleNotSaved: 'Not saved to your account yet',
     handleTaken: 'Someone already has this username. Pick another.',

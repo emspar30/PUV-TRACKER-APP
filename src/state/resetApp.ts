@@ -8,6 +8,7 @@ import { useHistoryStore } from './historyStore';
 import { useLocationStore } from './locationStore';
 import { useNotificationsStore } from './notificationsStore';
 import { useProfileStore } from './profileStore';
+import { useRecentRelaysStore } from './recentRelaysStore';
 import { useRidesStore } from './ridesStore';
 import { useSettingsStore } from './settingsStore';
 import { useTourStore } from './tourStore';
@@ -30,6 +31,7 @@ export function resetApp(): void {
   // G0: the location consent too; the permission is read again from Android, and the manual pin goes
   useLocationStore.setState({ consent: useLocationStore.getInitialState().consent, fix: null, explainer: 'idle', manualOrigin: null });
   useNotificationsStore.setState(useNotificationsStore.getInitialState(), true);
+  useRecentRelaysStore.setState(useRecentRelaysStore.getInitialState(), true);
   useRidesStore.setState(useRidesStore.getInitialState(), true);
   useTrustStore.setState(useTrustStore.getInitialState(), true);
   useUsernameStore.setState(useUsernameStore.getInitialState(), true);

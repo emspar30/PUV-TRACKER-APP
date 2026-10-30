@@ -11,8 +11,8 @@ import {
   CHECKIN_LIFETIME_S,
   CHECKIN_RADIUS_M,
   ENERGY_CHECKIN_ROUTE_COST,
-  ENERGY_GPS_REPORT,
-  ENERGY_NO_GPS_REPORT,
+  ENERGY_FEED_REPORT,
+  ENERGY_LIVE_REPORT,
   ENERGY_PASSIVE_AMOUNT,
   ENERGY_PASSIVE_INTERVAL_H,
   ENERGY_TRACKING_COST,
@@ -22,10 +22,11 @@ import {
   GPS_ACCURACY_GATE_RELAY_M,
   RELAY_POST_GRACE_MIN,
   RELAY_POST_REVIVE_MIN,
+  RELAY_SAME_VEHICLE_GAP_H,
 } from '../config';
 
 const T0 = Date.UTC(2026, 9, 5, 2, 0, 0);
-const DAY = 24 * 3600000;
+const HOUR = 3600000;
 const STATION = { lat: 10.3157, lon: 123.8854 };
 // About 11 m per 0.0001 degree of latitude
 const near = (metres: number) => ({ lat: STATION.lat + metres / 111000, lon: STATION.lon });
@@ -122,17 +123,31 @@ describe('the demo loop (CA1.1): start full, spend on check-ins and tracking, ea
     expect(await balanceOf(energy)).toBeCloseTo(0.1, 9);
   });
 
-  it('a relay on the live map earns 1.0 once a day, one in Crowdsource earns nothing (until RL2b); the next Manila day pays again', async () => {
-    const { energy, crowd, spend, advance } = setup();
-    await spend(3);
+  it('RL2b: the live map earns 1.0 and Crowdsource 0.5, every relay, no daily limit, up to the cap', async () => {
+    const { energy, crowd, spend } = setup();
+    await spend(4);
     expect(await crowd.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: true, postId: 'report-aaaaaaaa' });
-    await crowd.reports.post(REPORT, 'report-bbbbbbbb');
-    await crowd.reports.post({ ...REPORT, liveMap: false }, 'report-cccccccc');
-    expect(ENERGY_NO_GPS_REPORT).toBe(0);
-    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME - 3 + ENERGY_GPS_REPORT);
-    advance(DAY);
-    await crowd.reports.post(REPORT, 'report-dddddddd');
+    await crowd.reports.post({ ...REPORT, vehicleId: 'R4-02' }, 'report-bbbbbbbb');
+    await crowd.reports.post({ ...REPORT, vehicleId: 'R4-03', liveMap: false }, 'report-cccccccc');
+    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME - 4 + 2 * ENERGY_LIVE_REPORT + ENERGY_FEED_REPORT);
+    const history = (await energy.refresh())?.history.map((row) => row.kind);
+    expect(history?.slice(0, 3)).toEqual(['feed_report', 'live_report', 'live_report']);
+    // The cap of 5 holds
+    await crowd.reports.post({ ...REPORT, vehicleId: 'R4-04' }, 'report-dddddddd');
+    await crowd.reports.post({ ...REPORT, vehicleId: 'R5-01' }, 'report-eeeeeeee');
     expect(await balanceOf(energy)).toBe(ENERGY_WALLET_CAP);
+  });
+
+  it('RL2b: the same multicab within 3 hours is refused, even with another between; after 3 hours it earns again', async () => {
+    const { energy, crowd, spend, advance } = setup();
+    await spend(4);
+    await crowd.reports.post(REPORT, 'report-aaaaaaaa');
+    await crowd.reports.post({ ...REPORT, vehicleId: 'R4-02' }, 'report-bbbbbbbb');
+    advance(2 * HOUR);
+    expect(await crowd.reports.post(REPORT, 'report-cccccccc')).toEqual({ ok: false, reason: 'same_vehicle' });
+    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME - 4 + 2 * ENERGY_LIVE_REPORT);
+    advance(RELAY_SAME_VEHICLE_GAP_H * HOUR - 2 * HOUR);
+    expect((await crowd.reports.post(REPORT, 'report-dddddddd')).ok).toBe(true);
   });
 
   it('waiting refills: the first refill comes 12 hours after the welcome, not at the first spend', async () => {
@@ -143,13 +158,13 @@ describe('the demo loop (CA1.1): start full, spend on check-ins and tracking, ea
     expect(await balanceOf(energy)).toBe(ENERGY_WELCOME - 2 + ENERGY_PASSIVE_AMOUNT);
   });
 
-  it('tracking spends from the wallet, and a GPS relay pays for more', async () => {
+  it('tracking spends from the wallet, and a relay on the live map pays for more', async () => {
     const { energy, crowd, spend } = setup();
     await spend(5);
     expect(await energy.startTracking('track-bbbbbbbb')).toEqual({ ok: false, reason: 'not_enough_energy' });
     await crowd.reports.post(REPORT, 'report-aaaaaaaa');
     expect((await energy.startTracking('track-cccccccc')).ok).toBe(true);
-    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME + ENERGY_GPS_REPORT - 6 * ENERGY_TRACKING_COST);
+    expect(await balanceOf(energy)).toBe(ENERGY_WELCOME + ENERGY_LIVE_REPORT - 6 * ENERGY_TRACKING_COST);
   });
 
   it('RL2a: an own demo relay stays while kept, lapses RELAY_POST_GRACE_MIN after the last signal, and ends at once', async () => {
@@ -262,6 +277,11 @@ describe('the live check-ins and reports', () => {
     await expect(crowd.checkins.end()).resolves.toBeUndefined();
     const failing = createLiveCrowd(port({ postReport: async () => ({ code: '42501', message: 'sign in to take part' }) }));
     expect(await failing.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: false, reason: 'error', message: 'sign in to take part' });
+  });
+
+  it('RL2b: the same multicab within 3 hours comes back as same_vehicle', async () => {
+    const crowd = createLiveCrowd(port({ postReport: async () => ({ code: 'P0001', message: 'you already relayed this multicab' }) }));
+    expect(await crowd.reports.post(REPORT, 'report-aaaaaaaa')).toEqual({ ok: false, reason: 'same_vehicle' });
   });
 
   it('RL2a: a relay without a valid beacon comes back as no_beacon; another P0001 stays an error', async () => {

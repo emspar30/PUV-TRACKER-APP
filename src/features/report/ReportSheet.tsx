@@ -8,12 +8,12 @@ import { Button, Chip } from '@/components';
 import type { VehiclesRepository } from '@/data/repositories/types';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { useBoardingEndsCheckIn } from '@/features/checkin/useBoardingEndsCheckIn';
-import { isNight, type FeedPhrase } from '@/shared/backend/rules';
+import { isNight, relayedRecently, type FeedPhrase } from '@/shared/backend/rules';
 import { promptSignIn } from '@/features/auth/promptSignIn';
 import { PlaceResults } from '@/features/search/PlaceResults';
 import { usePlaceMatches, useSearchablePlaces } from '@/features/search/useSearchablePlaces';
 import { useRoutesVehicles } from '@/features/vehicles/useRoutesVehicles';
-import { DEMO_BEACON_RANGE_M, ENERGY_GPS_REPORT, ENERGY_UI_VISIBLE, FEED_PHRASES, MAX_WALK_PER_LEG_M, RELAY_BEACON_WAIT_S } from '@/shared/config';
+import { DEMO_BEACON_RANGE_M, ENERGY_FEED_REPORT, ENERGY_LIVE_REPORT, ENERGY_UI_VISIBLE, RELAY_SAME_VEHICLE_GAP_H, FEED_PHRASES, MAX_WALK_PER_LEG_M, RELAY_BEACON_WAIT_S } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
 import type { LineCoordinates } from '@/shared/geo/line';
 import { destinationOptions, nearestDestination, relayStopCode, terminalsOf } from '@/shared/relay/broadcast';
@@ -24,6 +24,7 @@ import type { SeatTier } from '@/shared/telemetry/occupancy';
 import { reportMockLocation } from '@/services/risk';
 import { sendReport } from '@/state/crowdStore';
 import { useLocationStore } from '@/state/locationStore';
+import { useRecentRelaysStore } from '@/state/recentRelaysStore';
 import { showDialog } from '@/state/dialogStore';
 import { useRelayStore } from '@/state/relayStore';
 import { useSettingsStore } from '@/state/settingsStore';
@@ -235,7 +236,10 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   // The saved choice stays as it is when the live map is not open to this account
   const liveMap = liveMapSaved && liveMapAllowed;
   const open = vehicle !== null;
-  const ready = open && seatTier !== null && destination !== null && !sending;
+  // RL2b: this phone relayed the multicab within RELAY_SAME_VEHICLE_GAP_H; the server decides too
+  const recentRelays = useRecentRelaysStore((state) => state.relays);
+  const sameVehicle = vehicle !== null && relayedRecently(recentRelays, vehicle.vehicleId, openedMs);
+  const ready = open && seatTier !== null && destination !== null && !sending && !sameVehicle;
 
   const send = async () => {
     if (!vehicle || !seatTier || !destination || sendingRef.current) return;
@@ -292,6 +296,8 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
         });
       } else if (result.reason === 'no_beacon') {
         showDialog({ tone: 'warning', title: strings.report.failedTitle, body: strings.report.gate.noBeacon });
+      } else if (result.reason === 'same_vehicle') {
+        showDialog({ tone: 'warning', title: strings.report.sameVehicle, body: strings.report.sameVehicleBody(RELAY_SAME_VEHICLE_GAP_H) });
       } else {
         showDialog({ tone: 'danger', title: strings.report.failedTitle, body: ('message' in result ? result.message : undefined) ?? strings.report.failedBody });
       }
@@ -306,9 +312,11 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
     ? strings.report.liveMapTeamOnly
     : liveMap
       ? ENERGY_UI_VISIBLE
-        ? strings.report.liveMapEarns(ENERGY_GPS_REPORT)
+        ? strings.report.liveMapEarns(ENERGY_LIVE_REPORT)
         : strings.report.liveMapShares
-      : strings.report.feedOnly;
+      : ENERGY_UI_VISIBLE
+        ? strings.report.feedEarns(ENERGY_FEED_REPORT)
+        : strings.report.feedOnly;
 
   return (
     <Animated.View style={styles.backdrop} entering={FadeIn.duration(motion.dialogMs)}>
@@ -404,6 +412,11 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
             <Text style={typography.bodySm}>{strings.report.unverified}</Text>
           </View>
 
+          {sameVehicle ? (
+            <Text style={[typography.bodySm, styles.night]}>
+              {strings.report.sameVehicle} {strings.report.sameVehicleBody(RELAY_SAME_VEHICLE_GAP_H)}
+            </Text>
+          ) : null}
           <Button label={sending ? strings.report.sending : strings.report.send} onPress={() => void send()} disabled={!ready} />
         </ScrollView>
       </Animated.View>

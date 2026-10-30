@@ -440,6 +440,13 @@ export const ENERGY_WALLET_CAP = 5;
 // Every account starts with ENERGY_WELCOME (the full wallet).
 export const ENERGY_GPS_REPORT = 1.0;
 export const ENERGY_NO_GPS_REPORT = 0;
+// RL2b (D10, Emjay 2026-10-23; server: 20261101000000_relay_energy): every relay has a verified
+// beacon (RL2a), and each earns, with no daily limit: on the live map ENERGY_LIVE_REPORT, in
+// Crowdsource ENERGY_FEED_REPORT. The two kinds above stay for the history of earlier relays.
+export const ENERGY_LIVE_REPORT = 1.0;
+export const ENERGY_FEED_REPORT = 0.5;
+// RL2b: a multicab the rider relayed within this many hours is refused, even with others between
+export const RELAY_SAME_VEHICLE_GAP_H = 3;
 export const ENERGY_CHECKIN_ROUTE_COST = 0.3;
 export const ENERGY_WELCOME = 5;
 export const ENERGY_PASSIVE_AMOUNT = 1;

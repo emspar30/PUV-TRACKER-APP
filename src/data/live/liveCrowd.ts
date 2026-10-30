@@ -52,6 +52,9 @@ const NOT_ENOUGH_ENERGY_MESSAGE = 'not enough energy';
 // ...and post_report when the relay has no valid beacon code (RL2a, D10)
 const NO_BEACON = 'P0001';
 const NO_BEACON_MESSAGE = 'registered multicab beacon';
+// ...and when this rider relayed the multicab within the last 3 hours (RL2b)
+const SAME_VEHICLE = 'P0001';
+const SAME_VEHICLE_MESSAGE = 'already relayed this multicab';
 
 const failure = (result: PortFailure): CloudFailure =>
   result.code === NOT_SIGNED_IN ? { ok: false, reason: 'sign_in' } : { ok: false, reason: 'error', message: result.message };
@@ -117,6 +120,7 @@ export function createLiveCrowd(port: CrowdPort): CrowdRepositories {
           if ('postId' in result) return { ok: true, postId: result.postId };
           if (result.code === NO_BEACON && result.message.includes(NO_BEACON_MESSAGE)) return { ok: false, reason: 'no_beacon' };
           if (result.code === NO_USERNAME && result.message.includes(NO_USERNAME_MESSAGE)) return { ok: false, reason: 'no_username' };
+          if (result.code === SAME_VEHICLE && result.message.includes(SAME_VEHICLE_MESSAGE)) return { ok: false, reason: 'same_vehicle' };
           return failure(result);
         } catch (error) {
           return { ok: false, reason: 'error', message: messageOf(error) };

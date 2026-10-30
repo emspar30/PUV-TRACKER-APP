@@ -69,7 +69,8 @@ export type ReportInput = {
 
 // postId: the new post's id, so the feed can mark the user's own posts "You" (EQ-7).
 // no_beacon (RL2a): the server found no valid beacon code with the relay
-export type ReportResult = { ok: true; postId?: string } | CloudFailure | { ok: false; reason: 'no_username' | 'no_beacon' };
+// RL2b: 'same_vehicle', this rider relayed the multicab within RELAY_SAME_VEHICLE_GAP_H
+export type ReportResult = { ok: true; postId?: string } | CloudFailure | { ok: false; reason: 'no_username' | 'no_beacon' | 'same_vehicle' };
 
 // RP1: the Report button. Demo keeps the posts on the phone; live calls post_report and reads
 // feed_posts. A report earns Energy (on the live map 1.0, once a Manila day; in Crowdsource 0 until RL2b).
