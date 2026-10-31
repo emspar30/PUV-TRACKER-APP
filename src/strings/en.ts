@@ -1203,6 +1203,8 @@ export const en = {
       bands: ['0', '1–4', '5–9', '10+'],
       unknown: '—',
       unknownLabel: 'No count yet',
+      // Owner, 2026-10-31: a fill stop's sub-row, named with the real stop it is listed under
+      nearLabel: (name: string, parent: string, value: string) => `${name}, near ${parent}: ${value}`,
       bandsOnly: 'Ranges only at night',
       waiting: (count: number) => `${count} waiting`,
       noStops: 'No stops for this route in this version of the app.',
