@@ -23,6 +23,7 @@ import { OriginPin } from '@/features/map/OriginPin';
 import { QueuedRelayBar, RelayBar } from '@/features/report/RelayBar';
 import { useGpsBroadcast } from '@/features/report/useGpsBroadcast';
 import { useRelayBroadcast } from '@/features/report/useRelayBroadcast';
+import { useBackgroundRelay } from '@/features/report/useBackgroundRelay';
 import { useRelayQueue } from '@/features/report/useRelayQueue';
 import { RouteLines } from '@/features/map/RouteLines';
 import { StopDots } from '@/features/map/StopDots';
@@ -239,6 +240,8 @@ export default function MapScreen() {
   // RL2c (D12): a relay queued after Send, released once the multicab moves off with the rider
   const queuedRelay = useRelayQueue(commuter, relayLines, repos.vehicles);
   const cancelQueued = useRelayStore((store) => store.dequeue);
+  // B1: the relay keeps its positions in the background, with a notification
+  useBackgroundRelay();
   // T1: a team account's relay on the live map moves its multicab's marker; buffered through dead
   // zones. RL2a: a Crowdsource relay sends no positions
   const uplink = useGpsBroadcast(relay?.mode === 'live' ? relay : null, repos.vehicles.source === 'live' && teamAccount === true);

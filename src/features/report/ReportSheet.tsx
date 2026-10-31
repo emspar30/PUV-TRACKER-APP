@@ -33,6 +33,7 @@ import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
 
 import { BleCard, RelayVehicleCard, ScanningNote } from './BleCard';
+import { confirmQueued } from './confirmQueued';
 import { useRelayLocation, type RelayLocationState } from './relayLocation';
 import { useBleVehicle, type BleState } from './useBleVehicle';
 
@@ -281,7 +282,7 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
       demo: demoData,
     });
     onClose();
-    showDialog({ tone: 'success', title: strings.report.queue.queuedTitle, body: strings.report.queue.queuedBody(destination.name) });
+    void confirmQueued(destination.name, vehicle.routeCode);
   };
 
   const colorOf = (code: string | undefined) => routes.find((option) => option.code === code)?.color ?? colors.primary;

@@ -7,6 +7,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DialogHost, ToastHost } from '@/components';
 import { RouteDataProvider } from '@/data/RouteDataProvider';
 import { TourHost } from '@/features/tour/TourHost';
+// B1: defines the background relay task at start, as TaskManager requires
+import '@/services/backgroundLocation';
 import { startEnergySync } from '@/state/energyStore';
 import { startSessionTracking } from '@/state/sessionStore';
 import { ThemeProvider, useTheme } from '@/theme';

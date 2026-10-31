@@ -9,11 +9,13 @@
       "android.permission.INTERNET",
       "android.permission.BLUETOOTH_SCAN",
       "android.permission.BLUETOOTH",
-      "android.permission.BLUETOOTH_ADMIN"
+      "android.permission.BLUETOOTH_ADMIN",
+      "android.permission.ACCESS_BACKGROUND_LOCATION",
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.FOREGROUND_SERVICE_LOCATION"
     ],
     "allowed": [],
     "forbidden": [
-      "android.permission.ACCESS_BACKGROUND_LOCATION",
       "android.permission.SEND_SMS",
       "android.permission.RECEIVE_SMS",
       "android.permission.READ_SMS",

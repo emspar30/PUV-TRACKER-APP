@@ -15,7 +15,7 @@ function toPermissionResult(response: Location.LocationPermissionResponse): Perm
   };
 }
 
-function toFix(location: Location.LocationObject): LocationFix {
+export function toFix(location: Location.LocationObject): LocationFix {
   const { coords } = location;
   return {
     lat: coords.latitude,
@@ -33,7 +33,8 @@ export async function checkLocationPermission(): Promise<PermissionResult> {
   return toPermissionResult(await Location.getForegroundPermissionsAsync());
 }
 
-// Shows the system prompt. Foreground only: background location is never requested (app.json blocks it).
+// Shows the system prompt for the foreground permission. B1 asks for background location separately
+// (services/backgroundLocation), only for a relay.
 export async function askLocationPermission(): Promise<PermissionResult> {
   return toPermissionResult(await Location.requestForegroundPermissionsAsync());
 }
@@ -80,4 +81,50 @@ export function watchFakeLocation(point: LatLon, options: FakeFixOptions, onFix:
   send();
   const timer = setInterval(send, BLUE_DOT_UPDATE_INTERVAL_S * MS_PER_SECOND);
   return () => clearInterval(timer);
+}
+
+// B1 (PRD 8.5): background location for a relay, kept in this one file that reads the GPS. The task
+// itself is in services/backgroundLocation.
+export type RawLocation = Location.LocationObject;
+
+export async function backgroundLocationGranted(): Promise<boolean> {
+  try {
+    return (await Location.getBackgroundPermissionsAsync()).granted;
+  } catch {
+    return false;
+  }
+}
+
+// Android 11 and newer open the app's location settings ("Allow all the time"); the app explains
+// why first. Needs the foreground permission already.
+export async function askBackgroundLocation(): Promise<boolean> {
+  try {
+    return (await Location.requestBackgroundPermissionsAsync()).granted;
+  } catch {
+    return false;
+  }
+}
+
+// Starts the task's location updates with a foreground service notification; true when running
+export async function startLocationTask(taskName: string, notification: { title: string; body: string }): Promise<boolean> {
+  try {
+    if (await Location.hasStartedLocationUpdatesAsync(taskName)) return true;
+    await Location.startLocationUpdatesAsync(taskName, {
+      accuracy: Location.Accuracy.High,
+      timeInterval: BLUE_DOT_UPDATE_INTERVAL_S * MS_PER_SECOND,
+      distanceInterval: BLUE_DOT_UPDATE_DISTANCE_M,
+      foregroundService: { notificationTitle: notification.title, notificationBody: notification.body, killServiceOnDestroy: true },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function stopLocationTask(taskName: string): Promise<void> {
+  try {
+    if (await Location.hasStartedLocationUpdatesAsync(taskName)) await Location.stopLocationUpdatesAsync(taskName);
+  } catch {
+    // Already stopped
+  }
 }

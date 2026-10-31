@@ -27,7 +27,7 @@ const nativeScanner: BleScanner = {
   onStopped: addScanStoppedListener,
 };
 
-function useForeground(): boolean {
+export function useForeground(): boolean {
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => setForeground(state === 'active'));
@@ -54,13 +54,15 @@ function useBluetoothOn(watch: boolean): boolean {
 // wanted: false with demo data (its multicabs are made up), so nothing is scanned or checked. A build
 // without the scanner asks for nothing either: its manifest lacks Nearby devices, which Android
 // would then report as refused for good
-// RL2c: the queue listens without keeping a multicab it no longer hears, for up to RELAY_QUEUE_MAX_MIN
-export type BleOptions = { sticky: boolean; durationMin: number };
+// RL2c: the queue listens without keeping a multicab it no longer hears, for up to RELAY_QUEUE_MAX_MIN.
+// B1: with the background relay running, it keeps listening when the app is in the background (the
+// scan filters on the beacon UUID, which Android keeps delivering with the screen off)
+export type BleOptions = { sticky: boolean; durationMin: number; background?: boolean };
 
 export function useBleVehicle(wanted: boolean, options?: BleOptions): BleState {
   const nearby = useNearbyPermission(wanted && isScanAvailable());
   const foreground = useForeground();
-  const scan = nearby.status === 'granted' && foreground;
+  const scan = nearby.status === 'granted' && (foreground || options?.background === true);
   const [view, setView] = useState<BleView | null>(null);
   // Bluetooth turned on or off starts a new session: a scan refused for Bluetooth off never starts
   // by itself, and Android ends a running scan when Bluetooth goes off

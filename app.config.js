@@ -36,12 +36,13 @@ const DRIVER_SMS_BLOCKED = ['android.permission.SEND_SMS', 'android.permission.R
 const GATEWAY_SMS_BLOCKED = ['android.permission.RECEIVE_SMS', 'android.permission.READ_SMS'];
 
 // The commuter app is exactly app.json (com.tunton.app, src/app), except that the driver-side
-// permissions are blocked as well as background location, and DR8's Bluetooth scan plugin. The
+// permissions are blocked, and DR8's Bluetooth scan plugin. B1 (D5, 2026-10-22): it holds background
+// location and a location foreground service, used only while a relay is queued or running. The
 // driver and gateway apps have no location at all: the system tracks vehicles, not drivers (PRD 3.2,
 // 9.1), and the gateway only texts. Neither scans.
 const SETTINGS = {
   commuter: {
-    blocked: ['android.permission.ACCESS_BACKGROUND_LOCATION', ...DRIVER_SIDE_ONLY, ...NEVER],
+    blocked: [...DRIVER_SIDE_ONLY, ...NEVER],
     plugin: './plugins/withCommuterBle',
   },
   driver: {

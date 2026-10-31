@@ -234,6 +234,25 @@ export const en = {
     // RL2b: every relay earns, the live map more
     liveMapEarns: (amount: number) => `Your multicab moves on the live map until your stop. Earns +${amount.toFixed(1)} Energy.`,
     feedEarns: (amount: number) => `Off: your relay shows in Crowdsource until your stop. No location is sent. Earns +${amount.toFixed(1)} Energy.`,
+    // B1 (PRD 8.5): the relay keeps going while the rider uses other apps
+    background: {
+      notificationTitle: (route: string) => `Sharing your ride on ${route}`,
+      notificationBody: 'Tunton keeps your relay going until your stop. Open Tunton to stop it.',
+      askTitle: 'Keep your relay going in other apps?',
+      askBody:
+        'To keep relaying while you use other apps or the screen is off, Tunton needs location "Allow all the time". It is used only while a relay is queued or running, with a notification. Otherwise the relay pauses when you leave Tunton.',
+      askAllow: 'Allow in Settings',
+      askLater: 'Not now',
+      stoppedTitle: 'Your phone stopped Tunton',
+      stoppedBody: 'Your relay paused while Tunton was in the background. To keep it running, let Tunton run in the background:',
+      vendorSteps: [
+        'Samsung: Settings, Apps, Tunton, Battery, Unrestricted.',
+        'Xiaomi or Redmi: Settings, Apps, Tunton, Battery saver, No restrictions; and turn on Autostart.',
+        'Oppo or Realme: Settings, Battery, Tunton, Allow background activity.',
+        'Vivo: Settings, Battery, Background power consumption, Tunton, Allow.',
+        'Infinix or Tecno: Phone Master, App launch management, Tunton, Manage manually, all on.',
+      ],
+    },
     // RL2c (D12): a relay waits on the phone until the multicab moves with the rider in it
     queue: {
       queuedTitle: 'Relay queued',
@@ -483,14 +502,17 @@ export const en = {
     title: 'Your location',
     intro: 'Tunton can use your location. Read this first; you can change your mind later.',
     sections: [
-      { heading: 'What is used', body: "Your phone's position and how precise it is, only while the app is open. Never in the background." },
+      {
+        heading: 'What is used',
+        body: "Your phone's position and how precise it is, while the app is open. In the background only while a relay you started is queued or running, with a notification, and only if you allow it.",
+      },
       {
         heading: 'Why',
         body: 'To show you on the map, start a trip from where you are, confirm you are at a stop when you check in, mark a report as "with GPS", and find the multicab you are in by its Bluetooth signal when you relay (Android lets apps search for Bluetooth signals only with location).',
       },
       {
         heading: 'What leaves your phone',
-        body: 'Your position is not stored or sent. A check-in sends only the stop, and a report only the nearest stop.',
+        body: 'A check-in sends only the stop, and a Crowdsource relay only the nearest stop. A relay on the live map sends your position while it runs, to move the multicab; it is kept 7 days (24 hours at night).',
       },
       {
         heading: 'Your choice',

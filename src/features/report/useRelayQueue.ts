@@ -13,11 +13,12 @@ import { queueStep, type QueueBeacons, type QueueEnd } from '@/shared/relay/queu
 import { sendReport } from '@/state/crowdStore';
 import { useRecentRelaysStore } from '@/state/recentRelaysStore';
 import { useRelayFormStore } from '@/state/relayFormStore';
+import { useBackgroundRelayStore } from '@/state/backgroundRelayStore';
 import { useRelayStore, type QueuedRelay } from '@/state/relayStore';
 import { showToast } from '@/state/toastStore';
 import { strings } from '@/strings';
 
-import { useBleVehicle, type BleState } from './useBleVehicle';
+import { useBleVehicle, useForeground, type BleState } from './useBleVehicle';
 
 const MS_PER_S = 1000;
 const NO_ROUTES: readonly string[] = [];
@@ -62,8 +63,12 @@ export function useRelayQueue(position: LatLon | null, lines: readonly LineCoord
   const { stops } = useRouteData();
   const demo = queued?.demo === true;
 
+  // B1: in the background the queue runs only with the background relay; otherwise it pauses
+  const backgroundOn = useBackgroundRelayStore((store) => store.running);
+  const foreground = useForeground();
+  const paused = !foreground && !backgroundOn;
   // The form's own scan stops as it closes; this one starts after, so the two never overlap
-  const ble = useBleVehicle(queued !== null && !demo && !formOpen, { sticky: false, durationMin: RELAY_QUEUE_MAX_MIN });
+  const ble = useBleVehicle(queued !== null && !demo && !formOpen, { sticky: false, durationMin: RELAY_QUEUE_MAX_MIN, background: backgroundOn });
   const fleet = useMemo<VehiclesRepository>(() => (vehicles.subscribeAll ? { ...vehicles, subscribe: vehicles.subscribeAll } : vehicles), [vehicles]);
   const demoRoutes = useMemo(() => (queued && demo ? [queued.queue.routeCode] : NO_ROUTES), [queued, demo]);
   const demoFleet = useRoutesVehicles(fleet, demoRoutes, !demo);
@@ -91,6 +96,11 @@ export function useRelayQueue(position: LatLon | null, lines: readonly LineCoord
 
   useEffect(() => {
     if (!queued || releasing.current) return;
+    // Paused: the time away does not count as walking away
+    if (paused) {
+      if (nowMs > queued.queue.lastHeardMs) useRelayStore.getState().setQueue({ ...queued.queue, lastHeardMs: nowMs });
+      return;
+    }
     const step = queueStep(queued.queue, {
       beacons,
       position: rider,
@@ -148,7 +158,7 @@ export function useRelayQueue(position: LatLon | null, lines: readonly LineCoord
         releasing.current = false;
       });
     // The step is worked out again on each tick, beacon or position change
-  }, [queued, beacons, rider, lines, nowMs, demo, payloadHex, stops]);
+  }, [queued, beacons, rider, lines, nowMs, demo, payloadHex, stops, paused]);
 
   return queued;
 }
