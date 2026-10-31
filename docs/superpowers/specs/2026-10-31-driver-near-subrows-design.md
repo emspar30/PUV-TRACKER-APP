@@ -35,7 +35,7 @@ Fill stops sit only where the line is more than 300 m from a real stop, so stops
 ## Code
 
 - `src/shared/driver/heatmapView.ts`, pure, no React:
-  - `HeatmapStop` gains `lat` and `lon`. The route stops already carry them.
+  - `heatmapView` becomes generic over the stop type, so its rows keep the route stops' `lat` and `lon`. `HeatmapStop` itself stays `{ code, name }`, so callers without positions keep working.
   - New `groupRows(rows): HeatmapGroup[]`. A `HeatmapGroup` is `{ stop: HeatmapRow; near: HeatmapRow[] }`, where `near` holds the fill stops with someone waiting, in riding order. It applies the grouping rule above, and the "someone waiting" filter.
   - A route with no real stops (not expected) shows its fill stops as plain rows, so nothing disappears.
 - `src/driver/features/heatmap/HeatmapList.tsx` draws the groups. The parent row is unchanged. Sub-rows use a new indented, smaller row style.
