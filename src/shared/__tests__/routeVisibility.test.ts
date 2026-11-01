@@ -1,5 +1,5 @@
 import { UNSELECTED_ROUTE_OPACITY } from '../config';
-import { compareRouteCodes, isSingleLegRoute, toggleRoute, returnStyledIds, routeCodesOf, routesAtStop, routeVisibility, stopsForRoute } from '../ui/routeVisibility';
+import { compareRouteCodes, isSingleLegRoute, pingedRoutesAtStop, toggleRoute, returnStyledIds, routeCodesOf, routesAtStop, routeVisibility, stopsForRoute } from '../ui/routeVisibility';
 
 import { FIXTURE_OUTBOUND, FIXTURE_RETURN, FIXTURE_STOPS, pointAt } from './fixtures/routeFixture';
 
@@ -87,6 +87,13 @@ describe('stops of a route', () => {
     const shared = { ...FIXTURE_STOPS[0], routeCodes: ['T1', 'T2'] };
     expect(routesAtStop(LINES, shared)).toEqual(['T1', 'T2']);
     expect(routesAtStop(LINES, T2_STOP)).toEqual(['T2']);
+  });
+
+  it('a near check-in keeps only the pinged routes that stop at its stop, in their order (CA3)', () => {
+    const shared = { ...FIXTURE_STOPS[0], routeCodes: ['T1', 'T2'] };
+    expect(pingedRoutesAtStop(LINES, T2_STOP, ['T1', 'T2'])).toEqual(['T2']);
+    expect(pingedRoutesAtStop(LINES, shared, ['T2', 'T1'])).toEqual(['T2', 'T1']);
+    expect(pingedRoutesAtStop(LINES, T2_STOP, ['T1'])).toEqual([]);
   });
 
   it('no route gives no stops', () => {

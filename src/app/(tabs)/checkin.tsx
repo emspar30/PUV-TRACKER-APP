@@ -37,7 +37,7 @@ import {
 import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { haversineMeters } from '@/shared/geo/haversine';
 import type { RouteDirection, RouteStop } from '@/shared/routing/types';
-import { routeCodesOf, routesAtStop, stopsForRoute, toggleRoute } from '@/shared/ui/routeVisibility';
+import { pingedRoutesAtStop, routeCodesOf, routesAtStop, stopsForRoute, toggleRoute } from '@/shared/ui/routeVisibility';
 import { useCheckInStore } from '@/state/checkinStore';
 import { reportMockLocation } from '@/services/risk';
 import { checkIn as cloudCheckIn, endCheckIn, useCrowd } from '@/state/crowdStore';
@@ -277,7 +277,9 @@ export default function CheckInScreen() {
     setSending(true);
     try {
       // The filtered route comes first, so it stays the check-in's main route
-      const routes = filter && pinged.includes(filter) ? [filter, ...pinged.filter((value) => value !== filter)] : [...pinged];
+      const ordered = filter && pinged.includes(filter) ? [filter, ...pinged.filter((value) => value !== filter)] : [...pinged];
+      // CA3: near the route, only the pinged routes that stop at the counted stop reach a driver
+      const routes = near && 'stop' in fence ? pingedRoutesAtStop(lines, fence.stop, ordered) : ordered;
       const result = await cloudCheckIn(routes, code, standingAt && standingAt.source !== 'pin' ? standingAt : undefined, near);
       if (!result.ok) {
         if (result.reason === 'sign_in') promptSignIn();

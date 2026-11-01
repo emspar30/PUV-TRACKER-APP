@@ -68,6 +68,13 @@ export function routesAtStop(lines: readonly Pick<DirectedLine, 'routeCode' | 'c
   return routeCodesOf(lines).filter((code) => stopsForRoute(lines, [stop], code).length > 0);
 }
 
+// CA3: a near check-in is stored at one stop for every route it pings, and the SMS worker counts a
+// route only at its own stops. So only the pinged routes that stop at that stop are sent, in order.
+export function pingedRoutesAtStop(lines: readonly Pick<DirectedLine, 'routeCode' | 'coordinates'>[], stop: RouteStop, routes: readonly string[]): string[] {
+  const atStop = routesAtStop(lines, stop);
+  return routes.filter((code) => atStop.includes(code));
+}
+
 // Return lines drawn in the return style (the pale band with dashes): only a return that runs
 // alongside a stored outbound of the same route. A route with a single stored leg (R4 and R5 in
 // RR1) draws that leg as a solid line with arrows, like an outbound.
