@@ -8,6 +8,7 @@ import { batonEligible } from '@/shared/relay/baton';
 import { relayProgress } from '@/shared/relay/progress';
 import { relayHeartbeat, relayLeave } from '@/services/baton';
 import { useRelayStore } from '@/state/relayStore';
+import { fieldLog } from '@/state/fieldLogStore';
 
 const MS_PER_S = 1000;
 const PERCENT = 100;
@@ -47,7 +48,11 @@ export function useRelayBaton(position: LatLon | null, lines: readonly LineCoord
       const progress = relayProgress({ session, position: positionRef.current, lines: linesRef.current, speedKmh: null, capFromMs: watch.capFromMs, nowMs: Date.now() });
       const changed = joinedStop.current !== session.destination.code;
       const role = await relayHeartbeat(vehicleId, progress.leftM ?? 0, batonEligible(pct, lowPower, positionRef.current !== null), changed);
-      if (!cancelled && role && useRelayStore.getState().session === session) useRelayStore.getState().setBaton(role);
+      if (!cancelled && role && useRelayStore.getState().session === session) {
+        // S10: a role change (a handoff to this phone is secondary, then primary)
+        if (useRelayStore.getState().baton !== role) fieldLog(role);
+        useRelayStore.getState().setBaton(role);
+      }
     };
     void beat();
     const timer = setInterval(() => void beat(), BATON_HEARTBEAT_S * MS_PER_S);

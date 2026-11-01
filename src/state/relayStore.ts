@@ -6,6 +6,7 @@ import { renewedWatch, startWatch, type RelayWatch } from '@/shared/relay/limits
 import type { BatonRole } from '@/shared/relay/baton';
 import type { RelayQueue } from '@/shared/relay/queue';
 import type { WindowReason } from '@/shared/verification/verifyWindow';
+import { fieldLog } from './fieldLogStore';
 
 // B4: the relay sent with GPS, shared until the rider reaches their destination. Outside the Map
 // screen's state so other tabs keep it going. Not saved: a restart of the app ends it.
@@ -56,8 +57,14 @@ export const useRelayStore = create<RelayState>((set) => ({
   setBaton: (baton) => set((state) => (state.session ? { baton } : {})),
   watch: startWatch(0),
   queued: null,
-  start: (session) => set({ session, watch: startWatch(session.startedMs), queued: null, verification: { status: 'pending', reasons: [] }, baton: null }),
-  stop: () => set({ session: null, watch: startWatch(0), verification: null, baton: null }),
+  start: (session) => {
+    fieldLog('relay_start', undefined, `${session.routeCode} ${session.mode}`);
+    set({ session, watch: startWatch(session.startedMs), queued: null, verification: { status: 'pending', reasons: [] }, baton: null });
+  },
+  stop: () => {
+    if (useRelayStore.getState().session) fieldLog('relay_end');
+    set({ session: null, watch: startWatch(0), verification: null, baton: null });
+  },
   setWatch: (watch) => set({ watch }),
   renew: (nowMs) => set((state) => (state.session ? { watch: renewedWatch(state.watch, nowMs) } : {})),
   enqueue: (queued) => set({ queued }),

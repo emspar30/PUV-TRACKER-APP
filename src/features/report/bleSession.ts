@@ -4,6 +4,7 @@ import { pickBeacon, updateBeacon, type BeaconTrack } from '@/shared/beacon/pres
 import { ARMED_SCAN_MIN, BEACON_PAYLOAD_VERSION, BEACON_SCAN_MODE, BEACON_SERVICE_UUID } from '@/shared/config';
 
 import type { BeaconReading, EventSubscription, ScanOptions, ScanStart, ScanStopped } from '../../../modules/tunton-beacon';
+import { fieldLog } from '@/state/fieldLogStore';
 
 // DR8: one Bluetooth scan while the Relay panel is open (PRD 8.1 to 8.2, 10.1). Readings are tracked
 // per beacon (its short id, which stays the same while the code rotates); a beacon present for
@@ -117,6 +118,8 @@ export function createBleSession({ scanner, verify, now, onChange, sticky = true
     const code = payload ? decodeBeacon(payload) : null;
     if (!code || code.version !== BEACON_PAYLOAD_VERSION || code.shortId === 0) return;
     tracks.set(code.shortId, updateBeacon(tracks.get(code.shortId), reading.rssi, reading.atMs));
+    // S10 (E1, E2): the raw signal, thinned by the log
+    fieldLog('rssi', reading.rssi, String(code.shortId));
     latest.set(code.shortId, { payloadHex: reading.payloadHex.toLowerCase(), slotLow: code.slotLow });
     evaluate();
   };

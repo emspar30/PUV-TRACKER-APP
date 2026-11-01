@@ -902,6 +902,34 @@ export const en = {
     appealExists: 'You already appealed this strike.',
   },
 
+  // S10 (PRD 17.1): the field test log
+  fieldLog: {
+    title: 'Field test log',
+    entry: 'Field test log',
+    entryBody: 'Battery, data, Bluetooth and verification during relays',
+    body: 'For the field experiments (docs/FIELD_TESTS.md). While recording, Tunton notes each relay, the battery every 5 minutes, the data it sends, background gaps, Bluetooth signal, verification results and who shares a multicab. It stays on this phone until you export it.',
+    recording: 'Recording',
+    events: (count: number) => `${count} ${count === 1 ? 'event' : 'events'} recorded`,
+    summary: 'Summary',
+    none: 'not measured yet',
+    pctPerHour: '% per hour',
+    kbPerHour: 'KB per hour',
+    relays: (count: number, hours: number) => `${count} ${count === 1 ? 'relay' : 'relays'}, ${hours.toFixed(1)} h in all`,
+    battery: (value: string) => `Battery while relaying: ${value}`,
+    data: (value: string) => `Data sent while relaying: ${value} (target under 150 KB)`,
+    gaps: (count: number) => `Background gaps (phone stopped Tunton): ${count}`,
+    rssi: (count: number, median: number, min: number, max: number) => `Bluetooth signal: ${count} readings, median ${median} dBm (${min} to ${max})`,
+    rssiNone: 'Bluetooth signal: no readings yet',
+    verify: (rate: string, time: string) => `Verified rides: ${rate}, median time ${time}`,
+    handoffs: (count: number) => `Baton handoffs to this phone: ${count}`,
+    export: 'Export as CSV',
+    exportTitle: 'Tunton field test log',
+    clear: 'Clear the log',
+    clearTitle: 'Clear the field test log?',
+    clearBody: (count: number) => `This deletes ${count} recorded ${count === 1 ? 'event' : 'events'} from this phone. Export first if you need them.`,
+    cancel: 'Cancel',
+  },
+
   // Demo & simulation: what the emulator cannot do by itself; also works on a phone
   demo: {
     title: 'Demo & simulation',

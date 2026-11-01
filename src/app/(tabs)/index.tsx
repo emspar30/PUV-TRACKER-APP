@@ -96,6 +96,7 @@ import { DetourLines } from '@/features/detours/DetourLines';
 import { SEED_DETOURS } from '@/data/seed/detours';
 import { activeDetours } from '@/shared/routing/detours';
 import { refreshDetours, useDetourStore } from '@/state/detourStore';
+import { useFieldBattery } from '@/features/fieldtest/useFieldBattery';
 
 const LOGO_SIZE = spacing.xl * 3;
 const KMH_PER_MPS = 3.6;
@@ -255,6 +256,8 @@ export default function MapScreen() {
   }, [focused]);
   const shownDetours = useMemo(() => activeDetours(SEED_DETOURS, activeDetourIds), [activeDetourIds]);
   const relayDetours = useMemo(() => activeDetours(SEED_DETOURS, activeDetourIds, relayRoute).map((detour) => detour.coordinates), [activeDetourIds, relayRoute]);
+  // S10: the field test log's battery readings while relaying
+  useFieldBattery();
   // V1a: the running relay is checked against the verification window
   useRelayVerification(relayLines, relayDetours);
   // BT1: a team rider on the live map leads the multicab's marker or is backup

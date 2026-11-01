@@ -8,6 +8,7 @@ import { useBackgroundRelayStore } from '@/state/backgroundRelayStore';
 import { showDialog } from '@/state/dialogStore';
 import { useRelayStore } from '@/state/relayStore';
 import { strings } from '@/strings';
+import { fieldLog } from '@/state/fieldLogStore';
 
 const MS_PER_MIN = 60_000;
 
@@ -39,8 +40,12 @@ export function useBackgroundRelay(): void {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
       const { running, lastRunMs, guideShown } = useBackgroundRelayStore.getState();
-      if (!running || lastRunMs === null || guideShown) return;
-      if (Date.now() - lastRunMs <= BACKGROUND_RELAY_GAP_MIN * MS_PER_MIN) return;
+      if (!running || lastRunMs === null) return;
+      const gapMs = Date.now() - lastRunMs;
+      if (gapMs <= BACKGROUND_RELAY_GAP_MIN * MS_PER_MIN) return;
+      // S10: every gap is noted; the guide shows once
+      fieldLog('gap', Math.round(gapMs / MS_PER_MIN));
+      if (guideShown) return;
       useBackgroundRelayStore.getState().set({ guideShown: true });
       const t = strings.report.background;
       showDialog({ tone: 'warning', icon: BatteryWarning, title: t.stoppedTitle, body: [t.stoppedBody, ...t.vendorSteps].join('\n\n') });

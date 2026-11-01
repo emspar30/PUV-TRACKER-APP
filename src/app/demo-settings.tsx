@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Bus, Crosshair, MapPin, Pin, RotateCcw, Timer, VenetianMask } from 'lucide-react-native';
+import { Bus, ClipboardList, Crosshair, MapPin, Pin, RotateCcw, Timer, VenetianMask } from 'lucide-react-native';
 import { ScrollView, Text, View } from 'react-native';
 
 import { Chip, Screen, SettingsGroup, SettingsRow } from '@/components';
@@ -77,6 +77,8 @@ export default function DemoSettingsScreen() {
         {__DEV__ ? (
           <SettingsRow icon={Crosshair} tone="warning" title={strings.demo.fakeGps} subtitle={strings.demo.fakeGpsBody} value={s.fakeGps} onValueChange={s.setFakeGps} />
         ) : null}
+        {/* S10: the field experiments' log */}
+        <SettingsRow icon={ClipboardList} tone="primary" title={strings.fieldLog.entry} subtitle={strings.fieldLog.entryBody} onPress={() => router.push('/field-log')} />
       </SettingsGroup>
 
       {/* G0: the fake fix's accuracy, mock flag and age, to try the 25 m and 30 m gates */}

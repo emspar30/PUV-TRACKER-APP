@@ -586,6 +586,11 @@ export const PRIMARY_MIN_BATTERY_PCT = 30;
 export const DETOUR_REFRESH_MIN = 5;
 export const DETOUR_DASH = [2, 1.5] as const;
 export const DETOUR_WIDTH = 4;
+// S10 field test log: at most FIELD_LOG_MAX_EVENTS kept; while recording a relay, the battery is read
+// every FIELD_BATTERY_SAMPLE_MIN and a Bluetooth reading noted at most every FIELD_LOG_RSSI_EVERY_S
+export const FIELD_LOG_MAX_EVENTS = 5000;
+export const FIELD_BATTERY_SAMPLE_MIN = 5;
+export const FIELD_LOG_RSSI_EVERY_S = 2;
 export const RELAY_POST_GRACE_MIN = 15;
 export const RELAY_POST_REVIVE_MIN = 30;
 // RL2c (Emjay's D12, 2026-10-23): every relay is queued on the phone first and released (posted, or

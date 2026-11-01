@@ -10,6 +10,8 @@ import { useLocationStore } from '@/state/locationStore';
 import { useRelayStore } from '@/state/relayStore';
 import { showToast } from '@/state/toastStore';
 import { strings } from '@/strings';
+import { secondsBetween } from '@/shared/fieldtest/log';
+import { fieldLog } from '@/state/fieldLogStore';
 
 const MS_PER_S = 1000;
 const KMH_PER_MPS = 3.6;
@@ -60,6 +62,8 @@ export function useRelayVerification(lines: readonly LineCoordinates[], detours:
     const store = useRelayStore.getState();
     if (store.session !== session) return;
     store.setVerification(result);
+    // S10: the result and how long it took
+    fieldLog(result.status === 'verified' ? 'verified' : 'not_verified', secondsBetween(session.startedMs, Date.now()), result.reasons.join(' '));
     const t = strings.report.verify;
     if (result.status === 'verified') {
       if (session.post) void verifyRelayPost(session.post);
