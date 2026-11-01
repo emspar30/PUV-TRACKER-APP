@@ -303,6 +303,8 @@ export const en = {
     // V1a: the verification window of a running relay (RelayBar, toasts)
     verify: {
       pending: 'Checking your ride…',
+      // DT1: the ride follows an active detour line
+      onDetour: 'On a detour: the route is diverted for now',
       verified: 'Verified ride',
       failed: 'Not verified',
       verifiedTitle: 'Ride verified',

@@ -6,6 +6,8 @@
 //   3. Route: every usable fix within ROUTE_SNAP_DISTANCE_M of the route line. A fix is usable at
 //      VERIFY_FIX_ACCURACY_M or better (an unknown accuracy, as on the server, counts as usable).
 //   4. Displacement: MIN_DISPLACEMENT_M of progress along the line.
+// DT1 (PRD 10.5): a ride off the route line that follows an active detour line instead passes the
+// route test on that line, and the result says it is on a detour (Active Detour Mode).
 // Verified once all pass. Off the route fails at once. Otherwise pending until VERIFY_WINDOW_S, and
 // while the multicab is slow until VERIFY_WINDOW_MAX_S; then failed, with the tests that did not pass.
 // Pure TypeScript with only the server config imported, so the Edge Function (Deno) and the app use
@@ -42,16 +44,19 @@ export type WindowLine = readonly (readonly [number, number])[];
 
 export type WindowReason = 'no_beacon' | 'off_route' | 'no_motion' | 'no_displacement' | 'too_few_fixes';
 
+// onDetour (DT1): the ride follows an active detour line, not the route's own
 export type WindowResult =
-  | { status: 'verified'; reasons: [] }
-  | { status: 'pending'; reasons: WindowReason[] }
-  | { status: 'failed'; reasons: WindowReason[] };
+  | { status: 'verified'; reasons: []; onDetour?: boolean }
+  | { status: 'pending'; reasons: WindowReason[]; onDetour?: boolean }
+  | { status: 'failed'; reasons: WindowReason[]; onDetour?: boolean };
 
 export type WindowInput = {
   fixes: readonly WindowFix[];
   lines: readonly WindowLine[];
   // true: beacon verified; false: not; null: not known here (not tested)
   beaconOk: boolean | null;
+  // DT1: the route's active detour lines, tried when the ride is off its own lines
+  detours?: readonly WindowLine[];
 };
 
 type Point = { lat: number; lon: number };
@@ -114,7 +119,7 @@ function heldSpeed(fixes: readonly WindowFix[], speeds: readonly number[]): bool
   return false;
 }
 
-export function verifyWindow({ fixes, lines, beaconOk }: WindowInput): WindowResult {
+export function verifyWindow({ fixes, lines, beaconOk, detours = [] }: WindowInput): WindowResult {
   if (beaconOk === false) return { status: 'failed', reasons: ['no_beacon'] };
   const good = [...fixes].filter(usable).sort((a, b) => a.atMs - b.atMs);
   const routeLines = lines.filter((line) => line.length > 1);
@@ -123,20 +128,30 @@ export function verifyWindow({ fixes, lines, beaconOk }: WindowInput): WindowRes
     return elapsedS >= VERIFY_WINDOW_MAX_S ? { status: 'failed', reasons: ['too_few_fixes'] } : { status: 'pending', reasons: ['too_few_fixes'] };
   }
 
-  // The line the ride follows: the one nearest the first fix
+  // The line the ride follows: the one nearest the first fix; off it, an active detour the whole ride
+  // stays on (DT1)
   const line = routeLines.reduce((best, candidate) => (onLine(candidate, good[0]).offsetM < onLine(best, good[0]).offsetM ? candidate : best));
-  const placed = good.map((fix) => onLine(line, fix));
-  if (placed.some((place) => place.offsetM > ROUTE_SNAP_DISTANCE_M)) return { status: 'failed', reasons: ['off_route'] };
+  const along = (candidate: WindowLine) => good.map((fix) => onLine(candidate, fix));
+  const within = (places: { offsetM: number }[]) => places.every((place) => place.offsetM <= ROUTE_SNAP_DISTANCE_M);
+  let placed = along(line);
+  let onDetour = false;
+  if (!within(placed)) {
+    const detour = detours.filter((candidate) => candidate.length > 1).map(along).find(within);
+    if (!detour) return { status: 'failed', reasons: ['off_route'] };
+    placed = detour;
+    onDetour = true;
+  }
+  const tag = onDetour ? { onDetour: true } : {};
 
   const speeds = speedsKmh(good);
   const moving = heldSpeed(good, speeds);
   const progressM = Math.max(...placed.map((place) => Math.abs(place.alongM - placed[0].alongM)));
   const displaced = progressM >= MIN_DISPLACEMENT_M;
-  if (moving && displaced) return { status: 'verified', reasons: [] };
+  if (moving && displaced) return { status: 'verified', reasons: [], ...tag };
 
   const reasons: WindowReason[] = [...(moving ? [] : ['no_motion' as const]), ...(displaced ? [] : ['no_displacement' as const])];
   const elapsedS = (good[good.length - 1].atMs - good[0].atMs) / MS_PER_S;
   const slowNow = speeds[speeds.length - 1] < MOTION_SPEED_FALLBACK_KMH;
   const limitS = slowNow ? VERIFY_WINDOW_MAX_S : VERIFY_WINDOW_S;
-  return elapsedS < limitS ? { status: 'pending', reasons } : { status: 'failed', reasons };
+  return elapsedS < limitS ? { status: 'pending', reasons, ...tag } : { status: 'failed', reasons, ...tag };
 }

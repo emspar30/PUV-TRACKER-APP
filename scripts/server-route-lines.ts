@@ -1,5 +1,5 @@
 // V1a: writes supabase/functions/_shared/routeLines.generated.ts, each route's lines for the ingest
-// function's verification window (verifyWindow.ts). The Edge Function can load files only from its
+// function's verification window (verifyWindow.ts), and DT1's detour lines (src/data/seed/detours.ts). The Edge Function can load files only from its
 // own folder, so the app's route data is copied there; a test checks the copy is current. Rerun after
 // the lines change (routes.generated.ts).
 // Run: npx tsx scripts/server-route-lines.ts
@@ -7,10 +7,13 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { SEED_DETOURS } from '../src/data/seed/detours';
 import { SEED_LINES } from '../src/data/seed/routes';
 
 const COORD_DECIMALS = 6;
 const routes = [...new Set(SEED_LINES.map((line) => line.routeCode))].sort();
+const coords = (coordinates: readonly number[][]) => `[${coordinates.map(([lon, lat]) => `[${lon.toFixed(COORD_DECIMALS)}, ${lat.toFixed(COORD_DECIMALS)}]`).join(', ')}]`;
+const detours = SEED_DETOURS.map((detour) => `  '${detour.id}': { route: '${detour.routeCode}', line: ${coords(detour.coordinates)} },`);
 const lines = routes.map((route) => {
   const ofRoute = SEED_LINES.filter((line) => line.routeCode === route).map(
     (line) => `[${line.coordinates.map(([lon, lat]) => `[${lon.toFixed(COORD_DECIMALS)}, ${lat.toFixed(COORD_DECIMALS)}]`).join(', ')}]`,
@@ -25,6 +28,11 @@ import type { WindowLine } from './verifyWindow.ts';
 
 export const ROUTE_LINES: Record<string, WindowLine[]> = {
 ${lines.join('\n')}
+};
+
+// DT1: the known detour lines by id, each with its route. Used only while active (active_detours).
+export const DETOUR_LINES: Record<string, { route: string; line: WindowLine }> = {
+${detours.join('\n')}
 };
 `;
 

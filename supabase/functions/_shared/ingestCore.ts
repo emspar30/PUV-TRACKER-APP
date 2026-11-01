@@ -3,7 +3,7 @@
 
 import { newPassages, type PassStop } from './nodePassage.ts';
 import { isBatch, validateBatch, validatePacket, type PacketError, type TelemetryPacket } from './packet.ts';
-import { ROUTE_LINES } from './routeLines.generated.ts';
+import { DETOUR_LINES, ROUTE_LINES } from './routeLines.generated.ts';
 import { ROUTE_STOPS } from './routeStops.generated.ts';
 import { isImpossibleJump, type TimedPoint } from './speedJump.ts';
 import { NODE_PASS_GAP_MIN, PACKET_MAX_AGE_S, PACKET_MAX_BYTES, STATIONARY_SPEED_KMH, TELEMETRY_BATCH_MAX_BYTES, VERIFY_WINDOW_MAX_S } from './serverConfig.ts';
@@ -54,7 +54,7 @@ export type IngestDeps = {
   // route_id: for NM1's stop passages (absent in older fakes: no passages are recorded)
   getVehicle(vehicleId: string): Promise<{ active: boolean; route_id?: string } | null>;
   // lat and lon: for RK1's speed jump check (absent in older fakes: no check)
-  getLatest(vehicleId: string): Promise<(Pick<TelemetryLatestRow, 'packet_ts' | 'stopped_since'> & Partial<Pick<TelemetryLatestRow, 'lat' | 'lon' | 'verified'>>) | null>;
+  getLatest(vehicleId: string): Promise<(Pick<TelemetryLatestRow, 'packet_ts' | 'stopped_since'> & Partial<Pick<TelemetryLatestRow, 'lat' | 'lon' | 'verified' | 'verification_reasons'>>) | null>;
   upsertLatest(row: TelemetryLatestRow): Promise<void>;
   // The newest packet_ts in the vehicle's history, or null when it has none
   getHistoryNewest(vehicleId: string): Promise<string | null>;
@@ -69,6 +69,10 @@ export type IngestDeps = {
   // V1a: the vehicle's history from `sinceIso` on, oldest first, for the verification window.
   // Optional: without it a position stays unverified ("no_window").
   recentHistory?(vehicleId: string, sinceIso: string): Promise<TelemetryHistoryRow[]>;
+  // DT1: the active detours (active_detours) by id, and a route's relay failing the route test
+  // (note_off_route; the third in a day raises an unknown_detour alert). Optional; must not throw.
+  activeDetours?(): Promise<string[]>;
+  noteOffRoute?(routeId: string): Promise<void>;
   // BT1: the multicab's live Primary rider (relay_primary), or null when it has none. Optional: without
   // it every allowlisted rider moves the marker, as before BT1.
   primaryOf?(vehicleId: string): Promise<string | null>;
@@ -163,7 +167,9 @@ async function reportContext(
       ...stored.map((row) => ({ lat: row.lat, lon: row.lon, atMs: new Date(row.packet_ts).getTime(), speedKmh: row.speed_kmh })),
       ...extra.map((point) => ({ lat: point.lat, lon: point.lon, atMs: point.ts * MS_PER_S, speedKmh: point.speed })),
     ].filter((fix) => fix.atMs >= sinceMs && fix.atMs < atMs);
-    return { history, lines: routeId ? (ROUTE_LINES[routeId] ?? []) : [], stillVerified };
+    const active = deps.activeDetours ? await deps.activeDetours().catch(() => []) : [];
+    const detours = active.map((id) => DETOUR_LINES[id]).filter((detour) => detour && detour.route === routeId).map((detour) => detour.line);
+    return { history, lines: routeId ? (ROUTE_LINES[routeId] ?? []) : [], stillVerified, detours };
   } catch {
     return undefined;
   }
@@ -195,6 +201,22 @@ async function recordPassages(deps: IngestDeps, vehicleId: string, routeId: stri
     );
   } catch {
     // Reported by the Edge Function
+  }
+}
+
+// DT1: a vehicle that just failed the route test (it did not before) counts toward an unknown detour
+async function noteOffRoute(
+  deps: IngestDeps,
+  routeId: string | undefined,
+  latest: { verification_reasons?: string[] } | null,
+  row: TelemetryLatestRow,
+): Promise<void> {
+  if (!routeId || !deps.noteOffRoute || !row.verification_reasons.includes('off_route')) return;
+  if (latest?.verification_reasons?.includes('off_route')) return;
+  try {
+    await deps.noteOffRoute(routeId);
+  } catch {
+    // Best effort
   }
 }
 
@@ -282,6 +304,7 @@ export async function handleIngest(request: IngestRequest, deps: IngestDeps): Pr
 
   // 5. Stopped tracking: remember when the current run of stopped packets began
   const row = latestRow(packet, stoppedSinceAfter(latest?.stopped_since ?? null, [packet]), await reportContext(deps, packet, vehicle.route_id, latest));
+  await noteOffRoute(deps, vehicle.route_id, latest, row);
   await deps.upsertLatest(row);
   // SB1: every accepted position is kept for speed samples. The marker has moved already, so a
   // failed history insert does not fail the request.
@@ -346,7 +369,9 @@ async function handleBatch(
   else {
     const sinceMarker = points.filter((point) => latestMs === null || point.ts * MS_PER_S > latestMs);
     const context = await reportContext(deps, newest, vehicle.route_id, latest, points.slice(0, -1));
-    await deps.upsertLatest(latestRow(newest, stoppedSinceAfter(latest?.stopped_since ?? null, sinceMarker), context));
+    const row = latestRow(newest, stoppedSinceAfter(latest?.stopped_since ?? null, sinceMarker), context);
+    await noteOffRoute(deps, vehicle.route_id, latest, row);
+    await deps.upsertLatest(row);
     outcome = 'accepted';
   }
 

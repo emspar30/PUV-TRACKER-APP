@@ -63,6 +63,7 @@ import {
   TRACKING_SESSION_MIN,
   SKELETON_MIN_MS,
   TOUR_START_DELAY_MS,
+  DETOUR_REFRESH_MIN,
 } from '@/shared/config';
 import { bestAlternative, overlappingRoutes } from '@/shared/routing/alternatives';
 import { nearestStop } from '@/shared/routing/describe';
@@ -91,9 +92,14 @@ import { useRelayStore } from '@/state/relayStore';
 import { useTrackingStore } from '@/state/trackingStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
+import { DetourLines } from '@/features/detours/DetourLines';
+import { SEED_DETOURS } from '@/data/seed/detours';
+import { activeDetours } from '@/shared/routing/detours';
+import { refreshDetours, useDetourStore } from '@/state/detourStore';
 
 const LOGO_SIZE = spacing.xl * 3;
 const KMH_PER_MPS = 3.6;
+const MS_PER_MIN = 60_000;
 // CA1.1: a camera report within this many zoom levels of where the zoom buttons sent it has arrived
 const ZOOM_SETTLED = 0.01;
 const ICON_SIZE = spacing.md + spacing.xs;
@@ -239,8 +245,18 @@ export default function MapScreen() {
   const fix = useLocationStore((store) => store.fix);
   // B4: a relay runs until the rider reaches their destination
   const relay = useRelayBroadcast(commuter);
+  // DT1: the active detours, read while the Map is open; the relay's route's go to its verification
+  const activeDetourIds = useDetourStore((store) => store.activeIds);
+  useEffect(() => {
+    if (!focused) return undefined;
+    void refreshDetours();
+    const timer = setInterval(() => void refreshDetours(), DETOUR_REFRESH_MIN * MS_PER_MIN);
+    return () => clearInterval(timer);
+  }, [focused]);
+  const shownDetours = useMemo(() => activeDetours(SEED_DETOURS, activeDetourIds), [activeDetourIds]);
+  const relayDetours = useMemo(() => activeDetours(SEED_DETOURS, activeDetourIds, relayRoute).map((detour) => detour.coordinates), [activeDetourIds, relayRoute]);
   // V1a: the running relay is checked against the verification window
-  useRelayVerification(relayLines);
+  useRelayVerification(relayLines, relayDetours);
   // BT1: a team rider on the live map leads the multicab's marker or is backup
   useRelayBaton(commuter, relayLines, repos.vehicles.source === 'live' && teamAccount === true);
   // RL2c (D12): a relay queued after Send, released once the multicab moves off with the rider
@@ -615,6 +631,7 @@ export default function MapScreen() {
         }}
       >
         <RouteLines lines={layers.lines} visible={directions} opacity={layers.opacity} />
+        <DetourLines detours={shownDetours} />
         <StopDots stops={layers.stops} selectedCode={selectedStop} onPressStop={selectStop} />
         {!selectedRoute ? (
           <VehicleMarkers

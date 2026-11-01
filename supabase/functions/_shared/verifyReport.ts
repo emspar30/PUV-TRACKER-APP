@@ -35,6 +35,8 @@ export type ReportContext = {
   history: readonly WindowFix[];
   lines: readonly WindowLine[];
   stillVerified: boolean;
+  // DT1: the route's active detour lines
+  detours?: readonly WindowLine[];
 };
 
 export function verifyReport(report: TelemetryPacket, context?: ReportContext): VerificationResult {
@@ -44,8 +46,10 @@ export function verifyReport(report: TelemetryPacket, context?: ReportContext): 
   if (context.stillVerified) return { status: 'verified', reasons: [] };
   const fixes = [...context.history, { lat: report.lat, lon: report.lon, atMs: report.ts * MS_PER_S, speedKmh: report.speed }];
   // The beacon is checked on the phone before a relay is sent (DR8), not known here
-  const result = verifyWindow({ fixes, lines: context.lines, beaconOk: null });
-  return result.status === 'verified' ? { status: 'verified', reasons: [] } : { status: 'unverified', reasons: [result.status, ...result.reasons] };
+  const result = verifyWindow({ fixes, lines: context.lines, beaconOk: null, detours: context.detours });
+  // DT1: a ride on an active detour says so
+  const detour = result.onDetour ? ['on_detour'] : [];
+  return result.status === 'verified' ? { status: 'verified', reasons: detour } : { status: 'unverified', reasons: [result.status, ...result.reasons, ...detour] };
 }
 
 export function verifyCheckIn(_checkIn: CheckInReport): VerificationResult {

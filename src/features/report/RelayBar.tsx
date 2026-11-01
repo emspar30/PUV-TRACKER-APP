@@ -121,6 +121,11 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
                 {t.verify[verification.status]}
               </Text>
             ) : null}
+            {verification?.onDetour ? (
+              <Text style={[typography.labelMd, styles.unverified]} numberOfLines={1}>
+                {t.verify.onDetour}
+              </Text>
+            ) : null}
           </View>
           <Chevron color={colors.textSecondary} size={ICON_SIZE} />
         </Pressable>

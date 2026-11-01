@@ -19,7 +19,8 @@ const KMH_PER_MPS = 3.6;
 // with each new fix and every VERIFY_CHECK_S, until the window decides. Verified: a toast, and the
 // relay's Crowdsource post is marked verified. Not verified: a toast with the reason; the relay goes on,
 // unverified. The live map's marker is judged by the server the same way (ingest).
-export function useRelayVerification(lines: readonly LineCoordinates[]): void {
+// detours (DT1): the relay's route's active detour lines
+export function useRelayVerification(lines: readonly LineCoordinates[], detours: readonly LineCoordinates[] = []): void {
   const session = useRelayStore((store) => store.session);
   const status = useRelayStore((store) => store.verification?.status ?? null);
   const fix = useLocationStore((store) => store.fix);
@@ -54,7 +55,7 @@ export function useRelayVerification(lines: readonly LineCoordinates[]): void {
 
   useEffect(() => {
     if (!checking || !session) return;
-    const result = relayVerification({ fixes: fixes.current, lines, startedMs: session.startedMs, nowMs, demo: session.demo === true });
+    const result = relayVerification({ fixes: fixes.current, lines, detours, startedMs: session.startedMs, nowMs, demo: session.demo === true });
     if (result.status === 'pending') return;
     const store = useRelayStore.getState();
     if (store.session !== session) return;
@@ -67,5 +68,5 @@ export function useRelayVerification(lines: readonly LineCoordinates[]): void {
       const reason = result.reasons[0];
       showToast({ inbox: true, icon: ShieldAlert, title: t.failedTitle, body: t.failedBody(reason ? t.reasons[reason] : '') });
     }
-  }, [checking, session, lines, nowMs]);
+  }, [checking, session, lines, detours, nowMs]);
 }

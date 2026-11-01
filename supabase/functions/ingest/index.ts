@@ -43,7 +43,7 @@ const deps: IngestDeps = {
   getLatest: async (vehicleId) => {
     const { data, error } = await admin
       .from('telemetry_latest')
-      .select('packet_ts, stopped_since, lat, lon, verified')
+      .select('packet_ts, stopped_since, lat, lon, verified, verification_reasons')
       .eq('vehicle_id', vehicleId)
       .maybeSingle();
     if (error) throw error;
@@ -67,6 +67,17 @@ const deps: IngestDeps = {
       .maybeSingle();
     if (error) throw error;
     return data?.packet_ts ?? null;
+  },
+
+  // DT1: the active detours, and a relay off every line
+  activeDetours: async () => {
+    const { data, error } = await admin.rpc('active_detours');
+    if (error) throw error;
+    return ((data ?? []) as { alternative_id: string }[]).map((row) => row.alternative_id);
+  },
+  noteOffRoute: async (routeId) => {
+    const { error } = await admin.rpc('note_off_route', { route: routeId });
+    if (error) console.error('note_off_route failed', error.message);
   },
 
   // BT1: the multicab's live Primary rider, or null

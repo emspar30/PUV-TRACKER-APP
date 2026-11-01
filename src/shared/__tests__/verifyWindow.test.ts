@@ -1,10 +1,15 @@
 // V1a (PRD 10.2, S8): the verification window on the R4 line from the route data.
 
-import { ROUTE_LINES } from '../../../supabase/functions/_shared/routeLines.generated';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { DETOUR_LINES, ROUTE_LINES } from '../../../supabase/functions/_shared/routeLines.generated';
 import { verifyWindow, type WindowFix } from '../../../supabase/functions/_shared/verifyWindow';
+import { SEED_DETOURS } from '../../data/seed/detours';
 import { SEED_LINES } from '../../data/seed/routes';
 import { MIN_DISPLACEMENT_M, MOTION_SPEED_FALLBACK_KMH, VERIFY_WINDOW_MAX_S } from '../config';
 import { pointAtChainage } from '../geo/line';
+import { activeDetours } from '../routing/detours';
 
 const R4 = SEED_LINES.filter((line) => line.routeCode === 'R4').map((line) => line.coordinates);
 const LINE = R4[0];
@@ -72,5 +77,40 @@ describe('V1a verification window', () => {
       const app = SEED_LINES.filter((line) => line.routeCode === route).map((line) => line.coordinates.length);
       expect(ROUTE_LINES[route].map((line) => line.length)).toEqual(app);
     }
+  });
+});
+
+describe('DT1: detours in the verification window', () => {
+  // A made-up detour: the R4 line moved 100 m north, so a ride on it is off the R4 line
+  const DETOUR = LINE.map(([lon, lat]) => [lon, lat + OFF_ROUTE_M / M_PER_DEG_LAT] as const);
+  const onDetour = ride(30, 25, 5, OFF_ROUTE_M);
+
+  it('a ride on an active detour passes, and says it is on a detour', () => {
+    expect(verifyWindow({ fixes: onDetour, lines: R4, beaconOk: true, detours: [DETOUR] })).toEqual({ status: 'verified', reasons: [], onDetour: true });
+  });
+
+  it('the same ride without the detour active fails on the route', () => {
+    expect(verifyWindow({ fixes: onDetour, lines: R4, beaconOk: true })).toEqual({ status: 'failed', reasons: ['off_route'] });
+  });
+
+  it('a ride on the route itself is not on a detour, even with one active', () => {
+    expect(verifyWindow({ fixes: ride(30, 25), lines: R4, beaconOk: true, detours: [DETOUR] })).toEqual({ status: 'verified', reasons: [] });
+  });
+
+  it('the server copy of the detour lines matches the app data, and fares never read detours', () => {
+    expect(Object.keys(DETOUR_LINES).sort()).toEqual(SEED_DETOURS.map((detour) => detour.id).sort());
+    for (const detour of SEED_DETOURS) expect(DETOUR_LINES[detour.id].route).toBe(detour.routeCode);
+    expect(fs.readFileSync(path.join(__dirname, '..', 'routing', 'plan.ts'), 'utf8')).not.toMatch(/detour/i);
+    expect(fs.readFileSync(path.join(__dirname, '..', 'fare', 'fare.ts'), 'utf8')).not.toMatch(/detour/i);
+  });
+
+  it('only active detours of the route are used', () => {
+    const detours = [
+      { id: 'R4-bypass', routeCode: 'R4', name: 'Bypass', coordinates: [] },
+      { id: 'R5-bypass', routeCode: 'R5', name: 'Bypass', coordinates: [] },
+    ];
+    expect(activeDetours(detours, ['R4-bypass', 'R5-bypass'], 'R4').map((d) => d.id)).toEqual(['R4-bypass']);
+    expect(activeDetours(detours, [], 'R4')).toEqual([]);
+    expect(activeDetours(detours, ['R5-bypass']).map((d) => d.id)).toEqual(['R5-bypass']);
   });
 });

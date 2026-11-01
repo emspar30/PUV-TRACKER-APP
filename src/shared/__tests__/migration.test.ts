@@ -666,3 +666,22 @@ describe('migration: relay baton (BT1)', () => {
     expect(sql).toContain('grant execute on function public.relay_leave(text) to authenticated');
   });
 });
+
+describe('migration: detours (DT1)', () => {
+  const sql = read(['20261102000003_detours.sql']);
+
+  it('admins switch detours; riders only read the active ones; the ingest function alone counts failures', () => {
+    expect(sql).toContain("if not (public.is_admin() or (select auth.role()) = 'service_role') then raise exception 'admins only'");
+    expect(sql).toContain('select a.alternative_id, a.route_id from public.route_alternatives a where a.active');
+    expect(sql).toContain('grant execute on function public.active_detours() to authenticated, service_role');
+    expect(sql).toContain('revoke execute on function public.note_off_route(text) from public, anon, authenticated');
+    expect(sql).toContain('grant execute on function public.note_off_route(text) to service_role');
+    for (const table of ['route_alternatives', 'off_route_days']) expect(sql).toContain(`alter table public.${table} enable row level security`);
+  });
+
+  it('the third failure in a Manila day raises one unknown_detour alert', () => {
+    expect(sql).toContain('unknown_detour_alert_count smallint not null default 3');
+    expect(sql).toContain("if count_now = (select c.unknown_detour_alert_count from public.app_config c) then");
+    expect(sql).toContain("values ('unknown_detour'");
+  });
+});

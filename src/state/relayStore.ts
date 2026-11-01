@@ -25,7 +25,8 @@ export type QueuedRelay = {
 
 // V1a: the running relay's verification window: checking until the multicab has moved on its route
 // (useRelayVerification), then verified or not
-export type RelayVerification = { status: 'pending' | 'verified' | 'failed'; reasons: readonly WindowReason[] };
+// onDetour (DT1): the ride follows an active detour line
+export type RelayVerification = { status: 'pending' | 'verified' | 'failed'; reasons: readonly WindowReason[]; onDetour?: boolean };
 
 type RelayState = {
   session: RelayBroadcast | null;

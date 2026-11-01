@@ -671,6 +671,8 @@ Bridge closures force detours. A rigid route-snap rule would reject honest rider
 - **Unknown detours:** if many verified sessions on a route fall outside every stored polyline, the console flags the route so an admin can add or correct an alternative.
 - **Fare:** detours do not change the fare, which always uses the authorized route length.
 
+**Built (DT1, Nov 2, 2026; migration `20261102000003`).** Known detour lines ship with the app (`src/data/seed/detours.ts`, empty until the traced lines come in, D8) and with the ingest function (`routeLines.generated.ts`, `scripts/server-route-lines.ts`). An admin makes one active with `admin_set_detour(route, alternative, active)`; the app reads `active_detours()` when the Map opens and every 5 minutes. While active, the verification window (V1a) accepts a ride that stays on the detour instead of the route line, on the phone and in the ingest function; the relay bar says "On a detour: the route is diverted for now", and the Map draws the detour dashed yellow. Activity recognition is not required (V1b adds it). Unknown detours: the third relay on a route to fail the route test in a Manila day raises one `unknown_detour` row in `ops_alerts`. Fares never read detours.
+
 ## 11. Tokenomics, trust and moderation
 
 Incentives reward verified contribution and are limited by daily caps so they cannot be farmed. Early users are not charged for a map that is still sparse.
@@ -1210,3 +1212,4 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 31. **Sections 0.7 and 10.2 (Nov 2, 2026, V1a):** the verification window is built and `ENABLE_VERIFICATION` is on: speed fallback, 30 m route snap, 50 m displacement and the beacon, on the phone (relay bar, verified Crowdsource posts) and in the ingest function (verified markers). Relays stay public at release and earn at release (RL2b).
 32. **Section 8.3 (Nov 2, 2026, BT1):** Primary and Secondary relay riders: heartbeats, the server's ranking and promotion after 90 s of silence, markers moved only by the Primary, backup riders send nothing; the drop-off stays on the phone (only a changed flag is sent).
 33. **Sections 11.2 and 11.3 (Nov 2, 2026, MOD1a and MOD1b):** moderation: tagged, eligible, limited and weighted flags; strikes from a moderator or automatic evidence; 7-day suspensions after 2 strikes in 30 days; Merit shields from trust points; appeals; Trust Level and strikes on Profile.
+34. **Section 10.5 (Nov 2, 2026, DT1):** detours: known lines in the app and the ingest function, made active by an admin; an active detour passes the route test (Active Detour Mode, dashed yellow); unknown detours raise an ops alert after 3 route failures in a day; fares unchanged.

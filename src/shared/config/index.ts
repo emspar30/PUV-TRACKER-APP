@@ -581,6 +581,11 @@ export const RELAY_HEARTBEAT_MIN = 5;
 export const BATON_HEARTBEAT_S = 30;
 export const RELAY_LIVENESS_S = 90;
 export const PRIMARY_MIN_BATTERY_PCT = 30;
+// DT1 (PRD 10.5): active detours are read again this often while the Map is open, and drawn dashed
+// (dash and gap in line widths) at this width
+export const DETOUR_REFRESH_MIN = 5;
+export const DETOUR_DASH = [2, 1.5] as const;
+export const DETOUR_WIDTH = 4;
 export const RELAY_POST_GRACE_MIN = 15;
 export const RELAY_POST_REVIVE_MIN = 30;
 // RL2c (Emjay's D12, 2026-10-23): every relay is queued on the phone first and released (posted, or
