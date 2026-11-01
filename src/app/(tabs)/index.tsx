@@ -23,6 +23,7 @@ import { OriginPin } from '@/features/map/OriginPin';
 import { QueuedRelayBar, RelayBar } from '@/features/report/RelayBar';
 import { useGpsBroadcast } from '@/features/report/useGpsBroadcast';
 import { useRelayBroadcast } from '@/features/report/useRelayBroadcast';
+import { useRelayBaton } from '@/features/report/useRelayBaton';
 import { useRelayVerification } from '@/features/report/useRelayVerification';
 import { useBackgroundRelay } from '@/features/report/useBackgroundRelay';
 import { useRelayQueue } from '@/features/report/useRelayQueue';
@@ -240,6 +241,8 @@ export default function MapScreen() {
   const relay = useRelayBroadcast(commuter);
   // V1a: the running relay is checked against the verification window
   useRelayVerification(relayLines);
+  // BT1: a team rider on the live map leads the multicab's marker or is backup
+  useRelayBaton(commuter, relayLines, repos.vehicles.source === 'live' && teamAccount === true);
   // RL2c (D12): a relay queued after Send, released once the multicab moves off with the rider
   const queuedRelay = useRelayQueue(commuter, relayLines, repos.vehicles);
   const cancelQueued = useRelayStore((store) => store.dequeue);

@@ -9,6 +9,7 @@ import { retryDelayS } from '@/shared/telemetry/outbox';
 import type { TelemetryPacket } from '@/shared/telemetry/packet';
 import { nextPacket, type BroadcastFix } from '@/shared/telemetry/sendRule';
 import { useLocationStore } from '@/state/locationStore';
+import { useRelayStore } from '@/state/relayStore';
 
 const MS_PER_S = 1000;
 
@@ -23,7 +24,9 @@ export type UplinkStatus =
   // The server has the newest position
   | { kind: 'live'; sentMs: number }
   // Positions kept on the phone until the network is back
-  | { kind: 'saved'; count: number };
+  | { kind: 'saved'; count: number }
+  // BT1: another rider leads this multicab; this phone is backup and sends nothing
+  | { kind: 'backup' };
 
 // T1: foreground GPS broadcasting (PRD 8.4). While a relay with GPS and a picked multicab runs, a
 // team account's fixes become packets by the send rule (shared/telemetry/sendRule), each stored in
@@ -100,7 +103,9 @@ export function useGpsBroadcast(session: RelayBroadcast | null, teamAccount: boo
   const vehicleId = session?.vehicleId ?? null;
   const seatTier = session?.seatTier ?? null;
   const startedMs = session?.startedMs ?? null;
-  const broadcasting = active && teamAccount && vehicleId !== null && seatTier !== null;
+  // BT1: a Secondary sends no positions until it is promoted
+  const backup = useRelayStore((store) => store.baton === 'secondary');
+  const broadcasting = active && teamAccount && vehicleId !== null && seatTier !== null && !backup;
 
   useEffect(() => {
     startedRef.current = startedMs;
@@ -130,6 +135,7 @@ export function useGpsBroadcast(session: RelayBroadcast | null, teamAccount: boo
 
   if (!teamAccount) return { kind: 'offTeam' };
   if (!vehicleId) return { kind: 'noVehicle' };
+  if (backup) return { kind: 'backup' };
   if (failing && saved > 0) return { kind: 'saved', count: saved };
   if (sent && sent.startedMs === startedMs) return { kind: 'live', sentMs: sent.atMs };
   return { kind: 'waiting' };

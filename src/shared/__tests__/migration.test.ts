@@ -641,3 +641,28 @@ describe('migration: verified relays (V1a)', () => {
     expect(sql).toContain('grant execute on function public.verify_report(bigint) to authenticated');
   });
 });
+
+describe('migration: relay baton (BT1)', () => {
+  const sql = read(['20261102000001_relay_baton.sql']);
+
+  it('keeps riders server-only, behind row-level security', () => {
+    expect(sql).toContain('create table public.relay_sessions (');
+    expect(sql).toContain('alter table public.relay_sessions enable row level security');
+    expect(sql).toContain('revoke all on public.relay_sessions from anon, authenticated');
+  });
+
+  it('heartbeats are for signed-in team accounts, one at a time per multicab, ranked as baton.ts', () => {
+    expect(sql).toContain("if not public.is_team_account() then raise exception 'team accounts only'");
+    expect(sql).toContain("pg_advisory_xact_lock(hashtext('relay_baton:' || relay_heartbeat.vehicle))");
+    expect(sql).toContain('order by r.eligible desc, r.moved_back asc, r.left_m desc, r.joined_at asc');
+    expect(sql).toContain('moved_back = r.moved_back or excluded.moved_back');
+    expect(sql).toContain('relay_liveness_s smallint not null default 90');
+  });
+
+  it('the ingest function alone reads the Primary', () => {
+    expect(sql).toContain('revoke execute on function public.relay_primary(text) from public, anon, authenticated');
+    expect(sql).toContain('grant execute on function public.relay_primary(text) to service_role');
+    expect(sql).toContain('grant execute on function public.relay_heartbeat(text, real, boolean, boolean) to authenticated');
+    expect(sql).toContain('grant execute on function public.relay_leave(text) to authenticated');
+  });
+});

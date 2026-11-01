@@ -49,6 +49,8 @@ function uplinkText(uplink: UplinkStatus, nowMs: number): string {
       return t.live(Math.max(0, Math.round((nowMs - uplink.sentMs) / MS_PER_S)));
     case 'saved':
       return t.saved(uplink.count);
+    case 'backup':
+      return t.backup;
   }
 }
 
@@ -69,6 +71,8 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
   const watch = useRelayStore((store) => store.watch);
   // V1a: checking the ride, verified, or not verified
   const verification = useRelayStore((store) => store.verification);
+  // BT1: leading the multicab's marker, or backup
+  const baton = useRelayStore((store) => store.baton);
   const arriving = watch.arrivingSinceMs !== null;
 
   // "sent 10 s ago" counts up while the marker is live; the details keep their times current
@@ -107,6 +111,11 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
             <Text style={typography.bodySm} numberOfLines={1}>
               {session.mode === 'feed' ? t.uplink.feed : uplinkText(uplink, Math.max(nowMs, live ? uplink.sentMs : 0))}
             </Text>
+            {session.mode === 'live' && baton === 'primary' ? (
+              <Text style={typography.bodySm} numberOfLines={1}>
+                {t.uplink.primary}
+              </Text>
+            ) : null}
             {verification ? (
               <Text style={[typography.labelMd, verification.status === 'verified' ? styles.verified : verification.status === 'failed' ? styles.unverified : null]} numberOfLines={1}>
                 {t.verify[verification.status]}

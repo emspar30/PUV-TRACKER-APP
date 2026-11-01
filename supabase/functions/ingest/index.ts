@@ -69,6 +69,13 @@ const deps: IngestDeps = {
     return data?.packet_ts ?? null;
   },
 
+  // BT1: the multicab's live Primary rider, or null
+  primaryOf: async (vehicleId) => {
+    const { data, error } = await admin.rpc('relay_primary', { vehicle: vehicleId });
+    if (error) throw error;
+    return (data as string | null) ?? null;
+  },
+
   // V1a: the positions of the verification window, oldest first
   recentHistory: async (vehicleId, sinceIso) => {
     const { data, error } = await admin

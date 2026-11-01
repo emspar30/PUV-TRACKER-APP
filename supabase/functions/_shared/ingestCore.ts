@@ -69,6 +69,9 @@ export type IngestDeps = {
   // V1a: the vehicle's history from `sinceIso` on, oldest first, for the verification window.
   // Optional: without it a position stays unverified ("no_window").
   recentHistory?(vehicleId: string, sinceIso: string): Promise<TelemetryHistoryRow[]>;
+  // BT1: the multicab's live Primary rider (relay_primary), or null when it has none. Optional: without
+  // it every allowlisted rider moves the marker, as before BT1.
+  primaryOf?(vehicleId: string): Promise<string | null>;
   // RK1: books an impossible_speed risk event against the sender (book_risk). Optional; must not throw.
   bookRisk?(userId: string, kind: 'impossible_speed', detail: Record<string, unknown>): Promise<void>;
 };
@@ -94,12 +97,13 @@ export type IngestError =
   | PacketError;
 
 // What a batch did to the marker: moved it, or not, because its newest position is not newer than the
-// marker's or is older than PACKET_MAX_AGE_S
-export type BatchLatest = 'accepted' | 'not_newer' | 'too_old';
+// marker's or is older than PACKET_MAX_AGE_S. BT1: secondary, another rider is the multicab's Primary,
+// so this rider's positions are kept as history but move no marker
+export type BatchLatest = 'accepted' | 'not_newer' | 'too_old' | 'secondary';
 
 export type IngestResponse =
   | { status: 200; body: { status: 'accepted'; verified: boolean; verification_reasons: string[] } }
-  | { status: 200; body: { status: 'ignored'; reason: 'not_newer' } }
+  | { status: 200; body: { status: 'ignored'; reason: 'not_newer' | 'secondary' } }
   // stored: positions added to the history; skipped: stored already, or too old to keep
   | { status: 200; body: { status: 'batch'; stored: number; skipped: number; latest: BatchLatest } }
   | { status: 400 | 401 | 403 | 404 | 405 | 413; body: { error: IngestError; field?: string } };
@@ -194,6 +198,17 @@ async function recordPassages(deps: IngestDeps, vehicleId: string, routeId: stri
   }
 }
 
+// BT1: the multicab has a live Primary and it is someone else. A failed read lets the position through.
+async function isSecondary(deps: IngestDeps, vehicleId: string, userId: string): Promise<boolean> {
+  if (!deps.primaryOf) return false;
+  try {
+    const primary = await deps.primaryOf(vehicleId);
+    return primary !== null && primary !== userId;
+  } catch {
+    return false;
+  }
+}
+
 type Reject = (
   status: 400 | 404 | 413,
   error: IngestError,
@@ -246,6 +261,17 @@ export async function handleIngest(request: IngestRequest, deps: IngestDeps): Pr
   if (latest && new Date(latest.packet_ts).getTime() >= packetTime.getTime()) {
     await deps.log({ user_id: userId, vehicle_id: packet.vehicle_id, accepted: false, reason: 'not_newer' });
     return { status: 200, body: { status: 'ignored', reason: 'not_newer' } };
+  }
+
+  // BT1: another rider holds the baton: kept as history only
+  if (await isSecondary(deps, packet.vehicle_id, userId)) {
+    try {
+      await deps.insertHistory([historyRow(packet)]);
+    } catch {
+      // Reported by the Edge Function
+    }
+    await deps.log({ user_id: userId, vehicle_id: packet.vehicle_id, accepted: true, reason: 'secondary' });
+    return { status: 200, body: { status: 'ignored', reason: 'secondary' } };
   }
 
   // RK1: a position the vehicle could not have reached from its last one is refused and booked
@@ -315,6 +341,7 @@ async function handleBatch(
   const newest = points.at(-1);
   let outcome: BatchLatest;
   if (!newest || newest.ts < nowMs / MS_PER_S - PACKET_MAX_AGE_S) outcome = 'too_old';
+  else if (await isSecondary(deps, vehicleId, userId)) outcome = 'secondary';
   else if (latestMs !== null && latestMs >= newest.ts * MS_PER_S) outcome = 'not_newer';
   else {
     const sinceMarker = points.filter((point) => latestMs === null || point.ts * MS_PER_S > latestMs);

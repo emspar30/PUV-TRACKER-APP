@@ -214,6 +214,9 @@ export const en = {
     },
     // T1: what the relay bar says about the marker
     uplink: {
+      // BT1: another rider leads this multicab's marker; this phone is backup and takes over if they stop
+      backup: "Another rider is sharing this multicab; you're backup.",
+      primary: "You're sharing for this multicab.",
       noVehicle: 'No multicab picked, so no live marker',
       // RL2a: a Crowdsource relay
       feed: 'No location is sent · ends at your stop',

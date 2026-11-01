@@ -396,3 +396,26 @@ describe('V1a: the ingest function judges a position by the verification window'
     expect(response.body).toEqual({ status: 'accepted', verified: true, verification_reasons: [] });
   });
 });
+
+describe('BT1: only the Primary rider moves the marker', () => {
+  const batch = (backend: ReturnType<typeof fakeBackend>) =>
+    handleIngest(post(encodeBatch('R4-TEST-01', [{ ...PACKET }])), backend.deps);
+
+  it('a Secondary rider is kept as history, and the marker does not move', async () => {
+    const backend = fakeBackend();
+    backend.deps.primaryOf = async () => 'someone-else';
+    expect((await batch(backend)).body).toMatchObject({ status: 'batch', stored: 1, latest: 'secondary' });
+    expect(backend.latest.has('R4-TEST-01')).toBe(false);
+    expect((await send(backend)).body).toEqual({ status: 'ignored', reason: 'secondary' });
+    expect(backend.latest.has('R4-TEST-01')).toBe(false);
+  });
+
+  it('the Primary, no Primary, or a failed read: the marker moves as before', async () => {
+    for (const primaryOf of [async () => WRITER.userId, async () => null, async () => Promise.reject(new Error('down'))]) {
+      const backend = fakeBackend();
+      backend.deps.primaryOf = primaryOf;
+      expect((await batch(backend)).body).toMatchObject({ status: 'batch', latest: 'accepted' });
+      expect(backend.latest.has('R4-TEST-01')).toBe(true);
+    }
+  });
+});

@@ -553,6 +553,12 @@ export const RELAY_STOP_AREA_M = 60;
 // a post that lapsed less than RELAY_POST_REVIVE_MIN ago (a dead zone) comes back on the next one.
 // Server: app_config.relay_post_grace_min and relay_post_revive_min
 export const RELAY_HEARTBEAT_MIN = 5;
+// BT1 (PRD 8.3): riders relaying the same multicab on the live map heartbeat every BATON_HEARTBEAT_S;
+// a Primary silent for RELAY_LIVENESS_S (the server's app_config.relay_liveness_s) is replaced. A rider
+// leads only with PRIMARY_MIN_BATTERY_PCT or more battery, no battery saver and location on.
+export const BATON_HEARTBEAT_S = 30;
+export const RELAY_LIVENESS_S = 90;
+export const PRIMARY_MIN_BATTERY_PCT = 30;
 export const RELAY_POST_GRACE_MIN = 15;
 export const RELAY_POST_REVIVE_MIN = 30;
 // RL2c (Emjay's D12, 2026-10-23): every relay is queued on the phone first and released (posted, or
