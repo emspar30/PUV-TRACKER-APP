@@ -7,7 +7,6 @@
 import { FARE_BASE_KM, FARE_BASE_PHP, FARE_PER_KM_PHP } from '../../shared/config';
 import { isDraftRoute } from '../../shared/routing/routeImport';
 
-import { GENERATED_EXTRA_ROUTES, GENERATED_FILL_STOPS } from './fillStops.generated';
 import { GENERATED_LINES, GENERATED_STATIONS } from './routes.generated';
 
 // 1: the straight placeholder (S1). 2: Emjay's traced R3, R4 and R5 (RR1).
@@ -20,7 +19,7 @@ import { GENERATED_LINES, GENERATED_STATIONS } from './routes.generated';
 //    ROS, LEM, and R3 to R5 listed), 39 in all.
 // 8: the base fare ₱14.00 for the first 4 km, the traditional jeepney rate (Emjay, 2026-10-22).
 // 9: CA2-0 fill stops on long stretches with no stop (scripts/fill-stops.ts), 105 in all.
-export const ROUTE_DATA_VERSION = 9;
+export const ROUTE_DATA_VERSION = 10;
 
 // True while any route fact is a placeholder. The lines and stops are real (RR3), but the fares
 // are still the v1.0 values, so the "Sample data" notice stays.
@@ -96,9 +95,6 @@ export const DRAFT_ROUTE_CODES: ReadonlySet<string> = new Set(
 // RR3: the real stops (docs/real_route_stops.md), as written by scripts/import-route.ts. Stops
 // listed more than 150 m from their line were moved onto it (moved); six more than 500 m away are
 // left out until their coordinates are corrected (see routes.generated.ts).
-// CA2-0: then the fill stops (four-letter codes); a real stop a fill stop would have crowded serves
-// that route too (GENERATED_EXTRA_ROUTES).
-export const SEED_STATIONS: SeedStation[] = [
-  ...GENERATED_STATIONS.map(({ code, name, lat, lon, routeCodes }) => ({ code, name, lat, lon, routeCodes: [...routeCodes, ...(GENERATED_EXTRA_ROUTES[code] ?? [])] })),
-  ...GENERATED_FILL_STOPS.map(({ code, name, lat, lon, routeCodes }) => ({ code, name, lat, lon, routeCodes: [...routeCodes] })),
-];
+// CA3 (Emjay, 2026-10-30): the fill stops of CA2-0 are gone; a commuter between stops checks in
+// "near the route" instead, counted at the nearest stop.
+export const SEED_STATIONS: SeedStation[] = GENERATED_STATIONS.map(({ code, name, lat, lon, routeCodes }) => ({ code, name, lat, lon, routeCodes: [...routeCodes] }));

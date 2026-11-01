@@ -25,8 +25,9 @@ export type FeedRow = {
 
 export type CrowdPort = {
   signedIn(): Promise<boolean>;
-  // check_in(route, ...) for one route, check_in_routes(routes, ...) for several: the expiry time
-  checkIn(routeCodes: readonly string[], stationCode: string, requestKey: string): Promise<{ expiresAt: string } | PortFailure>;
+  // check_in(route, ...) for one route, check_in_routes(routes, ...) for several, check_in_at(...)
+  // for a near check-in (CA3): the expiry time
+  checkIn(routeCodes: readonly string[], stationCode: string, requestKey: string, near: boolean): Promise<{ expiresAt: string } | PortFailure>;
   checkinCounts(routeCode: string): Promise<{ station_code: string; waiting: number | string }[]>;
   endCheckIn(): Promise<PortFailure | null>;
   // post_report: the new post's id, or the error
@@ -87,10 +88,10 @@ export function createLiveCrowd(port: CrowdPort): CrowdRepositories {
         return new Map(rows.map((row) => [row.station_code, Number(row.waiting)]));
       },
 
-      async checkIn(routeCodes, stationCode, requestKey) {
+      async checkIn(routeCodes, stationCode, requestKey, near = false) {
         if (!(await port.signedIn())) return { ok: false, reason: 'sign_in' };
         try {
-          const result = await port.checkIn(routeCodes, stationCode, requestKey);
+          const result = await port.checkIn(routeCodes, stationCode, requestKey, near);
           if ('expiresAt' in result) return { ok: true, expiresAtMs: Date.parse(result.expiresAt) };
           // CA1.1: check_in and check_in_routes raise this when the wallet cannot pay
           return result.code === NOT_ENOUGH_ENERGY && result.message.includes(NOT_ENOUGH_ENERGY_MESSAGE) ? { ok: false, reason: 'not_enough_energy' } : failure(result);

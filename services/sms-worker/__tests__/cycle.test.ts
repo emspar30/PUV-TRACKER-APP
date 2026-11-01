@@ -57,6 +57,30 @@ describe('worker cycle (DR6)', () => {
     expect(fake.state.get('R4')).toEqual({ counts: { SMB: 3, ZAM: 0, LEM: 0 }, sentAtMs: NOON_MS });
   });
 
+  it('CA3: sends those near a stop apart (v4), and someone arriving near a stop is news', async () => {
+    const fake = withDevices(fakeDeps(NOON_MS));
+    fake.snapshot = [{ routeId: 'R4', stationCode: 'SMB', waiting: 4, near: 1 }];
+    await runCycle(fake, { encoding: 'text', stopsOf });
+    expect(fake.queue[0].bodyText).toMatch(/^HM4\|R4\|0042\|1200\|F\|SMB:3\+1\|[0-9A-F]{8}$/);
+    expect(validate(fake.queue[0].bodyText, KEY_A, 41).ok).toBe(true);
+    expect(fake.state.get('R4')).toEqual({ counts: { SMB: 3, 'SMB+': 1, ZAM: 0, LEM: 0 }, sentAtMs: NOON_MS });
+
+    fake.now = NOON_MS + 3 * MS_PER_MIN;
+    fake.snapshot = [
+      { routeId: 'R4', stationCode: 'SMB', waiting: 4, near: 1 },
+      { routeId: 'R4', stationCode: 'LEM', waiting: 1, near: 1 },
+    ];
+    const [r4] = await runCycle(fake, { encoding: 'text', stopsOf });
+    expect(r4.decision).toEqual({ send: true, reason: 'new_stop' });
+  });
+
+  it('CA3: reads a snapshot without near counts (before the migration) as nobody near', async () => {
+    const fake = withDevices(fakeDeps(NOON_MS));
+    fake.snapshot = [{ routeId: 'R4', stationCode: 'SMB', waiting: 2 }];
+    await runCycle(fake, { encoding: 'text', stopsOf });
+    expect(fake.queue[0].bodyText).toMatch(/^HM3\|R4\|0042\|1200\|F\|SMB:2\|/);
+  });
+
   it('sends nothing to a phone on another route', async () => {
     const fake = withDevices(fakeDeps(NOON_MS));
     fake.snapshot = [{ routeId: 'R4', stationCode: 'SMB', waiting: 3 }];
@@ -138,11 +162,11 @@ describe('worker cycle (DR6)', () => {
     expect(fake.queue).toHaveLength(0);
   });
 
-  it('lists the real R4 stops and its fill stops in riding order; 5 busy stops fit one text message', async () => {
-    expect(routeStopCodes('R4').length).toBeGreaterThan(18);
-    expect(routeStopCodes('R4')).toContain('TAL');
+  it('lists the real R4 stops in riding order; every stop busy, half of them with someone near, fits one text message', async () => {
+    expect(routeStopCodes('R4')).toHaveLength(18);
+    expect(routeStopCodes('R4').slice(0, 3)).toEqual(['TAL', 'ANT', 'SOL']);
     const fake = withDevices(fakeDeps(NOON_MS));
-    fake.snapshot = routeStopCodes('R4').slice(0, 5).map((code) => ({ routeId: 'R4', stationCode: code, waiting: 99 }));
+    fake.snapshot = routeStopCodes('R4').map((code, i) => ({ routeId: 'R4', stationCode: code, waiting: 9, near: i % 2 }));
     await runCycle(fake, { encoding: 'text' });
     expect(fake.queue.filter((row) => row.deviceId === 'DRV-0001')).toHaveLength(1);
   });

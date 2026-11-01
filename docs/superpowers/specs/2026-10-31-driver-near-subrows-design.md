@@ -1,5 +1,7 @@
 # Driver app: in-between stops as sub-rows
 
+> **Superseded 2026-11-01.** The partner's CA3 (`b7e6fa0`) removed the fill stops this builds on, and the driver list shows "– Near N" under a stop instead. The code was removed in the merge; this file is kept as a record.
+
 Owner's request, 2026-10-30 and 2026-10-31. Driver app only. No texts, no EAS build of its own: it ships in the held release batch.
 
 ## Why

@@ -4,7 +4,9 @@
 
 import type { HeatmapEncoding } from '../../../src/shared/sms/pack';
 
-export type DemandRow = { routeId: string; stationCode: string; waiting: number };
+// waiting: everyone checked in at the stop; near (CA3): the part of them checked in near it
+// (absent before migration 20261030000000, worker_demand_near)
+export type DemandRow = { routeId: string; stationCode: string; waiting: number; near?: number };
 
 // An active driver phone. smsKey is a secret: never logged.
 export type WorkerDevice = { deviceId: string; vehicleId: string; routeId: string; phoneE164: string; smsKey: string };

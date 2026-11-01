@@ -1,5 +1,7 @@
 # Implementation plan: check in anywhere along a route
 
+> **Superseded in part on 2026-10-30 (CA3, Emjay).** The fill stops (CA2-0) are removed: they put too many dots on the Check-in map. Instead the card offers *At a stop* or *Near the route*; a near check-in counts near the nearest original stop, and drivers see it apart ("– Near 1", SMS v4). A check-in ends by itself when the commuter leaves (300 m from the stop, or 70 m from a near check-in's spot). The rest of this plan (v3, the dispatch gap and cap, the boarding prompt near the check-in point) still holds. See PRD 7.5 and 12.3.
+
 - **Date:** 2026-10-27.
 - **Base:** `main` at `bddb564`, plus the uncommitted UI work.
 - **Why:** the panel will likely ask why a commuter can only check in at a predefined stop. Butuan multicabs pick people up anywhere along their route, so a commuter standing on the route between two stops should be able to check in too.

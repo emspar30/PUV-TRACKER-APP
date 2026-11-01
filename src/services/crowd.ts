@@ -10,10 +10,13 @@ const failureOf = (error: { code?: string; message: string }) => ({ code: error.
 export const supabaseCrowdPort: CrowdPort = {
   signedIn: hasSession,
 
-  async checkIn(routeCodes, stationCode, requestKey) {
+  // CA3: a near check-in needs check_in_at (20261030000000); the others keep the older functions,
+  // so a check-in at a stop works before that migration is applied
+  async checkIn(routeCodes, stationCode, requestKey, near) {
     const [only] = routeCodes;
-    const { data, error } =
-      routeCodes.length === 1 && only
+    const { data, error } = near
+      ? await getSupabase().rpc('check_in_at', { routes: routeCodes, station: stationCode, near: true, request_key: requestKey })
+      : routeCodes.length === 1 && only
         ? await getSupabase().rpc('check_in', { route: only, station: stationCode, request_key: requestKey })
         : await getSupabase().rpc('check_in_routes', { routes: routeCodes, station: stationCode, request_key: requestKey });
     if (error) return failureOf(error);

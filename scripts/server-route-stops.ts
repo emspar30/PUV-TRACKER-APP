@@ -1,7 +1,7 @@
 // NM1: writes supabase/functions/_shared/routeStops.generated.ts, each route's stops for the ingest
 // function's stop passages (nodePassage.ts). The Edge Function can load files only from its own
 // folder, so the app's route data is copied there; a test checks the copy is current. Rerun after
-// the stops change (routes.generated.ts, fill-stops.ts).
+// the stops change (routes.generated.ts).
 // Run: npx tsx scripts/server-route-stops.ts
 
 import { writeFileSync } from 'node:fs';

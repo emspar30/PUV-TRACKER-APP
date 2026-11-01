@@ -1,9 +1,8 @@
 import type { DriftStatus } from '@/shared/driver/drift';
-import type { HeatmapRow, HeatmapView } from '@/shared/driver/heatmapView';
+import type { HeatmapView } from '@/shared/driver/heatmapView';
 import { strings } from '@/strings';
 
-// DR5: the heatmap's age and the clock in words, for the status strip and the home screen, and a
-// stop row's words for the screen reader
+// DR5: the heatmap's age and the clock in words, for the status strip and the home screen
 
 export type Tone = 'ok' | 'warn' | 'bad';
 export type Described = { tone: Tone; label: string };
@@ -26,13 +25,4 @@ export function describeClock(status: DriftStatus): Described {
   if (status.kind === 'ok') return { tone: 'ok', label: text.ok };
   const seconds = Math.abs(Math.round(status.driftS));
   return { tone: 'bad', label: seconds <= SECONDS_UP_TO ? text.offSeconds(seconds) : text.off(Math.round(seconds / S_PER_MIN)) };
-}
-
-// A stop row for the screen reader: its exact count, else its band, else no count yet. A sub-row
-// (owner, 2026-10-31) also names the real stop it is listed under.
-export function describeRowLabel(row: HeatmapRow, parent?: string): string {
-  const text = strings.driver.heatmap;
-  const { display } = row;
-  const value = display.kind === 'known' ? (display.exact !== null ? text.waiting(display.exact) : text.bands[display.band]) : text.unknownLabel;
-  return parent === undefined ? `${row.name}: ${value}` : text.nearLabel(row.name, parent, value);
 }

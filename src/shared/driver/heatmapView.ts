@@ -1,5 +1,3 @@
-import { haversineMeters, type LatLon } from '../geo/haversine';
-import { isFillStopCode } from '../routing/fillStops';
 import { ageMinutes, displayCount, freshness, type Freshness, type HeatmapState, type StopDisplay } from './heatmap';
 
 // What the driver's home screen shows (PRD 9.4; DR5), worked out here so the rules are tested in
@@ -12,16 +10,16 @@ export type HeatmapStop = { code: string; name: string };
 
 export type HeatmapRow = HeatmapStop & { display: StopDisplay };
 
-export type HeatmapView<S extends HeatmapStop = HeatmapStop> = {
+export type HeatmapView = {
   freshness: Freshness;
   // Minutes since the last valid message, or null before the first
   ageMin: number | null;
-  rows: (S & { display: StopDisplay })[];
+  rows: HeatmapRow[];
   // True when no row shows an exact count (Q5, Q11): the list then says the counts are bands
   bandsOnly: boolean;
 };
 
-export function heatmapView<S extends HeatmapStop>(state: HeatmapState | null, stops: readonly S[], nowMs: number): HeatmapView<S> {
+export function heatmapView(state: HeatmapState | null, stops: readonly HeatmapStop[], nowMs: number): HeatmapView {
   const rows = stops.map((stop) => ({ ...stop, display: state ? displayCount(state, stop.code, nowMs) : ({ kind: 'unknown' } as const) }));
   const known = rows.filter((row) => row.display.kind === 'known');
   return {
@@ -30,34 +28,6 @@ export function heatmapView<S extends HeatmapStop>(state: HeatmapState | null, s
     rows,
     bandsOnly: known.length > 0 && known.every((row) => row.display.kind === 'known' && row.display.exact === null),
   };
-}
-
-// Owner, 2026-10-31 (docs/superpowers/specs/2026-10-31-driver-near-subrows-design.md): the list
-// keeps the real stops; a fill stop (CA2-0) shows under one only while someone is waiting there. It
-// goes under the nearer of the two real stops it lies between in riding order (a tie: the earlier),
-// never the nearest over the whole route, which on a loop can be the last stop. A route with no real
-// stop lists its fill stops as plain rows.
-export type HeatmapGroup<R extends HeatmapRow = HeatmapRow> = { stop: R; near: R[] };
-
-const someoneWaiting = (display: StopDisplay) => display.kind === 'known' && display.band > 0;
-
-export function groupRows<R extends HeatmapRow & LatLon>(rows: readonly R[]): HeatmapGroup<R>[] {
-  const real = rows.filter((row) => !isFillStopCode(row.code));
-  if (real.length === 0) return rows.map((stop) => ({ stop, near: [] }));
-  const groups = real.map((stop) => ({ stop, near: [] as R[] }));
-  let next = 0;
-  for (const row of rows) {
-    if (!isFillStopCode(row.code)) {
-      next += 1;
-      continue;
-    }
-    if (!someoneWaiting(row.display)) continue;
-    const before = groups[next - 1];
-    const after = groups[next];
-    const under = !before || (after && haversineMeters(row, after.stop) < haversineMeters(row, before.stop)) ? after : before;
-    under.near.push(row);
-  }
-  return groups;
 }
 
 export type BusiestStop = { code: string; name: string; band: number; exact: number | null };

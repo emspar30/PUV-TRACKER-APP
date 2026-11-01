@@ -21,7 +21,8 @@ const ICON_SIZE = spacing.lg;
 const PIN_SIZE = spacing.xl + spacing.sm;
 
 // CA1.1, Demo & simulation: the commuter's simulated spot, anywhere on the map. The map moves under a
-// pin fixed in the middle; "Use this spot" keeps where the pin is. Opens on the current spot.
+// pin fixed in the middle; "Use this spot" keeps where the pin is. Opens on the current spot. The pin
+// reaches the tile edge at any zoom (Santo Niño and De Oro sit near it).
 export default function SimulatedPinScreen() {
   const styles = useStyles();
   const { colors, typography, elevation } = useTheme();
@@ -55,6 +56,7 @@ export default function SimulatedPinScreen() {
           glyphsUrl={tiles.tiles.glyphsUrl}
           initialBounds={initialBounds}
           focus={focus}
+          centerToEdge
           onViewChange={(view) => {
             center.current = { lon: view.center[0], lat: view.center[1] };
             setReady(true);

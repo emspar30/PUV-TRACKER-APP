@@ -19,14 +19,14 @@ import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
 import { affordableRoutes, checkInCost } from '@/shared/backend/rules';
-import { checkInAlongRoute, type Place } from '@/shared/checkin/geofence';
+import { checkInGeofence, checkInNearRoute, type Place } from '@/shared/checkin/geofence';
 import { formatCountdown, isActive, remainingMs } from '@/shared/checkin/localCheckin';
 import { mergeWaiting } from '@/shared/checkin/waiting';
 import {
   CHECKIN_COUNTS_REFRESH_S,
   CHECKIN_FAREWELL_S,
+  CHECKIN_LEAVE_M,
   CHECKIN_LINE_M,
-  CHECKIN_RADIUS_M,
   CHECKIN_STOP_MAX_M,
   ENERGY_CHECKIN_ROUTE_COST,
   GPS_ACCURACY_GATE_CHECKIN_M,
@@ -61,8 +61,10 @@ const MS_PER_S = 1000;
 // Google Maps' place sheet, with the routes that stop there and a Check in button; a stop served by
 // several routes adds "Ping routes", so only the drivers of the routes picked get the SMS. While a
 // check-in runs, the card shows the station, the time left and both endings; "I boarded" says
-// goodbye first. The card can be made smaller, and a button centres the map on the commuter. The
-// phone must be within the station's radius (or at the simulated stop).
+// goodbye first. The card can be made smaller, and a button centres the map on the commuter.
+// CA3 (Emjay, 2026-10-30): two ways to check in. At a stop: within CHECKIN_STOP_MAX_M of the stop
+// on the card. Near the route: anywhere within CHECKIN_LINE_M of a pinged route's line, counted as
+// near the nearest stop. Either ends by itself when the commuter leaves (shared/checkin/leave).
 export default function CheckInScreen() {
   const styles = useStyles();
   const { colors, typography, routeColor, elevation } = useTheme();
@@ -85,6 +87,8 @@ export default function CheckInScreen() {
   // B3: null shows every route's stations; a route code shows only that route's
   const [filter, setFilter] = useState<string | null>(null);
   const [stationCode, setStationCode] = useState<string | null>(null);
+  // CA3: at a stop, or near the route (counted at the nearest stop)
+  const [mode, setMode] = useState<'stop' | 'near'>('stop');
   // Routes to ping at a shared stop, for the station they were picked at
   const [ping, setPing] = useState<{ station: string; routes: string[] } | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -166,13 +170,14 @@ export default function CheckInScreen() {
   const candidate = useMemo(() => {
     const at = positionKey ? { lat: Number(positionKey.split(',')[0]), lon: Number(positionKey.split(',')[1]) } : null;
     const distanceOf = (stop: { lat: number; lon: number }) => (at ? Math.round(haversineMeters(at, stop)) : null);
-    const picked = shownStops.find((stop) => stop.code === stationCode);
+    // CA3: near the route always counts at the nearest stop, so a tapped one does not apply
+    const picked = mode === 'stop' ? shownStops.find((stop) => stop.code === stationCode) : undefined;
     if (picked) return { stop: picked, distanceM: distanceOf(picked), nearest: false };
     if (!at || shownStops.length === 0) return null;
     let best = shownStops[0];
     for (const stop of shownStops) if (haversineMeters(at, stop) < haversineMeters(at, best)) best = stop;
     return { stop: best, distanceM: distanceOf(best), nearest: true };
-  }, [shownStops, stationCode, positionKey]);
+  }, [shownStops, stationCode, positionKey, mode]);
 
   // Every route that stops at the station. With a route filter on, that route is pinged by
   // default; with All, every route here is (the commuter can narrow it at a shared stop).
@@ -215,7 +220,9 @@ export default function CheckInScreen() {
     return () => clearTimeout(timer);
   }, [farewell]);
 
+  // Tapping a stop means checking in at it
   const pickStation = (code: string) => {
+    setMode('stop');
     setStationCode(code);
     setMinimized(false);
     const stop = stops.find((candidateStop) => candidateStop.code === code);
@@ -230,23 +237,28 @@ export default function CheckInScreen() {
 
   const doCheckIn = async () => {
     if (!candidate || active || sendingRef.current || pinged.length === 0 || !affordable) return;
-    const code = candidate.stop.code;
     // The fix's age is taken at the tap (G0: a stale fix is refused)
-    // CA2a: anywhere by the line of a pinged route, counted at this stop up to CHECKIN_STOP_MAX_M away
+    const standingAt = placeOf(commuter, fix, Date.now());
+    // CA3: at the stop on the card, or near a pinged route's line and counted at its nearest stop
     const pingedLines = lines.filter((line) => pinged.includes(line.routeCode)).map((line) => line.coordinates);
-    const fence = checkInAlongRoute(placeOf(commuter, fix, Date.now()), candidate.stop, pingedLines);
+    const pingedStops = pinged.flatMap((route) => stopsForRoute(lines, stops, route));
+    const near = mode === 'near';
+    const fence = near ? checkInNearRoute(standingAt, pingedLines, pingedStops) : checkInGeofence(standingAt, candidate.stop, CHECKIN_STOP_MAX_M);
+    const code = fence.ok && 'stop' in fence ? fence.stop.code : candidate.stop.code;
     if (!fence.ok) {
       // RK1: the server hears of a mock location once per app session
       if (fence.reason === 'mocked') reportMockLocation();
       showDialog({
         tone: 'warning',
-        icon: fence.reason === 'too_far_from_line' || fence.reason === 'too_far_from_stop' ? MapPinOff : LocateOff,
+        icon: fence.reason === 'too_far_from_line' || fence.reason === 'too_far' ? MapPinOff : LocateOff,
         title: strings.checkin.notHereTitle,
         body:
           fence.reason === 'too_far_from_line'
             ? strings.checkin.tooFarFromLine(fence.lineM, CHECKIN_LINE_M)
-            : fence.reason === 'too_far_from_stop'
-              ? strings.checkin.tooFarFromStop(fence.stopM, CHECKIN_STOP_MAX_M, code)
+            : fence.reason === 'too_far'
+              ? strings.checkin.tooFarFromStop(fence.distanceM, CHECKIN_STOP_MAX_M, code)
+              : fence.reason === 'no_stop'
+                ? strings.checkin.failedBody
               : fence.reason === 'inaccurate'
                 ? strings.checkin.inaccurate(GPS_ACCURACY_GATE_CHECKIN_M)
                 : fence.reason === 'mocked'
@@ -262,8 +274,7 @@ export default function CheckInScreen() {
     try {
       // The filtered route comes first, so it stays the check-in's main route
       const routes = filter && pinged.includes(filter) ? [filter, ...pinged.filter((value) => value !== filter)] : [...pinged];
-      const standing = placeOf(commuter, fix, Date.now());
-      const result = await cloudCheckIn(routes, code, standing && standing.source !== 'pin' ? standing : undefined);
+      const result = await cloudCheckIn(routes, code, standingAt && standingAt.source !== 'pin' ? standingAt : undefined, near);
       if (!result.ok) {
         if (result.reason === 'sign_in') promptSignIn();
         else if (result.reason === 'not_enough_energy')
@@ -312,7 +323,10 @@ export default function CheckInScreen() {
             {activeStop?.name ?? checkIn.stationCode}
           </Text>
           <Text style={typography.bodySm} numberOfLines={1}>
-            {strings.checkin.meta([checkIn.stationCode, strings.checkin.waiting(Math.max(waitingAt(checkIn.stationCode), 1))])}
+            {strings.checkin.meta([
+              checkIn.near ? strings.checkin.nearCode(checkIn.stationCode) : checkIn.stationCode,
+              strings.checkin.waiting(Math.max(waitingAt(checkIn.stationCode), 1)),
+            ])}
           </Text>
           {/* EQ-10: the pinged routes in one wrapping row under the station, not a column beside it */}
           <View style={styles.badges}>
@@ -327,6 +341,8 @@ export default function CheckInScreen() {
         </View>
         {minimizeButton}
       </View>
+      {/* CA3: how far the commuter may go before the check-in ends by itself */}
+      <Text style={typography.bodySm}>{checkIn.near ? strings.checkin.stayNear(CHECKIN_LEAVE_M) : strings.checkin.stayAtStop(CHECKIN_STOP_MAX_M)}</Text>
       <View style={styles.buttons}>
         <View style={styles.grow}>
           <Button label={strings.checkin.boarded} leadingIcon={Bus} onPress={() => finish(true)} />
@@ -350,6 +366,19 @@ export default function CheckInScreen() {
           </Text>
         </View>
         {minimizeButton}
+      </View>
+      {/* CA3: at a stop, or near the route between stops */}
+      <View style={styles.chips} accessibilityRole="radiogroup">
+        <Chip label={strings.checkin.modeStop} selected={mode === 'stop'} onPress={() => setMode('stop')} accessibilityLabel={strings.checkin.modeLabel(strings.checkin.modeStop, mode === 'stop')} />
+        <Chip
+          label={strings.checkin.modeNear}
+          selected={mode === 'near'}
+          onPress={() => {
+            setMode('near');
+            setStationCode(null);
+          }}
+          accessibilityLabel={strings.checkin.modeLabel(strings.checkin.modeNear, mode === 'near')}
+        />
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         <Chip
@@ -375,7 +404,7 @@ export default function CheckInScreen() {
           <StationCard
             name={candidate.stop.name}
             nearest={candidate.nearest}
-            counted={candidate.distanceM !== null && candidate.distanceM > CHECKIN_RADIUS_M && candidate.distanceM <= CHECKIN_STOP_MAX_M}
+            counted={mode === 'near'}
             meta={metaOf(candidate.stop.code, candidate.distanceM)}
             routes={badges(stopRoutes)}
             checkInLabel={strings.checkin.checkInAt(candidate.stop.code)}
@@ -406,7 +435,7 @@ export default function CheckInScreen() {
 
   const compact = active ? (
     <CompactBar
-      title={strings.checkin.compactActive(checkIn.stationCode)}
+      title={checkIn.near ? strings.checkin.compactNear(checkIn.stationCode) : strings.checkin.compactActive(checkIn.stationCode)}
       countdown={countdown}
       badges={badges(checkIn.routeCodes)}
       onExpand={() => setMinimized(false)}
@@ -553,6 +582,7 @@ const useStyles = makeStyles(({ colors }) => ({
     gap: spacing.sm,
   },
   chips: {
+    flexDirection: 'row',
     gap: spacing.sm,
   },
 }));

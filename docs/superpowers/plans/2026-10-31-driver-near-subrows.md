@@ -1,5 +1,7 @@
 # Driver near sub-rows Implementation Plan
 
+> **Superseded 2026-11-01.** The partner's CA3 (`b7e6fa0`) removed the fill stops this builds on, and the driver list shows "– Near N" under a stop instead. The code was removed in the merge; this file is kept as a record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** In the driver app's stop list, show a fill stop as a sub-row under the real stop it sits by, only while someone is waiting there.

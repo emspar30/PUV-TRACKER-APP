@@ -43,8 +43,14 @@ export function supabaseDeps(url: string, serviceRoleKey: string, log = consoleL
     nowMs: () => Date.now(),
 
     async demandSnapshot(): Promise<DemandRow[]> {
-      const data = rows<{ route_id: string; station_code: string; waiting: number }>(await db.rpc('worker_demand_snapshot'), 'demand snapshot');
-      return data.map((row) => ({ routeId: row.route_id, stationCode: row.station_code, waiting: Number(row.waiting) }));
+      // CA3: worker_demand_near (20261030000000) adds the near counts; before that migration the
+      // older snapshot is read, and nobody is near
+      const withNear = await db.rpc('worker_demand_near');
+      const data = rows<{ route_id: string; station_code: string; waiting: number; near?: number | null }>(
+        withNear.error ? await db.rpc('worker_demand_snapshot') : withNear,
+        'demand snapshot',
+      );
+      return data.map((row) => ({ routeId: row.route_id, stationCode: row.station_code, waiting: Number(row.waiting), near: Number(row.near ?? 0) }));
     },
 
     async devices(): Promise<WorkerDevice[]> {
