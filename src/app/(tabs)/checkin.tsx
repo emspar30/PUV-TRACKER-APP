@@ -48,6 +48,8 @@ import { useLocationStore } from '@/state/locationStore';
 import { useTabBarSpace } from '@/navigation/useTabBarSpace';
 import { strings } from '@/strings';
 import { MAP_GEOMETRY, MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
+import { blockedBySuspension } from '@/state/moderationStore';
+import { useSettingsStore } from '@/state/settingsStore';
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
 const LOGO_SIZE = spacing.xl * 3;
@@ -241,6 +243,8 @@ export default function CheckInScreen() {
 
   const doCheckIn = async () => {
     if (!candidate || active || sendingRef.current || pinged.length === 0 || !affordable) return;
+    // MOD1b: a suspended rider is told why (live data only)
+    if (!useSettingsStore.getState().demoData && blockedBySuspension()) return;
     // The fix's age is taken at the tap (G0: a stale fix is refused)
     const standingAt = placeOf(commuter, fix, Date.now());
     // CA3: at the stop on the card, or near a pinged route's line and counted at its nearest stop

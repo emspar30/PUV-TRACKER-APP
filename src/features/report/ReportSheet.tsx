@@ -38,6 +38,7 @@ import { BleCard, RelayVehicleCard, ScanningNote } from './BleCard';
 import { confirmQueued } from './confirmQueued';
 import { useRelayLocation, type RelayLocationState } from './relayLocation';
 import { useBleVehicle, type BleState } from './useBleVehicle';
+import { blockedBySuspension } from '@/state/moderationStore';
 
 const ICON_SIZE = spacing.md + spacing.xs;
 const PANEL_MAX_HEIGHT = '80%';
@@ -252,6 +253,8 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   // rider in it (useRelayQueue), with the stop nearest the rider then (D11)
   const send = () => {
     if (!vehicle || !seatTier || !destination) return;
+    // MOD1b: a suspended rider is told why (live data only)
+    if (!demoData && blockedBySuspension()) return;
     if (!checkGps() || !position) {
       showDialog({ tone: 'warning', title: strings.report.failedTitle, body: strings.report.gate.waitingFix });
       return;

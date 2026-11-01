@@ -499,6 +499,28 @@ export const FEED_STOP_NEAR_M = 500;
 export const TRUST_BADGE_POINTS = 5;
 // B6: at most this many trust points a Manila day (server: app_config.trust_daily_max)
 export const TRUST_DAILY_MAX = 3;
+
+// MOD1 moderation (PRD 11.2, 11.3). The server's app_config holds the same values (migration
+// 20261102000002); shared/moderation/rules.ts mirrors its rules. A flag needs an account
+// FLAG_MIN_ACCOUNT_DAYS old (or the Trusted badge), at most FLAG_DAILY_MAX a day; it counts toward hiding
+// only from an account FLAG_WEIGHT_MIN_AGE_H old that does not mostly flag one author. SUSPENSION_STRIKES
+// strikes within SUSPENSION_WINDOW_DAYS suspend for SUSPENSION_DAYS; a strike lasts STRIKE_EXPIRY_DAYS
+// and may be appealed within APPEAL_WINDOW_DAYS. One Merit point per MERIT_POINTS_PER trust points, at
+// most MERIT_MAX, absorbs a strike. The Trust Level shows after TRUST_LEVEL_MIN_REPORTS reports.
+export const FLAG_MIN_ACCOUNT_DAYS = 7;
+export const FLAG_WEIGHT_MIN_AGE_H = 48;
+export const FLAG_DAILY_MAX = 10;
+export const STRIKE_EXPIRY_DAYS = 60;
+export const SUSPENSION_STRIKES = 2;
+export const SUSPENSION_WINDOW_DAYS = 30;
+export const SUSPENSION_DAYS = 7;
+export const APPEAL_WINDOW_DAYS = 30;
+export const MERIT_POINTS_PER = 100;
+export const MERIT_MAX = 3;
+export const TRUST_LEVEL_MIN_REPORTS = 10;
+export const FLAG_TAGS = ['false_location', 'spamming', 'not_a_puv'] as const;
+export type FlagTag = (typeof FLAG_TAGS)[number];
+export const APPEAL_MAX_CHARS = 500;
 // RL1 (PRD 8.1 step 8): a relay with GPS ends RELAY_ARRIVAL_COUNTDOWN_S after the rider comes within
 // RELAY_ARRIVAL_RADIUS_M of the destination they picked; leaving that radius cancels the countdown
 export const RELAY_ARRIVAL_RADIUS_M = 50;

@@ -12,6 +12,7 @@ import '@/services/backgroundLocation';
 import { startEnergySync } from '@/state/energyStore';
 import { startSessionTracking } from '@/state/sessionStore';
 import { ThemeProvider, useTheme } from '@/theme';
+import { refreshModeration } from '@/state/moderationStore';
 
 const FILL = { flex: 1 } as const;
 
@@ -26,6 +27,8 @@ export default function RootLayout() {
   useEffect(() => {
     startSessionTracking();
     startEnergySync();
+    // MOD1b: a suspension or a used Merit shield is known from the start
+    void refreshModeration();
   }, []);
 
   return (

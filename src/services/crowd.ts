@@ -66,8 +66,9 @@ export const supabaseCrowdPort: CrowdPort = {
     return error ? failureOf(error) : null;
   },
 
-  async flagPost(postId) {
-    const { data, error } = await getSupabase().rpc('flag_post', { post: postId });
+  // MOD1: a tagged flag (flag_report replaces flag_post)
+  async flagPost(postId, tag) {
+    const { data, error } = await getSupabase().rpc('flag_report', { post: postId, tag, note: null });
     if (error) return failureOf(error);
     return { hidden: data === true };
   },

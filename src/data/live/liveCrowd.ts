@@ -2,6 +2,7 @@
 // every rule (one live check-in, lifetimes, the Energy earned), so this side only calls them and
 // maps their answers. Pure: the network sits behind CrowdPort.
 
+import type { FlagTag } from '@/shared/config';
 import { isFeedPhrase, type FeedPhrase } from '../../shared/backend/rules';
 import type { FeedPost } from '../../shared/demo/feed';
 import type { SeatTier } from '../../shared/telemetry/occupancy';
@@ -42,7 +43,7 @@ export type CrowdPort = {
   // Live, visible feed_posts, newest first
   feed(): Promise<FeedRow[]>;
   // flag_post(post): true once the post is hidden
-  flagPost(postId: number): Promise<{ hidden: boolean } | PortFailure>;
+  flagPost(postId: number, tag: FlagTag): Promise<{ hidden: boolean } | PortFailure>;
 };
 
 const NOT_SIGNED_IN = '28000';
@@ -160,12 +161,12 @@ export function createLiveCrowd(port: CrowdPort): CrowdRepositories {
         return (await port.feed()).map(feedPostOf).filter((post): post is FeedPost => post !== null);
       },
 
-      async flag(postId) {
+      async flag(postId, tag = 'false_location') {
         if (!(await port.signedIn())) return { ok: false, reason: 'sign_in' };
         const id = Number(postId);
         if (!Number.isSafeInteger(id)) return { ok: false, reason: 'error' };
         try {
-          const result = await port.flagPost(id);
+          const result = await port.flagPost(id, tag);
           return 'hidden' in result ? { ok: true, hidden: result.hidden } : failure(result);
         } catch (error) {
           return { ok: false, reason: 'error', message: messageOf(error) };

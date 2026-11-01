@@ -9,7 +9,7 @@ import { Card, Chip, LineBadge, SkeletonCard, StatusPill, TopBar } from '@/compo
 import { useRouteData } from '@/data/RouteDataProvider';
 import { promptSignIn } from '@/features/auth/promptSignIn';
 import { useSkeleton } from '@/features/loading/useSkeleton';
-import { DEMO_SEED, FEED_FLAG_HIDE_COUNT, SKELETON_LONG_MS } from '@/shared/config';
+import { DEMO_SEED, FEED_FLAG_HIDE_COUNT, FLAG_TAGS, SKELETON_LONG_MS } from '@/shared/config';
 import { demoFeed, vehicleLabelOf, type FeedPost } from '@/shared/demo/feed';
 import { routeCodesOf } from '@/shared/ui/routeVisibility';
 import { useConnectionStore } from '@/state/connectionStore';
@@ -21,6 +21,7 @@ import { useUsernameStore } from '@/state/usernameStore';
 import { useTabBarSpace } from '@/navigation/useTabBarSpace';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
+import { blockedBySuspension } from '@/state/moderationStore';
 
 const ICON_SIZE = spacing.md;
 const EMPTY_ICON = spacing.xl;
@@ -165,23 +166,29 @@ export default function CrowdsourceScreen() {
 
 // Asks first, then flags; the post disappears for this user when the flag is accepted
 function confirmFlag(post: FeedPost) {
+  if (!post.demo && blockedBySuspension()) return;
   showDialog({
     tone: 'warning',
     icon: Flag,
     title: strings.crowdsource.flagTitle,
-    body: strings.crowdsource.flagBody(FEED_FLAG_HIDE_COUNT),
+    body: `${strings.crowdsource.flagBody(FEED_FLAG_HIDE_COUNT)} ${strings.crowdsource.flagWhy}`,
+    // MOD1b: the flag says what is wrong
     actions: [
-      {
-        label: strings.crowdsource.flagConfirm,
-        variant: 'danger',
+      ...FLAG_TAGS.map((tag) => ({
+        label: strings.crowdsource.flagTags[tag],
+        variant: 'danger' as const,
         onPress: () => {
-          void flagPost(post.id, post.demo).then((result) => {
+          void flagPost(post.id, post.demo, tag).then((result) => {
             if (result.ok) showDialog({ tone: 'success', title: strings.crowdsource.flaggedTitle, body: strings.crowdsource.flaggedBody });
             else if (result.reason === 'sign_in') promptSignIn();
-            else showDialog({ tone: 'danger', title: strings.crowdsource.flagFailedTitle, body: result.message ?? strings.crowdsource.flagFailedBody });
+            else {
+              const message = result.message ?? '';
+              const body = message.includes('flag_too_new') ? strings.crowdsource.flagTooNew : message.includes('flag_limit') ? strings.crowdsource.flagLimit : result.message ?? strings.crowdsource.flagFailedBody;
+              showDialog({ tone: 'danger', title: strings.crowdsource.flagFailedTitle, body });
+            }
           });
         },
-      },
+      })),
       { label: strings.crowdsource.flagCancel, variant: 'secondary' },
     ],
   });

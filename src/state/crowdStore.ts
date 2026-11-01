@@ -1,3 +1,4 @@
+import type { FlagTag } from '@/shared/config';
 import { useMemo } from 'react';
 import { create } from 'zustand';
 
@@ -79,9 +80,9 @@ export const useOwnPostsStore = create<{ ids: ReadonlySet<string>; add: (id: str
   add: (id) => set((state) => ({ ids: new Set([...state.ids, id]) })),
 }));
 
-export async function flagPost(postId: string, demo: boolean): Promise<FlagResult> {
+export async function flagPost(postId: string, demo: boolean, tag: FlagTag): Promise<FlagResult> {
   // A made-up demo post is only hidden on this phone
-  const result: FlagResult = demo ? { ok: true, hidden: false } : await currentCrowd().reports.flag(postId);
+  const result: FlagResult = demo ? { ok: true, hidden: false } : await currentCrowd().reports.flag(postId, tag);
   if (result.ok) useFlaggedStore.getState().add(postId);
   return result;
 }

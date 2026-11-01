@@ -36,6 +36,7 @@ import { refreshTrust, useTrustPoints } from '@/state/trustStore';
 import { syncUsername, useUsernameStore } from '@/state/usernameStore';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, radii, spacing, useTheme } from '@/theme';
+import { ModerationCard } from '@/features/moderation/ModerationCard';
 
 const AVATAR_SIZE = spacing.xl * 3;
 const ICON_SIZE = spacing.md + spacing.xs;
@@ -280,6 +281,9 @@ export default function ProfileScreen() {
       </Card>
 
       <BadgesCard />
+
+      {/* MOD1b: Trust Level, Merit shields, strikes and appeals (live data) */}
+      <ModerationCard />
 
       <PlacesCard />
 

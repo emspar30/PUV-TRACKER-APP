@@ -3,6 +3,7 @@
 // screens. Until then the "none" implementation stands in: it has no data, so screens say "No data".
 // Pure types: no React Native or Expo imports.
 
+import type { FlagTag } from '@/shared/config';
 import type { NightPassage } from '../../shared/demo/nightPassages';
 import type { EnergyKind, FeedPhrase } from '../../shared/backend/rules';
 import type { FeedPost } from '../../shared/demo/feed';
@@ -89,7 +90,8 @@ export type ReportsRepository = {
   recent(): Promise<readonly FeedPost[] | null>;
   // N1: flags someone else's post (flag_post; one flag per account). hidden: it reached
   // FEED_FLAG_HIDE_COUNT flags and went to the review queue
-  flag(postId: string): Promise<FlagResult>;
+  // MOD1: with its tag (false location, spamming, not a multicab); flag_report
+  flag(postId: string, tag?: FlagTag): Promise<FlagResult>;
 };
 
 export type FlagResult = { ok: true; hidden: boolean } | CloudFailure;

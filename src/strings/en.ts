@@ -2,11 +2,12 @@
 // To add Cebuano later: copy this file to ceb.ts, translate the values, and switch the export
 // in src/strings/index.ts. No translation library is needed for that.
 
-import type { Classification } from '@/shared/config';
+import type { Classification, FlagTag } from '@/shared/config';
 import type { GreetingPeriod } from '@/shared/profile/greeting';
 import type { PlanFailure } from '@/shared/routing/plan';
 import type { SnapName } from '@/shared/ui/sheetSnap';
 import type { TourStepId } from '@/shared/ui/tourPlacement';
+import type { Strike, StrikeReason } from '@/shared/moderation/rules';
 
 const km = (value: number) => `${value.toFixed(1)} km`;
 const MINUTES_PER_HOUR = 60;
@@ -104,6 +105,15 @@ export const en = {
     flagCancel: 'Cancel',
     flaggedTitle: 'Thanks for flagging',
     flaggedBody: 'The report is hidden for you.',
+    // MOD1b: what is wrong with the report
+    flagTags: {
+      false_location: 'Wrong location',
+      spamming: 'Spam',
+      not_a_puv: 'Not a multicab',
+    } satisfies Record<FlagTag, string>,
+    flagWhy: 'What is wrong with it?',
+    flagTooNew: 'New accounts can flag after 7 days, or once you have the Trusted badge.',
+    flagLimit: 'You have flagged many reports today. Try again tomorrow.',
     flagFailedTitle: 'Flag not sent',
     flagFailedBody: 'Try again in a moment.',
     you: 'You',
@@ -849,6 +859,45 @@ export const en = {
     signOut: 'Sign out',
     signedInAs: (email: string) => `Signed in as ${email}`,
     guest: 'Not signed in',
+  },
+
+  // MOD1 (PRD 11.2, 11.3): Profile's Trust and safety, strikes, appeals and suspension
+  moderation: {
+    title: 'Trust and safety',
+    trustLevel: (level: number) => `Trust Level ${level}%: the share of your recent reports nobody had to remove.`,
+    trustLevelSoon: (reports: number, needed: number) => `Your Trust Level shows after ${needed} reports (${reports} so far).`,
+    merit: (count: number) => (count > 0 ? `${count} Merit ${count === 1 ? 'shield' : 'shields'}: each one takes a strike for you.` : 'No Merit shields yet. They come with trust points.'),
+    noStrikes: 'No strikes. Thank you for keeping Tunton accurate.',
+    reasons: {
+      confirmed_report: 'A moderator confirmed a report of yours was wrong.',
+      auto_evidence: 'A report of yours was flagged and your phone showed a fake or impossible location.',
+    } satisfies Record<StrikeReason, string>,
+    strikeState: (strike: Pick<Strike, 'absorbed' | 'lifted' | 'appealState'>, at: Date, expires: Date) =>
+      strike.lifted
+        ? 'Lifted after your appeal.'
+        : strike.absorbed
+          ? `A Merit shield took it (${at.toLocaleDateString()}).`
+          : strike.appealState === 'pending'
+            ? 'Appeal sent; a moderator will decide.'
+            : strike.appealState === 'rejected'
+              ? `Appeal not upheld. Ends ${expires.toLocaleDateString()}.`
+              : `Given ${at.toLocaleDateString()}, ends ${expires.toLocaleDateString()}.`,
+    appeal: 'Appeal',
+    suspendedTitle: 'Account suspended',
+    suspendedBody: (until: Date) => `Two strikes within 30 days: you cannot relay, check in or flag until ${until.toLocaleString()}. You can still use the map, routes and fares, and appeal on your Profile.`,
+    shieldTitle: 'A Merit shield was used',
+    shieldBody: 'A report of yours was confirmed wrong, and one of your Merit shields took the strike. See Trust and safety on your Profile.',
+    appealTitle: 'Appeal a strike',
+    appealBody: 'Tell the moderator why the strike is a mistake. If they agree, it is lifted, and any suspension it caused ends.',
+    appealPlaceholder: 'What happened?',
+    appealCount: (length: number, max: number) => `${length}/${max}`,
+    appealSend: 'Send appeal',
+    appealSentTitle: 'Appeal sent',
+    appealSentBody: 'A moderator will decide. You will see the result on your Profile.',
+    appealFailedTitle: 'Appeal not sent',
+    appealFailedBody: 'Check your connection and try again.',
+    appealTooLate: 'Strikes can be appealed within 30 days.',
+    appealExists: 'You already appealed this strike.',
   },
 
   // Demo & simulation: what the emulator cannot do by itself; also works on a phone
