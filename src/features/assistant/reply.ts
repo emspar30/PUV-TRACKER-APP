@@ -109,6 +109,8 @@ export function replyOf(answer: Answer, intent: Intent, fareType: Classification
     }
     case 'statusHidden':
       return { lines: [a.statusHidden], chips: [viewRoute(answer.routeCode)] };
+    case 'statusOffline':
+      return { lines: [a.statusOffline(answer.routeCode)], chips: [viewRoute(answer.routeCode)] };
     case 'statusLoading':
       return { lines: [a.statusLoading(answer.routeCode)], chips: [] };
     case 'unknownRoute':

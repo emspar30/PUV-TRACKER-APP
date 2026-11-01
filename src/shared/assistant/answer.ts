@@ -35,8 +35,10 @@ export type AssistantContext = {
   // The rider's fare type as a multiplier (discountMultiplier)
   fareMultiplier: number;
   live: {
-    // teamOnly: live markers are for team accounts only (PRD 0.7), so nothing can be said
-    access: 'open' | 'teamOnly';
+    // teamOnly: live markers are for team accounts only (PRD 0.7), so nothing can be said.
+    // offline: the server cannot be reached, so the live multicabs are not known (trips, fares and
+    // stops are worked out on the phone and still answered)
+    access: 'open' | 'teamOnly' | 'offline';
     night: boolean;
     // The vehicles of the routes asked about and the routes overlapping them; nowMs 0 while loading
     vehicles: readonly VehicleSnapshot[];
@@ -84,6 +86,7 @@ export type Answer =
   | { kind: 'needDestination' }
   | ({ kind: 'status'; routeCode: string; routeName: string; night: boolean; alternative: Alternative | null } & RouteStatus)
   | { kind: 'statusHidden'; routeCode: string }
+  | { kind: 'statusOffline'; routeCode: string }
   | { kind: 'statusLoading'; routeCode: string }
   | { kind: 'unknownRoute'; routeCode: string; routes: string[] }
   | { kind: 'whichRoute'; routes: string[] }
@@ -174,6 +177,7 @@ function statusAnswer(routeCode: string | null, context: AssistantContext): Answ
   if (!routes.includes(routeCode)) return { kind: 'unknownRoute', routeCode, routes };
   const { live } = context;
   if (live.access === 'teamOnly') return { kind: 'statusHidden', routeCode };
+  if (live.access === 'offline') return { kind: 'statusOffline', routeCode };
   if (live.nowMs === 0) return { kind: 'statusLoading', routeCode };
   const status = routeStatus(live.vehicles, routeCode, live.nowMs);
   // As the Map tab's coverage nudge: an alternative only by day, when the route has no Live vehicle

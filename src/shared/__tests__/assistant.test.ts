@@ -265,6 +265,12 @@ describe('status answers', () => {
     expect(answer(parseQuery('naa bay multicab?'), context())).toMatchObject({ kind: 'whichRoute', routes: expect.arrayContaining(['R4']) });
   });
 
+  it('offline: says the live multicabs cannot be shown, and still answers trips and fares (2026-11-02)', () => {
+    const offline = { access: 'offline' as const, night: false, vehicles: [], nowMs: NOW };
+    expect(answer(parseQuery('R4'), context({ live: offline }))).toEqual({ kind: 'statusOffline', routeCode: 'R4' });
+    expect(answer(parseQuery('R9'), context({ live: offline }))).toMatchObject({ kind: 'unknownRoute', routeCode: 'R9' });
+  });
+
   it('watches only the routes asked about and the routes sharing their stops', () => {
     expect(routesToWatch([{ kind: 'help' }], data.stops)).toEqual([]);
     expect(routesToWatch([{ kind: 'status', routeCode: 'R5' }], data.stops)).toEqual(expect.arrayContaining(['R3', 'R4', 'R5']));

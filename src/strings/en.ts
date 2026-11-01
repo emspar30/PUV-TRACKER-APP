@@ -1008,16 +1008,16 @@ export const en = {
   },
 
   // CA1: the assistant (PRD 19.5). It understands English and Bisaya questions and replies in
-  // English; the answers are worked out on the phone. CA1.1: open only while online
+  // English; the answers are worked out on the phone. Offline (2026-11-02) it still answers trips,
+  // fares and stops; only a route's live multicabs need the internet
   assistant: {
     title: 'Ask Tunie',
     open: 'Ask Tunie',
     placeholder: 'Ask about a trip, a fare, a route or a stop',
     send: 'Send',
-    // CA1.1: the close button and the online-only notice
+    // CA1.1: the close button; the offline notice (2026-11-02)
     close: 'Close Ask Tunie',
-    needsInternet: 'Ask Tunie needs an internet connection. Connect, then ask again.',
-    checkingConnection: 'Checking your connection…',
+    offlineNote: 'You are offline. Trips, fares and stops still work; live multicabs need the internet.',
     you: 'You',
     // The user's own position, as the answers name it
     yourLocation: 'your location',
@@ -1064,6 +1064,7 @@ export const en = {
     statusNight: 'Night Mode: moving multicabs are hidden.',
     statusAlternative: (code: string, distance: string) => `${code} is running nearby (${distance}) and shares stops with it.`,
     statusHidden: 'Live multicabs are for team accounts only for now.',
+    statusOffline: (code: string) => `You are offline, so the live multicabs on ${code} cannot be shown. Its line and stops are on the map.`,
     statusLoading: (code: string) => `Checking ${code}…`,
     nearest: (code: string, name: string, distance: string, from: string) => `The nearest stop to ${from} is ${name} (${code}), ${distance} away.`,
     nearestRoutes: (codes: string) => `Routes there: ${codes}.`,

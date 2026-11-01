@@ -52,7 +52,8 @@ function remember(question: string, intent: Intent) {
 // slides up fully open (so the first message shows whole), can be dragged to half, and slides away
 // when closed (Close, a tap above it, or dragged to the bottom); a chat with the message box at the
 // bottom and the newest message last, open no higher than the Map's top bar; the questions are kept
-// on the phone for an hour (assistantStore); online only.
+// on the phone for an hour (assistantStore). Offline (2026-11-02) it still answers, since the answers
+// are worked out on the phone; only a route's live multicabs need the server.
 export default function AssistantScreen() {
   const styles = useStyles();
   const { colors, typography } = useTheme();
@@ -71,7 +72,7 @@ export default function AssistantScreen() {
   const [dismissKey, setDismissKey] = useState(0);
   const close = () => setDismissKey((key) => key + 1);
   const access = useAssistantAccess();
-  const online = access === 'open';
+  const offline = access === 'offline';
   const [draft, setDraft] = useState('');
 
   // Questions older than an hour are let go when the screen opens
@@ -98,33 +99,30 @@ export default function AssistantScreen() {
       fareMultiplier: discountMultiplier(fareType),
       live: {
         // Live markers are for team accounts only (PRD 0.7); the demo is open to everyone
-        access: live && teamAccount !== true ? 'teamOnly' : 'open',
+        access: live && offline ? 'offline' : live && teamAccount !== true ? 'teamOnly' : 'open',
         night: live && supply.nowMs > 0 && isNight(supply.nowMs),
         vehicles: supply.vehicles,
         nowMs: supply.nowMs,
       },
     };
-  }, [lines, stops, places, commuter, fareType, repos.vehicles.source, teamAccount, supply]);
+  }, [lines, stops, places, commuter, fareType, repos.vehicles.source, teamAccount, supply, offline]);
 
   const replies = useMemo<Reply[]>(
     () => entries.map((entry) => replyOf(answer(entry.intent, context), entry.intent, fareType)),
     [entries, context, fareType],
   );
 
-  // CA1.1: nothing is asked while offline
-  const ask = (question: string, intent: Intent) => {
-    if (online) remember(question, intent);
-  };
+  const ask = (question: string, intent: Intent) => remember(question, intent);
 
   const send = () => {
     const question = draft.trim();
-    if (!question || !online) return;
+    if (!question) return;
     setDraft('');
     ask(question, parseQuery(question));
   };
 
   const act = (action: ChipAction) => (action.kind === 'ask' ? ask(action.question, action.intent) : leave(action));
-  const canSend = online && draft.trim().length > 0;
+  const canSend = draft.trim().length > 0;
 
   const bubble = (reply: Reply, key: string) => (
     <View key={key} style={styles.answer}>
@@ -137,15 +135,9 @@ export default function AssistantScreen() {
       </View>
       {reply.chips.length > 0 ? (
         <View style={styles.chips}>
-          {reply.chips.map((chip) => {
-            // Offline, a chip that asks a question is dimmed and does nothing; one that opens a tab works
-            const locked = !online && chip.action.kind === 'ask';
-            return (
-              <View key={chip.label} style={locked && styles.disabled}>
-                <Chip label={chip.label} onPress={locked ? undefined : () => act(chip.action)} />
-              </View>
-            );
-          })}
+          {reply.chips.map((chip) => (
+            <Chip key={chip.label} label={chip.label} onPress={() => act(chip.action)} />
+          ))}
         </View>
       ) : null}
     </View>
@@ -162,28 +154,25 @@ export default function AssistantScreen() {
           <X color={colors.textPrimary} size={ICON_SIZE} />
         </Pressable>
       </View>
-      {online ? null : (
+      {offline ? (
         <View style={styles.notice} accessibilityLiveRegion="polite">
           <WifiOff color={colors.textSecondary} size={ICON_SIZE} />
-          <Text style={[typography.bodySm, styles.grow]}>
-            {access === 'checking' ? strings.assistant.checkingConnection : strings.assistant.needsInternet}
-          </Text>
+          <Text style={[typography.bodySm, styles.grow]}>{strings.assistant.offlineNote}</Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 
   const messageBox = (
     <View style={styles.inputRow}>
       <TextInput
-        style={[typography.bodyMd, styles.input, !online && styles.disabled]}
+        style={[typography.bodyMd, styles.input]}
         value={draft}
         onChangeText={setDraft}
         onFocus={() => setSheetRequest((current) => ({ key: (current?.key ?? 0) + 1, snap: 'expanded' }))}
-        placeholder={online ? strings.assistant.placeholder : strings.assistant.needsInternet}
+        placeholder={strings.assistant.placeholder}
         placeholderTextColor={colors.textTertiary}
         maxLength={ASSISTANT_INPUT_MAX_CHARS}
-        editable={online}
         returnKeyType="send"
         submitBehavior="submit"
         onSubmitEditing={send}
