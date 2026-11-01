@@ -31,3 +31,44 @@ services:
       # (2026-10-25, a DITO SIM that did not receive data SMS) for the partner's driver-side tests, 2026-10-29
       - key: SMS_PRIMARY_ENCODING
         value: data
+
+  # The admin console (DRG5), a static page built from admin/. See admin/README.md, "Hosted on Render".
+  # Its two settings are public values (they ship in the apps too) but stay out of this file like the
+  # worker's, typed into the Render dashboard once.
+  - type: web
+    name: tunton-admin
+    runtime: static
+    buildCommand: npm ci && npm run admin:build
+    staticPublishPath: admin/dist
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - admin/**
+        - src/shared/**
+        - src/strings/**
+        - src/theme/tokens.ts
+        - supabase/functions/_shared/**
+        - package.json
+        - package-lock.json
+        - render.yaml
+    headers:
+      # Only the page itself and the Supabase project may be reached; no inline script or style
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data: https://*.supabase.co; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Robots-Tag
+        value: noindex
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false

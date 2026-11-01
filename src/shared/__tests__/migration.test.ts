@@ -13,10 +13,14 @@ const FILES = fs
   .readdirSync(MIGRATIONS)
   .filter((name) => name.endsWith('.sql'))
   .sort();
-// DR3's migration and its later fixes, and driver registration with the retire notice (DRG2)
+// DR3's migration and its later fixes, DRG2's driver registration, and the retire notice (text, then data)
 const DRIVER_SIDE = '20261013000000_driver_side.sql';
-const DRIVER_REGISTRATION_FILES = ['20261027000000_driver_registration.sql', '20261028000000_retire_notice.sql', '20261029000000_retire_notice_data.sql'];
-const DRIVER_SIDE_FILES = FILES.filter((name) => name.startsWith('20261013') || DRIVER_REGISTRATION_FILES.includes(name));
+const DRIVER_REGISTRATION = '20261027000000_driver_registration.sql';
+const RETIRE_NOTICE = '20261028000000_retire_notice.sql';
+const RETIRE_NOTICE_DATA = '20261029000000_retire_notice_data.sql';
+const DRIVER_SIDE_FILES = FILES.filter(
+  (name) => name.startsWith('20261013') || name === DRIVER_REGISTRATION || name === RETIRE_NOTICE || name === RETIRE_NOTICE_DATA,
+);
 
 const read = (names: string[]) =>
   names
@@ -148,9 +152,8 @@ describe('migration: tables', () => {
     for (const word of ['classification', 'avatar', 'full_name', 'email', 'discount']) {
       expect(sql).not.toContain(word);
     }
-    // The driver side (20261013000000_driver_side) keeps the numbers of driver phones and SMS
-    // gateways, never a rider's; driver registration (20261027000000_driver_registration) keeps the
-    // number a registering driver checks: only those four tables have a phone column
+    // The driver side (20261013000000_driver_side, 20261027000000_driver_registration) keeps the
+    // numbers of driver phones, SMS gateways and registering drivers, never a rider's
     const withPhone = [...sql.matchAll(/create table (public\.\w+) \(([\s\S]*?)\);/g)]
       .filter((match) => match[2].includes('phone'))
       .map((match) => match[1]);
@@ -471,6 +474,112 @@ describe('migration: Energy for relays (RL2b)', () => {
     expect(post.indexOf('you already relayed')).toBeLessThan(post.indexOf('insert into public.feed_posts'));
     // Still the RL2a gate first
     expect(post.indexOf('beacon_check')).toBeLessThan(post.indexOf('you already relayed'));
+  });
+});
+
+describe('migration: driver registration (DRG2)', () => {
+  const regSql = read([DRIVER_REGISTRATION]);
+  const regStatements = regSql
+    .replace(/\$\$[\s\S]*?\$\$/g, '$$body$$')
+    .split(';')
+    .map((s) => s.replace(/\s+/g, ' ').trim());
+  const regFunctions = regStatements
+    .filter((s) => /^create (or replace )?function/.test(s))
+    .map((s) => /function public\.(\w+)/.exec(s)![1]);
+  const body = (fn: string) => {
+    const rest = regSql.slice(regSql.indexOf(`function public.${fn}(`));
+    return rest.slice(0, rest.indexOf('$$;', rest.indexOf('as $$')));
+  };
+  const grantsOf = (fn: string) => regStatements.filter((s) => s.startsWith(`grant execute on function public.${fn}(`));
+  const NEW_TABLES = ['public.admin_accounts', 'public.driver_settings', 'public.registration_checks', 'public.driver_registrations'];
+
+  it('adds four server-only tables', () => {
+    expect(tables).toEqual(expect.arrayContaining(NEW_TABLES));
+    for (const table of NEW_TABLES) {
+      expect(clientGrantsOn(table)).toEqual([]);
+      expect(policiesOn(table)).toEqual([]);
+    }
+  });
+
+  it('stores only hashes: the install token as SHA-256, the admin PIN salted; no secret column', () => {
+    for (const table of NEW_TABLES) {
+      const start = regSql.indexOf(`create table ${table} (`);
+      expect(regSql.slice(start, regSql.indexOf(');', start))).not.toMatch(/\b(secret|sms_key|token|pin)\s+text\b/);
+    }
+    expect(regSql).toContain("install_token_hash  text not null unique check (install_token_hash ~ '^[0-9a-f]{64}$')");
+    expect(regSql).toContain("admin_pin_hash  text check (admin_pin_hash ~ '^[0-9a-f]{64}$')");
+  });
+
+  it('the registration functions are for the service role only', () => {
+    const registration = regFunctions.filter((fn) => fn.startsWith('registration_'));
+    expect(registration).toEqual(['registration_check_start', 'registration_check_verify', 'registration_submit', 'registration_status', 'registration_collect']);
+    for (const fn of registration) {
+      expect(regStatements.find((s) => s.startsWith(`revoke execute on function public.${fn}(`))).toMatch(/ from public, anon, authenticated$/);
+      expect(grantsOf(fn)).toHaveLength(1);
+      expect(grantsOf(fn)[0]).toMatch(/ to service_role$/);
+    }
+  });
+
+  it('every console function is for signed-in callers and checks is_admin first', () => {
+    const console_ = regFunctions.filter((fn) => fn.startsWith('console_'));
+    expect(console_).toHaveLength(7);
+    for (const fn of console_) {
+      expect(grantsOf(fn)).toEqual([expect.stringMatching(/ to authenticated$/)]);
+      const code = body(fn).replace(/^[\s\S]*?\bbegin\b/, '').trim();
+      expect(code.startsWith("if not public.is_admin() then raise exception 'admins only'")).toBe(true);
+    }
+  });
+
+  it('keeps the photos private: a non-public bucket, JPEG only, 1 MB at most, read and deleted only by the admin', () => {
+    expect(regSql).toContain("values ('driver-registrations', 'driver-registrations', false, 1000000, array['image/jpeg'])");
+    const policies = regStatements.filter((s) => s.startsWith('create policy'));
+    expect(policies).toHaveLength(2);
+    for (const policy of policies) {
+      expect(policy).toContain('on storage.objects for');
+      expect(policy).toContain("bucket_id = 'driver-registrations' and (select public.is_admin())");
+    }
+    expect(policies.map((p) => / for (\w+) /.exec(p)![1]).sort()).toEqual(['delete', 'select']);
+  });
+
+  it('enforces the number-check limits and the wrong-try limit on the server', () => {
+    const start = body('registration_check_start');
+    for (const reason of ['daily_limit', 'number_limit', 'too_soon']) expect(start).toContain(`raise exception '${reason}'`);
+    expect(start).toContain("(c.created_at at time zone 'asia/manila')::date = today");
+    expect(body('registration_check_verify')).toContain('open_check.tries >= max_tries');
+  });
+
+  it('collects a setup once: only an approved registration, which becomes collected in the same transaction', () => {
+    const collect = body('registration_collect');
+    expect(collect).toContain("reg.status <> 'approved' then raise exception 'not_approved'");
+    expect(collect).toContain('for update');
+    expect(collect).toContain("set status = 'collected'");
+    expect(collect).toContain('public.admin_provision_driver(');
+    expect(collect).toContain('public.admin_retire_device(old_device');
+  });
+
+  it('heatmap rows keep their driver phone; other rows go to a number; the gateway reads either', () => {
+    expect(regSql).toContain("(kind = 'heatmap' and device_id is not null and route_id is not null and seq is not null and to_e164 is null)");
+    const claim = body('worker_claim');
+    expect(claim).toContain('coalesce(o.to_e164, d.phone_e164)');
+    expect(claim).toContain('(o.device_id is null or d.active)');
+  });
+});
+
+describe('migration: retire notice as a data SMS (owner, 2026-10-29)', () => {
+  const dataSql = read([RETIRE_NOTICE_DATA]);
+
+  it('redefines the two-argument console_retire in place, admin first, without dropping anything', () => {
+    expect(dataSql).toContain('create or replace function public.console_retire(device text, notice_ttl_min integer)');
+    expect(dataSql).not.toMatch(/\bdrop\b/);
+    const code = dataSql.slice(dataSql.indexOf('as $$') + 'as $$'.length).replace(/^[\s\S]*?\bbegin\b/, '').trim();
+    expect(code.startsWith("if not public.is_admin() then raise exception 'admins only'")).toBe(true);
+    expect(dataSql).toContain('grant execute on function public.console_retire(text, integer) to authenticated');
+  });
+
+  it('queues the notice as data, on the bytes the phone decodes, and keeps its text for the log', () => {
+    expect(dataSql).toContain("values ('notice', phone, 'data', signed_part || '|' || mac,");
+    expect(dataSql).toContain("encode(decode('480200' || lpad(to_hex(length(device)), 2, '0') || encode(convert_to(device, 'utf8'), 'hex') || mac, 'hex'), 'base64')");
+    expect(dataSql).toContain('return public.admin_retire_device(device,');
   });
 });
 

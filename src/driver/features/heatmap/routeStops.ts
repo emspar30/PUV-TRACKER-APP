@@ -38,3 +38,12 @@ export function driverRoute(routeCode: string): DriverRoute {
   cache.set(routeCode, route);
   return route;
 }
+
+const ROUTE_NUMBER = /^R(\d+)$/;
+
+// DRG4: the routes a registering driver can pick: every route the app ships a line for, in number order
+export function driverRouteCodes(): string[] {
+  const codes = [...new Set(SEED_LINES.map((line) => line.routeCode))];
+  const number = (code: string) => Number(ROUTE_NUMBER.exec(code)?.[1] ?? Number.MAX_SAFE_INTEGER);
+  return codes.sort((a, b) => number(a) - number(b));
+}

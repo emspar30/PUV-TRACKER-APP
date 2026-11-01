@@ -15,6 +15,7 @@
 -- no account may call it any more.
 
 revoke execute on function public.console_retire(text) from authenticated;
+
 create function public.console_retire(device text, notice_ttl_min integer)
 returns boolean
 language plpgsql
@@ -43,5 +44,6 @@ begin
   return public.admin_retire_device(device, encode(extensions.gen_random_bytes(32), 'hex'));
 end;
 $$;
+
 revoke execute on function public.console_retire(text, integer) from public, anon;
 grant execute on function public.console_retire(text, integer) to authenticated;

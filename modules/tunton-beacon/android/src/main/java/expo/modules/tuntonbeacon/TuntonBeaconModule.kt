@@ -17,6 +17,9 @@ class BeaconOptions : Record {
   @Field val txPower: String = "medium"
   @Field val notificationTitle: String = ""
   @Field val notificationText: String = ""
+  // Backlog 134: the notification posted when a retire notice arrives with the app closed
+  @Field val retiredTitle: String = ""
+  @Field val retiredText: String = ""
 }
 
 class ScanOptions : Record {
@@ -97,6 +100,10 @@ class TuntonBeaconModule : Module() {
         notificationTitle = options.notificationTitle,
         notificationText = options.notificationText,
       )
+      if (options.retiredTitle.isNotEmpty()) {
+        store.retiredTitle = options.retiredTitle
+        store.retiredText = options.retiredText
+      }
       store.enabled = true
       BeaconAdvertiserService.start(context)
     }

@@ -20,7 +20,9 @@ create table public.admin_accounts (
   user_id   uuid primary key references auth.users (id) on delete cascade,
   added_at  timestamptz not null default now()
 );
+
 alter table public.admin_accounts enable row level security;
+
 revoke all on public.admin_accounts from anon, authenticated;
 grant all on public.admin_accounts to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -34,6 +36,7 @@ set search_path = ''
 as $$
   select exists (select 1 from public.admin_accounts a where a.user_id = (select auth.uid()));
 $$;
+
 -- ---------------------------------------------------------------------------
 -- driver_settings: one row. The admin PIN of every pilot driver phone (D5), as the salted SHA-256
 -- the setup payload carries (src/shared/driver/provisioning.ts hashAdminPin); the PIN itself is
@@ -45,8 +48,11 @@ create table public.driver_settings (
   admin_pin_salt  text check (admin_pin_salt ~ '^[0-9a-f]{32}$'),
   updated_at      timestamptz not null default now()
 );
+
 insert into public.driver_settings (id) values (true);
+
 alter table public.driver_settings enable row level security;
+
 revoke all on public.driver_settings from anon, authenticated;
 grant all on public.driver_settings to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -65,9 +71,12 @@ create table public.registration_checks (
   verified_at  timestamptz,
   used_at      timestamptz
 );
+
 create index registration_checks_phone_idx on public.registration_checks (phone_e164, created_at);
 create index registration_checks_created_idx on public.registration_checks (created_at);
+
 alter table public.registration_checks enable row level security;
+
 revoke all on public.registration_checks from anon, authenticated;
 grant all on public.registration_checks to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -95,9 +104,12 @@ create table public.driver_registrations (
   collected_at        timestamptz,
   photos_deleted_at   timestamptz
 );
+
 create index driver_registrations_status_idx on public.driver_registrations (status, created_at);
 create index driver_registrations_phone_idx on public.driver_registrations (phone_e164);
+
 alter table public.driver_registrations enable row level security;
+
 revoke all on public.driver_registrations from anon, authenticated;
 grant all on public.driver_registrations to service_role;
 -- No policy on purpose: client roles are denied everything.
@@ -115,6 +127,7 @@ alter table public.sms_outbox add constraint sms_outbox_addressee check (
   (kind = 'heatmap' and device_id is not null and route_id is not null and seq is not null and to_e164 is null)
   or (kind <> 'heatmap' and to_e164 is not null and device_id is null and route_id is null and seq is null)
 );
+
 -- The gateway takes up to max_rows messages, oldest first (DR3, unchanged), now also those addressed
 -- to a number: a heatmap row goes to its active driver phone, any other row to its own number.
 create or replace function public.worker_claim(gateway text, max_rows integer, lease_s integer, max_attempts integer)
@@ -152,6 +165,7 @@ begin
   returning o.id, p.addressee, o.encoding, o.body_text, o.body_b64;
 end;
 $$;
+
 -- ---------------------------------------------------------------------------
 -- Storage: the private bucket for the photos (JPEG only, 1 MB at most: REGISTRATION_PHOTO_MAX_BYTES).
 -- Uploads use short-lived upload links made by the Edge Functions with the service role; only the
@@ -160,10 +174,13 @@ $$;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('driver-registrations', 'driver-registrations', false, 1000000, array['image/jpeg'])
 on conflict (id) do nothing;
+
 create policy "driver-registrations: the admin reads" on storage.objects
   for select to authenticated using (bucket_id = 'driver-registrations' and (select public.is_admin()));
+
 create policy "driver-registrations: the admin deletes" on storage.objects
   for delete to authenticated using (bucket_id = 'driver-registrations' and (select public.is_admin()));
+
 -- ---------------------------------------------------------------------------
 -- Registration functions (DRG3's Edge Functions, service role). Errors carry a short reason as the
 -- message, which the functions turn into the app's wording.
@@ -218,6 +235,7 @@ begin
   return new_check;
 end;
 $$;
+
 -- Checks a code against the number's newest open check. Returns the check id on a match, or null
 -- (no open check, too many wrong tries, or a wrong code, which counts as a try).
 create function public.registration_check_verify(phone text, code text, max_tries integer)
@@ -242,6 +260,7 @@ begin
   return open_check.check_id;
 end;
 $$;
+
 -- Makes a pending registration from a verified, unused check (verified within verified_within_min).
 -- The photos must already be in the bucket under the check's own folder. A newer registration from
 -- the same number expires an older one that is still pending or approved.
@@ -287,6 +306,7 @@ begin
   return new_registration;
 end;
 $$;
+
 -- The status the app shows, for its install token; an approval older than setup_ttl_days expires here
 create function public.registration_status(token_hash text, setup_ttl_days integer)
 returns table (status text, reason text)
@@ -303,6 +323,7 @@ begin
   select r.status, r.reason from public.driver_registrations r where r.install_token_hash = token_hash;
 end;
 $$;
+
 -- Collects an approved setup, once: retires every active phone on the same plate, makes the vehicle's
 -- beacon secret and the phone's SMS key, provisions the phone (admin_provision_driver), and returns
 -- what the setup payload needs. Refuses with not_approved, expired or pin_not_set.
@@ -361,6 +382,7 @@ begin
          beacon, sms_secret, settings.admin_pin_hash, settings.admin_pin_salt;
 end;
 $$;
+
 -- ---------------------------------------------------------------------------
 -- Admin console functions (D3, D4): signed-in callers, and each one checks is_admin() first
 -- ---------------------------------------------------------------------------
@@ -402,6 +424,7 @@ begin
   limit 200;
 end;
 $$;
+
 -- Approves or rejects a pending registration (a rejection needs a reason the driver sees). An
 -- approval queues the "approved" text (PRD 9.5), which expires after notice_ttl_min. Returns the photo
 -- paths, which the console deletes from the bucket at once (D1) and then reports with
@@ -440,6 +463,7 @@ begin
   return query select reg.id_photo_path, reg.vehicle_photo_path;
 end;
 $$;
+
 -- Records that a decided (or replaced) registration's photos are gone from the bucket
 create function public.console_photos_deleted(registration uuid)
 returns boolean
@@ -458,6 +482,7 @@ begin
   return changed > 0;
 end;
 $$;
+
 -- The active driver phones
 create function public.console_drivers()
 returns table (device_id text, vehicle_id text, plate text, route_id text, phone_e164 text, provisioned_at timestamptz)
@@ -477,6 +502,7 @@ begin
   order by d.device_id;
 end;
 $$;
+
 -- Retires a driver phone and gives its vehicle a new beacon secret nobody holds (as retire-device.ts)
 create function public.console_retire(device text)
 returns boolean
@@ -489,6 +515,7 @@ begin
   return public.admin_retire_device(device, encode(extensions.gen_random_bytes(32), 'hex'));
 end;
 $$;
+
 -- Sets the admin PIN of the pilot driver phones (D5), given as the salted hash
 create function public.console_set_pin(pin_hash text, pin_salt text)
 returns void
@@ -502,6 +529,7 @@ begin
   update public.driver_settings s set admin_pin_hash = pin_hash, admin_pin_salt = pin_salt, updated_at = now() where s.id;
 end;
 $$;
+
 -- Whether the admin PIN is set, for the console's settings page
 create function public.console_pin_is_set()
 returns boolean
@@ -515,6 +543,7 @@ begin
   return exists (select 1 from public.driver_settings s where s.id and s.admin_pin_hash is not null);
 end;
 $$;
+
 -- ---------------------------------------------------------------------------
 -- Grants. Functions are executable by PUBLIC by default.
 -- ---------------------------------------------------------------------------
@@ -532,6 +561,7 @@ revoke execute on function public.console_drivers() from public, anon;
 revoke execute on function public.console_retire(text) from public, anon;
 revoke execute on function public.console_set_pin(text, text) from public, anon;
 revoke execute on function public.console_pin_is_set() from public, anon;
+
 -- is_admin is used by the storage policies, so signed-in users may run it (it only answers for themselves)
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.worker_claim(text, integer, integer, integer) to service_role;

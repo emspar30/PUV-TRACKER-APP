@@ -4,6 +4,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { DATA_SMS_PORT } from '../config';
+
 const ROOT = path.join(__dirname, '..', '..', '..');
 
 type ExpoConfig = {
@@ -15,6 +17,7 @@ type ExpoConfig = {
     package: string;
     permissions: string[];
     blockedPermissions?: string[];
+    allowBackup?: boolean;
     adaptiveIcon?: { backgroundColor?: string; foregroundImage?: string; backgroundImage?: string; monochromeImage?: string };
   };
   extra: { appVariant?: string; router?: { root?: string } };
@@ -50,6 +53,9 @@ const DRIVER_SIDE_ONLY = [
 ];
 const BLUETOOTH_SCAN = 'android.permission.BLUETOOTH_SCAN';
 const { addPermissions: addCommuterBle } = jest.requireActual<{ addPermissions: (manifest: object) => object }>(path.join(ROOT, 'plugins', 'withCommuterBle.js'));
+const { addComponents: addDriverComponents } = jest.requireActual<{ addComponents: (application: object) => void }>(
+  path.join(ROOT, 'plugins', 'withDriverAndroid.js'),
+);
 const pluginNames = (config: ExpoConfig) => config.plugins.map((plugin) => (Array.isArray(plugin) ? plugin[0] : plugin));
 
 describe('app variants (DR1)', () => {
@@ -122,6 +128,27 @@ describe('app variants (DR1)', () => {
     const shared = pluginNames(base);
     for (const variant of ['commuter', 'driver', 'gateway']) {
       expect(pluginNames(configFor(variant)).slice(0, shared.length)).toEqual(shared);
+    }
+  });
+
+  it('backlog 128: the driver app is never backed up, so a reinstall cannot bring back a setup without its Keystore keys', () => {
+    expect(configFor('driver').android.allowBackup).toBe(false);
+    expect(configFor('commuter').android.allowBackup).toBe(base.android.allowBackup);
+    expect(configFor('gateway').android.allowBackup).toBe(base.android.allowBackup);
+  });
+
+  it('backlog 134: the driver manifest has both SMS receivers, system-only, on the data port and the text filter, once each', () => {
+    type Entry = { $: Record<string, string>; 'intent-filter'?: { action: Entry[]; data?: Entry[] }[] };
+    const application: { receiver?: Entry[]; service?: Entry[] } = {};
+    addDriverComponents(application);
+    addDriverComponents(application);
+    const smsReceivers = (application.receiver ?? []).filter((entry) => /\.(SmsReceiver|RetireNoticeReceiver)$/.test(entry.$['android:name']));
+    expect(smsReceivers.map((entry) => entry.$['android:name'])).toEqual(['expo.modules.tuntonsms.SmsReceiver', 'expo.modules.tuntonbeacon.RetireNoticeReceiver']);
+    for (const receiver of smsReceivers) {
+      expect(receiver.$['android:permission']).toBe('android.permission.BROADCAST_SMS');
+      const filters = receiver['intent-filter'] ?? [];
+      expect(filters.map((filter) => filter.action[0].$['android:name'])).toEqual(['android.intent.action.DATA_SMS_RECEIVED', 'android.provider.Telephony.SMS_RECEIVED']);
+      expect(filters[0].data?.[0].$['android:port']).toBe(String(DATA_SMS_PORT));
     }
   });
 

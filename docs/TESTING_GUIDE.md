@@ -156,19 +156,16 @@ Expo Router. Tap ✕.
 
 ### 5.1 First-time setup of a driver phone (once per phone)
 
-On the PC (you type the admin PIN it asks for; remember it):
+Registration (PRD 9.5; the driver setup QR was removed on 2026-10-28). Needs internet on the phone
+and the admin console (`admin/README.md`) with the admin PIN set.
 
-```powershell
-# A new multicab: no --replace
-npx tsx scripts/provision-driver.ts --vehicle R4-TEST-03 --plate "TEST 003" --route R4 --phone 09xxxxxxxxx
-
-# A phone replacing the multicab's old phone (a reset or new phone): add --replace
-npx tsx scripts/provision-driver.ts --vehicle R4-TEST-01 --plate "TEST 001" --route R4 --phone 09xxxxxxxxx --replace
-```
-
-`--phone` is the driver phone's own number. The script shows a QR code. On the phone: driver app,
-point the camera at the QR, "Yes, set up", Continue (Nearby devices, notifications), "Allow text
-messages", Done.
+1. Driver app: "Register this phone", allow Nearby devices, notifications and text messages.
+2. The phone's own number, Next; the plate and route; a photo of the ID and one of the plate; "Send
+   for approval".
+3. Console, Registrations: Approve (one "approved" text goes to the number). Re-registering a plate
+   that already has a phone shows a warning, and approving replaces that phone.
+4. Driver app, with Bluetooth on: it collects the setup by itself (or "Check now") and shows "This
+   phone is set up". To start over: Admin (long-press the status strip, PIN), "Set up again".
 
 **If Android refuses text messages without asking** (a "restricted setting" for apps not from the
 Play Store): Settings, Apps, Tunton Driver. Xiaomi: ⋮ (top right), "Allow restricted settings".
@@ -303,7 +300,7 @@ its window, or find it with `Get-Process node` and stop it with `Stop-Process -I
 | Phone forwards | `adb -s <serial> reverse tcp:<port> tcp:<port>` |
 | SMS worker | `npm run worker:dev` (+ `adb -s PZQGPV4H7LDIU8BE reverse tcp:8787 tcp:8787`) |
 | Check in / end from the PC | `npx tsx scripts/dev-checkin.ts --route R4 --station <CODE>` / `--end` |
-| Set up a driver phone | `npx tsx scripts/provision-driver.ts --vehicle … --plate "…" --route R4 --phone …` |
+| Set up a driver phone | Register in the driver app, approve in the admin console (`npm run admin:dev`) |
 | Set up the gateway | `npx tsx scripts/provision-gateway.ts --gateway GW-01 --phone … --worker-url http://localhost:8787` |
 | Code checks | `npm run typecheck`, `npm run lint`, `npx jest src/ services/ supabase/functions/` |
 

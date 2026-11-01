@@ -19,10 +19,11 @@ import { beaconOptions, describeBeacon, useBeaconStatus } from '../features/beac
 import type { Tone } from '../features/heatmap/describe';
 import { drainAndApply, ensureInboxConfigured } from '../features/heatmap/inbox';
 import { requestSmsPermission } from '../features/heatmap/smsPermission';
+import { clearSetup } from '../features/setup/clearSetup';
 import { useDriverStore } from '../state/driverStore';
 import { useHeatmapStore } from '../state/heatmapStore';
-import { clearProvisioning, isBeaconAvailable, startAdvertising, stopAdvertising } from '../../../modules/tunton-beacon';
-import { canReceiveSms, disableInbox, inboxSize, isSmsAvailable } from '../../../modules/tunton-sms';
+import { isBeaconAvailable, startAdvertising, stopAdvertising } from '../../../modules/tunton-beacon';
+import { canReceiveSms, inboxSize, isSmsAvailable } from '../../../modules/tunton-sms';
 
 // DR4: the admin screen behind the PIN (Q12), reached by holding the status strip for 3 s. Turn the
 // beacon on or off, see the code it is sending (for DR4-M3), or remove the setup to set it up again.
@@ -46,12 +47,10 @@ export default function DriverAdmin() {
   const setup = useDriverStore((state) => state.setup);
   const beaconEnabled = useDriverStore((state) => state.beaconEnabled);
   const setBeaconEnabled = useDriverStore((state) => state.setBeaconEnabled);
-  const resetDriver = useDriverStore((state) => state.resetDriver);
   const accepted = useHeatmapStore((state) => state.accepted);
   const rejected = useHeatmapStore((state) => state.rejected);
   const recent = useHeatmapStore((state) => state.recent);
   const driftSamples = useHeatmapStore((state) => state.driftSamples);
-  const resetHeatmap = useHeatmapStore((state) => state.resetHeatmap);
   const status = useBeaconStatus();
   const [smsOn, setSmsOn] = useState(canReceiveSms);
   const [pin, setPin] = useState('');
@@ -89,12 +88,11 @@ export default function DriverAdmin() {
     setBeaconEnabled(!beaconEnabled);
   };
 
+  // Clears the setup and starts registration over (PRD 9.5), from the beginning: an old registration's
+  // progress or install token must not be picked up again
   const setUpAgain = async () => {
-    if (isBeaconAvailable()) await clearProvisioning();
-    if (isSmsAvailable()) await disableInbox();
-    resetDriver();
-    resetHeatmap();
-    router.replace('/provision');
+    await clearSetup();
+    router.replace('/register');
   };
 
   if (!unlocked) {

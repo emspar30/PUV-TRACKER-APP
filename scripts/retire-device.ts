@@ -2,7 +2,7 @@
 //   npx tsx scripts/retire-device.ts DRV-0001
 // The phone gets no more heatmap texts, its queued texts expire, its SMS key is overwritten in Vault,
 // and its vehicle gets a new beacon secret that nobody holds, so beacon codes from the old phone stop
-// validating at once. Set up a replacement with provision-driver.ts (it makes another new secret).
+// validating at once. A replacement phone registers in the driver app (PRD 9.5); its setup brings another new secret.
 
 import { adminClient, askYes, fail, randomHex32 } from './admin-common';
 

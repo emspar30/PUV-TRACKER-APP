@@ -3,6 +3,12 @@ const expoPreset = require('jest-expo/jest-preset');
 // The app imports its own files as @/..., as set in tsconfig.json
 const moduleNameMapper = { '^@/(.*)$': '<rootDir>/src/$1' };
 
+// The live tests (tests/integration) reach the live Supabase project, so they run only through
+// `npm run test:live -- <file>` (scripts/test-live.js), which sets TUNTON_LIVE and runs one file at a
+// time: driverSide.test.ts queues texts the real gateway could pick up, and two files share the admin
+// PIN setting and the test account's admin row (a parallel run on 2026-10-28 broke one of them).
+const LIVE = process.env.TUNTON_LIVE === '1';
+
 // Pure logic runs in plain Node with no React Native setup, so it stays extractable (PRD 0.1 rule 5).
 const shared = {
   displayName: 'shared',
@@ -11,7 +17,6 @@ const shared = {
   testMatch: [
     '<rootDir>/src/shared/**/__tests__/**/*.test.ts',
     '<rootDir>/supabase/functions/_shared/**/*.test.ts',
-    '<rootDir>/tests/integration/**/*.test.ts',
     // DR6: the SMS worker (plain Node)
     '<rootDir>/services/sms-worker/__tests__/**/*.test.ts',
   ],
@@ -35,4 +40,6 @@ const app = {
   moduleNameMapper: { ...expoPreset.moduleNameMapper, ...moduleNameMapper },
 };
 
-module.exports = { projects: [shared, app] };
+const live = { ...shared, displayName: 'live', testMatch: ['<rootDir>/tests/integration/**/*.test.ts'] };
+
+module.exports = LIVE ? { projects: [shared, app, live], maxWorkers: 1 } : { projects: [shared, app] };

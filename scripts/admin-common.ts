@@ -1,4 +1,4 @@
-// DR3: what the admin scripts share (provision-driver, provision-gateway, retire-device). They run on
+// DR3: what the admin scripts share (provision-gateway, retire-device; driver phones register in the app since 2026-10-28). They run on
 // Emjay's PC with the service role key from .env, which bypasses every database rule: it is read here
 // and never printed, logged or sent anywhere but the project's own URL. No secret is ever printed
 // either, except inside the setup QR, which is shown in this terminal only and never saved.

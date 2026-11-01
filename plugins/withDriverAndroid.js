@@ -5,6 +5,9 @@
 // DR5: the heatmap SMS receiver (modules/tunton-sms) and RECEIVE_SMS. One receiver, two filters: data
 // SMS on DATA_SMS_PORT and text SMS (the receiver keeps only heatmap texts). Only the system may call
 // it (BROADCAST_SMS).
+// Backlog 134 (2026-10-30): a second receiver on the same filters, in the beacon module, reads only a
+// retire notice signed with this phone's key, turns the beacon off and posts a notification, so a
+// phone whose app is closed is told too. It keeps nothing; the app still reads the stored copy.
 
 const { AndroidConfig, withAndroidManifest } = require('expo/config-plugins');
 
@@ -34,10 +37,10 @@ function addPermissions(manifest) {
   }
 }
 
-function smsReceiver() {
+function smsReceiver(name) {
   return {
     $: {
-      'android:name': `${SMS}.SmsReceiver`,
+      'android:name': name,
       'android:exported': 'true',
       'android:permission': 'android.permission.BROADCAST_SMS',
     },
@@ -74,8 +77,10 @@ function addComponents(application) {
       },
     ],
   });
-  application.receiver = application.receiver.filter((entry) => entry.$['android:name'] !== `${SMS}.SmsReceiver`);
-  application.receiver.push(smsReceiver());
+  for (const name of [`${SMS}.SmsReceiver`, `${BEACON}.RetireNoticeReceiver`]) {
+    application.receiver = application.receiver.filter((entry) => entry.$['android:name'] !== name);
+    application.receiver.push(smsReceiver(name));
+  }
 }
 
 function withDriverAndroid(config) {
@@ -88,3 +93,4 @@ function withDriverAndroid(config) {
 
 module.exports = withDriverAndroid;
 module.exports.DATA_SMS_PORT = DATA_SMS_PORT;
+module.exports.addComponents = addComponents;

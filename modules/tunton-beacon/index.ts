@@ -33,6 +33,9 @@ export type BeaconOptions = {
   txPower: string;
   notificationTitle: string;
   notificationText: string;
+  // Backlog 134: posted by the phone itself when a retire notice arrives while the app is closed
+  retiredTitle: string;
+  retiredText: string;
 };
 
 // DR8: the commuter app's scan. mode: low_latency, balanced or low_power; it stops by itself after durationMs

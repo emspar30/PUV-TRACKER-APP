@@ -198,7 +198,12 @@ class GatewayService : Service() {
       "delivered" -> {
         val workerId = inFlight.remove(result.id) ?: return
         if (!result.ok) {
+          // Counted as failed here (it did not reach the phone), so "Today" does not show 0 failed.
+          // Not reported to the worker: the server accepts "failed" only before "sent", and queueing
+          // a message that went out again could text the driver twice (backlog, 2026-10-25)
+          store.count("failed")
           event("failed", "#$workerId not delivered (status ${result.status})")
+          GatewayState.changed()
           return
         }
         store.count("delivered")

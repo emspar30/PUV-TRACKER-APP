@@ -8,7 +8,7 @@
 //   PACKET_MAX_BYTES (8.4), INGEST_LOG_RETENTION_DAYS, PACKET_MAX_SPEED_KMH, and the T1 batch limits
 //   TELEMETRY_BATCH_MAX_POINTS, TELEMETRY_BATCH_MAX_BYTES and PACKET_BACKLOG_MAX_AGE_S; NM1's
 //   NODE_PASS_RADIUS_M, NODE_PASS_GAP_MIN and NIGHT_STOP_WINDOW_MIN; RK1's IMPOSSIBLE_SPEED_KMH and
-//   SPEED_JUMP_ALLOWANCE_M.
+//   SPEED_JUMP_ALLOWANCE_M; and the driver registration values (PRD 9.5, 0.3).
 export {
   ENABLE_VERIFICATION,
   IMPOSSIBLE_SPEED_KMH,
@@ -26,6 +26,20 @@ export {
   TELEMETRY_BATCH_MAX_BYTES,
   TELEMETRY_BATCH_MAX_POINTS,
   VEHICLE_CAPACITY_SEATS,
+  // Driver registration (PRD 9.5; DRG3)
+  PLATE_MAX_CHARS,
+  PLATE_MIN_CHARS,
+  PROVISIONING_QR_TTL_MIN,
+  REGISTRATION_CHECK_MAX_TRIES,
+  REGISTRATION_CHECK_RESEND_MIN,
+  REGISTRATION_CHECK_TTL_MIN,
+  REGISTRATION_CHECKS_PER_DAY,
+  REGISTRATION_CHECKS_PER_NUMBER_PER_DAY,
+  REGISTRATION_CODE_DIGITS,
+  REGISTRATION_PHOTO_MAX_BYTES,
+  REGISTRATION_PHOTO_MAX_PX,
+  REGISTRATION_SETUP_TTL_DAYS,
+  REGISTRATION_SUBMIT_WITHIN_MIN,
 } from '../../../supabase/functions/_shared/serverConfig.ts';
 
 // --- Position send rule (PRD 8.4)
@@ -709,7 +723,26 @@ export const DRIVER_MAP_DETAIL_ZOOM = 0.75;
 // per screen) and in at most this many levels more
 export const DRIVER_MAP_MAX_ZOOM_IN = 3;
 
-// --- Provisioning (PRD 9.5; DR3, DR4). A setup QR expires this long after it is printed.
-export const PROVISIONING_QR_TTL_MIN = 15;
+// --- Provisioning (PRD 9.5; DR3, DR4). PROVISIONING_QR_TTL_MIN (how long a setup QR or a collected
+// setup is accepted) and the driver registration values (PLATE_*, REGISTRATION_*) are server values,
+// re-exported at the top of this file.
 // Q12: the admin screens are behind a PIN of this many digits
 export const ADMIN_PIN_DIGITS = 6;
+
+// --- Driver registration in the driver app (DRG4; PRD 9.5). A request to the registration function
+// gives up after this long (a weak signal at the cooperative); while it waits for approval, it asks
+// for the status this often (and each time the app comes back to the screen).
+export const DRIVER_REQUEST_TIMEOUT_MS = 20000;
+export const REGISTRATION_STATUS_POLL_S = 60;
+// The photos are taken at most this good (0 to 1); a photo over REGISTRATION_PHOTO_MAX_BYTES is retaken
+export const REGISTRATION_PHOTO_QUALITY = 0.6;
+
+// --- The admin console (DRG5; PRD 9.5, admin/). Its photo links work this long (the photos are shown
+// once and enlarged from the page, so a link is not needed again); the review list reloads this
+// often while the page is in view. The "approved" text waits for the gateway at most a day, then
+// expires unsent (the setup can still be collected for REGISTRATION_SETUP_TTL_DAYS). A rejection
+// reason is at most this long (the database keeps no more).
+export const CONSOLE_PHOTO_LINK_TTL_S = 300;
+export const CONSOLE_REFRESH_S = 30;
+export const REGISTRATION_NOTICE_TTL_MIN = 1440;
+export const REGISTRATION_REASON_MAX_CHARS = 200;

@@ -1,13 +1,16 @@
 import { Redirect, router } from 'expo-router';
-import { Clock, MessageSquareOff, Smartphone, TriangleAlert } from 'lucide-react-native';
+import { Ban, Clock, MessageSquareOff, RotateCcw, Smartphone, TriangleAlert } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/Button';
 import { LineBadge } from '@/components/Pills';
 import { DRIVER_COMPACT_HEIGHT_DP } from '@/shared/config';
 import { driftStatus } from '@/shared/driver/drift';
 import { busiestStop, heatmapView } from '@/shared/driver/heatmapView';
+import { retiredDialogDue } from '@/shared/driver/retireNotice';
+import { showDialog } from '@/state/dialogStore';
 import { strings } from '@/strings';
 import { makeStyles, radii, spacing, useTheme } from '@/theme';
 
@@ -19,6 +22,7 @@ import { HeatmapLegend } from '../features/heatmap/HeatmapLegend';
 import { HeatmapList } from '../features/heatmap/HeatmapList';
 import { HeatmapMap } from '../features/heatmap/HeatmapMap';
 import { driverRoute } from '../features/heatmap/routeStops';
+import { clearSetup } from '../features/setup/clearSetup';
 import { useHeatmapInbox } from '../features/heatmap/useHeatmapInbox';
 import { StatusStrip } from '../features/status/StatusStrip';
 import { useDriverStore } from '../state/driverStore';
@@ -44,6 +48,11 @@ const LIST_SHARE = 0.38;
 // The age and the stale state change by the minute
 const TICK_MS = 30_000;
 
+async function registerAgain(): Promise<void> {
+  await clearSetup();
+  router.replace('/register');
+}
+
 function useNow(): number {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
@@ -56,6 +65,11 @@ function useNow(): number {
 export default function DriverHome() {
   const setup = useDriverStore((state) => state.setup);
   const beaconEnabled = useDriverStore((state) => state.beaconEnabled);
+  // An admin retired this phone (a signed notice came by SMS): the beacon is off for good
+  const retiredAtMs = useDriverStore((state) => state.retiredAtMs);
+  const retiredDialogSeenAtMs = useDriverStore((state) => state.retiredDialogSeenAtMs);
+  const markRetiredDialogSeen = useDriverStore((state) => state.markRetiredDialogSeen);
+  const retired = retiredAtMs !== null;
   const heatmap = useHeatmapStore((state) => state.heatmap);
   const driftSamples = useHeatmapStore((state) => state.driftSamples);
   const status = useBeaconStatus();
@@ -75,6 +89,23 @@ export default function DriverHome() {
 
   useHeatmapInbox(setup !== null && !lostSecrets);
 
+  // Owner, 2026-10-29: the notice also pops up, once, when it arrives or when the app next opens; the
+  // red card below stays until the driver registers again
+  useEffect(() => {
+    if (!retiredDialogDue(retiredAtMs, retiredDialogSeenAtMs) || retiredAtMs === null) return;
+    markRetiredDialogSeen(retiredAtMs);
+    showDialog({
+      tone: 'danger',
+      icon: Ban,
+      title: strings.driver.retiredTitle,
+      body: strings.driver.retiredBody,
+      actions: [
+        { label: strings.driver.registerAgain, onPress: () => void registerAgain() },
+        { label: strings.common.close, variant: 'secondary' },
+      ],
+    });
+  }, [retiredAtMs, retiredDialogSeenAtMs, markRetiredDialogSeen]);
+
   // The beacon should be on but its service is not running: the system killed the app (a force
   // stop, or a swipe from the recent apps on some phones, DR5). Start it again; a second start
   // while one is under way is ignored by the service.
@@ -91,7 +122,8 @@ export default function DriverHome() {
   const forRoute = heatmap && setup && heatmap.route === setup.routeCode ? heatmap : null;
   const view = useMemo(() => heatmapView(forRoute, route?.stops ?? [], now), [forRoute, route, now]);
 
-  if (!setup || !route) return <Redirect href="/provision" />;
+  // DRG4: a phone without a setup registers
+  if (!setup || !route) return <Redirect href="/register" />;
 
   const update = describeUpdate(view);
   const clock = describeClock(driftStatus(driftSamples));
@@ -128,6 +160,11 @@ export default function DriverHome() {
               ) : null}
             </View>
           </View>
+          {retired ? (
+            <Notice tone="danger" icon={Ban} title={strings.driver.retiredTitle} body={strings.driver.retiredBody}>
+              <Button label={strings.driver.registerAgain} leadingIcon={RotateCcw} onPress={() => void registerAgain()} />
+            </Notice>
+          ) : null}
           {lostSecrets ? <Notice tone="warning" icon={Smartphone} title={strings.driver.resetNeeded} body={strings.driver.askAdmin} strongBody /> : null}
           {smsOff ? <Notice tone="warning" icon={MessageSquareOff} title={strings.driver.smsMissing} body={strings.driver.askAdmin} strongBody /> : null}
           {/* Owner, 2026-10-18: no clock pill in the strip; the warning still shows when the clock is off

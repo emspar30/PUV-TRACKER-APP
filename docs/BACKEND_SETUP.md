@@ -60,7 +60,9 @@ The design of the database, what you do in the Supabase dashboard, and the live 
 ## 5. What you do in the dashboard before "Supabase is ready"
 
 1. **Create two accounts** under Authentication, Users, "Add user", with "Auto Confirm User" on: a team account and an outsider. Use addresses and passwords made for testing.
-2. **Fill in `.env`** (copy `.env.example`; git-ignored): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and the four `TEST_...` values. **Once these are filled in, `npx jest` runs the live tests.**
+2. **Fill in `.env`** (copy `.env.example`; git-ignored): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and the four `TEST_...` values. The live tests then run, one named file at a time, with
+   `npm run test:live -- tests/integration/<file>.test.ts`. **Since 2026-10-28 `npx jest` alone never runs them**: one queues texts the
+   real gateway could pick up, and two share the admin PIN setting, so a parallel run broke one of them.
 3. **The service-role key** never goes in the app, in a committed file or in a chat. Since DR3 (2026-10-12) it may sit in the team PC's git-ignored `.env` as `SUPABASE_SERVICE_ROLE_KEY`, for the driver-side admin scripts, their live tests and the SMS worker only (section 8).
 4. Have the **database password** and the **project reference** ready for `supabase link`. You type them; the agent never sees or prints them.
 5. **Do not enable `pg_cron` yet.** The agent asks you at step 3 below.
@@ -75,7 +77,7 @@ The design of the database, what you do in the Supabase dashboard, and the live 
 | 4 | Add the team account (SQL below) | **Yes.** One row in `team_accounts`. |
 | 5 | You enable `pg_cron` (Database, Extensions); then paste `supabase/cron/retention.sql` | **Yes.** Five jobs. |
 | 6 | `npx supabase functions deploy ingest --no-verify-jwt` | **Yes.** If it asks for Docker (not installed), the agent stops and reports the options. |
-| 7 | `npx jest tests/integration` | Writes only test rows (a check-in, a report, a username, the test vehicle's telemetry). |
+| 7 | `npm run test:live -- tests/integration/supabase.test.ts` | Writes only test rows (a check-in, a report, a username, the test vehicle's telemetry). |
 
 ```sql
 insert into public.team_accounts (user_id, note)
@@ -115,7 +117,7 @@ Migration `20261013000000_driver_side.sql`; design in `docs/IMPLEMENTATION_PLAN_
 | Order | Command | Does |
 | --- | --- | --- |
 | 1 | `npx tsx scripts/provision-gateway.ts --gateway GW-01 --phone 09… --worker-url https://…` | Saves the gateway, prints its setup QR (a new token each run) |
-| 2 | `npx tsx scripts/provision-driver.ts --vehicle R4-001 --plate "ABC 123" --route R4 --phone 09…` | Creates or updates the vehicle, new beacon secret, new device and SMS key; prints the driver setup QR. `--replace` for a new or reset phone |
+| (removed) | `scripts/provision-driver.ts` | Removed 2026-10-28 (owner): driver phones register in the driver app and are approved in the admin console (section 9, PRD 9.5) |
 | — | `npx tsx scripts/retire-device.ts DRV-0001` | Stops texts to a phone and replaces its vehicle's beacon secret |
 
 **Energy (2026-10-12):** the live project already has `20261012000000_energy_on` (tracking costs Energy); it stays in `supabase/migrations`, Emjay's choice. A migration applied live must stay in this folder under its name: otherwise `db push` refuses to run ("Remote migration versions not found in local migrations directory").
@@ -128,4 +130,32 @@ Migration `20261013000000_driver_side.sql`; design in `docs/IMPLEMENTATION_PLAN_
 | 1 | `npx supabase db push --dry-run` | No. Must list **only** `20261013000000_driver_side.sql`. |
 | 2 | `npx supabase db push` | **Yes.** The tables and functions above. |
 | 3 | Paste the two new jobs at the end of `supabase/cron/retention.sql` into the SQL Editor | **Yes.** Two jobs. |
-| 4 | `npx jest tests/integration/driverSide.test.ts` | Writes and removes its own test rows (vehicle `R99-DR3-TEST`, gateway `GW-99`). |
+| 4 | `npm run test:live -- tests/integration/driverSide.test.ts` | Writes and removes its own test rows (vehicle `R99-DR3-TEST`, gateway `GW-99`). |
+
+## 9. Driver registration (DRG2, 2026-10-27)
+
+Migration `20261027000000_driver_registration.sql`; design in `docs/IMPLEMENTATION_PLAN_DRIVER_REGISTRATION.md` (PRD 9.5).
+**Applied to the live project on 2026-10-27, alone** (owner's choice): `20261022000000_checkin_points.sql` and
+`20261023000000_relay_gate.sql` were not live yet and were set aside for that one push.
+
+- **Still to apply:** those two migrations. Because a newer one is already live, the CLI needs
+  `npx supabase db push --include-all` (run `--dry-run` first; it must list only those two).
+- **Tables, all server-only:** `admin_accounts` (the console's admin account), `driver_settings` (the salted admin PIN hash of the
+  pilot driver phones), `registration_checks`, `driver_registrations`. Bucket `driver-registrations`: private, JPEG, 1 MB; only the
+  admin account reads and deletes.
+- **Making the admin account** (once, in the SQL Editor, with that account's user id from Authentication, Users):
+  `insert into public.admin_accounts (user_id) values ('<user id>');` The admin console that signs in with it (DRG5) is
+  `admin/`; its README has the full steps, local and hosted on Render.
+- **Live test:** `npm run test:live -- tests/integration/driverRegistration.test.ts` sends no SMS (its texts expire at once) and removes its own rows.
+  Do not run `tests/integration/driverSide.test.ts` while the real gateway is sending: it queues heatmap texts to a made-up number.
+
+**Retire notice (2026-10-28, migration `20261028000000_retire_notice.sql`):** `console_retire(device, notice_ttl_min)` queues one text to the phone, `HM2|RETIRED|<device>|<mac>` signed with its SMS key, before retiring it; the old one-argument `console_retire` is revoked (migrations never drop). **Applied live 2026-10-28, alone** (the partner's two pending migrations set aside again, as for DRG2); live tests 3 of 3 and 8 of 8, no SMS.
+
+**Retire notice as a data SMS (2026-10-29, migration `20261029000000_retire_notice_data.sql`):** the same `console_retire(device, notice_ttl_min)`, replaced in place, now queues the notice as `encoding: 'data'` (bytes `0x48 0x02 0x00 | id length | id | mac`, which the driver app decodes to the signed text), so it no longer shows in the driver's Messages app; the text stays in `body_text`. **Applied live 2026-10-29, alone** (the partner's two pending migrations set aside again; `supabase migration list` shows it remote, theirs still not). The updated live test `driverRegistration.test.ts` (it checks the data notice decodes) has not been run yet.
+
+**Edge Function `driver-registration` (DRG3), deployed 2026-10-27** with
+`npx supabase functions deploy driver-registration --no-verify-jwt --use-api` (no account calls it, so no JWT check; `--use-api`
+bundles on Supabase's side, no Docker). Redeploy the same way after changing `supabase/functions/driver-registration/` or the
+`_shared` files it imports. Since 2026-10-28 it sends no number-check SMS (owner), so the old `REGISTRATION_SMS_ENCODING`
+secret is unused. Live test: `npm run test:live -- tests/integration/driverRegistrationFunction.test.ts`
+(made-up number, never texted; removes its rows).

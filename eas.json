@@ -26,6 +26,7 @@
       }
     },
     "preview": {
+      "environment": "preview",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
@@ -48,6 +49,7 @@
       }
     },
     "release-driver": {
+      "environment": "preview",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
@@ -57,6 +59,7 @@
       }
     },
     "release-gateway": {
+      "environment": "preview",
       "distribution": "internal",
       "android": {
         "buildType": "apk"

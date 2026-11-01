@@ -14,7 +14,8 @@ const LOCATION = [
   'android.permission.ACCESS_BACKGROUND_LOCATION',
 ];
 
-// Permissions only the driver or gateway app may hold (SMS, BLE advertising, QR camera)
+// Permissions only the driver or gateway app may hold (SMS, BLE advertising, and the camera: the
+// driver's registration photos and the gateway's setup QR)
 const DRIVER_SIDE_ONLY = [
   'android.permission.SEND_SMS',
   'android.permission.RECEIVE_SMS',
@@ -26,7 +27,7 @@ const DRIVER_SIDE_ONLY = [
 // DR8: only the commuter app scans for the multicab's beacon (plugins/withCommuterBle.js)
 const COMMUTER_ONLY = ['android.permission.BLUETOOTH_SCAN'];
 
-// No app records audio: expo-camera (QR scanning in the driver and gateway apps) is configured
+// No app records audio: expo-camera (registration photos in the driver app, QR scanning in the gateway app) is configured
 // without it in app.json, and this blocks it in case a library adds it anyway
 const NEVER = ['android.permission.RECORD_AUDIO'];
 
@@ -53,6 +54,9 @@ const SETTINGS = {
     permissions: ['android.permission.POST_NOTIFICATIONS'],
     blocked: [...LOCATION, ...DRIVER_SMS_BLOCKED, ...COMMUTER_ONLY, ...NEVER],
     plugin: './plugins/withDriverAndroid',
+    // Backlog 128 (2026-10-28): Android's backup restored an old setup on reinstall, without its
+    // Keystore keys, so the phone looked set up but could not sign; the driver app is never backed up
+    allowBackup: false,
     // Owner, 2026-10-18: the commuter icon with its colours reversed (light square, dark bus)
     icon: './assets/driver-icon.png',
     adaptiveIcon: {
@@ -106,6 +110,7 @@ module.exports = ({ config }) => {
       adaptiveIcon: settings.adaptiveIcon ?? android.adaptiveIcon,
       permissions: settings.permissions ?? android.permissions,
       blockedPermissions: settings.blocked,
+      allowBackup: settings.allowBackup ?? android.allowBackup,
     },
     plugins: settings.plugin ? [...(config.plugins ?? []), settings.plugin] : config.plugins,
     extra: {

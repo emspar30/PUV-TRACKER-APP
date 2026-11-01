@@ -17,7 +17,7 @@ import { addSendResultListener, canSendSms, listSims, sendData, sendText, type S
 
 // DR5: the carrier test (plan DR5 task 2, device test DR5-M5; PRD 16 risk 4). Sends signed test
 // heatmap messages, as text or as data SMS on DATA_SMS_PORT, from this phone's chosen SIM to a driver
-// phone set up with dev-driver-qr.ts, and shows each one's sent and delivery results. "Extra stops"
+// phone that holds a development key, and shows each one's sent and delivery results. "Extra stops"
 // makes the message bigger, to find the largest data SMS the carrier delivers. The bad copies check
 // that the driver phone drops them (DR5-M2). Only in development and preview builds of the gateway
 // app (carrierTest.ts); a release build never has it.

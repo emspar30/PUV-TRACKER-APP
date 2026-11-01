@@ -32,6 +32,33 @@ export const TELEMETRY_BATCH_MAX_POINTS = 60;
 export const TELEMETRY_BATCH_MAX_BYTES = 4096;
 export const PACKET_BACKLOG_MAX_AGE_S = 1800;
 
+// --- Driver setup (PRD 9.5). A setup QR, or a setup collected after approval, is accepted this long.
+export const PROVISIONING_QR_TTL_MIN = 15;
+
+// --- Driver registration (PRD 9.5 and 0.3; docs/IMPLEMENTATION_PLAN_DRIVER_REGISTRATION.md, owner
+// decisions D1 to D6). The photos of the CTTDM driver ID and the multicab: the long side at most this
+// many pixels, as JPEG, and never more than this many bytes. They are deleted at the decision (D1).
+export const REGISTRATION_PHOTO_MAX_PX = 1600;
+export const REGISTRATION_PHOTO_MAX_BYTES = 1_000_000;
+// The number check. Since 2026-10-28 (owner) no text is sent: the function confirms its own code at
+// once, so only the limits matter. Anyone can start a registration, and each start opens two photo
+// upload links, so starts are limited per number and in total per Manila day (D6). The code, its
+// lifetime, the resend wait and the wrong tries are kept for the database functions (and the SMS
+// check, should it come back).
+export const REGISTRATION_CODE_DIGITS = 6;
+export const REGISTRATION_CHECK_TTL_MIN = 10;
+export const REGISTRATION_CHECK_RESEND_MIN = 10;
+export const REGISTRATION_CHECK_MAX_TRIES = 5;
+export const REGISTRATION_CHECKS_PER_NUMBER_PER_DAY = 3;
+export const REGISTRATION_CHECKS_PER_DAY = 20;
+// After the number is entered, the photos and the submission must follow within this long
+export const REGISTRATION_SUBMIT_WITHIN_MIN = 60;
+// An approved setup must be collected within this many days, or the driver registers again
+export const REGISTRATION_SETUP_TTL_DAYS = 7;
+// A plate has this many letters and digits (at least one of each); the database allows 16 characters
+export const PLATE_MIN_CHARS = 3;
+export const PLATE_MAX_CHARS = 10;
+
 // NM1 Night Mode stop view (PRD 10.4): an accepted position within NODE_PASS_RADIUS_M of a stop of the
 // vehicle's route records that the route passed the stop, at most once per vehicle and stop every
 // NODE_PASS_GAP_MIN. The stop view shows passages up to NIGHT_STOP_WINDOW_MIN old.
