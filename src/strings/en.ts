@@ -921,6 +921,7 @@ export const en = {
     rssi: (count: number, median: number, min: number, max: number) => `Bluetooth signal: ${count} readings, median ${median} dBm (${min} to ${max})`,
     rssiNone: 'Bluetooth signal: no readings yet',
     verify: (rate: string, time: string) => `Verified rides: ${rate}, median time ${time}`,
+    verifyNone: 'Verified rides: none checked yet',
     handoffs: (count: number) => `Baton handoffs to this phone: ${count}`,
     export: 'Export as CSV',
     exportTitle: 'Tunton field test log',

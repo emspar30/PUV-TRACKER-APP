@@ -54,7 +54,7 @@ export default function FieldLogScreen() {
         <Text style={typography.bodySm}>{f.data(n(s.kbPerHour, f.kbPerHour))}</Text>
         <Text style={typography.bodySm}>{f.gaps(s.gaps)}</Text>
         <Text style={typography.bodySm}>{s.rssi ? f.rssi(s.rssi.count, s.rssi.median, s.rssi.min, s.rssi.max) : f.rssiNone}</Text>
-        <Text style={typography.bodySm}>{f.verify(n(s.verifyPassRate, '%'), n(s.medianVerifyS, 's'))}</Text>
+        <Text style={typography.bodySm}>{s.verifyPassRate === null ? f.verifyNone : f.verify(n(s.verifyPassRate, '%'), n(s.medianVerifyS, 's'))}</Text>
         <Text style={typography.bodySm}>{f.handoffs(s.handoffs)}</Text>
       </Card>
       <Button label={f.export} onPress={exportLog} disabled={events.length === 0} />
