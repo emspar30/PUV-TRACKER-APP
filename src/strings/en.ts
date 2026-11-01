@@ -1013,7 +1013,7 @@ export const en = {
   assistant: {
     title: 'Ask Tunie',
     open: 'Ask Tunie',
-    placeholder: 'Ask about a trip, a fare, a route or a stop',
+    placeholder: 'Ask about a trip, a fare or how to ride',
     send: 'Send',
     // CA1.1: the close button; the offline notice (2026-11-02)
     close: 'Close Ask Tunie',
@@ -1028,11 +1028,88 @@ export const en = {
       'Is R4 running?',
       'Nearest stop',
       'Pila plete gikan Libertad paingon CSU?',
+      'Tips for first-time riders',
     ],
     help: [
       "Hi! I'm Tunie. Ask me in English or Bisaya, for example:",
       '"from Libertad to CSU", "pila plete paingon Ampayon", "naa bay R4?", "asa ang pinakaduol nga sakayan?"',
+      'New to multicabs? Ask "how do I pay?", "what do I say to get off?" or "tips for first-time riders".',
     ],
+    // Commuter guide (2026-11-02): how to ride, for a visitor or a first-time rider. English, with the
+    // Bisaya to say and how it sounds (capitals mark the stressed part).
+    guide: {
+      getOff: [
+        'To get off, say "Para!" (PAH-rah) loudly enough for the driver to hear, a little before your stop.',
+        'You can also say "Lugar lang" (loo-GAR lahng) or "Diri lang" (dee-REE lahng), "just here". Some riders knock on the roof.',
+        'Wait until the multicab has stopped, then step down at the back. Say "Salamat" (sah-LAH-maht), "thank you".',
+      ],
+      askDriver: [
+        'Before you board, ask: "Moagi ba ni sa SM?" (mo-AH-gee bah nee sah SM), "Does this pass by SM?"',
+        'Or: "Asa ni padulong?" (AH-sah nee pah-DOO-long), "Where is this going?"',
+        'To be told where to get off: "Palihug ingna ko kung naa na ta sa SM." (pah-LEE-hoog ing-NAH ko koong nah-AH nah tah sah), "Please tell me when we are at SM."',
+        'For the fare: "Pila ang plete?" (PEE-lah ahng PLEH-teh), "How much is the fare?"',
+      ],
+      pay: [
+        'Pay after you sit down. Say "Bayad" (BAH-yahd), "payment", and hand the fare forward; other riders pass it to the driver.',
+        'Say where you are going so the driver knows the fare: "Bayad, paingon SM" (pah-ee-NGON), "Payment, to SM".',
+        'Coins and small bills (₱20, ₱50) are easiest. Your change, "sukli" (SOOK-lee), comes back the same way.',
+        'Student, senior or PWD? Say "Estudyante" (es-tood-YAHN-teh), "Senior" or "PWD" and show your ID for the discount.',
+      ],
+      flag: [
+        'Check the route number and sign on the front of the multicab (R1 to R5, R14). Tunton shows which route goes where.',
+        'Stand at a stop or by the road where it is safe, and wave your hand when it comes.',
+        'Board at the back, find a seat on a bench, then pay.',
+        'Check in at your stop in Tunton, so the drivers on that route know someone is waiting.',
+      ],
+      fareRules: (base: string, baseKm: number, perKm: string, discount: number) => [
+        `The fare is ${base} for the first ${baseKm} km, then ${perKm} for each further km.`,
+        `Students, seniors and PWD get ${discount}% off with a valid ID.`,
+        "Tunton's fares are estimates from the distance; the official fare table may differ a little.",
+      ],
+      lost: [
+        'Do not worry. Get off at a busy, well-lit place: say "Para!" or "Lugar lang".',
+        'Tap Locate me on the Map, then ask me how to get where you are going, or use My Rides.',
+        'You can ask people: "Asa ko makasakay paingon SM?" (AH-sah ko mah-kah-SAH-kai pah-ee-NGON), "Where can I ride to SM?"',
+      ],
+      safety: [
+        'Keep your bag on your lap or in front of you, and your phone away from the open back.',
+        'Note the plate number painted on the multicab before you board.',
+        'At night, wait at lit stops with other people, and get off at a busy place if something feels wrong.',
+        'In an emergency, call 911.',
+      ],
+      night: [
+        'Fewer multicabs run late at night, so leave earlier when you can.',
+        'From 9 PM to 5 AM Tunton is in Night Mode and shows only multicabs that are stopped.',
+        'Wait at a lit stop with other people, and check in so drivers know you are waiting.',
+      ],
+      etiquette: [
+        'Move along the bench to make room: "Palihug usog" (pah-LEE-hoog OO-sog), "Please move over".',
+        "Pass other riders' fares and change to the driver when they hand them to you.",
+        'Give your seat to seniors, pregnant women and persons with disability.',
+        'Keep your bag on your lap, and say "Salamat" when you get off.',
+      ],
+      phrases: [
+        '"Para!" (PAH-rah): stop here. "Lugar lang" (loo-GAR lahng): just here.',
+        '"Bayad" (BAH-yahd): my fare. "Sukli" (SOOK-lee): change. "Palihug" (pah-LEE-hoog): please.',
+        '"Salamat" (sah-LAH-maht): thank you. "Oo" (OH-oh): yes. "Dili" (DEE-lee): no.',
+        '"Pila ang plete?" (PEE-lah ahng PLEH-teh): how much is the fare?',
+        '"Moagi ba ni sa SM?" (mo-AH-gee bah nee sah SM): does this pass by SM?',
+        '"Wala koy barya" (WAH-lah koy BAR-yah): I have no small change.',
+      ],
+      visitor: [
+        'Welcome to Butuan! Riding a multicab in four steps:',
+        '1. Find your route: ask me "how do I get to SM?" or use My Rides.',
+        '2. Wave at a multicab with that route number and board at the back.',
+        '3. Sit, then pay: say "Bayad" and hand the fare forward.',
+        '4. Say "Para!" a little before your stop, and step down once it stops.',
+        'Ask me about any step, or the words to say.',
+      ],
+      multicab: [
+        'A multicab is a small public vehicle, like a mini jeepney, with two benches facing each other at the back.',
+        'Each one runs a fixed route (R1 to R5 and R14 in Butuan) and stops anywhere along it when a rider waves or says "Para!".',
+        'You pay the driver after you sit down. Tunton shows the routes, the fares and the multicabs nearby.',
+      ],
+    },
     tripRoute: (code: string, name: string) => `Ride ${code}, ${name}.`,
     tripFare: (fare: string, fareType: string) => `Fare ${fare} (${fareType}).`,
     tripEnds: (from: string, to: string, distance: string) => `From ${from} to ${to}, ${distance} on the multicab.`,
@@ -1078,6 +1155,21 @@ export const en = {
       // CA1.1: another place that fits the name as well
       didYouMean: (title: string, near: string | undefined) => `Did you mean ${near ? `${title}, ${near}` : title}?`,
       place: (title: string, near: string | undefined) => (near ? `${title}, ${near}` : title),
+      // Commuter guide: each topic asked as a question (parses back to the same topic)
+      guide: {
+        getOff: 'How do I get off?',
+        askDriver: 'What do I say to the driver?',
+        pay: 'How do I pay?',
+        flag: 'How do I flag a multicab?',
+        fareRules: 'How is the fare computed?',
+        lost: 'I took the wrong route',
+        safety: 'Is it safe?',
+        night: 'Riding at night',
+        etiquette: 'Where do I sit?',
+        phrases: 'Useful Bisaya phrases',
+        visitor: 'Tips for first-time riders',
+        multicab: 'What is a multicab?',
+      },
     },
   },
 

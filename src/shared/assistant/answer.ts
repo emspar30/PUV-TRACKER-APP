@@ -14,6 +14,7 @@ import { ageSeconds, coverageOf } from '../telemetry/coverage';
 import { isGhostAge } from '../telemetry/deadReckoning';
 import type { VehicleSnapshot } from '../telemetry/vehicle';
 
+import type { GuideTopic } from './guide';
 import type { Intent, PlaceSlot, TripIntent } from './intent';
 import { resolvePlace, type MatchHow } from './resolve';
 
@@ -91,6 +92,7 @@ export type Answer =
   | { kind: 'unknownRoute'; routeCode: string; routes: string[] }
   | { kind: 'whichRoute'; routes: string[] }
   | { kind: 'nearest'; from: AnswerPoint; stop: RouteStop; distanceM: number; routes: string[]; matches: PlaceMatch[] }
+  | { kind: 'guide'; topic: GuideTopic }
   | { kind: 'help' };
 
 export function routeCodes(lines: readonly DirectedLine[]): string[] {
@@ -218,6 +220,8 @@ export function answer(intent: Intent, context: AssistantContext): Answer {
       return statusAnswer(intent.routeCode, context);
     case 'nearest':
       return nearestAnswer(intent.near, intent, context);
+    case 'guide':
+      return { kind: 'guide', topic: intent.topic };
     case 'help':
       return { kind: 'help' };
   }

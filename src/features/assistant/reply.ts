@@ -1,7 +1,8 @@
 import type { Answer, PlaceMatch } from '@/shared/assistant/answer';
 import { withChoice } from '@/shared/assistant/answer';
+import type { GuideTopic } from '@/shared/assistant/guide';
 import { parseQuery, type Intent } from '@/shared/assistant/intent';
-import type { Classification } from '@/shared/config';
+import { FARE_BASE_KM, FARE_BASE_PHP, FARE_DISCOUNT_MULTIPLIER, FARE_PER_KM_PHP, type Classification } from '@/shared/config';
 import { strings } from '@/strings';
 
 const METERS_PER_KM = 1000;
@@ -22,6 +23,35 @@ const statusChip = (code: string) => ask(strings.assistant.chips.status(code));
 const viewRoute = (code: string): Chip => ({ label: strings.assistant.chips.viewRoute(code), action: { kind: 'openMap', route: code } });
 
 export const STARTER_CHIPS: readonly Chip[] = strings.assistant.starters.map(ask);
+
+const PERCENT = 100;
+
+// Commuter guide: the topics offered after each answer, so a visitor can go step by step
+const RELATED: Record<GuideTopic, readonly GuideTopic[]> = {
+  visitor: ['flag', 'pay', 'getOff', 'phrases'],
+  getOff: ['pay', 'phrases', 'lost'],
+  askDriver: ['pay', 'getOff', 'phrases'],
+  pay: ['fareRules', 'getOff', 'etiquette'],
+  flag: ['askDriver', 'pay', 'getOff'],
+  fareRules: ['pay', 'askDriver'],
+  lost: ['askDriver', 'safety'],
+  safety: ['night', 'lost'],
+  night: ['safety', 'flag'],
+  etiquette: ['pay', 'getOff'],
+  phrases: ['askDriver', 'getOff', 'pay'],
+  multicab: ['visitor', 'flag', 'fareRules'],
+};
+
+const guideChip = (topic: GuideTopic) => ask(strings.assistant.chips.guide[topic]);
+
+function guideLines(topic: GuideTopic): string[] {
+  const g = strings.assistant.guide;
+  if (topic === 'fareRules') {
+    const discount = Math.round((1 - FARE_DISCOUNT_MULTIPLIER) * PERCENT);
+    return g.fareRules(strings.format.peso(FARE_BASE_PHP), FARE_BASE_KM, strings.format.peso(FARE_PER_KM_PHP), discount);
+  }
+  return [...g[topic]];
+}
 
 const distance = (meters: number) =>
   meters < METERS_PER_KM ? strings.format.meters(meters) : strings.format.km(meters / METERS_PER_KM);
@@ -126,6 +156,8 @@ export function replyOf(answer: Answer, intent: Intent, fareType: Classification
         ],
         chips: [...answer.routes.map(statusChip), ...matchChips(answer.matches, intent)],
       };
+    case 'guide':
+      return { lines: guideLines(answer.topic), chips: RELATED[answer.topic].map(guideChip) };
     case 'help':
       return { lines: [...a.help], chips: [...STARTER_CHIPS] };
   }

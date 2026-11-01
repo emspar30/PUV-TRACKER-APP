@@ -1,9 +1,11 @@
 // CA1: the offline assistant's question parser. A typed question becomes one intent by fixed rules,
-// tried in order: a route's status ("Is R4 running?"), the nearest stop, a trip ("from X to Y",
+// tried in order: a commuter guide topic (guide.ts, 2026-11-02), a route's status ("Is R4 running?"), the nearest stop, a trip ("from X to Y",
 // "to Y", "pila plete gikan X paingon Y"), help. No network and no model: the same words always give
 // the same intent. Place names stay as text here; resolve.ts finds them. Pure: no React Native or Expo.
 
 import { normalizeSearch } from '../routing/placeSearch';
+
+import { guideTopicOf, type GuideTopic } from './guide';
 
 import {
   FARE_WORDS,
@@ -41,6 +43,8 @@ export type Intent =
   | { kind: 'status'; routeCode: string | null }
   // Null: the stop nearest the user; else the stop nearest a named place
   | { kind: 'nearest'; near: PlaceSlot | null }
+  // How to ride: what to say, how to pay and get off, fares, safety (guide.ts)
+  | { kind: 'guide'; topic: GuideTopic }
   | { kind: 'help' };
 
 type Hit = { at: number; length: number };
@@ -133,12 +137,22 @@ function tripOf(words: readonly string[]): TripIntent | null {
   return { kind: 'trip', from, to, focus };
 }
 
+// Guide topics that give way to a trip with a destination: "how much to pay to SM" and "jeep to
+// Libertad" are trips; "what do I say to the driver" is not, since a person is no destination
+const TRIP_FIRST: readonly GuideTopic[] = ['pay', 'fareRules', 'flag', 'lost', 'multicab'];
+const PEOPLE = new Set(['driver', 'the driver', 'drayber', 'konduktor', 'conductor', 'the conductor']);
+
 export function parseQuery(text: string): Intent {
   const words = normalizeSearch(text).split(' ').filter(Boolean);
   if (words.length === 0) return { kind: 'help' };
 
   const code = routeCodeIn(words);
   const trip = tripOf(words);
+  const topic = guideTopicOf(words);
+  if (topic) {
+    const destination = trip?.to && 'text' in trip.to && !PEOPLE.has(trip.to.text) ? trip.to : null;
+    if (!(destination && TRIP_FIRST.includes(topic))) return { kind: 'guide', topic };
+  }
   // A route named without a trip in it is a status question ("naa bay R4?", "R14")
   if (code && !trip) return { kind: 'status', routeCode: code };
 
