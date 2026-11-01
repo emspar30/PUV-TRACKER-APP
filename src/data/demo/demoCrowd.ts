@@ -109,6 +109,11 @@ export function createDemoCrowd(
         expiresMs.set(postId, now());
       },
 
+      // V1a: the user's own demo post shows as verified
+      async verify(postId) {
+        posts = posts.map((post) => (post.id === postId ? { ...post, verified: true } : post));
+      },
+
       // The user's own demo posts still up; the screen adds the made-up feed
       async recent() {
         const atMs = now();

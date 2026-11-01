@@ -110,6 +110,9 @@ export const en = {
     // B6: the compact card
     noVehicle: 'Multicab',
     trusted: 'Trusted',
+    // V1a: the relay passed the verification window
+    verified: 'Verified ride',
+    verifiedLabel: 'Verified ride: the multicab moved along its route with the rider',
     trustedLabel: 'Trusted commuter: 5 check-ins or relays nobody flagged',
     near: (stop: string) => `Near ${stop}`,
     all: 'All routes',
@@ -283,7 +286,24 @@ export const en = {
     liveMapNight: 'Night Mode (9 PM to 5 AM): your multicab shows as the stops it passed, not as a moving marker.',
     feedOnly: 'Off: your relay shows in Crowdsource until your stop. No location is sent.',
     liveMapTeamOnly: 'The live map is open to team accounts only for now. Your relay goes to Crowdsource.',
-    unverified: 'Relays show as unverified for now.',
+    unverified: 'Your relay is checked once the multicab moves; it shows as verified after.',
+    // V1a: the verification window of a running relay (RelayBar, toasts)
+    verify: {
+      pending: 'Checking your ride…',
+      verified: 'Verified ride',
+      failed: 'Not verified',
+      verifiedTitle: 'Ride verified',
+      verifiedBody: 'The multicab moved along its route with you. Your relay now shows as verified.',
+      failedTitle: 'Ride not verified',
+      failedBody: (reason: string) => `${reason} Your relay goes on, marked unverified.`,
+      reasons: {
+        off_route: 'You seem to be off the route line.',
+        no_motion: 'The multicab did not move at riding speed.',
+        no_displacement: 'The multicab did not move far enough along its route.',
+        no_beacon: "The multicab's Bluetooth signal was not verified.",
+        too_few_fixes: 'Your location did not update enough.',
+      },
+    },
     send: 'Relay update',
     sending: 'Sending…',
     sentTitle: 'Update relayed',

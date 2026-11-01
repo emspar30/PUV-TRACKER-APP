@@ -67,6 +67,8 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
   const [open, setOpen] = useState(false);
   const live = uplink.kind === 'live';
   const watch = useRelayStore((store) => store.watch);
+  // V1a: checking the ride, verified, or not verified
+  const verification = useRelayStore((store) => store.verification);
   const arriving = watch.arrivingSinceMs !== null;
 
   // "sent 10 s ago" counts up while the marker is live; the details keep their times current
@@ -105,6 +107,11 @@ export function RelayBar({ session, position, speedKmh, lines, uplink, onStop }:
             <Text style={typography.bodySm} numberOfLines={1}>
               {session.mode === 'feed' ? t.uplink.feed : uplinkText(uplink, Math.max(nowMs, live ? uplink.sentMs : 0))}
             </Text>
+            {verification ? (
+              <Text style={[typography.labelMd, verification.status === 'verified' ? styles.verified : verification.status === 'failed' ? styles.unverified : null]} numberOfLines={1}>
+                {t.verify[verification.status]}
+              </Text>
+            ) : null}
           </View>
           <Chevron color={colors.textSecondary} size={ICON_SIZE} />
         </Pressable>
@@ -163,6 +170,12 @@ export function QueuedRelayBar({ queued, onCancel }: { queued: QueuedRelay; onCa
 }
 
 const useStyles = makeStyles(({ colors }) => ({
+  verified: {
+    color: colors.success,
+  },
+  unverified: {
+    color: colors.warning,
+  },
   card: {
     padding: spacing.sm + spacing.xs,
     gap: spacing.sm,

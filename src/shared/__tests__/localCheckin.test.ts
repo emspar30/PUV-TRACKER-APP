@@ -63,10 +63,10 @@ describe('local check-in lifecycle', () => {
 });
 
 describe('verifyCheckIn', () => {
-  it('returns unverified with verification_disabled while verification is off', () => {
+  it('stays unverified on the server: check-ins are judged on the phone (V1a turned verification on)', () => {
     expect(verifyCheckIn({ routeCode: 'R4', stationCode: 'RCA' })).toEqual({
       status: 'unverified',
-      reasons: ['verification_disabled'],
+      reasons: ['verification_not_implemented'],
     });
   });
 });

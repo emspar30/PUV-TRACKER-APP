@@ -107,8 +107,8 @@ describe('packet encoding', () => {
 });
 
 describe('verification plug-in points', () => {
-  it('verifyReport returns unverified with verification_disabled', () => {
-    expect(verifyReport(GOOD)).toEqual({ status: 'unverified', reasons: ['verification_disabled'] });
+  it('verifyReport (V1a) without a window context stays unverified, and says why', () => {
+    expect(verifyReport(GOOD)).toEqual({ status: 'unverified', reasons: ['no_window'] });
   });
 
   it('deviceIntegrity returns a placeholder result', async () => {

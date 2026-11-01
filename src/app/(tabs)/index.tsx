@@ -23,6 +23,7 @@ import { OriginPin } from '@/features/map/OriginPin';
 import { QueuedRelayBar, RelayBar } from '@/features/report/RelayBar';
 import { useGpsBroadcast } from '@/features/report/useGpsBroadcast';
 import { useRelayBroadcast } from '@/features/report/useRelayBroadcast';
+import { useRelayVerification } from '@/features/report/useRelayVerification';
 import { useBackgroundRelay } from '@/features/report/useBackgroundRelay';
 import { useRelayQueue } from '@/features/report/useRelayQueue';
 import { RouteLines } from '@/features/map/RouteLines';
@@ -237,6 +238,8 @@ export default function MapScreen() {
   const fix = useLocationStore((store) => store.fix);
   // B4: a relay runs until the rider reaches their destination
   const relay = useRelayBroadcast(commuter);
+  // V1a: the running relay is checked against the verification window
+  useRelayVerification(relayLines);
   // RL2c (D12): a relay queued after Send, released once the multicab moves off with the rider
   const queuedRelay = useRelayQueue(commuter, relayLines, repos.vehicles);
   const cancelQueued = useRelayStore((store) => store.dequeue);

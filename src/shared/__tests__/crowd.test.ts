@@ -167,6 +167,14 @@ describe('the demo loop (CA1.1): start full, spend on check-ins and tracking, ea
     expect(await balanceOf(energy)).toBe(ENERGY_WELCOME + ENERGY_LIVE_REPORT - 6 * ENERGY_TRACKING_COST);
   });
 
+  it('V1a: a demo relay that passed the window shows as verified', async () => {
+    const { crowd } = setup();
+    await crowd.reports.post({ ...REPORT, liveMap: false }, 'report-aaaaaaaa');
+    expect((await crowd.reports.recent())?.[0].verified).toBeUndefined();
+    await crowd.reports.verify('report-aaaaaaaa');
+    expect((await crowd.reports.recent())?.[0].verified).toBe(true);
+  });
+
   it('RL2a: an own demo relay stays while kept, lapses RELAY_POST_GRACE_MIN after the last signal, and ends at once', async () => {
     const { crowd, advance } = setup();
     await crowd.reports.post({ ...REPORT, liveMap: false }, 'report-aaaaaaaa');
@@ -211,6 +219,7 @@ const port = (over: Partial<CrowdPort> = {}): CrowdPort => ({
   postReport: async () => ({ postId: '41' }),
   renewReport: async () => true,
   endReport: async () => null,
+  verifyReport: async () => null,
   feed: async () => [
     {
       id: 5,
@@ -230,6 +239,14 @@ const port = (over: Partial<CrowdPort> = {}): CrowdPort => ({
 });
 
 describe('the live check-ins and reports', () => {
+  it('V1a: verify calls verify_report with the numeric id, signed in only, and never throws', async () => {
+    const calls: number[] = [];
+    await createLiveCrowd(port({ verifyReport: async (id) => { calls.push(id); return null; } })).reports.verify('41');
+    await createLiveCrowd(port({ signedIn: async () => false, verifyReport: async (id) => { calls.push(id); return null; } })).reports.verify('42');
+    await createLiveCrowd(port({ verifyReport: async () => Promise.reject(new Error('offline')) })).reports.verify('43');
+    expect(calls).toEqual([41]);
+  });
+
   it('signed out: no counts or feed, and both actions ask to sign in', async () => {
     const crowd = createLiveCrowd(port({ signedIn: async () => false }));
     expect(await crowd.checkins.waitingCounts('R4', [])).toBeNull();
@@ -253,6 +270,7 @@ describe('the live check-ins and reports', () => {
         trusted: true,
         username: 'juan',
         liveMap: false,
+        verified: false,
         postedMs: T0,
         demo: false,
       },

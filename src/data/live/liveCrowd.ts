@@ -20,6 +20,8 @@ export type FeedRow = {
   author_trusted: boolean;
   // RL2a (D9): on the live map, so not a Crowdsource post
   live_map: boolean;
+  // V1a: passed the verification window (absent from older rows and fakes)
+  verified?: boolean;
   created_at: string;
 };
 
@@ -35,6 +37,8 @@ export type CrowdPort = {
   // RL2a: renew_report(post): true while the server keeps the post up; end_report(post)
   renewReport(postId: number): Promise<boolean | PortFailure>;
   endReport(postId: number): Promise<PortFailure | null>;
+  // V1a: verify_report(post)
+  verifyReport(postId: number): Promise<PortFailure | null>;
   // Live, visible feed_posts, newest first
   feed(): Promise<FeedRow[]>;
   // flag_post(post): true once the post is hidden
@@ -75,6 +79,7 @@ export function feedPostOf(row: FeedRow): FeedPost | null {
     trusted: row.author_trusted,
     username: row.author_username,
     liveMap: row.live_map,
+    verified: row.verified === true,
     postedMs: Date.parse(row.created_at),
     demo: false,
   };
@@ -141,6 +146,13 @@ export function createLiveCrowd(port: CrowdPort): CrowdRepositories {
         const id = Number(postId);
         if (!Number.isSafeInteger(id) || !(await port.signedIn())) return;
         await port.endReport(id).catch(() => null);
+      },
+
+      // Best effort: an unverified post stays as it was
+      async verify(postId) {
+        const id = Number(postId);
+        if (!Number.isSafeInteger(id) || !(await port.signedIn())) return;
+        await port.verifyReport(id).catch(() => null);
       },
 
       async recent() {

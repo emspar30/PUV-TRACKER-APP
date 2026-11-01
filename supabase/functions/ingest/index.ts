@@ -43,7 +43,7 @@ const deps: IngestDeps = {
   getLatest: async (vehicleId) => {
     const { data, error } = await admin
       .from('telemetry_latest')
-      .select('packet_ts, stopped_since, lat, lon')
+      .select('packet_ts, stopped_since, lat, lon, verified')
       .eq('vehicle_id', vehicleId)
       .maybeSingle();
     if (error) throw error;
@@ -67,6 +67,18 @@ const deps: IngestDeps = {
       .maybeSingle();
     if (error) throw error;
     return data?.packet_ts ?? null;
+  },
+
+  // V1a: the positions of the verification window, oldest first
+  recentHistory: async (vehicleId, sinceIso) => {
+    const { data, error } = await admin
+      .from('telemetry_raw')
+      .select('vehicle_id, lat, lon, speed_kmh, packet_ts')
+      .eq('vehicle_id', vehicleId)
+      .gte('packet_ts', sinceIso)
+      .order('packet_ts', { ascending: true });
+    if (error) throw error;
+    return data ?? [];
   },
 
   // SB1: accepted positions are kept server-side for speed samples (retention: supabase/cron)

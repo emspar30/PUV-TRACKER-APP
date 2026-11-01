@@ -109,3 +109,8 @@ export function keepRelayPost(post: RelayPost): Promise<boolean> {
 export function endRelayPost(post: RelayPost): Promise<void> {
   return selectCrowd(post.demo, demoCrowd, liveCrowd).reports.end(post.id);
 }
+
+// V1a: the relay passed the verification window
+export function verifyRelayPost(post: RelayPost): Promise<void> {
+  return selectCrowd(post.demo, demoCrowd, liveCrowd).reports.verify(post.id);
+}

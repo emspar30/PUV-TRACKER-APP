@@ -8,7 +8,8 @@
 //   PACKET_MAX_BYTES (8.4), INGEST_LOG_RETENTION_DAYS, PACKET_MAX_SPEED_KMH, and the T1 batch limits
 //   TELEMETRY_BATCH_MAX_POINTS, TELEMETRY_BATCH_MAX_BYTES and PACKET_BACKLOG_MAX_AGE_S; NM1's
 //   NODE_PASS_RADIUS_M, NODE_PASS_GAP_MIN and NIGHT_STOP_WINDOW_MIN; RK1's IMPOSSIBLE_SPEED_KMH and
-//   SPEED_JUMP_ALLOWANCE_M; and the driver registration values (PRD 9.5, 0.3).
+//   SPEED_JUMP_ALLOWANCE_M; V1a's verification window values (10.2); and the driver registration
+//   values (PRD 9.5, 0.3).
 export {
   ENABLE_VERIFICATION,
   IMPOSSIBLE_SPEED_KMH,
@@ -40,6 +41,13 @@ export {
   REGISTRATION_PHOTO_MAX_PX,
   REGISTRATION_SETUP_TTL_DAYS,
   REGISTRATION_SUBMIT_WITHIN_MIN,
+  MIN_DISPLACEMENT_M,
+  MOTION_SPEED_FALLBACK_KMH,
+  MOTION_SPEED_FALLBACK_S,
+  ROUTE_SNAP_DISTANCE_M,
+  VERIFY_FIX_ACCURACY_M,
+  VERIFY_WINDOW_MAX_S,
+  VERIFY_WINDOW_S,
 } from '../../../supabase/functions/_shared/serverConfig.ts';
 
 // --- Position send rule (PRD 8.4)
@@ -406,11 +414,12 @@ export const MAP_VIEW_START_DEG = 0.1;
 export const MAP_VIEW_STEP_DEG = 0.004;
 export const MAP_MIN_ZOOM = 11.5;
 
-// --- Verification window and check-in (PRD 10.2, 8.4, 7.5). Defined now, used later.
-export const ROUTE_SNAP_DISTANCE_M = 30;
-export const MIN_DISPLACEMENT_M = 50;
+// --- Verification window and check-in (PRD 10.2, 8.4, 7.5). The window's own values (V1a) are
+// server values, re-exported above.
 export const GPS_ACCURACY_GATE_RELAY_M = 30;
 export const GPS_ACCURACY_GATE_CHECKIN_M = 25;
+// V1a: a running relay's verification is looked at again this often when no new fix comes
+export const VERIFY_CHECK_S = 5;
 // G0: a fix older than this is stale and refused wherever the gates apply (PRD 10.3)
 export const LOCATION_FIX_MAX_AGE_S = 30;
 // G0: the version of the location consent notice; a new notice asks again (PRD 7.1, 15.1).

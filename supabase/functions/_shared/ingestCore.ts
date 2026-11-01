@@ -3,10 +3,11 @@
 
 import { newPassages, type PassStop } from './nodePassage.ts';
 import { isBatch, validateBatch, validatePacket, type PacketError, type TelemetryPacket } from './packet.ts';
+import { ROUTE_LINES } from './routeLines.generated.ts';
 import { ROUTE_STOPS } from './routeStops.generated.ts';
 import { isImpossibleJump, type TimedPoint } from './speedJump.ts';
-import { NODE_PASS_GAP_MIN, PACKET_MAX_AGE_S, PACKET_MAX_BYTES, STATIONARY_SPEED_KMH, TELEMETRY_BATCH_MAX_BYTES } from './serverConfig.ts';
-import { verifyReport } from './verifyReport.ts';
+import { NODE_PASS_GAP_MIN, PACKET_MAX_AGE_S, PACKET_MAX_BYTES, STATIONARY_SPEED_KMH, TELEMETRY_BATCH_MAX_BYTES, VERIFY_WINDOW_MAX_S } from './serverConfig.ts';
+import { verifyReport, type ReportContext } from './verifyReport.ts';
 
 const MS_PER_S = 1000;
 const MS_PER_MIN = 60_000;
@@ -53,7 +54,7 @@ export type IngestDeps = {
   // route_id: for NM1's stop passages (absent in older fakes: no passages are recorded)
   getVehicle(vehicleId: string): Promise<{ active: boolean; route_id?: string } | null>;
   // lat and lon: for RK1's speed jump check (absent in older fakes: no check)
-  getLatest(vehicleId: string): Promise<(Pick<TelemetryLatestRow, 'packet_ts' | 'stopped_since'> & Partial<Pick<TelemetryLatestRow, 'lat' | 'lon'>>) | null>;
+  getLatest(vehicleId: string): Promise<(Pick<TelemetryLatestRow, 'packet_ts' | 'stopped_since'> & Partial<Pick<TelemetryLatestRow, 'lat' | 'lon' | 'verified'>>) | null>;
   upsertLatest(row: TelemetryLatestRow): Promise<void>;
   // The newest packet_ts in the vehicle's history, or null when it has none
   getHistoryNewest(vehicleId: string): Promise<string | null>;
@@ -65,6 +66,9 @@ export type IngestDeps = {
   // deployment without them records none. Their failure never fails a request.
   recentPassages?(vehicleId: string, sinceIso: string): Promise<{ stop_code: string; passed_at: string }[]>;
   insertPassages?(rows: NodeEventRow[]): Promise<void>;
+  // V1a: the vehicle's history from `sinceIso` on, oldest first, for the verification window.
+  // Optional: without it a position stays unverified ("no_window").
+  recentHistory?(vehicleId: string, sinceIso: string): Promise<TelemetryHistoryRow[]>;
   // RK1: books an impossible_speed risk event against the sender (book_risk). Optional; must not throw.
   bookRisk?(userId: string, kind: 'impossible_speed', detail: Record<string, unknown>): Promise<void>;
 };
@@ -118,9 +122,9 @@ function stoppedSinceAfter(since: string | null, packets: readonly TelemetryPack
   return current;
 }
 
-function latestRow(packet: TelemetryPacket, stoppedSince: string | null): TelemetryLatestRow {
-  // Verification hook: always "unverified" while verification is off
-  const verification = verifyReport(packet);
+function latestRow(packet: TelemetryPacket, stoppedSince: string | null, context?: ReportContext): TelemetryLatestRow {
+  // V1a: judged by the verification window when the context could be read
+  const verification = verifyReport(packet, context);
   return {
     vehicle_id: packet.vehicle_id,
     lat: packet.lat,
@@ -133,6 +137,32 @@ function latestRow(packet: TelemetryPacket, stoppedSince: string | null): Teleme
     verified: verification.status === 'verified',
     verification_reasons: verification.reasons,
   };
+}
+
+// V1a: the window's context for a packet: the history of the last VERIFY_WINDOW_MAX_S before it (plus
+// `extra`, positions of the same batch not stored yet), the route's lines, and whether the marker is
+// verified and still current. Undefined when the history cannot be read.
+async function reportContext(
+  deps: IngestDeps,
+  packet: TelemetryPacket,
+  routeId: string | undefined,
+  latest: { packet_ts: string; verified?: boolean } | null,
+  extra: readonly TelemetryPacket[] = [],
+): Promise<ReportContext | undefined> {
+  if (!deps.recentHistory) return undefined;
+  const atMs = packet.ts * MS_PER_S;
+  const stillVerified = latest?.verified === true && atMs - new Date(latest.packet_ts).getTime() <= PACKET_MAX_AGE_S * MS_PER_S;
+  try {
+    const sinceMs = atMs - VERIFY_WINDOW_MAX_S * MS_PER_S;
+    const stored = await deps.recentHistory(packet.vehicle_id, new Date(sinceMs).toISOString());
+    const history = [
+      ...stored.map((row) => ({ lat: row.lat, lon: row.lon, atMs: new Date(row.packet_ts).getTime(), speedKmh: row.speed_kmh })),
+      ...extra.map((point) => ({ lat: point.lat, lon: point.lon, atMs: point.ts * MS_PER_S, speedKmh: point.speed })),
+    ].filter((fix) => fix.atMs >= sinceMs && fix.atMs < atMs);
+    return { history, lines: routeId ? (ROUTE_LINES[routeId] ?? []) : [], stillVerified };
+  } catch {
+    return undefined;
+  }
 }
 
 const pointOf = (packet: TelemetryPacket): TimedPoint => ({ lat: packet.lat, lon: packet.lon, atMs: packet.ts * MS_PER_S });
@@ -225,7 +255,7 @@ export async function handleIngest(request: IngestRequest, deps: IngestDeps): Pr
   }
 
   // 5. Stopped tracking: remember when the current run of stopped packets began
-  const row = latestRow(packet, stoppedSinceAfter(latest?.stopped_since ?? null, [packet]));
+  const row = latestRow(packet, stoppedSinceAfter(latest?.stopped_since ?? null, [packet]), await reportContext(deps, packet, vehicle.route_id, latest));
   await deps.upsertLatest(row);
   // SB1: every accepted position is kept for speed samples. The marker has moved already, so a
   // failed history insert does not fail the request.
@@ -288,7 +318,8 @@ async function handleBatch(
   else if (latestMs !== null && latestMs >= newest.ts * MS_PER_S) outcome = 'not_newer';
   else {
     const sinceMarker = points.filter((point) => latestMs === null || point.ts * MS_PER_S > latestMs);
-    await deps.upsertLatest(latestRow(newest, stoppedSinceAfter(latest?.stopped_since ?? null, sinceMarker)));
+    const context = await reportContext(deps, newest, vehicle.route_id, latest, points.slice(0, -1));
+    await deps.upsertLatest(latestRow(newest, stoppedSinceAfter(latest?.stopped_since ?? null, sinceMarker), context));
     outcome = 'accepted';
   }
 

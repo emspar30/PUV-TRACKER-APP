@@ -4,6 +4,7 @@ import type { ReportInput } from '@/data/repositories/types';
 import type { RelayBroadcast } from '@/shared/relay/broadcast';
 import { renewedWatch, startWatch, type RelayWatch } from '@/shared/relay/limits';
 import type { RelayQueue } from '@/shared/relay/queue';
+import type { WindowReason } from '@/shared/verification/verifyWindow';
 
 // B4: the relay sent with GPS, shared until the rider reaches their destination. Outside the Map
 // screen's state so other tabs keep it going. Not saved: a restart of the app ends it.
@@ -21,8 +22,14 @@ export type QueuedRelay = {
   demo: boolean;
 };
 
+// V1a: the running relay's verification window: checking until the multicab has moved on its route
+// (useRelayVerification), then verified or not
+export type RelayVerification = { status: 'pending' | 'verified' | 'failed'; reasons: readonly WindowReason[] };
+
 type RelayState = {
   session: RelayBroadcast | null;
+  verification: RelayVerification | null;
+  setVerification: (verification: RelayVerification) => void;
   watch: RelayWatch;
   queued: QueuedRelay | null;
   start: (session: RelayBroadcast) => void;
@@ -37,10 +44,12 @@ type RelayState = {
 
 export const useRelayStore = create<RelayState>((set) => ({
   session: null,
+  verification: null,
+  setVerification: (verification) => set((state) => (state.session ? { verification } : {})),
   watch: startWatch(0),
   queued: null,
-  start: (session) => set({ session, watch: startWatch(session.startedMs), queued: null }),
-  stop: () => set({ session: null, watch: startWatch(0) }),
+  start: (session) => set({ session, watch: startWatch(session.startedMs), queued: null, verification: { status: 'pending', reasons: [] } }),
+  stop: () => set({ session: null, watch: startWatch(0), verification: null }),
   setWatch: (watch) => set({ watch }),
   renew: (nowMs) => set((state) => (state.session ? { watch: renewedWatch(state.watch, nowMs) } : {})),
   enqueue: (queued) => set({ queued }),

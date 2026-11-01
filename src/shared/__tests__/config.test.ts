@@ -3,7 +3,7 @@ import { SUPABASE_ENV_ERROR, readDevBroadcastFlag, readSupabaseEnv } from '../co
 
 describe('config exposes every PRD 0.3 default', () => {
   it.each([
-    ['ENABLE_VERIFICATION', false],
+    ['ENABLE_VERIFICATION', true],
     ['POSITION_SEND_DISTANCE_M', 100],
     ['POSITION_SEND_INTERVAL_S', 30],
     ['STATIONARY_SPEED_KMH', 2],

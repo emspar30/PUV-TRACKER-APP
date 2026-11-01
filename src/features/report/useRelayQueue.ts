@@ -133,6 +133,7 @@ export function useRelayQueue(position: LatLon | null, lines: readonly LineCoord
             routeCode: vehicle.routeCode,
             vehicleId: vehicle.vehicleId,
             startedMs: Date.now(),
+            demo,
           });
           Vibration.vibrate();
           showToast({

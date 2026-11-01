@@ -82,6 +82,9 @@ export type ReportsRepository = {
   keep(postId: string): Promise<boolean>;
   // RL2a: the relay ended (at the stop, idle, the cap, or Stop): the post leaves Crowdsource now
   end(postId: string): Promise<void>;
+  // V1a: the relay passed the verification window on the phone: its post shows as verified
+  // (verify_report). Best effort.
+  verify(postId: string): Promise<void>;
   // Live posts, newest first; null when unknown (signed out)
   recent(): Promise<readonly FeedPost[] | null>;
   // N1: flags someone else's post (flag_post; one flag per account). hidden: it reached

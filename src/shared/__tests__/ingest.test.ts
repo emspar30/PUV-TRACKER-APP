@@ -8,6 +8,8 @@ import {
   type TelemetryHistoryRow,
   type TelemetryLatestRow,
 } from '../../../supabase/functions/_shared/ingestCore';
+import { ROUTE_LINES } from '../../../supabase/functions/_shared/routeLines.generated';
+import { pointAtChainage } from '../geo/line';
 import { encodeBatch, encodePacket, type TelemetryPacket } from '../telemetry/packet';
 
 const NOW_MS = 1_790_000_000_000;
@@ -24,6 +26,20 @@ const PACKET: TelemetryPacket = {
   heading: 101,
   seats: 8,
   ts: NOW_S - 2,
+};
+
+// A stored marker row, for tests that start from one
+const PACKET_ROW: TelemetryLatestRow = {
+  vehicle_id: 'R4-TEST-01',
+  lat: PACKET.lat,
+  lon: PACKET.lon,
+  speed_kmh: 0,
+  heading_deg: 0,
+  seats_taken: 0,
+  packet_ts: new Date((NOW_S - 30) * 1000).toISOString(),
+  stopped_since: null,
+  verified: false,
+  verification_reasons: [],
 };
 
 function fakeBackend() {
@@ -80,13 +96,13 @@ const send = (backend: ReturnType<typeof fakeBackend>, packet: Partial<Telemetry
   handleIngest(post(encodePacket({ ...PACKET, ...packet }), token), backend.deps);
 
 describe('ingest accepts an allowlisted writer', () => {
-  it('stores the position as unverified, with the reason', async () => {
+  it('stores the position as unverified, with the reason (no history reader: no window)', async () => {
     const backend = fakeBackend();
     const response = await send(backend);
 
     expect(response).toEqual({
       status: 200,
-      body: { status: 'accepted', verified: false, verification_reasons: ['verification_disabled'] },
+      body: { status: 'accepted', verified: false, verification_reasons: ['no_window'] },
     });
     expect(backend.latest.get('R4-TEST-01')).toEqual({
       vehicle_id: 'R4-TEST-01',
@@ -98,7 +114,7 @@ describe('ingest accepts an allowlisted writer', () => {
       packet_ts: new Date((NOW_S - 2) * 1000).toISOString(),
       stopped_since: null,
       verified: false,
-      verification_reasons: ['verification_disabled'],
+      verification_reasons: ['no_window'],
     });
   });
 
@@ -336,5 +352,47 @@ describe('ingest accepts a batch of buffered positions (T1)', () => {
     const backend = fakeBackend();
     const response = await handleIngest(post(JSON.stringify({ v: 'R4-TEST-01', p: [], pad: 'x'.repeat(4100) })), backend.deps);
     expect(response).toEqual({ status: 413, body: { error: 'packet_too_large' } });
+  });
+});
+
+describe('V1a: the ingest function judges a position by the verification window', () => {
+  const R4_LINE = ROUTE_LINES.R4[0];
+  // Positions every 5 s along the R4 line at `kmh`, ending 2 s before now
+  const rideHistory = (kmh: number, seconds: number): TelemetryHistoryRow[] => {
+    const rows: TelemetryHistoryRow[] = [];
+    for (let s = 0; s <= seconds; s += 5) {
+      const at = pointAtChainage(R4_LINE as [number, number][], (200 + (kmh / 3.6) * s) / 1000);
+      rows.push({ vehicle_id: 'R4-TEST-01', lat: at.lat, lon: at.lon, speed_kmh: kmh, packet_ts: new Date((NOW_S - 2 - seconds - 5 + s) * 1000).toISOString() });
+    }
+    return rows;
+  };
+  const withWindow = (rows: TelemetryHistoryRow[]) => {
+    const backend = fakeBackend();
+    backend.deps.getVehicle = async (id) => (id === 'R4-TEST-01' ? { active: true, route_id: 'R4' } : null);
+    backend.deps.recentHistory = async () => rows;
+    return backend;
+  };
+
+  it('a multicab that rode R4 at 30 km/h for 25 s is verified', async () => {
+    const rows = rideHistory(30, 25);
+    const last = rows[rows.length - 1];
+    const response = await send(withWindow(rows), { lat: last.lat, lon: last.lon, speed: 30 });
+    expect(response.body).toEqual({ status: 'accepted', verified: true, verification_reasons: [] });
+  });
+
+  it('a stationary one is not yet, and says why', async () => {
+    const rows = rideHistory(0, 25);
+    const last = rows[rows.length - 1];
+    const response = await send(withWindow(rows), { lat: last.lat, lon: last.lon, speed: 0 });
+    expect(response.body).toEqual({ status: 'accepted', verified: false, verification_reasons: ['pending', 'no_motion', 'no_displacement'] });
+  });
+
+  it('once verified it stays verified while its positions keep coming (a red light)', async () => {
+    const rows = rideHistory(0, 25);
+    const last = rows[rows.length - 1];
+    const backend = withWindow(rows);
+    backend.latest.set('R4-TEST-01', { ...PACKET_ROW, lat: last.lat, lon: last.lon, verified: true, verification_reasons: [] });
+    const response = await send(backend, { lat: last.lat, lon: last.lon, speed: 0 });
+    expect(response.body).toEqual({ status: 'accepted', verified: true, verification_reasons: [] });
   });
 });

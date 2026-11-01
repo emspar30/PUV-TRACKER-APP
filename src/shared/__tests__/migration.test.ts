@@ -621,3 +621,23 @@ describe('migration: relay gate (RL2a)', () => {
     expect(gateSql).toMatch(/f\.ended_at is null\s+and not f\.hidden/);
   });
 });
+
+describe('migration: verified relays (V1a)', () => {
+  const sql = read(['20261102000000_relay_verified.sql']);
+
+  it('only the author marks their own running, visible post verified', () => {
+    expect(sql).toContain('create function public.verify_report(post bigint)');
+    expect(sql).toContain('security definer');
+    expect(sql).toContain("set search_path = ''");
+    expect(sql).toContain('f.user_id = uid');
+    expect(sql).toContain('f.ended_at is null');
+    expect(sql).toContain('not f.hidden');
+    expect(sql).toContain('set verified = true');
+    expect(sql).not.toMatch(/\bdrop\b/);
+  });
+
+  it('is callable by signed-in accounts only', () => {
+    expect(sql).toContain('revoke execute on function public.verify_report(bigint) from public, anon');
+    expect(sql).toContain('grant execute on function public.verify_report(bigint) to authenticated');
+  });
+});

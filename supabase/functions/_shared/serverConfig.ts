@@ -2,8 +2,8 @@
 // by the Edge Function (Deno) and by the app, whose config module re-exports these values.
 // Each value therefore has exactly one definition.
 
-// Verification is off in Prototype v0 (PRD 0.7). Read in one place only: verifyReport.
-export const ENABLE_VERIFICATION = false;
+// V1a (2026-11-02): verification is on (PRD 0.7 was off). Read in one place only: verifyReport.
+export const ENABLE_VERIFICATION = true;
 
 // A vehicle counts as stopped below this speed (PRD 7.3)
 export const STATIONARY_SPEED_KMH = 2;
@@ -70,3 +70,16 @@ export const NIGHT_STOP_WINDOW_MIN = 60;
 // rejected and booked as a risk event; the first SPEED_JUMP_ALLOWANCE_M of a jump are GPS wander
 export const IMPOSSIBLE_SPEED_KMH = 120;
 export const SPEED_JUMP_ALLOWANCE_M = 50;
+
+// V1a verification window (PRD 10.2, S8). A relay is verified when, within the window, the multicab
+// held MOTION_SPEED_FALLBACK_KMH for MOTION_SPEED_FALLBACK_S (no activity recognition, D6), every usable
+// fix stayed within ROUTE_SNAP_DISTANCE_M of the route line, and it moved MIN_DISPLACEMENT_M along the
+// line. A fix is usable at VERIFY_FIX_ACCURACY_M or better. The window is VERIFY_WINDOW_S, extended to
+// VERIFY_WINDOW_MAX_S while the multicab is slow (traffic). Field values come from S10.
+export const MOTION_SPEED_FALLBACK_KMH = 25;
+export const MOTION_SPEED_FALLBACK_S = 20;
+export const ROUTE_SNAP_DISTANCE_M = 30;
+export const MIN_DISPLACEMENT_M = 50;
+export const VERIFY_FIX_ACCURACY_M = 30;
+export const VERIFY_WINDOW_S = 30;
+export const VERIFY_WINDOW_MAX_S = 90;

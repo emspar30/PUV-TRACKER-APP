@@ -29,6 +29,8 @@ export type RelayBroadcast = {
   startPoint: LatLon | null;
   // RL1: the route's terminals, where the idle stop waits longer (its first and last stop for now, D3)
   terminals: readonly LatLon[];
+  // V1a: a demo relay rides a simulated multicab, so its verification is simulated too
+  demo?: boolean;
 };
 
 // RL1: a route's terminals: the first and the last of its stops in riding order (D3)

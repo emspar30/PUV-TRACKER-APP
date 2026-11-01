@@ -24,6 +24,8 @@ export type FeedPost = {
   username: string;
   // RL2a (D9): the relay shows on the live map, so it is left out of Crowdsource
   liveMap: boolean;
+  // V1a: the relay passed the verification window (the multicab moved on its route with the rider)
+  verified?: boolean;
   postedMs: number;
   demo: boolean;
 };

@@ -24,6 +24,7 @@ export const noLiveReports: ReportsRepository = {
   post: async () => ({ ok: false, reason: 'error' }),
   keep: async () => false,
   end: async () => undefined,
+  verify: async () => undefined,
   recent: async () => null,
   flag: async () => ({ ok: false, reason: 'error' }),
 };
