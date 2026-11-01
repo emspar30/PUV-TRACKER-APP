@@ -3,6 +3,7 @@ import { MapPin, Search, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chip } from '@/components';
 import type { VehiclesRepository } from '@/data/repositories/types';
@@ -22,6 +23,7 @@ import type { SearchablePlace } from '@/shared/routing/placeSearch';
 import type { RouteStop } from '@/shared/routing/types';
 import type { SeatTier } from '@/shared/telemetry/occupancy';
 import { reportMockLocation } from '@/services/risk';
+import { useConnectionStore } from '@/state/connectionStore';
 import { useLocationStore } from '@/state/locationStore';
 import { useRecentRelaysStore } from '@/state/recentRelaysStore';
 import { showDialog } from '@/state/dialogStore';
@@ -144,6 +146,10 @@ function GateNotice({ gate, location, demo }: { gate: RelayGate; location: Relay
 export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, checkGps, liveMapAllowed, onClose }: ReportSheetProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
+  // The panel ends above Android's navigation bar, so the Relay update button is never under it
+  const insets = useSafeAreaInsets();
+  // PRD 14: a relay is sent over the internet; offline, Send fails, so the panel says so first
+  const offline = useConnectionStore((state) => state.online === false);
   const demoData = useSettingsStore((state) => state.demoData);
   // PRD 10.4: Night Mode as the sheet opens
   const [night] = useState(() => isNight(Date.now()));
@@ -299,7 +305,7 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   return (
     <Animated.View style={styles.backdrop} entering={FadeIn.duration(motion.dialogMs)}>
       <Pressable style={styles.grow} onPress={onClose} accessibilityLabel={strings.report.close} />
-      <Animated.View style={styles.panel} entering={SlideInDown.duration(motion.cardMs)}>
+      <Animated.View style={[styles.panel, { paddingBottom: spacing.md + insets.bottom }]} entering={SlideInDown.duration(motion.cardMs)}>
         <View style={styles.head}>
           <Text style={[typography.headlineSm, styles.grow]} accessibilityRole="header">
             {strings.report.title}
@@ -309,6 +315,11 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          {offline ? (
+            <View style={styles.notice} accessibilityRole="alert">
+              <Text style={[typography.bodySm, styles.noticeText]}>{strings.report.offline}</Text>
+            </View>
+          ) : null}
           {demoData ? (
             beacon.kind === 'found' ? (
               <RelayVehicleCard vehicle={beacon.vehicle} routeColor={colorOf(beacon.vehicle.routeCode)} demo />

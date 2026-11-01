@@ -12,6 +12,7 @@ import { useSkeleton } from '@/features/loading/useSkeleton';
 import { DEMO_SEED, FEED_FLAG_HIDE_COUNT, SKELETON_LONG_MS } from '@/shared/config';
 import { demoFeed, vehicleLabelOf, type FeedPost } from '@/shared/demo/feed';
 import { routeCodesOf } from '@/shared/ui/routeVisibility';
+import { useConnectionStore } from '@/state/connectionStore';
 import { flagPost, useCrowd, useFlaggedStore, useOwnPostsStore } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
 import { useEnergyStore } from '@/state/energyStore';
@@ -89,8 +90,13 @@ export default function CrowdsourceScreen() {
     return name ? (name.split(',')[0] ?? name) : code;
   };
   // B8: live data loads over the network; the demo shows the same short placeholder
-  const loadingFeed = useSkeleton(SKELETON_LONG_MS, !(!demo && crowd.reports.source === 'live' && loaded === null));
-  const needsSignIn = !demo && crowd.reports.source === 'live' && loaded !== null && mine === null;
+  // PRD 14: known offline, the live feed does not wait for a request that cannot answer
+  const online = useConnectionStore((state) => state.online);
+  const liveFeed = !demo && crowd.reports.source === 'live';
+  const loadingFeed = useSkeleton(SKELETON_LONG_MS, !(liveFeed && loaded === null && online !== false));
+  const failed = liveFeed && (loaded !== null ? mine === null : online === false);
+  // A feed that failed while the server cannot be reached is an outage, not a sign-in
+  const emptyBody = failed ? (online === true ? strings.crowdsource.signIn : strings.crowdsource.offline) : strings.crowdsource.emptyBody;
   // RL2a: only relays kept off the live map; those on it belong to the live map (broadcast and merged)
   const visible = posts.filter((post) => !post.liveMap && !flagged.has(post.id));
   const shown = filter ? visible.filter((post) => post.routeCode === filter) : visible;
@@ -131,7 +137,7 @@ export default function CrowdsourceScreen() {
           <Card style={styles.empty}>
             <MessagesSquare color={colors.textTertiary} size={EMPTY_ICON} />
             <Text style={typography.labelLg}>{strings.crowdsource.empty}</Text>
-            <Text style={[typography.bodySm, styles.center]}>{needsSignIn ? strings.crowdsource.signIn : strings.crowdsource.emptyBody}</Text>
+            <Text style={[typography.bodySm, styles.center]}>{emptyBody}</Text>
           </Card>
         ) : (
           shown.map((post, index) => (

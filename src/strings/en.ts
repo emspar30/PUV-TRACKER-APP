@@ -93,6 +93,8 @@ export const en = {
     body: 'Reports from commuters in the last hour',
     // The user's own posts on live data come from the database (N1 reads the same table)
     signIn: 'Sign in to see live reports',
+    // PRD 14: the feed could not load because the server cannot be reached
+    offline: 'You are offline. Reports show again when you are back online.',
     // N1: flagging someone else's post
     flag: 'Flag report',
     flagLabel: (username: string) => `Flag the report by ${username}`,
@@ -288,6 +290,8 @@ export const en = {
     // RL2a: in Crowdsource until the stop; on the live map the update belongs to the map, not the feed
     sentBodyFeed: (stop: string) => `It shows in Crowdsource until you reach ${stop}.`,
     sentBodyGps: (stop: string) => `Your location shows on the live map until you reach ${stop}.`,
+    // PRD 14: shown at the top of the Relay panel while the server cannot be reached
+    offline: 'You are offline. A relay is sent over the internet, so it cannot be sent until you are back online.',
     failedTitle: 'Update not sent',
     failedBody: 'Try again in a moment.',
     noUsername: 'Pick a username in Profile first.',
@@ -303,6 +307,13 @@ export const en = {
     energyOf: (balance: string, cap: number) => `${balance}/${cap}`,
     // PRD 14: the server cannot be reached; the offline map, routing and fares keep working
     offline: 'Offline · Live updates paused',
+  },
+
+  // PRD 14: toasts when the server stops or starts answering (useConnectionProbe)
+  connection: {
+    lostTitle: 'You are offline',
+    lostBody: 'The map, routes and fares still work. Live updates pause until you are back online.',
+    backTitle: 'Back online',
   },
 
   // The bell in the top bar; notifications come in a later step
