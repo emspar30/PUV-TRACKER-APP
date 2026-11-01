@@ -28,6 +28,11 @@ describe('commuter guide topics', () => {
     ['I am a tourist', 'visitor'],
     ['tips for first-time riders', 'visitor'],
     ['what is a multicab?', 'multicab'],
+    ['can I tap a coin to stop?', 'getOff'],
+    ['do I knock on the roof?', 'getOff'],
+    ['bayad usa ra', 'pay'],
+    ['where do I put my bag', 'etiquette'],
+    ['can I eat inside', 'etiquette'],
   ])('"%s" is %s', (text, topic) => {
     expect(topicOf(text)).toBe(topic);
   });

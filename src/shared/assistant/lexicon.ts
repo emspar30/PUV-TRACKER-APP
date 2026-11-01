@@ -178,15 +178,15 @@ export const FILLER_WORDS: readonly string[] = [
 // driver". Each list avoids words that are place names or part of a trip question ("stop", "board",
 // "sakay"), and "gabii" alone (it is in "maayong gabii").
 export const GUIDE_WORDS = {
-  getOff: ['get off', 'getting off', 'get down', 'alight', 'drop me', 'drop off', 'para', 'lugar lang', 'diri lang', 'manaog', 'monaog', 'naog', 'stop the multicab', 'stop the jeep', 'stop the vehicle', 'driver to stop', 'want to stop'],
+  getOff: ['get off', 'getting off', 'get down', 'alight', 'drop me', 'drop off', 'para', 'lugar lang', 'diri lang', 'manaog', 'monaog', 'naog', 'stop the multicab', 'stop the jeep', 'stop the vehicle', 'driver to stop', 'want to stop', 'tap', 'tap a coin', 'knock', 'signal the driver', 'signal to stop'],
   askDriver: ['ask the driver', 'say to the driver', 'tell the driver', 'talk to the driver', 'what do i say', 'what to say', 'what should i say', 'moagi', 'muagi', 'agi ba'],
-  pay: ['pay', 'paying', 'payment', 'how to bayad', 'unsaon pagbayad', 'pagbayad', 'sukli', 'barya', 'change', 'coins', 'pass the fare', 'pasa', 'ipasa'],
+  pay: ['pay', 'paying', 'payment', 'how to bayad', 'unsaon pagbayad', 'pagbayad', 'sukli', 'barya', 'change', 'coins', 'pass the fare', 'pasa', 'ipasa', 'usa ra', 'duha'],
   flag: ['flag', 'hail', 'wave', 'catch a multicab', 'catch a jeep', 'how do i board', 'how to board', 'get on', 'get in', 'unsaon pagsakay', 'pagsakay'],
   fareRules: ['discount', 'discounts', 'student fare', 'senior fare', 'pwd fare', 'minimum fare', 'base fare', 'fare rules', 'fare matrix', 'how is the fare', 'fare computed', 'fare computation'],
   lost: ['lost', 'wrong multicab', 'wrong jeep', 'wrong route', 'wrong ride', 'missed my stop', 'passed my stop', 'nawala', 'sayop', 'nasayop'],
   safety: ['safe', 'safety', 'danger', 'dangerous', 'pickpocket', 'snatcher', 'thief', 'stolen', 'emergency', 'police', '911'],
   night: ['night', 'at night', 'late', 'midnight', 'evening', 'sa gabii', 'gabii na', 'what time', 'hours', 'schedule', 'first trip', 'last trip'],
-  etiquette: ['etiquette', 'manners', 'polite', 'rude', 'where to sit', 'where do i sit', 'seat', 'seats', 'priority', 'usog'],
+  etiquette: ['etiquette', 'manners', 'polite', 'rude', 'where to sit', 'where do i sit', 'seat', 'seats', 'priority', 'usog', 'bag', 'bags', 'luggage', 'eat', 'food', 'kadiyot'],
   phrases: ['phrase', 'phrases', 'words', 'bisaya', 'cebuano', 'binisaya', 'language', 'translate', 'how do i say', 'how to say', 'thank you', 'salamat'],
   visitor: ['tourist', 'foreigner', 'visitor', 'first time', 'new here', 'not from here', 'tips', 'guide', 'how to commute', 'how do i commute', 'commuting', 'how does it work'],
   multicab: ['what is a multicab', 'what is multicab', 'what s a multicab', 'what are multicabs', 'jeepney', 'jeep'],
