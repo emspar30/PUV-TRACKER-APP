@@ -83,3 +83,10 @@ export const MIN_DISPLACEMENT_M = 50;
 export const VERIFY_FIX_ACCURACY_M = 30;
 export const VERIFY_WINDOW_S = 30;
 export const VERIFY_WINDOW_MAX_S = 90;
+
+// V1b (PRD 10.2, D6): the motion test also passes when the phone's activity recognition reports "in a
+// vehicle" for at least MOTION_IN_VEHICLE_SHARE of its reports since the relay started, given at least
+// MOTION_MIN_ACTIVITY_SAMPLES of them (stop-and-go traffic that never holds 25 km/h). The server has no
+// such reports, so it keeps the speed fallback alone.
+export const MOTION_IN_VEHICLE_SHARE = 0.6;
+export const MOTION_MIN_ACTIVITY_SAMPLES = 3;

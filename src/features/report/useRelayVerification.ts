@@ -1,7 +1,7 @@
 import { ShieldAlert, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 
-import { VERIFY_CHECK_S } from '@/shared/config';
+import { MOTION_SAMPLE_INTERVAL_MS, VERIFY_CHECK_S } from '@/shared/config';
 import type { LineCoordinates } from '@/shared/geo/line';
 import { relayVerification } from '@/shared/relay/verification';
 import type { WindowFix } from '@/shared/verification/verifyWindow';
@@ -12,6 +12,8 @@ import { showToast } from '@/state/toastStore';
 import { strings } from '@/strings';
 import { secondsBetween } from '@/shared/fieldtest/log';
 import { fieldLog } from '@/state/fieldLogStore';
+import { motionSamples, startMotion, stopMotion } from '../../../modules/tunton-motion';
+import { allowMotion } from './motionPermission';
 
 const MS_PER_S = 1000;
 const KMH_PER_MPS = 3.6;
@@ -55,9 +57,23 @@ export function useRelayVerification(lines: readonly LineCoordinates[], detours:
     return () => clearInterval(timer);
   }, [checking]);
 
+  // V1b: the phone's in-vehicle signal while checking a real ride (asked for once; without it, speed alone)
+  const realRide = checking && session?.demo !== true;
+  useEffect(() => {
+    if (!realRide) return undefined;
+    let stopped = false;
+    void allowMotion().then((allowed) => {
+      if (allowed && !stopped) startMotion(MOTION_SAMPLE_INTERVAL_MS);
+    });
+    return () => {
+      stopped = true;
+      stopMotion();
+    };
+  }, [realRide]);
+
   useEffect(() => {
     if (!checking || !session) return;
-    const result = relayVerification({ fixes: fixes.current, lines, detours, startedMs: session.startedMs, nowMs, demo: session.demo === true });
+    const result = relayVerification({ fixes: fixes.current, lines, detours, activity: motionSamples(session.startedMs), startedMs: session.startedMs, nowMs, demo: session.demo === true });
     if (result.status === 'pending') return;
     const store = useRelayStore.getState();
     if (store.session !== session) return;

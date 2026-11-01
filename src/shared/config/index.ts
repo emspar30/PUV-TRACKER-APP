@@ -42,6 +42,8 @@ export {
   REGISTRATION_SETUP_TTL_DAYS,
   REGISTRATION_SUBMIT_WITHIN_MIN,
   MIN_DISPLACEMENT_M,
+  MOTION_IN_VEHICLE_SHARE,
+  MOTION_MIN_ACTIVITY_SAMPLES,
   MOTION_SPEED_FALLBACK_KMH,
   MOTION_SPEED_FALLBACK_S,
   ROUTE_SNAP_DISTANCE_M,
@@ -591,6 +593,8 @@ export const DETOUR_WIDTH = 4;
 export const FIELD_LOG_MAX_EVENTS = 5000;
 export const FIELD_BATTERY_SAMPLE_MIN = 5;
 export const FIELD_LOG_RSSI_EVERY_S = 2;
+// V1b: during a relay the phone's activity recognition reports about this often
+export const MOTION_SAMPLE_INTERVAL_MS = 5000;
 export const RELAY_POST_GRACE_MIN = 15;
 export const RELAY_POST_REVIVE_MIN = 30;
 // RL2c (Emjay's D12, 2026-10-23): every relay is queued on the phone first and released (posted, or

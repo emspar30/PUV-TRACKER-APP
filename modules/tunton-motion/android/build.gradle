@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.tunton'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.tuntonmotion"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+dependencies {
+  // V1b (D6): the phone's activity recognition; the same version expo-location already brings in
+  implementation 'com.google.android.gms:play-services-location:21.0.1'
+}

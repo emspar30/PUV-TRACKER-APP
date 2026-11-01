@@ -1,0 +1,4 @@
+<!-- Empty on purpose: ACTIVITY_RECOGNITION is declared in app.json for the commuter app only and
+     blocked for the driver and gateway apps (app.config.js, V1b). -->
+<manifest>
+</manifest>

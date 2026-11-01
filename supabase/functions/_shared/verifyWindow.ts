@@ -1,8 +1,9 @@
 // V1a verification window (PRD 10.2, 0.2 S8): whether a relay is a real ride on the multicab's route.
 // Four tests over the positions since the relay started, oldest first:
 //   1. Bluetooth: the multicab's beacon was verified (DR8). Unknown on the server (null: not tested).
-//   2. Motion: MOTION_SPEED_FALLBACK_KMH held for MOTION_SPEED_FALLBACK_S (the speed fallback; no
-//      activity recognition, D6).
+//   2. Motion: MOTION_SPEED_FALLBACK_KMH held for MOTION_SPEED_FALLBACK_S (the speed fallback), or
+//      the phone's activity recognition saying "in a vehicle" for MOTION_IN_VEHICLE_SHARE of its
+//      reports (V1b, on the phone only).
 //   3. Route: every usable fix within ROUTE_SNAP_DISTANCE_M of the route line. A fix is usable at
 //      VERIFY_FIX_ACCURACY_M or better (an unknown accuracy, as on the server, counts as usable).
 //   4. Displacement: MIN_DISPLACEMENT_M of progress along the line.
@@ -15,6 +16,8 @@
 
 import {
   MIN_DISPLACEMENT_M,
+  MOTION_IN_VEHICLE_SHARE,
+  MOTION_MIN_ACTIVITY_SAMPLES,
   MOTION_SPEED_FALLBACK_KMH,
   MOTION_SPEED_FALLBACK_S,
   ROUTE_SNAP_DISTANCE_M,
@@ -57,7 +60,15 @@ export type WindowInput = {
   beaconOk: boolean | null;
   // DT1: the route's active detour lines, tried when the ride is off its own lines
   detours?: readonly WindowLine[];
+  // V1b: the phone's activity reports since the relay started (none on the server)
+  activity?: readonly { atMs: number; inVehicle: boolean }[];
 };
+
+// V1b: enough activity reports, and enough of them "in a vehicle"
+export function inVehicle(activity: readonly { inVehicle: boolean }[]): boolean {
+  if (activity.length < MOTION_MIN_ACTIVITY_SAMPLES) return false;
+  return activity.filter((sample) => sample.inVehicle).length / activity.length >= MOTION_IN_VEHICLE_SHARE;
+}
 
 type Point = { lat: number; lon: number };
 
@@ -119,7 +130,7 @@ function heldSpeed(fixes: readonly WindowFix[], speeds: readonly number[]): bool
   return false;
 }
 
-export function verifyWindow({ fixes, lines, beaconOk, detours = [] }: WindowInput): WindowResult {
+export function verifyWindow({ fixes, lines, beaconOk, detours = [], activity = [] }: WindowInput): WindowResult {
   if (beaconOk === false) return { status: 'failed', reasons: ['no_beacon'] };
   const good = [...fixes].filter(usable).sort((a, b) => a.atMs - b.atMs);
   const routeLines = lines.filter((line) => line.length > 1);
@@ -144,7 +155,7 @@ export function verifyWindow({ fixes, lines, beaconOk, detours = [] }: WindowInp
   const tag = onDetour ? { onDetour: true } : {};
 
   const speeds = speedsKmh(good);
-  const moving = heldSpeed(good, speeds);
+  const moving = heldSpeed(good, speeds) || inVehicle(activity);
   const progressM = Math.max(...placed.map((place) => Math.abs(place.alongM - placed[0].alongM)));
   const displaced = progressM >= MIN_DISPLACEMENT_M;
   if (moving && displaced) return { status: 'verified', reasons: [], ...tag };

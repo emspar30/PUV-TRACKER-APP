@@ -4,10 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { DETOUR_LINES, ROUTE_LINES } from '../../../supabase/functions/_shared/routeLines.generated';
-import { verifyWindow, type WindowFix } from '../../../supabase/functions/_shared/verifyWindow';
+import { inVehicle, verifyWindow, type WindowFix } from '../../../supabase/functions/_shared/verifyWindow';
 import { SEED_DETOURS } from '../../data/seed/detours';
 import { SEED_LINES } from '../../data/seed/routes';
-import { MIN_DISPLACEMENT_M, MOTION_SPEED_FALLBACK_KMH, VERIFY_WINDOW_MAX_S } from '../config';
+import { MIN_DISPLACEMENT_M, MOTION_IN_VEHICLE_SHARE, MOTION_MIN_ACTIVITY_SAMPLES, MOTION_SPEED_FALLBACK_KMH, VERIFY_WINDOW_MAX_S } from '../config';
 import { pointAtChainage } from '../geo/line';
 import { activeDetours } from '../routing/detours';
 
@@ -112,5 +112,28 @@ describe('DT1: detours in the verification window', () => {
     expect(activeDetours(detours, ['R4-bypass', 'R5-bypass'], 'R4').map((d) => d.id)).toEqual(['R4-bypass']);
     expect(activeDetours(detours, [], 'R4')).toEqual([]);
     expect(activeDetours(detours, ['R5-bypass']).map((d) => d.id)).toEqual(['R5-bypass']);
+  });
+});
+
+describe('V1b: the in-vehicle signal in the motion test', () => {
+  // Stop-and-go traffic: 15 km/h, never the 25 km/h fallback, but 75 m along the line
+  const crawl = ride(15, 20);
+  const reports = (inVehicle: boolean[]) => inVehicle.map((value, i) => ({ atMs: T0 + i * 5 * MS_PER_S, inVehicle: value }));
+
+  it('speed alone fails a stop-and-go ride', () => {
+    expect(verifyWindow({ fixes: crawl, lines: R4, beaconOk: true }).reasons).toContain('no_motion');
+  });
+
+  it('it passes when the phone says "in a vehicle" for most of its reports', () => {
+    expect(verifyWindow({ fixes: crawl, lines: R4, beaconOk: true, activity: reports([true, true, false, true]) })).toEqual({ status: 'verified', reasons: [] });
+  });
+
+  it('too few reports, or mostly not in a vehicle, do not count', () => {
+    expect(verifyWindow({ fixes: crawl, lines: R4, beaconOk: true, activity: reports([true, true]) }).reasons).toContain('no_motion');
+    expect(verifyWindow({ fixes: crawl, lines: R4, beaconOk: true, activity: reports([true, false, false, false]) }).reasons).toContain('no_motion');
+  });
+
+  it('the share and the minimum come from the config', () => {
+    expect(inVehicle(reports([true, true, true]))).toBe(MOTION_MIN_ACTIVITY_SAMPLES <= 3 && MOTION_IN_VEHICLE_SHARE <= 1);
   });
 });

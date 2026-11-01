@@ -25,7 +25,8 @@ const DRIVER_SIDE_ONLY = [
 ];
 
 // DR8: only the commuter app scans for the multicab's beacon (plugins/withCommuterBle.js)
-const COMMUTER_ONLY = ['android.permission.BLUETOOTH_SCAN'];
+// V1b (D6, 2026-11-02): the commuter app also reads the phone's in-vehicle signal during a relay
+const COMMUTER_ONLY = ['android.permission.BLUETOOTH_SCAN', 'android.permission.ACTIVITY_RECOGNITION'];
 
 // No app records audio: expo-camera (registration photos in the driver app, QR scanning in the gateway app) is configured
 // without it in app.json, and this blocks it in case a library adds it anyway

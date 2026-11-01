@@ -12,7 +12,8 @@
       "android.permission.BLUETOOTH_ADMIN",
       "android.permission.ACCESS_BACKGROUND_LOCATION",
       "android.permission.FOREGROUND_SERVICE",
-      "android.permission.FOREGROUND_SERVICE_LOCATION"
+      "android.permission.FOREGROUND_SERVICE_LOCATION",
+      "android.permission.ACTIVITY_RECOGNITION"
     ],
     "allowed": [],
     "forbidden": [
@@ -38,7 +39,8 @@
       "android.permission.SEND_SMS",
       "android.permission.READ_SMS",
       "android.permission.BLUETOOTH_SCAN",
-      "android.permission.RECORD_AUDIO"
+      "android.permission.RECORD_AUDIO",
+      "android.permission.ACTIVITY_RECOGNITION"
     ]
   },
   "gateway": {
@@ -62,7 +64,8 @@
       "android.permission.READ_SMS",
       "android.permission.BLUETOOTH_ADVERTISE",
       "android.permission.BLUETOOTH_SCAN",
-      "android.permission.RECORD_AUDIO"
+      "android.permission.RECORD_AUDIO",
+      "android.permission.ACTIVITY_RECOGNITION"
     ]
   }
 }

@@ -16,16 +16,18 @@ export type RelayVerificationInput = {
   lines: readonly LineCoordinates[];
   // DT1: the relay's route's active detour lines
   detours?: readonly LineCoordinates[];
+  // V1b: the phone's activity reports (empty without activity recognition)
+  activity?: readonly { atMs: number; inVehicle: boolean }[];
   startedMs: number;
   nowMs: number;
   demo: boolean;
 };
 
-export function relayVerification({ fixes, lines, detours = [], startedMs, nowMs, demo }: RelayVerificationInput): WindowResult {
+export function relayVerification({ fixes, lines, detours = [], activity = [], startedMs, nowMs, demo }: RelayVerificationInput): WindowResult {
   const elapsedMs = nowMs - startedMs;
   if (demo) return elapsedMs >= MOTION_SPEED_FALLBACK_S * MS_PER_S ? { status: 'verified', reasons: [] } : { status: 'pending', reasons: [] };
   const asWindow = (line: LineCoordinates) => line.map(([lon, lat]) => [lon, lat] as const);
-  const result = verifyWindow({ fixes: fixes.filter((fix) => fix.atMs >= startedMs), lines: lines.map(asWindow), beaconOk: true, detours: detours.map(asWindow) });
+  const result = verifyWindow({ fixes: fixes.filter((fix) => fix.atMs >= startedMs), lines: lines.map(asWindow), beaconOk: true, detours: detours.map(asWindow), activity: activity.filter((sample) => sample.atMs >= startedMs) });
   if (result.status === 'pending' && elapsedMs >= VERIFY_WINDOW_MAX_S * MS_PER_S) return { status: 'failed', reasons: result.reasons, onDetour: result.onDetour };
   return result;
 }
