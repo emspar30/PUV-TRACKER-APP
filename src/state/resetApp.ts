@@ -10,6 +10,7 @@ import { useNotificationsStore } from './notificationsStore';
 import { useProfileStore } from './profileStore';
 import { useRecentRelaysStore } from './recentRelaysStore';
 import { useRidesStore } from './ridesStore';
+import { useSavedFeedStore } from './savedFeedStore';
 import { useSettingsStore } from './settingsStore';
 import { useTourStore } from './tourStore';
 import { useTrustStore } from './trustStore';
@@ -33,6 +34,7 @@ export function resetApp(): void {
   useNotificationsStore.setState(useNotificationsStore.getInitialState(), true);
   useRecentRelaysStore.setState(useRecentRelaysStore.getInitialState(), true);
   useRidesStore.setState(useRidesStore.getInitialState(), true);
+  useSavedFeedStore.setState(useSavedFeedStore.getInitialState(), true);
   useTrustStore.setState(useTrustStore.getInitialState(), true);
   useUsernameStore.setState(useUsernameStore.getInitialState(), true);
   useSettingsStore.getState().resetSettings();

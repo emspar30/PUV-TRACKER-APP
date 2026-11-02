@@ -11,11 +11,14 @@ import { promptSignIn } from '@/features/auth/promptSignIn';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { DEMO_SEED, FEED_FLAG_HIDE_COUNT, FLAG_TAGS, SKELETON_LONG_MS } from '@/shared/config';
 import { demoFeed, vehicleLabelOf, type FeedPost } from '@/shared/demo/feed';
+import { keptPosts } from '@/shared/feed/saved';
 import { routeCodesOf } from '@/shared/ui/routeVisibility';
+import { isNetworkFailure } from '@/shared/util/networkError';
 import { useConnectionStore } from '@/state/connectionStore';
 import { flagPost, useCrowd, useFlaggedStore, useOwnPostsStore } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
 import { useEnergyStore } from '@/state/energyStore';
+import { useSavedFeedStore } from '@/state/savedFeedStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { useUsernameStore } from '@/state/usernameStore';
 import { useTabBarSpace } from '@/navigation/useTabBarSpace';
@@ -66,7 +69,10 @@ export default function CrowdsourceScreen() {
       crowd.reports
         .recent()
         .then((posts) => {
-          if (current) setLoaded({ reports: crowd.reports, posts });
+          if (!current) return;
+          setLoaded({ reports: crowd.reports, posts });
+          // Kept on the phone for when the feed cannot load (live data only)
+          if (posts && crowd.reports.source === 'live') useSavedFeedStore.getState().save(posts, Date.now());
         })
         .catch(() => {
           if (current) setLoaded({ reports: crowd.reports, posts: null });
@@ -98,8 +104,17 @@ export default function CrowdsourceScreen() {
   const failed = liveFeed && (loaded !== null ? mine === null : online === false);
   // A feed that failed while the server cannot be reached is an outage, not a sign-in
   const emptyBody = failed ? (online === true ? strings.crowdsource.signIn : strings.crowdsource.offline) : strings.crowdsource.emptyBody;
+  // 2026-11-03: while the live feed cannot load, the last one that did (still inside the hour)
+  const savedFeed = useSavedFeedStore();
+  const saved = failed && savedFeed.savedMs !== null ? keptPosts(savedFeed.posts, nowMs) : [];
+  const savedNote =
+    saved.length > 0 && savedFeed.savedMs !== null
+      ? (online === false ? strings.crowdsource.savedOffline : strings.crowdsource.savedFailed)(
+          strings.crowdsource.savedAge(Math.floor((nowMs - savedFeed.savedMs) / MS_PER_MIN)),
+        )
+      : null;
   // RL2a: only relays kept off the live map; those on it belong to the live map (broadcast and merged)
-  const visible = posts.filter((post) => !post.liveMap && !flagged.has(post.id));
+  const visible = (saved.length > 0 ? saved : posts).filter((post) => !post.liveMap && !flagged.has(post.id));
   const shown = filter ? visible.filter((post) => post.routeCode === filter) : visible;
   const colorOf = (code: string) => {
     const line = lines.find((candidate) => candidate.routeCode === code);
@@ -127,6 +142,12 @@ export default function CrowdsourceScreen() {
             <Chip key={code} label={code} selected={filter === code} onPress={() => setFilter(code)} />
           ))}
         </ScrollView>
+        {savedNote ? (
+          <View style={styles.savedNote} accessibilityLiveRegion="polite">
+            <Clock color={colors.textSecondary} size={ICON_SIZE} />
+            <Text style={[typography.bodySm, styles.grow]}>{savedNote}</Text>
+          </View>
+        ) : null}
         {/* Placeholders until the first answer, and at least SKELETON_LONG_MS on the first visit (B8) */}
         {loadingFeed ? (
           <>
@@ -183,7 +204,10 @@ function confirmFlag(post: FeedPost) {
             else if (result.reason === 'sign_in') promptSignIn();
             else {
               const message = result.message ?? '';
-              const body = message.includes('flag_too_new') ? strings.crowdsource.flagTooNew : message.includes('flag_limit') ? strings.crowdsource.flagLimit : result.message ?? strings.crowdsource.flagFailedBody;
+              // A saved post flagged offline: a plain note, never the network error
+              const body = isNetworkFailure(message)
+                ? strings.crowdsource.flagOffline
+                : message.includes('flag_too_new') ? strings.crowdsource.flagTooNew : message.includes('flag_limit') ? strings.crowdsource.flagLimit : result.message ?? strings.crowdsource.flagFailedBody;
               showDialog({ tone: 'danger', title: strings.crowdsource.flagFailedTitle, body });
             }
           });
@@ -286,6 +310,12 @@ const useStyles = makeStyles(({ colors }) => ({
     flex: 1,
   },
   filters: {
+    gap: spacing.sm,
+  },
+  // The line above a saved feed: offline, or the load failed
+  savedNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   empty: {

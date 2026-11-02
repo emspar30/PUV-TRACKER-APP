@@ -97,6 +97,11 @@ export const en = {
     signIn: 'Sign in to see live reports',
     // PRD 14: the feed could not load because the server cannot be reached
     offline: 'You are offline. Reports show again when you are back online.',
+    // 2026-11-03: the last feed that loaded, kept on the phone, shown while it cannot load
+    savedAge: (minutes: number) => (minutes < 1 ? 'loaded just now' : `loaded ${minutes} min ago`),
+    savedOffline: (age: string) => `You are offline. These reports were ${age}.`,
+    savedFailed: (age: string) => `Could not refresh. These reports were ${age}.`,
+    flagOffline: 'You are offline. Flag it again when you are back online.',
     // N1: flagging someone else's post
     flag: 'Flag report',
     flagLabel: (username: string) => `Flag the report by ${username}`,
