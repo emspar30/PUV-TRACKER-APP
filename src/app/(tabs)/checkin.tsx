@@ -109,9 +109,9 @@ export default function CheckInScreen() {
   // B3: the routes just boarded, while the "Safe travel" card shows
   const [farewell, setFarewell] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  // PRD 14: live check-ins need the server; the demo keeps them on the phone
-  const demoData = useSettingsStore((state) => state.demoData);
-  const offline = useConnectionStore((state) => state.online === false) && !demoData;
+  // PRD 14: check-ins need the server. Emjay, 2026-11-03: demo check-ins too, so the demo shows what a
+  // commuter sees offline (they used to stay on the phone)
+  const offline = useConnectionStore((state) => state.online === false);
   const sendingRef = useRef(false);
 
   const active = isActive(checkIn, now);
