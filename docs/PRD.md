@@ -625,7 +625,7 @@ No single check is trusted. A report becomes public only when beacon, motion and
 3. **Margin rule:** when two beacons pass, the stronger one wins only if it leads by at least 8 dB (starting value). Otherwise the case goes to the Smart Queue.
 4. **Smart Queue:** if two beacons remain ambiguous and the vehicle is stationary, the app does not ask the rider to choose. It queues the report as *Stopped: loading* and holds the reward in escrow.
 5. **Kinematic divergence:** when the vehicle departs, the wrong beacon fades from range within roughly 15 m. The app locks the session to the beacon that stays in range while the rider moves, then releases the reward.
-6. **Fallback:** if the ambiguity is not resolved within 10 minutes, the session is dropped and no reward is given.
+6. **Fallback:** if the ambiguity is not resolved within 30 minutes, the session is dropped and no reward is given (RL2c, D12).
 
 ### 10.2 Verification window
 
@@ -953,7 +953,7 @@ Each row names what the system sees and what it does automatically. Where recove
 | Supabase outage | API errors | Clients keep offline features; heatmap SMS pauses and resumes from the outbox |
 | SMS gateway SIM blocked | Send failures or delivery receipts missing | Worker backs off, switches to a second SIM or provider if configured, and alerts the admin. Driver apps grey out stale heatmaps after 15 minutes |
 | Gateway phone loses power | Heartbeat from the gateway stops | Power bank carries it; admin alerted; messages queue |
-| Two beacons overlap at a terminal | Margin rule fails | Smart Queue holds the report; resolved on departure or dropped after 10 minutes |
+| Two beacons overlap at a terminal | Margin rule fails | Smart Queue holds the report; resolved on departure or dropped after 30 minutes |
 | Rider boards a different vehicle than the beacon they detected | Motion and route checks disagree | Verification fails; no public marker; no strike for a single event |
 | Fake GPS app in use | Mock flag or impossible movement | Fix discarded, risk score raised, report goes to moderator review |
 | Bridge closure or detour | Fix leaves the primary line within an alternative line | Active Detour Mode; admin advisory can enable it for everyone |
@@ -1219,3 +1219,4 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 36. **Sections 0.2 S10 and 17.1 (Nov 2, 2026, S10 tools):** a field test log in the app (Demo and simulation) and docs/FIELD_TESTS.md; only the field rides remain.
 37. **Section 7.5 (Nov 2, 2026, Emjay):** one check-in with no At a stop or Near the route choice: at a stop within 40 m, else near the route within 40 m of the line; the card names the spot ("Near Flying V"). A tapped station is for looking; it checks in only when the commuter is at it.
 38. **Section 8.1 step 8 (Nov 2, 2026, Emjay):** a relay says "Get ready to get off" once at 300 m from the destination, before the 50 m arrival countdown. The introduction's Arrival alerts row now names Tracking and Relay instead of "Coming later".
+39. **Sections 10.1 and 14 (Nov 2, 2026):** the Smart Queue's fallback is 30 minutes, not 10, as built in RL2c (D12, change 28).
