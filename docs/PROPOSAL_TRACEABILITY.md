@@ -1,6 +1,6 @@
 # Proposal traceability
 
-How each commitment of the thesis proposal (Chapters 1 to 3, April 2026) maps to the Android prototype as of commit `ba52745` (checked 2026-11-03 against the code, `docs/PRD.md` and the git history). Use it to update the final manuscript: sections 1 to 6 give the status of each commitment, section 7 the risks to prepare for the defense, and section 8 the proposal text to change, chapter by chapter. `docs/SCOPE_AND_LIMITS.md` describes the prototype for evaluators; `docs/PRD.md` holds every rule and its change history.
+How each commitment of the thesis proposal (Chapters 1 to 3, April 2026) maps to the Android prototype as of commit `ba52745` (checked 2026-11-03 against the code, `docs/PRD.md` and the git history). Use it to update the final manuscript: sections 1 to 6 give the status of each commitment, section 7 the risks to prepare for the defense, and section 8 the manuscript text to change, by section and page. `docs/SCOPE_AND_LIMITS.md` describes the prototype for evaluators; `docs/PRD.md` holds every rule and its change history.
 
 The previous version of this file (2026-10-17, commit `900f3c8`) is in the git history. Since then the driver module, verification, moderation, the background relay and the position upload were built, so most HIGH risks of that version are closed.
 
@@ -21,7 +21,7 @@ The previous version of this file (2026-10-17, commit `900f3c8`) is in the git h
 | O3 | Standardised point-to-point fare with student, senior and PWD discounts | PARTIAL | `fare.test`, `fareType.test`; phone and emulator checks | ₱14.00 for the first 4 km and ₱2.00 per further km, 20 % off for students, seniors and PWD, offline for any two points. The values still need checking against the official fare order | TIME | MEDIUM |
 | O4 | Consensus-based moderation and a reputation system (Trust and Merit Points) | BUILT | MOD1a and MOD1b (`moderation.test`, migration `20261102000002`): tagged flags weighted by trust, 3 flags hide a post, strikes from a moderator or automatic evidence, Merit shields, appeals, Trust Level on Profile | Consensus = weighted flags (3 hide a post); a strike needs a moderator or verified evidence; 2 strikes in 30 days give a 7-day suspension (no permanent ban); 1 Merit shield per 100 trust points, at most 3 | SCOPE, PRIVACY | LOW |
 | O5 | Software-only implementation using phone GPS | CHANGED | No extra hardware; the commuter's phone sends GPS while relaying; the driver's phone acts as a Bluetooth beacon that proves which multicab the commuter is in | GPS from commuters on board (Relay), not from drivers; drivers need no mobile data | PANEL | MEDIUM |
-| O6 | ISO/IEC 25010 evaluation (Likert; 35 commuters, 10 drivers, 5 IT experts) | NOT BUILT | Survey drafted in `docs/TESTER_SURVEY.md` (SUS for all, ISO/IEC 25010 ratings for IT experts); tester guide in `docs/TESTER_GUIDE.md` | Not run yet: the tester APK waits on the EAS build. Drivers now have a driver app to rate | TIME | HIGH |
+| O6 | ISO/IEC 25010 evaluation: functional suitability, performance efficiency, usability (Likert; 35 commuters, 10 drivers, 5 IT experts, section 3.7.2) | NOT BUILT | Survey drafted in `docs/TESTER_SURVEY.md` (SUS for all, ISO/IEC 25010 ratings for IT experts); tester guide in `docs/TESTER_GUIDE.md` | Not run yet: the tester APK waits on the EAS build. Drivers now have a driver app to rate | TIME | HIGH |
 
 ## 2. Commuter module
 
@@ -104,55 +104,83 @@ The previous version of this file (2026-10-17, commit `900f3c8`) is in the git h
 | 7 | A1 (MEDIUM) | "Why no permanent ban?" | Suspensions with appeals; the account, not the device, is suspended (D7) |
 | 8 | N5 (MEDIUM) | The proposal describes iOS, Firebase, Google Maps and Google Cloud | Section 8 lists every sentence to change; the offline map is the main reason |
 
-## 8. Proposal text to change in the manuscript
+## 8. Manuscript text to change
 
-Exact section numbers of the proposal could not be checked (the proposal is not in the repository); find each sentence by the commitment it states.
+Checked against the manuscript PDF "A Mobile-Based Real-time Public Utility Tracker and Crowdsource Commuter Assistance Application" (82 pages; Chapters 1 to 3). Page numbers are the printed page numbers. Each row gives what the manuscript says now and what to write instead; the reason for each change is in sections 1 to 6.
 
-### Chapter 1
+### Chapter 1. Introduction
 
-| Topic | What the proposal says | What to write now |
+| Section (page) | What the manuscript says | What to write now |
 | --- | --- | --- |
-| Objective 2 (O2) | Dynamic demand heatmap for the driver module | Per-stop waiting counts from commuter check-ins, sent to the driver's phone by SMS |
-| Objective 4 (O4) | Trust and Merit Points | Trust Points and Trust Level, weighted flags, strikes, 7-day suspensions with appeals, Merit shields |
-| Objective 5 (O5) | Phone GPS of drivers | GPS from commuters on board (Relay); the driver's phone is a Bluetooth beacon and receives SMS, with no mobile data |
-| Scope: platform | React Native for Android and iOS | Android only (Expo, React Native) |
-| Scope: routes | Routes 1 to 14; "all 7 routes" | Six routes: R1, R2, R3, R4, R5 and R14 |
-| Limitations | — | Live data depends on commuters relaying; fare values to confirm; route data partly provisional; notifications inside the app only (except the relay notice); live markers for team accounts in this phase |
+| 1.1 Background (3) | A verification framework with "proximity-based validation" and "automated signal expiration" | Keep the idea; the proximity proof is the multicab's Bluetooth beacon plus the verification window on the move (C7), and check-ins and posts still expire |
+| 1.3 Objective 2 (6) | A dynamic demand heatmap for the driver module "to visualize passenger clusters" | A demand view for drivers: waiting commuters per stop, from check-ins, sent to the driver's phone by SMS (no mobile data needed) |
+| 1.3 Objective 4 (6) | Moderation engine and reputation system (Trust and Merit Points) | Keep; add that flags are weighted by trust and strikes lead to temporary suspensions with appeals |
+| 1.3 Objective 5 (6) | Uses "the existing GPS sensors of mobile devices" | Keep; name the source: the phones of commuters on board, with the driver's phone as a Bluetooth beacon |
+| 1.3 Objective 6 (7) | ISO/IEC 25010: functional suitability, performance efficiency, usability | Keep. If the tester survey's SUS is used, add it here |
+| 1.5.1 Scope (9) | Routes 1 through 14; multicabs, standard jeepneys and modernized e-jeeps | Six multicab routes: R1, R2, R3, R4, R5 and R14 |
+| 1.5.1 Commuter (9) | "Station Finterface" (typo) with geofence validation | "Station Check-in": at a stop (within 40 m) or near the route line (within 40 m), with an Energy cost of 0.3 per route |
+| 1.5.1 Commuter (9) | Spatio-Temporal Handshake, 20 m proximity | Bluetooth beacon check in the Relay form, then the verification window: 25 km/h for 20 s (or in-vehicle activity), within 30 m of the route line, 50 m travelled; a "Verified ride" mark |
+| 1.5.1 Commuter (9) | Badges and hidden Merit Points as a strike shield against "automated banning" | Trust Points, Trust Level and badges; one Merit shield per 100 trust points (at most 3) cancels a strike; no automated permanent ban |
+| 1.5.1 Commuter (9) | Dynamic cooldowns; GPS Decay stops polling after 10 min idle or when the app closes | The same multicab cannot be relayed again within 3 hours. A relay ends at the destination, after 20 min standing still (30 at a terminal), or at the 3-hour "Still riding?" check; it may keep sharing in the background, with a notification, only while the commuter relays |
+| 1.5.1 Driver (9 to 10) | Background location broadcasting, a heatmap, ID approval, session end after 60 min stationary | The driver app sends no location: it runs a Bluetooth beacon and shows waiting counts received by SMS. Registration with the CTTDM ID and multicab photos, approved by an admin; photos deleted at the decision |
+| 1.5.1 Administrator (10) | A strike after 10 unique flags | 3 weighted flags hide a post for review; a strike comes from a moderator or automatic evidence; 2 strikes in 30 days give a 7-day suspension; strikes expire after 60 days |
+| 1.5.1 Technology (10) | React Native for Android and iOS; cloud backend | Expo (React Native), Android only (Android 8.0 or newer); Supabase backend |
+| 1.5.1 Data (10) | Collects full name, email and contact number of users | Commuters: email and a username only; avatar, fare type and saved places stay on the phone. Drivers: phone number and registration photos (photos deleted after review) |
+| 1.5.1 Privacy (11) | Strict Night Mode: only verified reports at night | 21:00 to 04:59: no multicab on the map; only the stops each route passed, at least 2 minutes late |
+| 1.5.1 Audit (11) | A security audit log | Ingest log for team writers, risk signals and strikes; no device fingerprint (suspensions bind to the account) |
+| 1.5.2 Network (11) | Live features need 3G, 4G or 5G | Keep; add that the map, planner, fares, Ask Tunie and the last Crowdsource feed work offline, and that drivers need no mobile data |
+| 1.5.2 Data integrity (11 to 12) | Spatio-Temporal Handshake and consensus moderation | Bluetooth check, verification window and weighted flags |
+| 1.5.2 Moderation (12) | Weekly limit of 15 updates; 10 reports for a strike | Energy cap of 5, same multicab once in 3 hours, daily caps on trust points and flags; strike rules as above |
+| 1.5.2 Static mapping (12) | Routes 1 through 14; no temporary closures or detours | Six routes; known detours are supported (turned on by an admin, drawn dashed); unknown detours are reported to the admin |
+| 1.5.2 Privacy (12) | GPS Decay ends location requests when the app closes; no continuous history | Location is used only while checking in or relaying; a relay may continue in the background with a notification and the commuter's consent. Raw positions are deleted on a schedule (night coordinates after 24 hours); the rider's identity never reaches the map |
+| New limitation | — | Live data depends on commuters relaying; live markers are limited to team accounts in this phase; fare values are provisional; notifications stay inside the app except the relay notice |
 
-### Chapter 3: system design
+### Chapter 2. Review of Related Literature
 
-| Topic | What the proposal says | What to write now |
+| Section (page) | What the manuscript says | What to write now |
 | --- | --- | --- |
-| Driver module (D1, D4) | Driver broadcasts coordinates; 60-min stationary end | Driver app runs a Bluetooth beacon; commuters relay the position; the relay ends at the destination, after 20 min still (30 at a terminal) or at the 3-hour check |
-| Driver onboarding (D3) | ID upload and admin approval | As proposed: CTTDM ID and multicab photos, approved in the web console; photos deleted at the decision |
-| Driver profile (D5) | 15-day edit cooldown | Dropped: the phone is set up once by registration |
-| Seat reporting (C6) | Four tiers | Three tiers: 0-6, 7-12, 13-16 seats taken of 16 |
-| Verification (C7) | 20 m Spatio-Temporal Handshake | Bluetooth beacon check, then the verification window (25 km/h for 20 s or in-vehicle activity, 30 m of the route, 50 m travelled); "Verified ride" mark |
-| Merit and strikes (C8, A1) | Merit 1,000 to 1; 10 flags a strike; 2 strikes a permanent ban | Merit shield per 100 trust points (at most 3); 3 weighted flags hide a post; 2 strikes in 30 days give a 7-day suspension; appeals |
-| Report limits (C9) | Cooldowns, 15 updates a week | Same multicab once in 3 hours; Energy cap 5; daily caps on trust points and flags |
-| GPS decay (C10) | Stop after 10 min idle | Relay ends after 20 min still (30 at a terminal), at the destination, or at the 3-hour check; background sharing with a notification |
-| Profile (C11) | 15-day edit cooldown | Not built; profile data stays on the phone |
-| Night Mode (C12) | Only verified reports at night | 21:00 to 04:59: no multicab on the map; stops passed, at least 2 minutes late |
-| Check-in (C5) | Hardcoded stops, geofence | Check in at a stop (40 m) or near the route line (40 m); costs 0.3 Energy per route; ends on leaving or at 15 min |
-| Map (C2) | Viewport-centric icon priority | Not built; Selective Transparency built |
-| Seat report lifetime (N3) | 15 min | 60 min in Crowdsource; check-ins 15 min |
-| Navigation (N4) | Five-anchor bottom navigation | Five tabs: Map, Check-in, Relay, My Rides, Crowdsource |
-| Technology (N5) | Node.js, Firebase or Firestore, Google Maps Platform, Google Cloud | Supabase (PostgreSQL, Row Level Security, Edge Functions, Realtime); MapLibre with offline OpenStreetMap tiles; SMS worker on Node.js (Render); Android gateway phone for SMS |
-| Administrator (A3) | Device fingerprint, location snapshots | Not collected (privacy); suspensions bind to the account; night coordinates deleted after 24 hours |
-| Administrator (A4) | System analytics | Not built |
-| Fare (O3) | Standardised fare | ₱14.00 for the first 4 km, ₱2.00 per further km, 20 % discount; to confirm against the official fare order |
-| New subsystems | — | Describe Energy, the Smart Queue, Primary and Secondary riders, detours, Ask Tunie, Demo data and the offline map |
+| 2.1 and 2.1.1 (13 to 16) | System quality through the React Native front end, a cloud database and the GPS Decay Algorithm; information quality through the Spatio-Temporal Handshake | Keep the D&M framing; replace "GPS Decay Algorithm" with the relay's automatic end rules, and "Spatio-Temporal Handshake" with the Bluetooth check and verification window |
+| 2.2.3 and 2.3 (25 to 37) | The driver module's dynamic demand heatmap | Keep the literature; say the prototype delivers the demand view as per-stop counts by SMS, which suits drivers without mobile data |
 
-### Chapter 3: methodology and evaluation
+### Chapter 3. Methodology
 
-| Topic | What the proposal says | What to write now |
+| Section (page) | What the manuscript says | What to write now |
 | --- | --- | --- |
-| Evaluation (O6) | ISO/IEC 25010 Likert survey; 35 commuters, 10 drivers, 5 IT experts | SUS for all testers; ISO/IEC 25010 ratings for IT experts (`docs/TESTER_SURVEY.md`); drivers rate the driver app. Confirm the respondent counts with the adviser |
-| Synchronisation (N1) | Under 5 s | State as a target, measured in the field tests |
-| Requirements (N8) | 4 GB RAM and 4G or 5G | Tested on a Galaxy Note 10+ and the emulator; other brands in the field tests; offline features need no data, drivers need no data |
-| Field experiments | — | E1 to E9 in `docs/FIELD_TESTS.md`: ETA accuracy, battery, data use, background survival, Bluetooth inside a multicab, beacons side by side at a terminal |
-| Software testing | — | 1,801 automated tests in 132 suites, lint and typecheck before every change; device checklists in the build tracker |
+| 3.3.1 Phase III (40) | React Native with the Cloud Database and Google Maps SDK | Expo (React Native) with Supabase and MapLibre (offline OpenStreetMap tiles) |
+| 3.3.2.1 Commuter (41) | Viewport-centric map interaction | Not built; describe Selective Transparency and the Live, Estimated and Stale marker states |
+| 3.3.2.1 Commuter (41) | Four seat tiers: Empty, Few 1-7, Almost Full 8-15, Full 16 | Three tiers by seats taken of 16: 0-6 "Seats available", 7-12 "Filling up", 13-16 "Full" |
+| 3.3.2.1 Commuter (42) | 20 m background proximity check, Verified Badge | As in 1.5.1: Bluetooth beacon, then the verification window; "Verified ride" mark |
+| 3.3.2.1 Commuter (42) | Check-in: prompt at 5 min, purge at 15 min | Keep; add check-in near the route, "Did you board?" when a multicab stands at the stop, and the end when the commuter walks away (70 m) |
+| 3.3.2.1 Commuter (42) | Fare lookups for "the 14 urban routes" | Six routes; ₱14.00 for the first 4 km, ₱2.00 per further km, 20 % discount; provisional until the official fare order is confirmed |
+| 3.3.2.1 Commuter (42) | Directory of "all 7 Butuan City routes" | Six routes (R1 to R5, R14); From-To planner in My Rides with walking legs |
+| 3.3.2.1 Commuter (43) | Profile edit, 15-day cooldown | Not built; profile data stays on the phone |
+| 3.3.2.1 New commuter features | — | Relay (share the multicab's position and seats, live map or Crowdsource only), Energy, Ask Tunie, tracking with arrival alerts, "Get ready to get off" on a relay |
+| 3.3.2.1 Driver (43) | Live coordinate broadcasting with a status toggle | Bluetooth beacon; position comes from commuters relaying |
+| 3.3.2.1 Driver (43) | Dynamic demand heatmap | Waiting counts per stop by SMS, including commuters waiting near the route |
+| 3.3.2.1 Driver (43) | Administrative onboarding | Keep: self-registration with ID and multicab photos, the phone number verified by SMS, admin approval |
+| 3.3.2.1 Driver (43) | Driver profile edit, 15-day cooldown | Dropped: the phone is set up once by registration; an admin can retire it |
+| 3.3.2.1 Administrator (43) | 10 flags a strike; 2 strikes (20 reports) a permanent auto-ban | As in 1.5.1, with appeals reviewed by the admin |
+| 3.3.2.1 Administrator (44) | Fingerprint audit trail and location snapshots | Not collected (privacy); ingest log, risk signals and strikes instead |
+| 3.3.2.2 Performance (44) | Synchronisation under 5 s | Keep as the target; report the measured value from the field tests |
+| 3.3.2.2 Security (44) | Strict Night Mode, momentary GPS polling, anonymous avatars | Night Mode as in 1.5.1; avatars stay on the phone; Row Level Security on every table |
+| 3.3.2.2 Reliability (44) | Auto-TTL for seat reports and check-ins | Check-ins end at 15 min; Crowdsource posts at 60 min |
+| 3.3.2.3 Business rules (45) | Merit at 1,000 Trust Points to 1; a strike after 10 flags; drivers not peer-reported | Merit shield per 100 trust points (at most 3); strike and suspension rules as above; drivers are still managed by the admin |
+| 3.4 Use Case, Figure 3.2 (46 to 47) | "Broadcast Live Trip Status" for drivers; "Execute Automated Banning"; ETA from the driver's GPS | Redraw: commuter use cases Relay, Track a multicab, Check in, Plan a trip, Ask Tunie, Flag; driver use cases Register, Run beacon, View waiting counts; admin use cases Approve drivers, Retire a phone, Review flags and appeals, Turn on detours. ETA from the relaying commuter's GPS |
+| 3.4 ERD, Figure 3.3 (48 to 49) | Twelve entities, with merit_points, Seat_Report_Log, device_fingerprint and user_location_snapshot | Redraw from the Supabase tables. Main ones: profiles, vehicles, vehicle_beacons, telemetry_latest, telemetry_raw, relay_sessions, checkins, feed_posts, feed_flags, strikes, appeals, energy_ledger, node_events, driver_registrations, driver_devices, sms_outbox, route_alternatives. No device fingerprint or location snapshot |
+| 3.5 Figure 3.4, commuter flow (50 to 52) | Permanent auto-ban above 2 strikes; GPS Decay at 10 min idle or app close | Suspension with appeal; relay end rules as in 1.5.1 |
+| 3.5 Figure 3.5, driver flow (53 to 54) | Heatmap only online; 15-day edit cooldown; GPS broadcast ends after 60 min idle | Registration, admin approval, beacon running, waiting counts by SMS (works offline); no profile edit; no driver GPS |
+| 3.5 Figure 3.6, context diagram (55 to 56) | Google Maps API and Firebase; admin gets system analytics | External entities: Supabase, Render (SMS worker), the SMS gateway phone, OpenStreetMap data; no analytics screen in the admin console |
+| 3.5 Figure 3.7, architecture (57 to 59) | Google Maps API calls; backend computes ETA from driver and commuter coordinates (v = d / t); local sync loop | Phone: Expo app with MapLibre and offline tiles; the ETA is computed on the phone from the distance along the route at the recent speed. Server: Supabase (PostgreSQL, Row Level Security, the `ingest` Edge Function, Realtime). SMS: worker on Render and an Android gateway phone. Route data and the map ship inside the app |
+| 3.5 Figure 3.8, commuter wireframes (60 to 61) | Five anchors: Home, Route Discovery, Station Check-in, Crowdsourced Reports, Menu; fare calculator in the menu | Replace with screenshots of the built app: Map, Check-in, Relay, My Rides (planner and fare), Crowdsource; Profile from the avatar; Settings and Ask Tunie from the top bar and menu |
+| 3.5 Figure 3.9, driver wireframes (62 to 63) | Heatmap with an Online/Offline broadcast toggle; driver profile with cooperative and statistics | Replace with the driver app's screens: Register, waiting for approval, the beacon status and the waiting counts per stop |
+| 3.6.1 Software (64) | React Native for Android and iOS; Node.js; Firebase/Firestore; Google Maps Platform; Android 10 or higher | Expo SDK 57 (React Native, TypeScript), Android only, Android 8.0 or newer; Supabase (PostgreSQL, Edge Functions, Realtime); MapLibre with offline OpenStreetMap tiles; the SMS worker in Node.js on Render; a web admin console (React, Vite) |
+| 3.6.1 Hardware (64) | 4 GB RAM; 4G or 5G; Google Cloud hosting | A phone with GPS and Bluetooth LE, Android 8.0 or newer (tested on a Galaxy Note 10+); data needed only for live features; Supabase and Render hosting; one Android phone with a SIM as the SMS gateway |
+| 3.6.2 Testing (65 to 66) | Spatio-Temporal Handshake review; under 5 s; 15-minute seat report lifecycle | Add the automated tests (1,801 tests in 132 suites, lint and typecheck before every change) and the device checklists; seat reports in Crowdsource last 60 min; field tests E1 to E9 (`docs/FIELD_TESTS.md`) |
+| 3.7.1 Locale (66) | Routes 1 through 14; multicabs, jeepneys and e-jeeps | Routes R1 to R5 and R14; multicabs |
+| 3.7.2 Participants (66 to 67) | 50: 35 commuters, 10 drivers, 5 IT experts; drivers test GPS broadcasting and heatmaps | Keep the counts if the adviser agrees; drivers now test the beacon and the waiting counts by SMS |
+| 3.7.3 Instrument (67 to 69) | ISO/IEC 25010 Likert instrument | Keep; if the SUS from `docs/TESTER_SURVEY.md` is used, add it with its scoring |
+| 3.7.4 Data collection (70) | Walkthrough of the Spatio-Temporal Handshake and the heatmap; field testing of coordinate broadcasting | Walkthrough of Relay (Bluetooth check), check-in and the drivers' waiting counts; field testing of relaying and ETA |
 
-### Chapters 4 and 5 (results, conclusions)
+### Chapters 4 and 5
 
-Nothing to copy yet. After the test round, report: the SUS score and ISO/IEC 25010 ratings, the field test results (ETA error, battery and data per hour, synchronisation delay, Bluetooth signal and calibration), and the share of checklist steps passed on phones.
+Not in the manuscript yet. After the test round, report: the weighted means per ISO/IEC 25010 characteristic (and the SUS score if used), the field test results (ETA error, battery and data per hour, synchronisation delay, Bluetooth signal), and the share of checklist steps passed on phones.
