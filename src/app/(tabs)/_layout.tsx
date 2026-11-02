@@ -50,9 +50,11 @@ export default function TabsLayout() {
   const bar = useTabBarSpace();
   // B3: a red dot on the Check-in icon while a check-in runs, seen from every tab
   const checkedIn = useActiveCheckIn() !== null;
-  // CA1.1: and on the Map icon while the tracked multicab is near
+  // and on the Map icon while a multicab is tracked (Emjay, 2026-11-03: from the start, not only
+  // once it is near, so the commuter does not forget it)
+  const tracking = useTrackingStore((state) => state.vehicleId !== null);
   const trackedNear = useTrackingStore((state) => state.vehicleId !== null && state.near);
-  const dotted = (name: TabRouteName) => (name === 'checkin' && checkedIn) || (name === 'index' && trackedNear);
+  const dotted = (name: TabRouteName) => (name === 'checkin' && checkedIn) || (name === 'index' && tracking);
   const status = useSessionStore((state) => state.status);
   const relayFormOpen = useRelayFormStore((state) => state.open);
   const showRelayForm = useRelayFormStore((state) => state.show);
@@ -147,7 +149,7 @@ export default function TabsLayout() {
                 },
                 // No labels on the bar; screen readers still hear each tab's name
                 tabBarAccessibilityLabel:
-                  name === 'checkin' && checkedIn ? strings.tabs.checkinActive : name === 'index' && trackedNear ? strings.tabs.mapNear : title,
+                  name === 'checkin' && checkedIn ? strings.tabs.checkinActive : name === 'index' && trackedNear ? strings.tabs.mapNear : name === 'index' && tracking ? strings.tabs.mapTracking : title,
               }}
             />
           );

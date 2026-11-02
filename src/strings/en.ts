@@ -82,6 +82,7 @@ export const en = {
     // B3: the tab while a check-in runs (the red dot)
     checkinActive: 'Check-in, you are checked in',
     mapNear: 'Map, your tracked multicab is near',
+    mapTracking: 'Map, tracking a multicab',
     // The middle button: opens the Relay form over the current tab
     relay: 'Relay',
     ride: 'My Rides',
