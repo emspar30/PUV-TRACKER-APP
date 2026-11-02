@@ -658,7 +658,7 @@ The v1.0 rule turned off GPS collection from 6:00 PM, which removed the product 
 
 - **Window:** set on the server in Asia/Manila time, default **9:00 PM to 4:59 AM**. The window is configurable. A 9:00 PM start keeps the whole evening commute fully live. Clients cannot change it by altering their clock.
 - **Collection continues.** Verified relays still run, so the system stays accurate and energy can still be earned at night.
-- **Publishing changes.** During Night Mode the public map shows no moving markers and no live coordinates. It shows **static node updates** only, for example *Route 4 passed CSU 3 minutes ago*, snapped to a terminal or stop and delayed by at least 2 minutes.
+- **Publishing changes.** During Night Mode the public map shows no markers, moving or standing, and no live coordinates. It shows **static node updates** only, for example *Route 4 passed CSU 3 minutes ago*, snapped to a terminal or stop and delayed by at least 2 minutes.
 - **Cost:** the static node view is free (0 Energy).
 - **Retention:** raw coordinates from night sessions are deleted after 24 hours; only node passage events and counts are kept.
 - **All hours:** markers represent vehicles, never riders, and show no rider identity, avatar or account information.
@@ -1221,3 +1221,4 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 38. **Section 8.1 step 8 (Nov 2, 2026, Emjay):** a relay says "Get ready to get off" once at 300 m from the destination, before the 50 m arrival countdown. The introduction's Arrival alerts row now names Tracking and Relay instead of "Coming later".
 39. **Sections 10.1 and 14 (Nov 2, 2026):** the Smart Queue's fallback is 30 minutes, not 10, as built in RL2c (D12, change 28).
 40. **Section 7.3 (Nov 3, 2026, Emjay):** the Map tab's red dot shows for the whole tracking session, not only within 1 km, so the commuter does not forget a tracked multicab.
+41. **Section 10.4 (Nov 3, 2026, Emjay):** at night the map hides standing multicabs too (it showed those under 2 km/h); only the night stop view remains. Live-map relays still send positions at night, which record the stop passages. Migration `20261103000000`.

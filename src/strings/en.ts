@@ -393,10 +393,10 @@ export const en = {
       live: 'Live',
       stale: (age: string) => `Stale · ${age}`,
       noData: 'No data',
-      // L1: Night Mode (PRD 10.4): the server hides moving multicabs
+      // L1: Night Mode (PRD 10.4): the server hides every multicab (standing ones too since 2026-11-03)
       night: 'Night Mode',
-      // Beside Night Mode on an empty route; beside the count when stopped ones show
-      nightHidden: 'Moving ones hidden',
+      // Beside Night Mode on an empty route
+      nightHidden: 'Multicabs hidden',
       // NM1 (PRD 10.4): the Night Mode stop view, instead of moving markers
       nightStopsTitle: (code: string) => `Where ${code} has been`,
       nightStopsEmpty: (code: string) => `No ${code} multicab passed a stop in the last hour.`,

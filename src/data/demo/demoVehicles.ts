@@ -59,7 +59,7 @@ export function createDemoVehicles(
     // NM1: the passages the demo multicabs made, worked out from their plans
     nightPassages: async (routeCode) =>
       demoNightPassages(plansFor(routeCode), stops.filter((stop) => stop.routeCodes?.includes(routeCode)), clock.now()),
-    // As on the server (PRD 10.4): at night no moving multicab is shown
+    // As on the server (PRD 10.4): at night no multicab is shown
     subscribe: (routeCode, listener) => subscribeTo(routeCode, listener, true),
     subscribeAll: (routeCode, listener) => subscribeTo(routeCode, listener, false),
   };
@@ -69,7 +69,7 @@ export function createDemoVehicles(
     const emit = () => {
       const now = clock.now();
       const all = fleet.map((plan) => demoSnapshot(plan, now, config));
-      listener(nightRule ? all.filter((vehicle) => shownByNightRule(vehicle.speedKmh, now)) : all);
+      listener(nightRule ? all.filter((vehicle) => shownByNightRule(now)) : all);
     };
     emit();
     const handle = clock.setInterval(emit, DEMO_TICK_MS);

@@ -20,7 +20,6 @@ import {
   MANILA_UTC_OFFSET_MIN,
   NIGHT_MODE_END,
   NIGHT_MODE_START,
-  STATIONARY_SPEED_KMH,
   USERNAME_BLOCKED_WORDS,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
@@ -59,10 +58,11 @@ export function isNight(atMs: number, start = NIGHT_MODE_START, end = NIGHT_MODE
   return inManilaWindow(atMs, start, end);
 }
 
-// The telemetry_latest rule: at night the map shows a multicab only while it stands (under
-// STATIONARY_SPEED_KMH), so no moving marker is published
-export function shownByNightRule(speedKmh: number, atMs: number): boolean {
-  return !isNight(atMs) || speedKmh < STATIONARY_SPEED_KMH;
+// The telemetry_latest rule (PRD 10.4): at night the map shows no multicab at all, moving or standing,
+// so no live coordinates are published; the night stop view (NM1) takes its place. Emjay, 2026-11-03:
+// standing multicabs were shown at night before.
+export function shownByNightRule(atMs: number): boolean {
+  return !isNight(atMs);
 }
 
 // The Manila calendar day (YYYY-MM-DD), for the daily Energy caps
