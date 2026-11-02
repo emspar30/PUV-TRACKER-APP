@@ -7,6 +7,7 @@ import {
   RELAY_ARRIVAL_RADIUS_M,
   RELAY_CAP_ANSWER_MIN,
   RELAY_CHECK_S,
+  RELAY_GET_OFF_WARN_M,
   RELAY_IDLE_MIN,
   RELAY_IDLE_RADIUS_M,
   RELAY_IDLE_TERMINAL_MIN,
@@ -94,6 +95,26 @@ describe('RL1 arrival countdown', () => {
     expect(relayEnd(relay, left, DAY + 2 * MIN)).toBeNull();
     // Back inside: a new countdown
     expect(watchRelay(left, relay, north(DEST, 10), DAY + 50 * S).arrivingSinceMs).toBe(DAY + 50 * S);
+  });
+});
+
+describe('get off soon (Emjay, 2026-11-02)', () => {
+  const relay = session(DAY);
+
+  it('says so once, when the rider first comes within the distance', () => {
+    const far = watchRelay(startWatch(DAY), relay, north(DEST, RELAY_GET_OFF_WARN_M + 200), DAY);
+    expect(far.getOffSoon).toBe(false);
+    const near = watchRelay(far, relay, north(DEST, RELAY_GET_OFF_WARN_M - 20), DAY + 30 * S);
+    expect(near.getOffSoon).toBe(true);
+    // Stepping back out and in again does not say it twice: it stays said
+    const out = watchRelay(near, relay, north(DEST, RELAY_GET_OFF_WARN_M + 50), DAY + 60 * S);
+    expect(out.getOffSoon).toBe(true);
+  });
+
+  it('is not said when the relay starts that close', () => {
+    const start = watchRelay(startWatch(DAY), relay, north(DEST, RELAY_GET_OFF_WARN_M - 100), DAY);
+    expect(start.getOffSoon).toBe(false);
+    expect(watchRelay(start, relay, north(DEST, RELAY_GET_OFF_WARN_M - 150), DAY + 30 * S).getOffSoon).toBe(false);
   });
 });
 

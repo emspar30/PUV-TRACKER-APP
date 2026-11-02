@@ -1,8 +1,8 @@
-import { CircleCheck, Clock, RadioTower } from 'lucide-react-native';
+import { BellRing, CircleCheck, Clock, RadioTower } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Vibration } from 'react-native';
 
-import { RELAY_CAP_ANSWER_MIN, RELAY_CHECK_S, RELAY_HEARTBEAT_MIN, RELAY_SESSION_CAP_H } from '@/shared/config';
+import { RELAY_CAP_ANSWER_MIN, RELAY_CHECK_S, RELAY_GET_OFF_WARN_M, RELAY_HEARTBEAT_MIN, RELAY_SESSION_CAP_H } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
 import type { RelayBroadcast, RelayPost } from '@/shared/relay/broadcast';
 import { askedWatch, capDue, idleLimitMin, relayEnd, watchRelay, type RelayEnd } from '@/shared/relay/limits';
@@ -98,6 +98,16 @@ export function useRelayBroadcast(position: LatLon | null): RelayBroadcast | nul
     lastPost.current = post;
     if (previous && previous !== post) void endRelayPost(previous);
   }, [post]);
+
+  // Get ready to get off: once per relay, as the watch first says so
+  const getOffSoon = session !== null && watch.getOffSoon;
+  useEffect(() => {
+    if (!getOffSoon || !session) return;
+    Vibration.vibrate();
+    showToast({ icon: BellRing, title: strings.report.getOffSoonTitle, body: strings.report.getOffSoonBody(session.destination.name, RELAY_GET_OFF_WARN_M) });
+    // Only the change to true matters; the session is read at that moment
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getOffSoon]);
 
   const end = session ? relayEnd(session, watch, Math.max(nowMs, session.startedMs)) : null;
   useEffect(() => {

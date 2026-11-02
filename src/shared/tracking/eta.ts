@@ -131,7 +131,8 @@ export function trackProgress(
   return { passed: behind[behind.length - 1]?.stop ?? null, next, mine };
 }
 
-// True once, when the ETA first drops to the alert threshold
+// True once, when the ETA first drops to the alert threshold. The relay's get-off alert uses it on
+// metres to the destination (shared/relay/limits).
 export function crossesAlert(previousEtaS: number | null, etaS: number | null, thresholdS: number): boolean {
   return etaS !== null && etaS <= thresholdS && (previousEtaS === null || previousEtaS > thresholdS);
 }

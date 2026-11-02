@@ -530,6 +530,9 @@ export const APPEAL_MAX_CHARS = 500;
 // RELAY_ARRIVAL_RADIUS_M of the destination they picked; leaving that radius cancels the countdown
 export const RELAY_ARRIVAL_RADIUS_M = 50;
 export const RELAY_ARRIVAL_COUNTDOWN_S = 60;
+// Emjay, 2026-11-02: once, when the rider first comes within this of the destination, a toast and a
+// vibration say to get ready to get off, before the arrival countdown above
+export const RELAY_GET_OFF_WARN_M = 300;
 // RL1 (PRD 8.4): idle stop. Fixes that stay within RELAY_IDLE_RADIUS_M for RELAY_IDLE_MIN end the
 // relay; RELAY_IDLE_TERMINAL_MIN within RELAY_TERMINAL_RADIUS_M of a terminal (the route's first and
 // last stop until real terminals are listed, D3)

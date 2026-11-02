@@ -7,6 +7,8 @@
 //   the last known position counts as where the rider still is.
 // - Cap: RELAY_SESSION_CAP_H after the start, or after the last "Keep sharing", the rider is asked
 //   "Still riding?"; with no answer within RELAY_CAP_ANSWER_MIN the relay ends.
+// - Get off soon (Emjay, 2026-11-02): once, when the rider first comes within RELAY_GET_OFF_WARN_M
+//   of the destination after a reading farther out. Not when the relay starts that close.
 // The watch is brought up to date with each position and clock tick (watchRelay) and read by relayEnd.
 // Pure: no React Native or Expo imports.
 
@@ -17,6 +19,7 @@ import {
   RELAY_ARRIVAL_COUNTDOWN_S,
   RELAY_ARRIVAL_RADIUS_M,
   RELAY_CAP_ANSWER_MIN,
+  RELAY_GET_OFF_WARN_M,
   RELAY_IDLE_MIN,
   RELAY_IDLE_RADIUS_M,
   RELAY_IDLE_TERMINAL_MIN,
@@ -25,6 +28,7 @@ import {
 } from '../config';
 import { haversineMeters, type LatLon } from '../geo/haversine';
 import { projectOntoLine } from '../geo/line';
+import { crossesAlert } from '../tracking/eta';
 
 import type { RelayBroadcast } from './broadcast';
 
@@ -41,6 +45,10 @@ export type RelayWatch = {
   capFromMs: number;
   // When "Still riding?" was asked; null while not asked
   askedMs: number | null;
+  // Metres to the destination at the last position; null before the first
+  destinationM: number | null;
+  // True once the rider has been told to get ready to get off
+  getOffSoon: boolean;
 };
 
 export type RelayEnd = 'arrived' | 'idle' | 'capped';
@@ -48,7 +56,7 @@ export type RelayEnd = 'arrived' | 'idle' | 'capped';
 export type HighTrafficZone = (typeof HIGH_TRAFFIC_ZONES)[number];
 
 export function startWatch(startedMs: number): RelayWatch {
-  return { arrivingSinceMs: null, idle: null, capFromMs: startedMs, askedMs: null };
+  return { arrivingSinceMs: null, idle: null, capFromMs: startedMs, askedMs: null, destinationM: null, getOffSoon: false };
 }
 
 // Metres from the position to the zone: to its point, or to the stretch between its two points
@@ -72,13 +80,18 @@ export function activeZone(position: LatLon, nowMs: number, zones: readonly High
 // The watch after a position (or a clock tick with the same position). Without a position nothing changes.
 export function watchRelay(watch: RelayWatch, session: RelayBroadcast, position: LatLon | null, nowMs: number): RelayWatch {
   if (!position) return watch;
-  const arriving = haversineMeters(position, session.destination) <= RELAY_ARRIVAL_RADIUS_M;
+  const destinationM = haversineMeters(position, session.destination);
+  const arriving = destinationM <= RELAY_ARRIVAL_RADIUS_M;
+  // The same once-only crossing as the tracking alert, on metres instead of seconds
+  const getOffSoon = watch.getOffSoon || (watch.destinationM !== null && crossesAlert(watch.destinationM, destinationM, RELAY_GET_OFF_WARN_M));
   // In an active zone the idle clock starts again at every look, so it never runs out there
   const moved = !watch.idle || haversineMeters(watch.idle.at, position) > RELAY_IDLE_RADIUS_M || activeZone(position, nowMs) !== null;
   return {
     ...watch,
     arrivingSinceMs: arriving ? (watch.arrivingSinceMs ?? nowMs) : null,
     idle: moved ? { at: { lat: position.lat, lon: position.lon }, sinceMs: nowMs } : watch.idle,
+    destinationM,
+    getOffSoon,
   };
 }
 

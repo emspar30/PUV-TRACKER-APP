@@ -235,6 +235,9 @@ export const en = {
       live: (seconds: number) => `On the live map · sent ${seconds} s ago`,
       saved: (count: number) => `${count} ${count === 1 ? 'position' : 'positions'} saved · sending when online`,
     },
+    // Emjay, 2026-11-02: before the arrival countdown, once per relay
+    getOffSoonTitle: 'Get ready to get off',
+    getOffSoonBody: (stop: string, metres: number) => `${stop} is about ${metres} m ahead.`,
     arrivedTitle: (stop: string) => `You reached ${stop}`,
     arrivedBody: 'Location sharing stopped. Thanks for the relay!',
     // RL1: the arrival countdown in the relay bar, and the other ways sharing ends by itself
@@ -1444,7 +1447,8 @@ export const en = {
       },
       // DR8: Nearby devices is asked when Relay first looks for the multicab, not here
       nearby: { title: 'Nearby multicab detection', body: 'Finds the multicab you board, by Bluetooth', status: 'In Relay' },
-      alerts: { title: 'Arrival alerts', body: 'Tells you before your stop', status: 'Coming later' },
+      // Built (tracking panel, Settings): an in-app alert, so there is no permission to ask here
+      alerts: { title: 'Arrival alerts', body: 'Tells you when your multicab is near, and when to get off on a relay', status: 'In Tracking and Relay' },
     },
     permissionsNote: 'Your location is never shared with your identity.',
   },

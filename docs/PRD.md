@@ -469,7 +469,7 @@ The relay engine turns a commuter's ride into a verified live marker with the le
 5. **Declare destination.** The rider picks a destination node on the route. It must lie ahead of the boarding point along the route.
 6. **Verify.** The verification window runs (section 10.2). Until it passes, the report is private.
 7. **Relay.** The server assigns Primary or Secondary status (section 8.3).
-8. **Arrive.** Within 50 m of the destination, a 60 s arrival countdown starts. When it ends, location tracking stops, energy is awarded and the baton passes.
+8. **Arrive.** Within 50 m of the destination, a 60 s arrival countdown starts. When it ends, location tracking stops, energy is awarded and the baton passes. Before that, once, when the rider first comes within 300 m of the destination (after a reading farther out), a toast and a vibration say "Get ready to get off" (Emjay, Nov 2, 2026).
 
 The v1.0 claim of a constant background scan is replaced by armed scanning. On Android, scans registered with a `PendingIntent` can wake the app from the background at low power, which is how the boarding prompt can appear even if the app was swiped away. Vendor battery managers may still block this (section 8.5).
 
@@ -1218,3 +1218,4 @@ Oct 2, 2026. Edits made after the project audit (`docs/AUDIT.md`) and plan appro
 35. **Section 10.2 (Nov 2, 2026, V1b, Emjay approved the dependency):** activity recognition in the motion test on the phone: in a vehicle for 60% of at least 3 reports, or the speed fallback.
 36. **Sections 0.2 S10 and 17.1 (Nov 2, 2026, S10 tools):** a field test log in the app (Demo and simulation) and docs/FIELD_TESTS.md; only the field rides remain.
 37. **Section 7.5 (Nov 2, 2026, Emjay):** one check-in with no At a stop or Near the route choice: at a stop within 40 m, else near the route within 40 m of the line; the card names the spot ("Near Flying V"). A tapped station is for looking; it checks in only when the commuter is at it.
+38. **Section 8.1 step 8 (Nov 2, 2026, Emjay):** a relay says "Get ready to get off" once at 300 m from the destination, before the 50 m arrival countdown. The introduction's Arrival alerts row now names Tracking and Relay instead of "Coming later".

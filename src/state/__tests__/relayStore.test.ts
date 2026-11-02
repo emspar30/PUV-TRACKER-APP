@@ -24,7 +24,7 @@ afterEach(() => {
 describe('relay store: watch (RL1)', () => {
   it('a new session starts a fresh watch from its start', () => {
     useRelayStore.getState().start(SESSION);
-    expect(useRelayStore.getState().watch).toEqual({ arrivingSinceMs: null, idle: null, capFromMs: T0, askedMs: null });
+    expect(useRelayStore.getState().watch).toEqual({ arrivingSinceMs: null, idle: null, capFromMs: T0, askedMs: null, destinationM: null, getOffSoon: false });
   });
 
   it('Keep sharing restarts the cap and clears the question', () => {
