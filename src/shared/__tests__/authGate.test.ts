@@ -1,6 +1,15 @@
-import { entryRoute, isSignedIn, sessionStorageKey, storedSessionOf, type SessionStatus } from '../auth/gate';
+import { entryRoute, isOtherAccount, isSignedIn, sessionStorageKey, storedSessionOf, type SessionStatus } from '../auth/gate';
 
 const STATUSES: SessionStatus[] = ['unconfigured', 'loading', 'signed-out', 'signed-in'];
+
+describe('the phone follows the account (Emjay, 2026-11-02)', () => {
+  it('clears only when a different, known account signs in', () => {
+    expect(isOtherAccount('user-a', 'user-b')).toBe(true);
+    expect(isOtherAccount('user-a', 'user-a')).toBe(false);
+    expect(isOtherAccount(null, 'user-b')).toBe(false);
+    expect(isOtherAccount('user-a', null)).toBe(false);
+  });
+});
 
 describe('AU1 entry gate', () => {
   it('shows the introduction first, whatever the session', () => {

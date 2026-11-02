@@ -9,6 +9,7 @@ import { RouteDataProvider } from '@/data/RouteDataProvider';
 import { TourHost } from '@/features/tour/TourHost';
 // B1: defines the background relay task at start, as TaskManager requires
 import '@/services/backgroundLocation';
+import { startAccountGuard } from '@/state/accountOwner';
 import { startEnergySync } from '@/state/energyStore';
 import { startSessionTracking } from '@/state/sessionStore';
 import { ThemeProvider, useTheme } from '@/theme';
@@ -25,6 +26,8 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 export default function RootLayout() {
   // Follows backend sign-in (does nothing when the backend keys are absent) and the Energy wallet
   useEffect(() => {
+    // Before the session is read, so another account's sign-in clears the phone first
+    startAccountGuard();
     startSessionTracking();
     startEnergySync();
     // MOD1b: a suspension or a used Merit shield is known from the start

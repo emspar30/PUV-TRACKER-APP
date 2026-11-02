@@ -14,6 +14,8 @@ export type { SessionStatus };
 type SessionState = {
   status: SessionStatus;
   email: string | null;
+  // The signed-in account's id, once the auth library has it; kept only on the phone (accountOwner)
+  userId: string | null;
   error: string | null;
   // Whether this account may see live vehicles (team accounts only in v0); null until known
   teamAccount: boolean | null;
@@ -22,6 +24,7 @@ type SessionState = {
 export const useSessionStore = create<SessionState>(() => ({
   status: isSupabaseConfigured() ? 'loading' : 'unconfigured',
   email: null,
+  userId: null,
   error: null,
   teamAccount: null,
 }));
@@ -43,7 +46,7 @@ export function startSessionTracking(): void {
   if (started || !isSupabaseConfigured()) return;
   started = true;
 
-  const apply = (event: string | null, session: { user: { email?: string | null } } | null) => {
+  const apply = (event: string | null, session: { user: { id: string; email?: string | null } } | null) => {
     const stored = session ? null : readStoredSession();
     const signedIn = isSignedIn({ event, session: Boolean(session), stored: stored !== null });
     const status = signedIn ? 'signed-in' : 'signed-out';
@@ -51,7 +54,9 @@ export function startSessionTracking(): void {
     // The same account reported again (the first read, a token refresh) keeps its team answer
     const before = useSessionStore.getState();
     const same = before.status === status && before.email === email;
-    useSessionStore.setState({ status, email, error: null, ...(same ? {} : { teamAccount: null }) });
+    // The saved session read before the library has it carries no id; the library's report then does
+    const userId = signedIn ? (session?.user.id ?? (same ? before.userId : null)) : null;
+    useSessionStore.setState({ status, email, userId, error: null, ...(same ? {} : { teamAccount: null }) });
     // SB2: the handle follows the account
     if (signedIn) {
       void syncUsername().catch(() => undefined);

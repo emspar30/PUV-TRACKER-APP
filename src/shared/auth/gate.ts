@@ -19,6 +19,14 @@ export function entryRoute({ onboarded, status, dev }: { onboarded: boolean; sta
   return status === 'signed-in' ? 'app' : 'signIn';
 }
 
+// Emjay, 2026-11-02: what this phone keeps (username, badges, rides, history, the introduction
+// done) belongs to the account that last signed in here. Another account signing in must not see
+// it, so the phone is cleared first. Unknown on either side (the first sign-in, or the saved
+// session read before the library has the user) is not a change.
+export function isOtherAccount(owner: string | null, userId: string | null): boolean {
+  return owner !== null && userId !== null && owner !== userId;
+}
+
 // A sign-in report from the auth library: the event (null for the first read), whether it came with
 // a session, and whether a session is still saved on the phone. Offline, once the access token is
 // over an hour old, the library cannot refresh it and reports no session, yet keeps the saved one
