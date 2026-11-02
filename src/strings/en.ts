@@ -521,6 +521,8 @@ export const en = {
       noEnergyBody: (cost: number, minutes: number) => `Tracking costs ${cost} Energy for ${minutes} minutes. Energy refills over time, or tap Relay and turn on "Show me on the live map".`,
       earnByReporting: 'Relay an update',
       failedTitle: 'Tracking could not start',
+      // PRD 14: tracking needs the live server
+      offline: 'Tracking needs the internet. Connect to Wi-Fi or mobile data, then try again.',
     },
   },
 
@@ -742,6 +744,9 @@ export const en = {
     stale: 'Your last location is too old. Wait for a fresh fix and try again.',
     noPosition: 'Turn on location to check in. On the emulator, use a simulated stop in Demo & simulation.',
     failedTitle: 'Check-in failed',
+    // PRD 14: a check-in is sent over the internet; shown on the station card and when the send fails
+    offlineTitle: 'You are offline',
+    offline: 'A check-in is sent over the internet. Connect to Wi-Fi or mobile data, then check in again.',
     signIn: 'Sign in',
     failedBody: 'Try again in a moment.',
     // C1 UI pass: the sheet, after Google Maps' place sheet

@@ -1,4 +1,4 @@
-import { Bus, ChevronDown, Clock, LocateFixed, LocateOff, MapPinOff, X } from 'lucide-react-native';
+import { Bus, ChevronDown, Clock, LocateFixed, LocateOff, MapPinOff, WifiOff, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
@@ -38,7 +38,9 @@ import { boundsOfLines, clipBounds } from '@/shared/geo/bounds';
 import { haversineMeters } from '@/shared/geo/haversine';
 import type { RouteDirection, RouteStop } from '@/shared/routing/types';
 import { pingedRoutesAtStop, routeCodesOf, routesAtStop, stopsForRoute, toggleRoute } from '@/shared/ui/routeVisibility';
+import { isNetworkFailure } from '@/shared/util/networkError';
 import { useCheckInStore } from '@/state/checkinStore';
+import { setOnline, useConnectionStore } from '@/state/connectionStore';
 import { reportMockLocation } from '@/services/risk';
 import { checkIn as cloudCheckIn, endCheckIn, useCrowd } from '@/state/crowdStore';
 import { showDialog } from '@/state/dialogStore';
@@ -107,6 +109,9 @@ export default function CheckInScreen() {
   // B3: the routes just boarded, while the "Safe travel" card shows
   const [farewell, setFarewell] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // PRD 14: live check-ins need the server; the demo keeps them on the phone
+  const demoData = useSettingsStore((state) => state.demoData);
+  const offline = useConnectionStore((state) => state.online === false) && !demoData;
   const sendingRef = useRef(false);
 
   const active = isActive(checkIn, now);
@@ -242,7 +247,7 @@ export default function CheckInScreen() {
   };
 
   const doCheckIn = async () => {
-    if (!candidate || active || sendingRef.current || pinged.length === 0 || !affordable) return;
+    if (!candidate || active || sendingRef.current || pinged.length === 0 || !affordable || offline) return;
     // MOD1b: a suspended rider is told why (live data only)
     if (!useSettingsStore.getState().demoData && blockedBySuspension()) return;
     // The fix's age is taken at the tap (G0: a stale fix is refused)
@@ -289,7 +294,11 @@ export default function CheckInScreen() {
         if (result.reason === 'sign_in') promptSignIn();
         else if (result.reason === 'not_enough_energy')
           showDialog({ tone: 'warning', title: strings.checkin.noEnergyTitle, body: strings.checkin.noEnergyBody(ENERGY_CHECKIN_ROUTE_COST) });
-        else showDialog({ tone: 'danger', title: strings.checkin.failedTitle, body: result.message ?? strings.checkin.failedBody });
+        else if (isNetworkFailure(result.message)) {
+          // The probe has not noticed yet; the top bar and the card say offline from now on
+          setOnline(false);
+          showDialog({ tone: 'warning', icon: WifiOff, title: strings.checkin.offlineTitle, body: strings.checkin.offline });
+        } else showDialog({ tone: 'danger', title: strings.checkin.failedTitle, body: strings.checkin.failedBody });
         return;
       }
       setNow(Date.now());
@@ -419,7 +428,7 @@ export default function CheckInScreen() {
             meta={metaOf(candidate.stop.code, candidate.distanceM)}
             routes={badges(stopRoutes)}
             checkInLabel={strings.checkin.checkInAt(candidate.stop.code)}
-            disabled={sending || pinged.length === 0 || !affordable}
+            disabled={sending || pinged.length === 0 || !affordable || offline}
             onCheckIn={() => void doCheckIn()}
             onClose={() => {
               setStationCode(null);
@@ -427,6 +436,12 @@ export default function CheckInScreen() {
               setStationClosed(true);
             }}
           >
+            {offline ? (
+              <View style={styles.offline} accessibilityRole="alert">
+                <WifiOff color={colors.warning} size={ICON_SIZE} />
+                <Text style={[typography.bodySm, styles.grow]}>{strings.checkin.offline}</Text>
+              </View>
+            ) : null}
             {stopRoutes.length > 1 ? (
               <RoutePing
                 routes={stopRoutes}
@@ -526,6 +541,17 @@ const useStyles = makeStyles(({ colors }) => ({
   // CA1.1: the check-in cost line when the balance is short
   short: {
     color: colors.danger,
+  },
+  // PRD 14: the offline notice on the station card
+  offline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    backgroundColor: colors.surfaceLow,
   },
   root: {
     flex: 1,

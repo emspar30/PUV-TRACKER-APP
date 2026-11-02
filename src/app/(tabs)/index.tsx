@@ -1,5 +1,5 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
-import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, Minus, Plus, X, Zap } from 'lucide-react-native';
+import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, Minus, Plus, WifiOff, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, Vibration, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInRight, FadeOutRight } from 'react-native-reanimated';
@@ -81,6 +81,8 @@ import { vehicleStatus } from '@/shared/telemetry/vehicleStatus';
 import { crossedDistance, crossesAlert, etaDistanceKm, etaNow, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
 import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
+import { isNetworkFailure } from '@/shared/util/networkError';
+import { setOnline } from '@/state/connectionStore';
 import { showDialog } from '@/state/dialogStore';
 import { useSessionStore } from '@/state/sessionStore';
 import { useHintsStore } from '@/state/hintsStore';
@@ -446,7 +448,10 @@ export default function MapScreen() {
             { label: strings.common.close, variant: 'secondary' },
           ],
         });
-      else showDialog({ tone: 'danger', title: strings.live.tracking.failedTitle, body: session.message ?? strings.checkin.failedBody });
+      else if (isNetworkFailure(session.message)) {
+        setOnline(false);
+        showDialog({ tone: 'warning', icon: WifiOff, title: strings.checkin.offlineTitle, body: strings.live.tracking.offline });
+      } else showDialog({ tone: 'danger', title: strings.live.tracking.failedTitle, body: strings.checkin.failedBody });
       return;
     }
     const target = live.vehicles.find((candidate) => candidate.id === id);
