@@ -1,4 +1,4 @@
-import { Bus, ChevronDown, ChevronUp, Footprints, Map as MapIcon, Route, ShieldCheck } from 'lucide-react-native';
+import { Bus, ChevronDown, ChevronUp, Footprints, Map as MapIcon, MapPinned, Route } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -157,7 +157,7 @@ export function SuggestedRouteCard({
       </View>
       <Button label={strings.ride.viewRouteOnMap(ride.routeCode)} leadingIcon={MapIcon} onPress={onViewOnMap} />
       <Text style={[typography.labelSm, styles.center]}>{strings.ride.or.toUpperCase()}</Text>
-      <Button label={strings.ride.stationsCheckin} leadingIcon={ShieldCheck} variant="secondary" onPress={onCheckin} />
+      <Button label={strings.ride.stationsCheckin} leadingIcon={MapPinned} variant="secondary" onPress={onCheckin} />
       <Text style={[typography.bodySm, styles.center]}>{strings.ride.checkinNote}</Text>
     </View>
   );

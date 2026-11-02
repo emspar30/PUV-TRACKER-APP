@@ -10,7 +10,7 @@ import { useRepositories } from '@/data/live/useRepositories';
 import { TILESET } from '@/data/map/tileset';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
-import { MAP_PLACES } from '@/data/seed/places';
+import { MAP_POIS } from '@/data/seed/places';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { OfflineMap, type MapFocus, type MapFocusTarget } from '@/features/map/OfflineMap';
 import { RouteLines } from '@/features/map/RouteLines';
@@ -38,7 +38,7 @@ import {
 import { discountMultiplier } from '@/shared/fare/fare';
 import { boundsOfLines, clipBounds, withMinimumSpan } from '@/shared/geo/bounds';
 import type { LatLon } from '@/shared/geo/haversine';
-import { describePoint, namePoint, nearestStop, snapToRoute, type NamedSpot } from '@/shared/routing/describe';
+import { describePoint, namePoint, nearestStop, snapToRoute } from '@/shared/routing/describe';
 import { placeIdOf } from '@/shared/routing/suggest';
 import type { SearchablePlace } from '@/shared/routing/placeSearch';
 import { PlaceResults } from '@/features/search/PlaceResults';
@@ -57,9 +57,6 @@ import { showToast } from '@/state/toastStore';
 import { useTabBarSpace } from '@/navigation/useTabBarSpace';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
-
-// The offline map's buildings and other points of interest, for naming a tapped point
-const MAP_POIS: readonly NamedSpot[] = MAP_PLACES.filter(([, , group]) => group === 'poi').map(([name, , , lat, lon]) => ({ name, lat, lon }));
 
 const ALL_DIRECTIONS: Record<RouteDirection, boolean> = { outbound: true, return: true };
 const LOGO_SIZE = spacing.xl * 2;

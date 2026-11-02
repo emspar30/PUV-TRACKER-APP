@@ -253,6 +253,9 @@ export const ROUTE_STOP_SNAP_MAX_M = 500;
 // from the stop, or CHECKIN_LEAVE_M from where a near check-in was made, for CHECKIN_LEAVE_READINGS
 // GPS readings in a row (one jumpy reading does not end it).
 export const CHECKIN_LINE_M = 40;
+// Emjay, 2026-11-02: one check-in, no choice. Within this of a stop it counts at the stop; farther,
+// on the route, it counts near the nearest stop (shared/checkin/geofence findCheckInSpot).
+export const CHECKIN_AT_STOP_M = 40;
 export const CHECKIN_STOP_MAX_M = 300;
 export const CHECKIN_LEAVE_M = 70;
 export const CHECKIN_LEAVE_READINGS = 2;

@@ -1,10 +1,10 @@
 // CA3: two ways to check in, at a stop or near the route, and the check-in ending by itself once
 // the commuter leaves. The GPS gates still apply.
 
-import { checkInGeofence, checkInNearRoute, type Place } from '../checkin/geofence';
+import { checkInGeofence, checkInNearRoute, findCheckInSpot, type Place } from '../checkin/geofence';
 import { checkLeave, stayArea } from '../checkin/leave';
 import { parseStoredCheckIn, startCheckIn } from '../checkin/localCheckin';
-import { CHECKIN_LEAVE_M, CHECKIN_LEAVE_READINGS, CHECKIN_LINE_M, CHECKIN_STOP_MAX_M, GPS_ACCURACY_GATE_CHECKIN_M, LOCATION_FIX_MAX_AGE_S } from '../config';
+import { CHECKIN_AT_STOP_M, CHECKIN_LEAVE_M, CHECKIN_LEAVE_READINGS, CHECKIN_LINE_M, CHECKIN_STOP_MAX_M, GPS_ACCURACY_GATE_CHECKIN_M, LOCATION_FIX_MAX_AGE_S } from '../config';
 
 const M_PER_DEG = 111195;
 const ORIGIN = { lat: 8.95, lon: 125.54 };
@@ -71,6 +71,40 @@ describe('check in at a stop (CA3)', () => {
   it(`takes anyone within ${CHECKIN_STOP_MAX_M} m of the stop, on the road or not`, () => {
     expect(checkInGeofence(at(0, CHECKIN_STOP_MAX_M - 5), SMB, CHECKIN_STOP_MAX_M).ok).toBe(true);
     expect(checkInGeofence(at(CHECKIN_STOP_MAX_M + 30), SMB, CHECKIN_STOP_MAX_M)).toEqual({ ok: false, reason: 'too_far', distanceM: CHECKIN_STOP_MAX_M + 30 });
+  });
+});
+
+describe('the phone finds where the check-in counts (Emjay, 2026-11-02)', () => {
+  const R4 = { routeCode: 'R4', coordinates: LINE };
+  // A north-south road crossing the first at SM Butuan
+  const R6 = {
+    routeCode: 'R6',
+    coordinates: [
+      [ORIGIN.lon, at(0, -2000).lat],
+      [ORIGIN.lon, at(0, 2000).lat],
+    ] as [number, number][],
+  };
+  const named = [
+    { ...SMB, name: 'SM Butuan' },
+    { ...ROB, name: 'Robinsons' },
+  ];
+
+  it(`counts at a stop within ${CHECKIN_AT_STOP_M} m, for every route that stops there`, () => {
+    expect(findCheckInSpot(at(CHECKIN_AT_STOP_M - 10), [R4, R6], named)).toEqual({ ok: true, kind: 'stop', stop: named[0], stopM: CHECKIN_AT_STOP_M - 10, routes: ['R4', 'R6'] });
+  });
+
+  it('counts near the route between stops, with only the routes that pass close by', () => {
+    expect(findCheckInSpot(at(500, 10), [R4, R6], named)).toEqual({ ok: true, kind: 'near', routes: ['R4'], lineM: 10 });
+  });
+
+  it('refuses a place no route passes near', () => {
+    expect(findCheckInSpot(at(500, CHECKIN_LINE_M + 30), [R4, R6], named)).toEqual({ ok: false, reason: 'too_far_from_line', lineM: CHECKIN_LINE_M + 30 });
+  });
+
+  it('keeps the GPS gates and needs a line', () => {
+    expect(findCheckInSpot(at(100, 0, { mocked: true }), [R4], named)).toEqual({ ok: false, reason: 'mocked' });
+    expect(findCheckInSpot(null, [R4], named)).toEqual({ ok: false, reason: 'no_position' });
+    expect(findCheckInSpot(at(0), [], named)).toEqual({ ok: false, reason: 'no_stop' });
   });
 });
 

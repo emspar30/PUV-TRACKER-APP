@@ -28,6 +28,8 @@ export function RoutePing({ routes, picked, onChange, max }: RoutePingProps) {
   const all = routes.every((code) => picked.includes(code));
   const full = picked.length >= max;
   const toggle = (code: string) => {
+    // Energy for one route only: a tap moves the ping to that route
+    if (max === 1 && !picked.includes(code)) return onChange([code]);
     const next = picked.includes(code) ? picked.filter((value) => value !== code) : [...picked, code];
     if (next.length > 0 && next.length <= max) onChange(routes.filter((value) => next.includes(value)));
   };
@@ -44,7 +46,7 @@ export function RoutePing({ routes, picked, onChange, max }: RoutePingProps) {
             key={code}
             label={code}
             selected={picked.includes(code)}
-            disabled={full && !picked.includes(code)}
+            disabled={full && max > 1 && !picked.includes(code)}
             onPress={() => toggle(code)}
             accessibilityLabel={strings.checkin.pingLabel(code, picked.includes(code))}
           />
@@ -55,57 +57,67 @@ export function RoutePing({ routes, picked, onChange, max }: RoutePingProps) {
 }
 
 type StationCardProps = {
+  // "Your location", or "Selected station" for a dot tapped on the map
+  overline: string;
   name: string;
-  // True for the nearest station, false for one tapped on the map
-  nearest: boolean;
-  // CA2a: the commuter is away from the stop, on its route: the check-in counts here ("Counted at")
-  counted?: boolean;
-  // "RCA · 120 m · 2 min walk · 3 waiting"
-  meta: string;
-  // The routes that stop here, with their badge colours
+  // True for the commuter's own spot, false for a station tapped on the map
+  here: boolean;
+  // "RCA · 120 m · 2 min walk · 3 waiting", for a tapped station only
+  meta?: string;
+  // The routes that stop or pass here, with their badge colours
+  routesLabel: string;
   routes: readonly { code: string; color: string }[];
-  checkInLabel: string;
-  disabled: boolean;
-  onCheckIn: () => void;
-  // Closes the card until a station is tapped again
-  onClose: () => void;
-  // The route ping, at a shared stop
+  // The Check in button; null where this card cannot check in (a station the commuter is not at)
+  checkIn: { label: string; disabled: boolean; onPress: () => void } | null;
+  // A tapped station: back to the commuter's own spot
+  onBack?: () => void;
+  // A tapped station's X: back to the commuter's own spot. The commuter's own card has none.
+  onClose?: () => void;
+  // The notices and the route ping
   children?: ReactNode;
 };
 
-// B3: the station, after Google Maps' place sheet: what it is and how far, the routes that stop
-// there, then one full-width action
-export function StationCard({ name, nearest, counted = false, meta, routes, checkInLabel, disabled, onCheckIn, onClose, children }: StationCardProps) {
+// B3: the commuter's spot or a tapped station, after Google Maps' place sheet: what it is, the
+// routes there, then one full-width action
+export function StationCard({ overline, name, here, meta, routesLabel, routes, checkIn, onBack, onClose, children }: StationCardProps) {
   const styles = useStyles();
   const { colors, typography } = useTheme();
   return (
     <View style={styles.inner}>
       <View style={styles.row}>
-        <IconTile icon={nearest ? Navigation : MapPin} />
+        <IconTile icon={here ? Navigation : MapPin} />
         <View style={styles.grow}>
-          <Text style={[typography.labelSm, styles.overline]}>{counted ? strings.checkin.countedAtOverline : nearest ? strings.checkin.nearest : strings.checkin.picked}</Text>
+          <Text style={[typography.labelSm, styles.overline]}>{overline}</Text>
           <Text style={typography.headlineSm} numberOfLines={2}>
             {name}
           </Text>
-          <View style={styles.metaRow}>
-            <Footprints color={colors.textSecondary} size={ICON_SIZE} />
-            <Text style={[typography.bodySm, styles.grow]} numberOfLines={1}>
-              {meta}
-            </Text>
-          </View>
+          {meta ? (
+            <View style={styles.metaRow}>
+              <Footprints color={colors.textSecondary} size={ICON_SIZE} />
+              {/* Wraps rather than cutting the waiting count off ("2 wai") */}
+              <Text style={[typography.bodySm, styles.grow]}>
+                {meta}
+              </Text>
+            </View>
+          ) : null}
         </View>
-        <Pressable style={styles.close} onPress={onClose} accessibilityRole="button" accessibilityLabel={strings.checkin.closeStation}>
-          <X color={colors.textSecondary} size={CHEVRON_SIZE} />
-        </Pressable>
+        {onClose ? (
+          <Pressable style={styles.close} onPress={onClose} accessibilityRole="button" accessibilityLabel={strings.checkin.closeStation}>
+            <X color={colors.textSecondary} size={CHEVRON_SIZE} />
+          </Pressable>
+        ) : null}
       </View>
-      <View style={styles.routesRow} accessible accessibilityLabel={`${strings.checkin.routesHere}: ${routes.map((route) => route.code).join(', ')}`}>
-        <Text style={typography.bodySm}>{strings.checkin.routesHere}</Text>
-        {routes.map((route) => (
-          <LineBadge key={route.code} code={route.code} color={route.color} />
-        ))}
-      </View>
+      {routes.length > 0 ? (
+        <View style={styles.routesRow} accessible accessibilityLabel={`${routesLabel}: ${routes.map((route) => route.code).join(', ')}`}>
+          <Text style={typography.bodySm}>{routesLabel}</Text>
+          {routes.map((route) => (
+            <LineBadge key={route.code} code={route.code} color={route.color} />
+          ))}
+        </View>
+      ) : null}
       {children}
-      <Button label={strings.checkin.checkIn} onPress={onCheckIn} disabled={disabled} accessibilityLabel={checkInLabel} />
+      {checkIn ? <Button label={strings.checkin.checkIn} onPress={checkIn.onPress} disabled={checkIn.disabled} accessibilityLabel={checkIn.label} /> : null}
+      {onBack ? <Button label={strings.checkin.backToMe} leadingIcon={Navigation} variant="secondary" onPress={onBack} /> : null}
     </View>
   );
 }

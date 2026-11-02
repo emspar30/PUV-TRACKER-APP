@@ -10,3 +10,7 @@ export type MapPlaceGroup = 'poi' | 'area' | 'street';
 export type MapPlace = readonly [name: string, kind: string, group: MapPlaceGroup, lat: number, lon: number, near: string];
 
 export const MAP_PLACES: readonly MapPlace[] = GENERATED_PLACES;
+
+// The buildings and other points of interest, for naming a point ("Near SM City Butuan") in My Rides
+// and Check-in
+export const MAP_POIS: readonly { name: string; lat: number; lon: number }[] = MAP_PLACES.filter(([, , group]) => group === 'poi').map(([name, , , lat, lon]) => ({ name, lat, lon }));

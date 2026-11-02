@@ -702,11 +702,15 @@ export const en = {
     minimize: 'Make the card smaller',
     expand: 'Show the whole card',
     compactActive: (code: string) => `Checked in at ${code}`,
-    // CA3: at a stop, or near the route (counted at the nearest stop)
-    compactNear: (code: string) => `Checked in near ${code}`,
-    modeStop: 'At a stop',
-    modeNear: 'Near the route',
-    modeLabel: (mode: string, on: boolean) => `Check in ${mode.toLowerCase()}${on ? ', selected' : ''}`,
+    // A near check-in, by the spot it was made at: "Checked in · Near Flying V"
+    compactSpot: (name: string) => `Checked in · ${name}`,
+    // Emjay, 2026-11-02: the card names where the commuter stands, like My Rides names a point
+    yourLocation: 'Your location',
+    onRoute: 'On the route',
+    unknownPlace: 'Location not known yet',
+    routesNear: 'Routes passing here',
+    checkInHere: 'Check in at your location',
+    backToMe: 'Back to my location',
     nearCode: (code: string) => `Near ${code}`,
     stayNear: (metres: number) => `Stay within ${metres} m of this spot, or your check-in ends.`,
     stayAtStop: (metres: number) => `Stay within ${metres} m of the stop, or your check-in ends.`,
@@ -728,16 +732,12 @@ export const en = {
     countdownLabel: (code: string, time: string) => `Checked in at ${code}, ${time} left`,
     // C1
     waiting: (count: number) => (count === 1 ? '1 waiting' : `${count} waiting`),
-    notHereTitle: 'Check in at the station',
     // CA3: the same refusal when checking in near the route
     notNearTitle: 'Check in near the route',
     tooFar: (distanceM: number, radiusM: number, code: string) =>
       `You are ${distanceM} m from ${code}. Check in within ${radiusM} m of the station.`,
     // CA2a, CA3: near the route
     tooFarFromLine: (lineM: number, limitM: number) => `You are ${lineM} m from the route. Stand by the road the multicab takes (within ${limitM} m) and try again.`,
-    tooFarFromStop: (stopM: number, limitM: number, code: string) =>
-      `You are ${stopM} m from ${code}. Walk closer, to within ${limitM} m, or pick Near the route.`,
-    countedAtOverline: 'Near the route, counted near',
     inaccurate: (gateM: number) => `Your location is not precise enough yet (needs ${gateM} m or better). Wait a moment outdoors and try again.`,
     // G0: a mock location app is on, or the last fix is too old
     mocked: 'Your phone reports a mock location. Turn off any mock location app to check in.',
@@ -763,7 +763,6 @@ export const en = {
     noEnergyTitle: 'Not enough Energy',
     noEnergyBody: (per: number) => `A check-in costs ${per.toFixed(1)} Energy for each route. Energy refills over time, or tap Relay and turn on "Show me on the live map".`,
     pingLabel: (code: string, on: boolean) => `${code}, ${on ? 'pinged' : 'not pinged'}`,
-    nearest: 'Nearest to you',
     picked: 'Selected station',
     closeStation: 'Close this station',
     distance: (metres: number) => (metres < METERS_PER_KM ? `${metres} m` : km(metres / METERS_PER_KM)),
@@ -1325,7 +1324,7 @@ export const en = {
   // AF1: one short first-run line per tab, at most 6 words, never shown again once dismissed
   hints: {
     live: 'Pick a route to see it',
-    checkin: 'Tap a station to check in',
+    checkin: 'Check in where you stand',
     ride: 'Where are you going?',
     dismiss: 'Dismiss tip',
   },

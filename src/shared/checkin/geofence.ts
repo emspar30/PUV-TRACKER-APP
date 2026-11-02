@@ -2,10 +2,12 @@
 // The server does not see coordinates: the phone decides, and the result is unverified until
 // Bluetooth boarding (D5). Pure: positions are passed in.
 
-import { CHECKIN_LINE_M, CHECKIN_RADIUS_M, GPS_ACCURACY_GATE_CHECKIN_M, GPS_ACCURACY_GATE_RELAY_M } from '../config';
+import { CHECKIN_AT_STOP_M, CHECKIN_LINE_M, CHECKIN_RADIUS_M, GPS_ACCURACY_GATE_CHECKIN_M, GPS_ACCURACY_GATE_RELAY_M } from '../config';
 import { haversineMeters, type LatLon } from '../geo/haversine';
 import { projectOntoLine, type LineCoordinates } from '../geo/line';
 import { acceptFix } from '../location/accuracyGate';
+import type { RouteStop } from '../routing/types';
+import { routesAtStop, stopsForRoute } from '../ui/routeVisibility';
 
 // gps: the phone's fix; simulated: a stop picked in Demo & simulation (trusted, no accuracy);
 // pin: a point set by hand, which is not a position. A GPS fix also carries its mock flag and age
@@ -56,6 +58,45 @@ export function checkInNearRoute<S extends LatLon>(place: Place | null, lines: r
   let stop = stops[0];
   for (const candidate of stops) if (haversineMeters(place, candidate) < haversineMeters(place, stop)) stop = candidate;
   return { ok: true, stop, stopM: Math.round(haversineMeters(place, stop)) };
+}
+
+export type CheckInSpot =
+  // Within CHECKIN_AT_STOP_M of a stop: counted there, for every route that stops there
+  | { ok: true; kind: 'stop'; stop: RouteStop; stopM: number; routes: string[] }
+  // Within CHECKIN_LINE_M of these routes' lines, away from their stops: counted near a stop (checkInNearRoute)
+  | { ok: true; kind: 'near'; routes: string[]; lineM: number }
+  | { ok: false; reason: 'no_position' | 'inaccurate' | 'mocked' | 'stale' | 'no_stop' }
+  | { ok: false; reason: 'too_far_from_line'; lineM: number };
+
+// Emjay, 2026-11-02: no "at a stop" or "near the route" choice. The phone works out where the
+// commuter stands: at a stop of a route that passes within CHECKIN_LINE_M, else near the route,
+// else not near any route. The same position gates as checkInGeofence.
+export function findCheckInSpot(
+  place: Place | null,
+  lines: readonly { routeCode: string; coordinates: LineCoordinates }[],
+  stops: readonly RouteStop[],
+): CheckInSpot {
+  if (!place || place.source === 'pin') return { ok: false, reason: 'no_position' };
+  if (place.source === 'gps') {
+    const gate = acceptFix(gpsQuality(place), GPS_ACCURACY_GATE_CHECKIN_M);
+    if (!gate.ok) return { ok: false, reason: gate.reason === 'poor_accuracy' ? 'inaccurate' : gate.reason };
+  }
+  const measured = lines.filter((line) => line.coordinates.length > 1).map((line) => ({ routeCode: line.routeCode, offsetM: projectOntoLine(line.coordinates, place).offsetM }));
+  if (measured.length === 0) return { ok: false, reason: 'no_stop' };
+  const lineM = Math.round(Math.min(...measured.map((line) => line.offsetM)));
+  const routes = [...new Set(measured.filter((line) => line.offsetM <= CHECKIN_LINE_M).map((line) => line.routeCode))];
+  if (routes.length === 0) return { ok: false, reason: 'too_far_from_line', lineM };
+  let nearest: { stop: RouteStop; distanceM: number } | null = null;
+  for (const route of routes) {
+    for (const stop of stopsForRoute(lines, stops, route)) {
+      const distanceM = haversineMeters(place, stop);
+      if (!nearest || distanceM < nearest.distanceM) nearest = { stop, distanceM };
+    }
+  }
+  if (nearest && nearest.distanceM <= CHECKIN_AT_STOP_M) {
+    return { ok: true, kind: 'stop', stop: nearest.stop, stopM: Math.round(nearest.distanceM), routes: routesAtStop(lines, nearest.stop) };
+  }
+  return { ok: true, kind: 'near', routes, lineM };
 }
 
 // A report may go "with GPS" (+1.0 Energy instead of +0.5) when the phone has a good fix
