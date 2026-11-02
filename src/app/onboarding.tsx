@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import {
   Accessibility,
   ArrowRight,
@@ -106,28 +106,30 @@ export default function OnboardingScreen() {
   // sign-in returns to the welcome. AU1: an account that already has a username went through the
   // introduction before (on another phone, or before the app's storage was cleared), so it skips
   // the introduction and the tips tour; a new account has no username until the profile step.
-  const signingIn = useRef(false);
-  useEffect(
-    () =>
-      useSessionStore.subscribe((state) => {
-        if (signingIn.current && state.status === 'signed-in') {
-          signingIn.current = false;
-          void takeAccountUsername().then((existing) => {
-            if (!existing) {
-              setStep('profile');
-              return;
-            }
-            useTourStore.getState().finish();
-            const profile = useProfileStore.getState();
-            profile.assignAvatar();
-            profile.setOnboarded(true);
-            if (router.canGoBack()) router.back();
-            else router.replace('/');
-          });
-        }
-      }),
-    [],
-  );
+  // Emjay, 2026-11-02: checked here, after the welcome renders signed in, not inside the auth
+  // library's sign-in event: a query made from that event can wait on the library's own lock, and
+  // the commuter was left on the welcome and sent through the set-up again.
+  const status = useSessionStore((state) => state.status);
+  const onboarded = useProfileStore((state) => state.onboarded);
+  // Only once the sign-in page has closed, so it is the welcome that is replaced
+  const focused = useIsFocused();
+  const checked = useRef(false);
+  useEffect(() => {
+    if (!focused || onboarded || step !== 'welcome' || status !== 'signed-in' || checked.current) return;
+    checked.current = true;
+    const known = useUsernameStore.getState().username;
+    void (known ? Promise.resolve(known) : takeAccountUsername()).then((existing) => {
+      if (!existing) {
+        setStep('profile');
+        return;
+      }
+      useTourStore.getState().finish();
+      const profile = useProfileStore.getState();
+      profile.assignAvatar();
+      profile.setOnboarded(true);
+      router.replace('/');
+    });
+  }, [focused, onboarded, step, status]);
   const handleValid = isValidUsername(handle);
 
   const saveHandle = () => {
@@ -150,10 +152,7 @@ export default function OnboardingScreen() {
     return (
       <View style={[styles.root, { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom }]}>
         <Welcome
-          onSignIn={() => {
-            signingIn.current = true;
-            router.push('/sign-in');
-          }}
+          onSignIn={() => router.push('/sign-in')}
           onContinue={next}
         />
       </View>
