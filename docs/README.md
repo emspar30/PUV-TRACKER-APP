@@ -39,6 +39,7 @@ Start with **`STATUS.md`**.
 | `APP_FEEL_PLAN.md` | Demo mode and the clean-UI steps AF1 to AF10; approved 2026-10-04 with Emjay's answers |
 | `APP_CAPABILITIES.md` | What the app can do today, screen by screen, with status and evidence; shareable (2026-10-17) |
 | `PROPOSAL_TRACEABILITY.md` | Each thesis proposal commitment mapped to the build, with differences, reasons and defense risk; shareable (2026-10-17) |
+| `PANEL_AUDIT.md` | The proposal panel's comments checked against the build, with evidence, measurable targets, the survey gap and answers to read aloud (2026-11-04) |
 
 ## 3. History (`docs/history/`)
 
