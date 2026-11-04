@@ -17,8 +17,10 @@ On each test phone: **Menu → Demo & simulation → Field test log**, then turn
 | `rssi` | Each Bluetooth reading of a multicab beacon, at most one every 2 s (`FIELD_LOG_RSSI_EVERY_S`) | E1, E2 |
 | `verified`, `not_verified` | The verification window's result, the seconds it took, and the reasons | V1a pass rate, E9 |
 | `primary`, `secondary` | This phone's baton role changes (BT1) | Handoff time |
+| `delay` | Each live position the Map receives: milliseconds from its measurement on the relaying phone to this phone, with the multicab's ID | Map delay (N1) |
+| `track_start`, `eta`, `arrived` | Tracking starts; the ETA to the commuter, once per new position of the tracked multicab (seconds); the multicab reaches the commuter and tracking ends | ETA error |
 
-The screen sums them up: relays and hours, battery % per hour, KB per hour (target under 150), background gaps, the Bluetooth signal's median and range, the verified share and its median time, and handoffs. **Export as CSV** shares the whole log through Android's share sheet (Gmail, Drive, Messenger). **Clear the log** before each experiment, so one export holds one experiment. The log stays on the phone and is never sent to the server.
+The screen sums them up: relays and hours, battery % per hour, KB per hour (target under 150), background gaps, the Bluetooth signal's median and range, the verified share and its median time, handoffs, the map delay (median, 90th percentile, and the share under 5 s, `FIELD_DELAY_TARGET_S`), and the ETA error (median error either way, and the bias: above 0 means the multicab came earlier than shown). **Export as CSV** shares the whole log through Android's share sheet (Gmail, Drive, Messenger). **Clear the log** before each experiment, so one export holds one experiment. The log stays on the phone and is never sent to the server.
 
 Write the phone model, Android version, the setting tried and the time on each run in `docs/device-tests.md`, with the exported CSV's file name.
 
@@ -75,3 +77,5 @@ Write the phone model, Android version, the setting tried and the time on each r
 - **Time to the first boarding prompt:** from a check-in to "Did you board?" when a multicab of the route stops at the stop.
 - **Verification pass rate on honest rides:** from E9's summary.
 - **Handoff time:** the time between the Primary stopping and the backup phone's `primary` event.
+- **Map delay (N1, target under 5 s):** a second phone, signed in to a team account, keeps the Map open on the relayed route with the log recording while the first phone relays. Its summary gives the delay. Both phones must use automatic network time, because the delay compares the two phones' clocks; a gap between the clocks adds to every reading. Positions sent late from the phone's store after a dead zone show as long delays; report them, and the median without them, separately.
+- **ETA error:** a commuter at a stop tracks an approaching relayed multicab with the log recording, and keeps the Map open until it arrives. Each ETA shown is compared with the time the app noted the arrival. Tracking sessions stopped or timed out before the arrival are left out. The arrival is noted from the multicab's positions, so it carries the map delay too.

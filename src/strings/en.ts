@@ -919,8 +919,8 @@ export const en = {
   fieldLog: {
     title: 'Field test log',
     entry: 'Field test log',
-    entryBody: 'Battery, data, Bluetooth and verification during relays',
-    body: 'For the field experiments (docs/FIELD_TESTS.md). While recording, Tunton notes each relay, the battery every 5 minutes, the data it sends, background gaps, Bluetooth signal, verification results and who shares a multicab. It stays on this phone until you export it.',
+    entryBody: 'Battery, data, Bluetooth, verification, map delay and ETA',
+    body: 'For the field experiments (docs/FIELD_TESTS.md). While recording, Tunton notes each relay, the battery every 5 minutes, the data it sends, background gaps, Bluetooth signal, verification results and who shares a multicab. On the Map it also notes how long each live position took to arrive, and the ETA of a tracked multicab against when it arrived. It stays on this phone until you export it.',
     recording: 'Recording',
     events: (count: number) => `${count} ${count === 1 ? 'event' : 'events'} recorded`,
     summary: 'Summary',
@@ -936,6 +936,11 @@ export const en = {
     verify: (rate: string, time: string) => `Verified rides: ${rate}, median time ${time}`,
     verifyNone: 'Verified rides: none checked yet',
     handoffs: (count: number) => `Baton handoffs to this phone: ${count}`,
+    delay: (count: number, median: string, p90: string, under: string, target: number) =>
+      `Map delay: ${count} live updates, median ${median}, 90 % within ${p90}, ${under} under ${target} s`,
+    delayNone: 'Map delay: no live updates yet',
+    eta: (count: number, absError: string, error: string) => `ETA error: ${count} ETAs, median ${absError} off, bias ${error} (above 0: it came earlier than shown)`,
+    etaNone: 'ETA error: no tracked arrival yet',
     export: 'Export as CSV',
     exportTitle: 'Tunton field test log',
     clear: 'Clear the log',

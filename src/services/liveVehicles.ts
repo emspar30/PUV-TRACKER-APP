@@ -1,5 +1,6 @@
 import type { LiveVehiclesPort } from '@/data/live/liveVehicles';
 import { LIVE_ROW_COLUMNS, type LiveRow } from '@/shared/telemetry/liveRow';
+import { fieldLog } from '@/state/fieldLogStore';
 
 import { getSupabase } from './supabase';
 
@@ -36,7 +37,11 @@ export const supabaseVehiclesPort: LiveVehiclesPort = {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'telemetry_latest', filter: `vehicle_id=in.(${vehicleIds.join(',')})` },
         (change) => {
-          if (change.eventType !== 'DELETE') onRow(change.new as LiveRow);
+          if (change.eventType === 'DELETE') return;
+          const row = change.new as LiveRow;
+          // N1 field test: from the position's measurement on the relaying phone to this phone's map
+          fieldLog('delay', Date.now() - Date.parse(row.packet_ts), row.vehicle_id);
+          onRow(row);
         },
       )
       .subscribe();

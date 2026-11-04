@@ -84,6 +84,7 @@ import { startTrackingSession } from '@/state/energyStore';
 import { isNetworkFailure } from '@/shared/util/networkError';
 import { setOnline } from '@/state/connectionStore';
 import { showDialog } from '@/state/dialogStore';
+import { fieldLog } from '@/state/fieldLogStore';
 import { useSessionStore } from '@/state/sessionStore';
 import { useHintsStore } from '@/state/hintsStore';
 import { useLocationStore } from '@/state/locationStore';
@@ -170,6 +171,8 @@ export default function MapScreen() {
   const startTrack = useTrackingStore((store) => store.start);
   const stopTracking = useTrackingStore((store) => store.stop);
   const previousEtaS = useRef<number | null>(null);
+  // Field test log: the packet whose ETA was last noted, so each position is noted once
+  const loggedEtaPacketMs = useRef<number | null>(null);
   const previousKm = useRef<number | null>(null);
   // A guard so one tap never pays twice
   const startingTrack = useRef(false);
@@ -330,6 +333,15 @@ export default function MapScreen() {
     previousEtaS.current = trackedEtaS;
   }, [alertOn, trackedEtaS]);
 
+  // Field test log (ETA accuracy): the ETA to the commuter, once per new position of the tracked
+  // multicab; the arrival below is noted too, so the summary can compare the two
+  const trackedPacketMs = tracked?.lastPacketMs ?? null;
+  useEffect(() => {
+    if (trackedPacketMs === null || trackedEtaS === null || loggedEtaPacketMs.current === trackedPacketMs) return;
+    loggedEtaPacketMs.current = trackedPacketMs;
+    fieldLog('eta', Math.round(trackedEtaS));
+  }, [trackedPacketMs, trackedEtaS]);
+
   // B2: a toast and a short vibration as the multicab comes within 1 km, 500 m, 250 m and 100 m of
   // the commuter, while the alert is on. In-app only, on any tab. When it reaches the commuter's
   // boarding point (or went by between readings), tracking ends by itself, alert on or off.
@@ -345,6 +357,7 @@ export default function MapScreen() {
     previousKm.current = trackedKm;
     if (hasArrived(previous, trackedKm, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M)) {
       previousKm.current = null;
+      fieldLog('arrived', undefined, trackedLabel ?? undefined);
       stopTracking();
       Vibration.vibrate();
       showToast({
@@ -456,6 +469,7 @@ export default function MapScreen() {
     }
     const target = live.vehicles.find((candidate) => candidate.id === id);
     startTrack({ vehicleId: id, routeCode, endsAtMs: session.endsAtMs, alertOn: arrivalAlert });
+    fieldLog('track_start', undefined, routeCode);
     setSelectedVehicle(id);
     previousEtaS.current = null;
     previousKm.current = null;

@@ -38,7 +38,42 @@ describe('S10 field test log', () => {
   });
 
   it('an empty log measures nothing', () => {
-    expect(summarize([])).toEqual({ relays: 0, relayHours: 0, batteryPctPerHour: null, kbPerHour: null, gaps: 0, rssi: null, verifyPassRate: null, medianVerifyS: null, handoffs: 0 });
+    expect(summarize([])).toEqual({
+      relays: 0,
+      relayHours: 0,
+      batteryPctPerHour: null,
+      kbPerHour: null,
+      gaps: 0,
+      rssi: null,
+      verifyPassRate: null,
+      medianVerifyS: null,
+      handoffs: 0,
+      delay: null,
+      eta: null,
+    });
+  });
+
+  it('gives the map delay in seconds, its 90th percentile and the share under the N1 target', () => {
+    const delays = [1200, 2500, 3000, 4000, 9000].map((value, i): FieldEvent => ({ atMs: T0 + i * MIN, kind: 'delay', value }));
+    expect(summarize(delays).delay).toEqual({ count: 5, medianS: 3, p90S: 9, underTargetPct: 80 });
+  });
+
+  it('compares each ETA with the arrival that ended its tracking session', () => {
+    const s = summarize([
+      // Stopped without an arrival: its ETA is dropped at the next track_start
+      { atMs: T0, kind: 'track_start', note: 'R4' },
+      { atMs: T0 + 1 * MIN, kind: 'eta', value: 600 },
+      { atMs: T0 + 2 * MIN, kind: 'track_start', note: 'R4' },
+      // Shown 5 min, came after 6 (60 s late); shown 3 min, came after 3.5 (30 s late)
+      { atMs: T0 + 3 * MIN, kind: 'eta', value: 300 },
+      { atMs: T0 + 5.5 * MIN, kind: 'eta', value: 180 },
+      { atMs: T0 + 9 * MIN, kind: 'arrived', note: 'ABC 123' },
+      // Shown 2 min, came after 1.5 (30 s early)
+      { atMs: T0 + 20 * MIN, kind: 'track_start', note: 'R1' },
+      { atMs: T0 + 21 * MIN, kind: 'eta', value: 120 },
+      { atMs: T0 + 22.5 * MIN, kind: 'arrived' },
+    ]);
+    expect(s.eta).toEqual({ count: 3, medianAbsErrorS: 30, medianErrorS: -30 });
   });
 
   it('exports CSV with one line per event, quoting notes that need it', () => {

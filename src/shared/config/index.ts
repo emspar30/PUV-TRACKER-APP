@@ -599,6 +599,9 @@ export const DETOUR_WIDTH = 4;
 export const FIELD_LOG_MAX_EVENTS = 5000;
 export const FIELD_BATTERY_SAMPLE_MIN = 5;
 export const FIELD_LOG_RSSI_EVERY_S = 2;
+// N1 (proposal 3.3.2.2): a position should reach the other phones' maps within this many seconds; the
+// field test log's summary gives the share of live updates under it
+export const FIELD_DELAY_TARGET_S = 5;
 // V1b: during a relay the phone's activity recognition reports about this often
 export const MOTION_SAMPLE_INTERVAL_MS = 5000;
 export const RELAY_POST_GRACE_MIN = 15;

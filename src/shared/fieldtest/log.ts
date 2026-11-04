@@ -1,8 +1,12 @@
 // S10 (PRD 0.2 S10, 3.3, 17.1): the field test log. While recording is on, the app notes what the field
 // experiments measure: relays and their length, battery while relaying (E4), bytes sent (E6), gaps
 // when the phone stopped Tunton in the background (E5), Bluetooth signal readings (E1, E2), verification
-// results and their time (V1a, E9), and baton roles (BT1). summarize() gives the per-hour figures the
-// targets in PRD 3.3 use; toCsv() is what the Export button shares. Pure.
+// results and their time (V1a, E9), baton roles (BT1), the delay from a position's measurement to this
+// phone's map (N1), and the tracked multicab's predicted ETA against its arrival (ETA accuracy).
+// summarize() gives the per-hour figures the targets in PRD 3.3 use; toCsv() is what the Export button
+// shares. Pure.
+
+import { FIELD_DELAY_TARGET_S } from '../config';
 
 const MS_PER_S = 1000;
 const MS_PER_H = 3_600_000;
@@ -12,10 +16,26 @@ const HALF = 0.5;
 const EVEN = 2;
 // A battery drop needs a first and a last reading
 const MIN_READINGS = 2;
+const P90 = 0.9;
 
-export type FieldEventKind = 'relay_start' | 'relay_end' | 'battery' | 'sent' | 'gap' | 'rssi' | 'verified' | 'not_verified' | 'primary' | 'secondary';
+export type FieldEventKind =
+  | 'relay_start'
+  | 'relay_end'
+  | 'battery'
+  | 'sent'
+  | 'gap'
+  | 'rssi'
+  | 'verified'
+  | 'not_verified'
+  | 'primary'
+  | 'secondary'
+  | 'delay'
+  | 'track_start'
+  | 'eta'
+  | 'arrived';
 
-// value: battery %, bytes, gap minutes, RSSI dBm, or seconds to the verification result
+// value: battery %, bytes, gap minutes, RSSI dBm, seconds to the verification result, delay ms, or
+// predicted ETA seconds
 export type FieldEvent = { atMs: number; kind: FieldEventKind; value?: number; note?: string };
 
 export type FieldSummary = {
@@ -28,6 +48,11 @@ export type FieldSummary = {
   verifyPassRate: number | null;
   medianVerifyS: number | null;
   handoffs: number;
+  // N1: from the position's measurement to this phone's map, in seconds; underTargetPct is the share
+  // under FIELD_DELAY_TARGET_S
+  delay: { count: number; medianS: number; p90S: number; underTargetPct: number } | null;
+  // Predicted arrival minus the actual arrival, in seconds: positive means it came earlier than shown
+  eta: { count: number; medianAbsErrorS: number; medianErrorS: number } | null;
 };
 
 const median = (values: number[]): number => {
@@ -52,6 +77,28 @@ function relaySpans(events: readonly FieldEvent[]): { fromMs: number; toMs: numb
   }
   if (open !== null) spans.push({ fromMs: open, toMs: lastMs });
   return spans;
+}
+
+// The value at fraction q of the sorted values (nearest rank)
+const quantile = (values: number[], q: number): number => {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(q * sorted.length) - 1))];
+};
+
+// Each ETA shown while tracking, paired with the arrival that ended that tracking session. ETAs of a
+// session that ended without an arrival (stopped, timed out) are dropped at the next track_start.
+function etaErrorsS(events: readonly FieldEvent[]): number[] {
+  const errors: number[] = [];
+  let pending: FieldEvent[] = [];
+  for (const event of events) {
+    if (event.kind === 'track_start') pending = [];
+    else if (event.kind === 'eta' && typeof event.value === 'number') pending.push(event);
+    else if (event.kind === 'arrived') {
+      for (const eta of pending) errors.push((eta.atMs + (eta.value as number) * MS_PER_S - event.atMs) / MS_PER_S);
+      pending = [];
+    }
+  }
+  return errors;
 }
 
 const inSpans = (atMs: number, spans: readonly { fromMs: number; toMs: number }[]) => spans.some((span) => atMs >= span.fromMs && atMs <= span.toMs);
@@ -85,6 +132,8 @@ export function summarize(unsorted: readonly FieldEvent[]): FieldSummary {
     if (lastRole === 'secondary' && event.kind === 'primary') handoffs += 1;
     lastRole = event.kind;
   }
+  const delaysS = valuesOf('delay').map((ms) => ms / MS_PER_S);
+  const etaErrors = etaErrorsS(events);
 
   return {
     relays: spans.length,
@@ -96,6 +145,16 @@ export function summarize(unsorted: readonly FieldEvent[]): FieldSummary {
     verifyPassRate: passed + failed > 0 ? (PERCENT * passed) / (passed + failed) : null,
     medianVerifyS: verifyTimes.length > 0 ? median(verifyTimes) : null,
     handoffs,
+    delay:
+      delaysS.length > 0
+        ? {
+            count: delaysS.length,
+            medianS: median(delaysS),
+            p90S: quantile(delaysS, P90),
+            underTargetPct: (PERCENT * delaysS.filter((value) => value < FIELD_DELAY_TARGET_S).length) / delaysS.length,
+          }
+        : null,
+    eta: etaErrors.length > 0 ? { count: etaErrors.length, medianAbsErrorS: median(etaErrors.map(Math.abs)), medianErrorS: median(etaErrors) } : null,
   };
 }
 
