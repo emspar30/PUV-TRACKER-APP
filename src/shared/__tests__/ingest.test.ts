@@ -17,6 +17,7 @@ const NOW_S = NOW_MS / 1000;
 
 const WRITER = { token: 'token-writer', userId: 'user-writer' };
 const OUTSIDER = { token: 'token-outsider', userId: 'user-outsider' };
+const SUSPENDED = { token: 'token-suspended', userId: 'user-suspended' };
 
 const PACKET: TelemetryPacket = {
   vehicle_id: 'R4-TEST-01',
@@ -54,8 +55,9 @@ function fakeBackend() {
   const deps: IngestDeps = {
     nowMs: () => NOW_MS,
     getUserId: async (token) =>
-      token === WRITER.token ? WRITER.userId : token === OUTSIDER.token ? OUTSIDER.userId : null,
-    isAllowedWriter: async (userId) => userId === WRITER.userId,
+      token === WRITER.token ? WRITER.userId : token === OUTSIDER.token ? OUTSIDER.userId : token === SUSPENDED.token ? SUSPENDED.userId : null,
+    isAllowedWriter: async (userId) => userId === WRITER.userId || userId === SUSPENDED.userId,
+    isSuspended: async (userId) => userId === SUSPENDED.userId,
     getVehicle: async (id) => vehicles.get(id) ?? null,
     getLatest: async (id) => latest.get(id) ?? null,
     upsertLatest: async (row) => {
@@ -155,6 +157,13 @@ describe('ingest rejects callers who may not write', () => {
       backend.deps,
     );
     expect(response.status).toBe(401);
+  });
+
+  it('rejects a suspended account even on the allowlist, and changes nothing (A3)', async () => {
+    const backend = fakeBackend();
+    expect(await send(backend, {}, SUSPENDED.token)).toEqual({ status: 403, body: { error: 'suspended' } });
+    expect(backend.latest.size).toBe(0);
+    expect(backend.log).toEqual([]);
   });
 
   it('rejects a non-allowlisted account, changes nothing and logs nothing about it', async () => {

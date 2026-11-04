@@ -51,6 +51,8 @@ export type IngestDeps = {
   getUserId(accessToken: string): Promise<string | null>;
   // Whether the user is on the team allowlist of telemetry writers
   isAllowedWriter(userId: string): Promise<boolean>;
+  // A3: whether the account is suspended now (profiles.suspended_until in the future)
+  isSuspended(userId: string): Promise<boolean>;
   // route_id: for NM1's stop passages (absent in older fakes: no passages are recorded)
   getVehicle(vehicleId: string): Promise<{ active: boolean; route_id?: string } | null>;
   // lat and lon: for RK1's speed jump check (absent in older fakes: no check)
@@ -94,6 +96,7 @@ export type IngestError =
   | 'method_not_allowed'
   | 'unauthorized'
   | 'forbidden'
+  | 'suspended'
   | 'packet_too_large'
   | 'invalid_json'
   | 'unknown_vehicle'
@@ -249,6 +252,8 @@ export async function handleIngest(request: IngestRequest, deps: IngestDeps): Pr
 
   // 2. Verification is off in v0, so only team accounts on the allowlist may write (PRD 0.7 safety rule)
   if (!(await deps.isAllowedWriter(userId))) return { status: 403, body: { error: 'forbidden' } };
+  // A3: a suspended account is refused here too, not only in the app
+  if (await deps.isSuspended(userId)) return { status: 403, body: { error: 'suspended' } };
 
   const reject: Reject = async (status, error, vehicleId, field) => {
     await deps.log({ user_id: userId, vehicle_id: vehicleId, accepted: false, reason: error });

@@ -34,6 +34,12 @@ const deps: IngestDeps = {
     return data !== null;
   },
 
+  isSuspended: async (userId) => {
+    const { data, error } = await admin.from('profiles').select('suspended_until').eq('user_id', userId).maybeSingle();
+    if (error) throw error;
+    return data?.suspended_until != null && Date.parse(data.suspended_until) > Date.now();
+  },
+
   getVehicle: async (vehicleId) => {
     const { data, error } = await admin.from('vehicles').select('active, route_id').eq('vehicle_id', vehicleId).maybeSingle();
     if (error) throw error;

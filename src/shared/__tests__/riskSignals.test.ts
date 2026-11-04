@@ -50,6 +50,7 @@ describe('ingest refuses an impossible jump and books it (RK1)', () => {
       nowMs: () => T0,
       getUserId: async () => 'writer',
       isAllowedWriter: async () => true,
+      isSuspended: async () => false,
       getVehicle: async () => ({ active: true }),
       getLatest: async () => latest,
       upsertLatest: async (row) => {

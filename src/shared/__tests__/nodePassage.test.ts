@@ -53,6 +53,7 @@ describe('ingest records stop passages (NM1)', () => {
       nowMs: () => T0,
       getUserId: async () => 'writer',
       isAllowedWriter: async () => true,
+      isSuspended: async () => false,
       getVehicle: async () => ({ active: true, route_id: 'R4' }),
       getLatest: async () => null,
       upsertLatest: async () => undefined,
