@@ -42,6 +42,8 @@ describe('saved Crowdsource feed', () => {
   it('reads back only well-formed live posts', () => {
     expect(isSavedPost(post('a', 1))).toBe(true);
     expect(isSavedPost(post('a', 1, { verified: true, phrase: null, seatTier: null }))).toBe(true);
+    expect(isSavedPost(post('a', 1, { ended: true }))).toBe(true);
+    expect(isSavedPost({ ...post('a', 1), ended: 'yes' })).toBe(false);
     expect(isSavedPost(post('a', 1, { demo: true }))).toBe(false);
     expect(isSavedPost({ ...post('a', 1), phrase: 'party' })).toBe(false);
     expect(isSavedPost({ ...post('a', 1), postedMs: 'yesterday' })).toBe(false);

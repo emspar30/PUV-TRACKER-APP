@@ -112,9 +112,9 @@ describe('migration: tables', () => {
     const columns = body.slice(0, body.indexOf(');'));
     expect(columns).not.toMatch(/\blat\b|\blon\b|\btext\s+text\b|message|comment/);
     expect(columns).toMatch(/phrase\s+text not null check \(phrase in \('full', 'few_seats', 'not_moving', 'heavy_traffic', 'loading'\)\)/);
-    // B6 added stop_code and author_trusted in grants of their own, RL2a live_map
+    // B6 added stop_code and author_trusted in grants of their own, RL2a live_map, 2026-11-05 ended
     const grants = clientGrantsOn('public.feed_posts');
-    expect(grants).toHaveLength(4);
+    expect(grants).toHaveLength(5);
     for (const grant of grants) {
       expect(grant).toMatch(/^grant select \(/);
       expect(grant).not.toContain('user_id');
@@ -625,6 +625,27 @@ describe('migration: relay gate (RL2a)', () => {
     }
     // An ended or hidden post never comes back
     expect(gateSql).toMatch(/f\.ended_at is null\s+and not f\.hidden/);
+  });
+});
+
+describe('migration: ended Crowdsource relays stay (2026-11-05)', () => {
+  const keepSql = read(['20261105000000_relay_end_keep.sql']);
+  const body = keepSql.slice(keepSql.indexOf('create or replace function public.end_report'));
+
+  it('clients read whether a relay ended, never when', () => {
+    expect(keepSql).toContain('add column ended boolean generated always as (ended_at is not null) stored');
+    expect(statements).toContain('grant select (ended) on public.feed_posts to authenticated');
+    expect(statements.some((s) => s.startsWith('grant') && s.includes('ended_at'))).toBe(false);
+  });
+
+  it('keeps a running Crowdsource post until feed_lifetime_min after it was posted; the rest leave now', () => {
+    expect(body).toContain('security definer');
+    expect(body).toContain("set search_path = ''");
+    expect(body).toContain('f.user_id = uid');
+    expect(body).toContain('f.ended_at is null');
+    expect(body).toMatch(/when not f\.live_map and f\.expires_at > now\(\)\s+then f\.created_at \+ make_interval\(mins => cfg\.feed_lifetime_min\)/);
+    expect(body).toContain('else least(f.expires_at, now())');
+    expect(keepSql).not.toMatch(/drop/);
   });
 });
 

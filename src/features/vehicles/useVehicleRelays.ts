@@ -47,6 +47,6 @@ export function useVehicleRelays(): readonly StatusRelay[] {
     const made = demo && state.nowMs > 0 ? demoFeed(routeCodesOf(lines), state.nowMs, DEMO_SEED) : [];
     return [...state.posts, ...made]
       .filter((post) => post.vehicleId !== null && post.phrase !== null)
-      .map((post) => ({ vehicleId: post.demo && post.vehicleId ? demoVehicleIdOf(post.vehicleId) : post.vehicleId, phrase: post.phrase, postedMs: post.postedMs }));
+      .map((post) => ({ vehicleId: post.demo && post.vehicleId ? demoVehicleIdOf(post.vehicleId) : post.vehicleId, phrase: post.phrase, postedMs: post.postedMs, ended: post.ended }));
   }, [state, demo, lines]);
 }

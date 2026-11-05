@@ -4,7 +4,7 @@
 // Pure: no React Native or Expo imports.
 
 import { relayEarnKind, relayedRecently } from '../../shared/backend/rules';
-import { CHECKIN_LIFETIME_S, DEMO_CHECKIN_OTHERS_MAX, DEMO_CHECKIN_SLOT_MIN, RELAY_POST_GRACE_MIN, RELAY_POST_REVIVE_MIN, RELAY_SAME_VEHICLE_GAP_H } from '../../shared/config';
+import { CHECKIN_LIFETIME_S, DEMO_CHECKIN_OTHERS_MAX, DEMO_CHECKIN_SLOT_MIN, FEED_LIFETIME_MIN, RELAY_POST_GRACE_MIN, RELAY_POST_REVIVE_MIN, RELAY_SAME_VEHICLE_GAP_H } from '../../shared/config';
 import type { FeedPost } from '../../shared/demo/feed';
 import { childSeed, seededRandom } from '../../shared/util/random';
 import type { CrowdRepositories } from '../repositories/select';
@@ -24,7 +24,7 @@ export function createDemoCrowd(
 ): CrowdRepositories {
   let mine: Mine | null = null;
   let posts: FeedPost[] = [];
-  // RL2a: when each of the user's posts lapses (moved on by keep, set to now by end), and the ended ones
+  // RL2a: when each of the user's posts lapses (moved on by keep, set by end), and the ended ones
   const expiresMs = new Map<string, number>();
   const ended = new Set<string>();
   // RL2b: the multicabs the user relayed lately, for the same-multicab rule
@@ -103,10 +103,17 @@ export function createDemoCrowd(
         return true;
       },
 
+      // As end_report: a Crowdsource post still up stays, marked ended, until FEED_LIFETIME_MIN
+      // after it was posted; a live-map one, or one already lapsed, goes now
       async end(postId) {
-        if (!expiresMs.has(postId)) return;
+        const until = expiresMs.get(postId);
+        if (until === undefined || ended.has(postId)) return;
         ended.add(postId);
-        expiresMs.set(postId, now());
+        const atMs = now();
+        const post = posts.find((each) => each.id === postId);
+        const keep = post !== undefined && !post.liveMap && until > atMs;
+        expiresMs.set(postId, keep ? post.postedMs + FEED_LIFETIME_MIN * MS_PER_MIN : Math.min(until, atMs));
+        posts = posts.map((each) => (each.id === postId ? { ...each, ended: true } : each));
       },
 
       // V1a: the user's own demo post shows as verified

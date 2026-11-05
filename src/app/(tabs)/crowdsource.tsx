@@ -1,5 +1,5 @@
 import { useIsFocused } from 'expo-router';
-import { BadgeCheck, Clock, Flag, MapPin, MessagesSquare, ShieldCheck } from 'lucide-react-native';
+import { BadgeCheck, Clock, Flag, LogOut, MapPin, MessagesSquare, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -283,6 +283,15 @@ function PostCard({ post, nowMs, color, stopName, mine }: { post: FeedPost; nowM
         <View style={styles.row} accessible accessibilityLabel={strings.crowdsource.verifiedLabel}>
           <BadgeCheck color={colors.success} size={ICON_SIZE} />
           <Text style={[typography.labelMd, styles.trustedText]}>{strings.crowdsource.verified}</Text>
+        </View>
+      ) : null}
+      {/* The relay ended; the report stays until the feed's lifetime */}
+      {post.ended ? (
+        <View style={styles.row} accessible accessibilityLabel={strings.crowdsource.endedLabel}>
+          <LogOut color={colors.textSecondary} size={ICON_SIZE} />
+          <Text style={[typography.bodySm, styles.grow]} numberOfLines={1}>
+            {strings.crowdsource.ended}
+          </Text>
         </View>
       ) : null}
     </Card>

@@ -129,6 +129,9 @@ export const en = {
     // V1a: the relay passed the verification window
     verified: 'Verified ride',
     verifiedLabel: 'Verified ride: the multicab moved along its route with the rider',
+    // The relay ended; the report stays until an hour after it was posted
+    ended: 'Ride ended · seats may have changed',
+    endedLabel: 'The rider is no longer on this multicab, so the seats may have changed',
     trustedLabel: 'Trusted commuter: 5 check-ins or relays nobody flagged',
     near: (stop: string) => `Near ${stop}`,
     all: 'All routes',

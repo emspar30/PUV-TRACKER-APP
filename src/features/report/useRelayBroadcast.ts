@@ -37,7 +37,8 @@ function endToast(end: RelayEnd, session: RelayBroadcast) {
 // position and every RELAY_CHECK_S (every second during the arrival countdown); the end comes with a
 // short vibration and a toast. Returns the running session, or null.
 // RL2a (D12): a Crowdsource relay's post is kept up by a "still riding" signal every
-// RELAY_HEARTBEAT_MIN (no coordinates), and ended on the server when the relay ends, however it ends.
+// RELAY_HEARTBEAT_MIN (no coordinates), and ended on the server when the relay ends, however it ends;
+// it then stays in Crowdsource, marked ended, until FEED_LIFETIME_MIN after it was posted.
 // If the battery runs out, no signal comes and the post lapses by itself.
 export function useRelayBroadcast(position: LatLon | null): RelayBroadcast | null {
   const session = useRelayStore((store) => store.session);
@@ -90,7 +91,8 @@ export function useRelayBroadcast(position: LatLon | null): RelayBroadcast | nul
     return () => clearInterval(timer);
   }, [post, stop]);
 
-  // The post leaves Crowdsource when its relay ends, whichever way. Not when this screen goes away:
+  // The post is ended on the server when its relay ends, whichever way (a Crowdsource post then
+  // stays, marked ended, until the feed's lifetime). Not when this screen goes away:
   // the relay outlives it, and a relay lost with the app lapses by itself
   const lastPost = useRef<RelayPost | null>(null);
   useEffect(() => {

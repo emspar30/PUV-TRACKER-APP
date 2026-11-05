@@ -37,6 +37,11 @@ describe('vehicle status', () => {
     expect(vehicleStatus(moving, [relay('loading', 1, 'v2'), relay('loading', 1, null)], NOW)).toBe('moving');
   });
 
+  it('an ended relay no longer counts (2026-11-05)', () => {
+    expect(vehicleStatus(moving, [{ ...relay('loading', 1), ended: true }], NOW)).toBe('moving');
+    expect(vehicleStatus(moving, [{ ...relay('loading', 1), ended: false }], NOW)).toBe('loading');
+  });
+
   it(`a relay older than ${VEHICLE_STATUS_RELAY_MAX_MIN} minutes no longer counts`, () => {
     expect(vehicleStatus(moving, [relay('loading', VEHICLE_STATUS_RELAY_MAX_MIN)], NOW)).toBe('loading');
     expect(vehicleStatus(moving, [relay('loading', VEHICLE_STATUS_RELAY_MAX_MIN + 1)], NOW)).toBe('moving');

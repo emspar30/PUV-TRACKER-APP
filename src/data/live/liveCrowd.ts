@@ -23,6 +23,8 @@ export type FeedRow = {
   live_map: boolean;
   // V1a: passed the verification window (absent from older rows and fakes)
   verified?: boolean;
+  // The relay ended and the post stays until the feed's lifetime (20261105000000; absent before it)
+  ended?: boolean;
   created_at: string;
 };
 
@@ -81,6 +83,7 @@ export function feedPostOf(row: FeedRow): FeedPost | null {
     username: row.author_username,
     liveMap: row.live_map,
     verified: row.verified === true,
+    ended: row.ended === true,
     postedMs: Date.parse(row.created_at),
     demo: false,
   };

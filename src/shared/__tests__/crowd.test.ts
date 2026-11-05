@@ -18,6 +18,7 @@ import {
   ENERGY_TRACKING_COST,
   ENERGY_WALLET_CAP,
   ENERGY_WELCOME,
+  FEED_LIFETIME_MIN,
   GPS_ACCURACY_GATE_CHECKIN_M,
   GPS_ACCURACY_GATE_RELAY_M,
   RELAY_POST_GRACE_MIN,
@@ -200,6 +201,33 @@ describe('the demo loop (CA1.1): start full, spend on check-ins and tracking, ea
     expect(await crowd.reports.keep('report-aaaaaaaa')).toBe(false);
   });
 
+  it('an ended Crowdsource relay stays, marked ended, until FEED_LIFETIME_MIN after it was posted (2026-11-05)', async () => {
+    const { crowd, advance } = setup();
+    await crowd.reports.post({ ...REPORT, liveMap: false }, 'report-aaaaaaaa');
+    advance(10 * MIN);
+    expect(await crowd.reports.keep('report-aaaaaaaa')).toBe(true);
+    advance(10 * MIN);
+    await crowd.reports.end('report-aaaaaaaa');
+    expect(await crowd.reports.recent()).toMatchObject([{ id: 'report-aaaaaaaa', ended: true }]);
+    // Ended: no "still riding" brings it back to running
+    expect(await crowd.reports.keep('report-aaaaaaaa')).toBe(false);
+    advance((FEED_LIFETIME_MIN - 20) * MIN - 1);
+    expect(await crowd.reports.recent()).toHaveLength(1);
+    advance(1);
+    expect(await crowd.reports.recent()).toEqual([]);
+  });
+
+  it('an ended live-map relay, or one that had lapsed, leaves at once', async () => {
+    const { crowd, advance } = setup();
+    await crowd.reports.post({ ...REPORT, liveMap: true }, 'report-aaaaaaaa');
+    await crowd.reports.end('report-aaaaaaaa');
+    expect(await crowd.reports.recent()).toEqual([]);
+    await crowd.reports.post({ ...REPORT, liveMap: false, vehicleId: 'R4-02' }, 'report-bbbbbbbb');
+    advance(RELAY_POST_GRACE_MIN * MIN);
+    await crowd.reports.end('report-bbbbbbbb');
+    expect(await crowd.reports.recent()).toEqual([]);
+  });
+
   it('RL2a: a post lapsed RELAY_POST_REVIVE_MIN ago stays down; no multicab or no handle, no relay', async () => {
     const { crowd, advance } = setup();
     await crowd.reports.post({ ...REPORT, liveMap: false }, 'report-aaaaaaaa');
@@ -271,10 +299,18 @@ describe('the live check-ins and reports', () => {
         username: 'juan',
         liveMap: false,
         verified: false,
+        ended: false,
         postedMs: T0,
         demo: false,
       },
     ]);
+  });
+
+  it('maps an ended relay (2026-11-05)', () => {
+    const row = { id: 6, author_username: 'juan', route_id: 'R4', vehicle_id: null, phrase: null, seat_tier: 'green', stop_code: null, author_trusted: false, live_map: false, created_at: new Date(T0).toISOString() };
+    expect(feedPostOf({ ...row, ended: true })?.ended).toBe(true);
+    // Rows from before the migration have no ended column
+    expect(feedPostOf(row)?.ended).toBe(false);
   });
 
   it('returns the new post id, so the feed can mark the post as their own (EQ-7)', async () => {

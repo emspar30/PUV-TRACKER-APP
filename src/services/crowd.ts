@@ -76,7 +76,7 @@ export const supabaseCrowdPort: CrowdPort = {
   async feed() {
     const { data, error } = await getSupabase()
       .from('feed_posts')
-      .select('id, author_username, route_id, vehicle_id, phrase, seat_tier, stop_code, author_trusted, live_map, verified, created_at')
+      .select('id, author_username, route_id, vehicle_id, phrase, seat_tier, stop_code, author_trusted, live_map, verified, ended, created_at')
       // RL2a: Crowdsource lists relays kept off the live map; the others feed the live map
       .eq('live_map', false)
       .order('created_at', { ascending: false })

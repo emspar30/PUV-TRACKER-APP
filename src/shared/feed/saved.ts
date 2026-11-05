@@ -29,6 +29,7 @@ export function isSavedPost(value: unknown): value is FeedPost {
     isText(post.username) &&
     typeof post.liveMap === 'boolean' &&
     (post.verified === undefined || typeof post.verified === 'boolean') &&
+    (post.ended === undefined || typeof post.ended === 'boolean') &&
     typeof post.postedMs === 'number' &&
     Number.isFinite(post.postedMs) &&
     post.demo === false

@@ -26,6 +26,9 @@ export type FeedPost = {
   liveMap: boolean;
   // V1a: the relay passed the verification window (the multicab moved on its route with the rider)
   verified?: boolean;
+  // The relay ended (the rider got off or stopped sharing); the post stays until FEED_LIFETIME_MIN
+  // after it was posted, and its seats may have changed since
+  ended?: boolean;
   postedMs: number;
   demo: boolean;
 };

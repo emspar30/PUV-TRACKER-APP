@@ -81,7 +81,8 @@ export type ReportsRepository = {
   // RL2a (D12): a Crowdsource relay's "still riding" signal (renew_report): it stays up
   // RELAY_POST_GRACE_MIN more. false when the server no longer keeps it (ended, or lapsed too long)
   keep(postId: string): Promise<boolean>;
-  // RL2a: the relay ended (at the stop, idle, the cap, or Stop): the post leaves Crowdsource now
+  // RL2a: the relay ended (at the stop, idle, the cap, or Stop). A Crowdsource post stays, marked
+  // ended, until FEED_LIFETIME_MIN after it was posted (2026-11-05); a live-map one leaves now
   end(postId: string): Promise<void>;
   // V1a: the relay passed the verification window on the phone: its post shows as verified
   // (verify_report). Best effort.
