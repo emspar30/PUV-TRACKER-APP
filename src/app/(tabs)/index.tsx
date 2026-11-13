@@ -180,7 +180,7 @@ export default function MapScreen() {
   const fittedOnce = useRef(false);
 
   const repos = useRepositories();
-  const teamAccount = useSessionStore((state) => state.teamAccount);
+  const liveMapAccess = useSessionStore((state) => state.liveMapAccess);
   const location = useLiveLocation((center) =>
     setFocus((current) => ({ key: (current?.key ?? 0) + 1, kind: 'center', center, zoom: MAP_FOLLOW_ZOOM })),
   );
@@ -266,7 +266,7 @@ export default function MapScreen() {
   // V1a: the running relay is checked against the verification window
   useRelayVerification(relayLines, relayDetours);
   // BT1: a team rider on the live map leads the multicab's marker or is backup
-  useRelayBaton(commuter, relayLines, repos.vehicles.source === 'live' && teamAccount === true);
+  useRelayBaton(commuter, relayLines, repos.vehicles.source === 'live' && liveMapAccess === true);
   // RL2c (D12): a relay queued after Send, released once the multicab moves off with the rider
   const queuedRelay = useRelayQueue(commuter, relayLines, repos.vehicles);
   const cancelQueued = useRelayStore((store) => store.dequeue);
@@ -274,7 +274,7 @@ export default function MapScreen() {
   useBackgroundRelay();
   // T1: a team account's relay on the live map moves its multicab's marker; buffered through dead
   // zones. RL2a: a Crowdsource relay sends no positions
-  const uplink = useGpsBroadcast(relay?.mode === 'live' ? relay : null, repos.vehicles.source === 'live' && teamAccount === true);
+  const uplink = useGpsBroadcast(relay?.mode === 'live' ? relay : null, repos.vehicles.source === 'live' && liveMapAccess === true);
 
   // L1: at night the server shows only stopped multicabs (PRD 10.4), so an empty live route says
   // Night Mode rather than No data. The server decides; this only labels it. Demo data follows the
@@ -283,7 +283,7 @@ export default function MapScreen() {
   // NM1 (PRD 10.4): at night, live or demo, the picked route shows the stops its multicabs passed
   const nightStops = useNightPassages(repos.vehicles, focused && selectedRoute && isNight(live.nowMs) ? selectedRoute : null);
   // Live vehicles are for team accounts only in v0; a signed-in account off the list is told why
-  const offTeam = repos.vehicles.source === 'live' && teamAccount === false;
+  const offTeam = repos.vehicles.source === 'live' && liveMapAccess === false;
   // CF1 coverage nudge: the picked route has no Live multicab (whatever the seat filter), by day,
   // for anyone who could see one. Overlapping routes are then watched for an alternative nearby.
   const nudgeOn =

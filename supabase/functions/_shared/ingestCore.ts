@@ -49,7 +49,8 @@ export type IngestDeps = {
   nowMs(): number;
   // The signed-in user the access token belongs to, or null if the token is not valid
   getUserId(accessToken: string): Promise<string | null>;
-  // Whether the user is on the team allowlist of telemetry writers
+  // Whether the user may send live positions: any account while the live map is open to all
+  // (app_config.open_signup on, live_map_team_only off), else team accounts only
   isAllowedWriter(userId: string): Promise<boolean>;
   // A3: whether the account is suspended now (profiles.suspended_until in the future)
   isSuspended(userId: string): Promise<boolean>;
@@ -250,7 +251,8 @@ export async function handleIngest(request: IngestRequest, deps: IngestDeps): Pr
   const userId = await deps.getUserId(token);
   if (!userId) return { status: 401, body: { error: 'unauthorized' } };
 
-  // 2. Verification is off in v0, so only team accounts on the allowlist may write (PRD 0.7 safety rule)
+  // 2. Who may write: every account since 2026-11-13 (relays are checked by beacon and verification);
+  // team accounts only while app_config.live_map_team_only is on (the PRD 0.7 safety rule)
   if (!(await deps.isAllowedWriter(userId))) return { status: 403, body: { error: 'forbidden' } };
   // A3: a suspended account is refused here too, not only in the app
   if (await deps.isSuspended(userId)) return { status: 403, body: { error: 'suspended' } };

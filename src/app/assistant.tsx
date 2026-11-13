@@ -63,7 +63,7 @@ export default function AssistantScreen() {
   const commuter = useCommuterPosition();
   const [fareType] = useFareType();
   const repos = useRepositories();
-  const teamAccount = useSessionStore((state) => state.teamAccount);
+  const liveMapAccess = useSessionStore((state) => state.liveMapAccess);
   const focused = useIsFocused();
   const entries = useAssistantStore((state) => state.entries);
   // Typing opens the sheet fully, so the answers show above the keyboard
@@ -99,13 +99,13 @@ export default function AssistantScreen() {
       fareMultiplier: discountMultiplier(fareType),
       live: {
         // Live markers are for team accounts only (PRD 0.7); the demo is open to everyone
-        access: live && offline ? 'offline' : live && teamAccount !== true ? 'teamOnly' : 'open',
+        access: live && offline ? 'offline' : live && liveMapAccess !== true ? 'teamOnly' : 'open',
         night: live && supply.nowMs > 0 && isNight(supply.nowMs),
         vehicles: supply.vehicles,
         nowMs: supply.nowMs,
       },
     };
-  }, [lines, stops, places, commuter, fareType, repos.vehicles.source, teamAccount, supply, offline]);
+  }, [lines, stops, places, commuter, fareType, repos.vehicles.source, liveMapAccess, supply, offline]);
 
   const replies = useMemo<Reply[]>(
     () => entries.map((entry) => replyOf(answer(entry.intent, context), entry.intent, fareType)),

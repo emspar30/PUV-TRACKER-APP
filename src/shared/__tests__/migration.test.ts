@@ -292,12 +292,13 @@ describe('migration: row level security and grants', () => {
     expect(last).toMatch(/new\.author_relayed_before := exists[\s\S]*not f\.hidden/);
   });
 
-  it('v0: the live map is for team accounts only again; the moving-vehicle night rule stays', () => {
+  it('2026-11-13: the live map is open to every signed-in account again (switchable); the night rule stays', () => {
     const last = (table: string) => statements.filter((s) => s.startsWith(`alter policy "${table}:`) && s.includes(' using ')).pop() ?? '';
-    expect(last('vehicles')).toContain('public.is_team_account()');
-    expect(last('telemetry_latest')).toContain('public.is_team_account()');
+    expect(last('vehicles')).toContain('public.may_use_live_map()');
+    expect(last('telemetry_latest')).toContain('public.may_use_live_map()');
     expect(last('telemetry_latest')).toContain('not public.is_night(now())');
-    expect(sql).toMatch(/rename to "telemetry_latest: team accounts read active vehicles"/);
+    expect(sql).toMatch(/rename to "telemetry_latest: live map users read active vehicles"/);
+    expect(sql).toMatch(/rename to "vehicles: live map users read active vehicles"/);
   });
 
   it('Night Mode (Emjay, 2026-11-03): the last telemetry_latest rule hides every vehicle at night, standing ones too', () => {
@@ -691,6 +692,39 @@ describe('migration: relay baton (BT1)', () => {
     expect(sql).toContain('grant execute on function public.relay_primary(text) to service_role');
     expect(sql).toContain('grant execute on function public.relay_heartbeat(text, real, boolean, boolean) to authenticated');
     expect(sql).toContain('grant execute on function public.relay_leave(text) to authenticated');
+  });
+});
+
+describe('migration: the live map for every account (2026-11-13)', () => {
+  const openSql = read(['20261113000000_live_map_open.sql']);
+  const fn = openSql.slice(openSql.indexOf('create function public.may_use_live_map'));
+  const heartbeat = openSql.slice(openSql.indexOf('create or replace function public.relay_heartbeat'));
+
+  it('a switch, off by default, puts the team rule back', () => {
+    expect(openSql).toContain('add column live_map_team_only boolean not null default false');
+    expect(fn).toContain('security definer');
+    expect(fn).toContain("set search_path = ''");
+    expect(fn).toMatch(/\(select auth\.uid\(\)\) is not null\s+and \(not \(select c\.live_map_team_only from public\.app_config c\) or public\.is_team_account\(\)\)/);
+    expect(openSql).toContain('revoke execute on function public.may_use_live_map() from public, anon');
+    expect(openSql).toContain('grant execute on function public.may_use_live_map() to authenticated');
+  });
+
+  it('the baton takes any participant who may use the live map; the ranking is unchanged', () => {
+    expect(heartbeat).toContain('if not (public.may_participate() and public.may_use_live_map()) then');
+    expect(heartbeat).not.toContain('is_team_account');
+    expect(heartbeat).toContain("pg_advisory_xact_lock(hashtext('relay_baton:' || relay_heartbeat.vehicle))");
+    expect(heartbeat).toContain('order by r.eligible desc, r.moved_back asc, r.left_m desc, r.joined_at asc');
+  });
+
+  it('the ingest function follows the same switch, and still refuses suspended accounts', () => {
+    const ingest = fs.readFileSync(path.join(ROOT, 'supabase', 'functions', 'ingest', 'index.ts'), 'utf8');
+    expect(ingest).toContain(".from('app_config').select('open_signup, live_map_team_only')");
+    expect(ingest).toContain('if (config.open_signup && !config.live_map_team_only) return true;');
+    expect(ingest).toContain('isSuspended');
+  });
+
+  it('removes nothing', () => {
+    expect(openSql).not.toMatch(/\b(drop|truncate|delete from public\.(?!relay_sessions))/);
   });
 });
 

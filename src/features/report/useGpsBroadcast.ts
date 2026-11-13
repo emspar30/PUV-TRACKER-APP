@@ -17,7 +17,7 @@ const MS_PER_S = 1000;
 export type UplinkStatus =
   // The relay has no multicab picked, so no marker moves
   | { kind: 'noVehicle' }
-  // Not a team account: live markers are for the team only (PRD 0.7), so nothing is sent
+  // This account may not use the live map (team accounts only while the server says so), so nothing is sent
   | { kind: 'offTeam' }
   // No position good enough to send yet
   | { kind: 'waiting' }
@@ -29,11 +29,11 @@ export type UplinkStatus =
   | { kind: 'backup' };
 
 // T1: foreground GPS broadcasting (PRD 8.4). While a relay with GPS and a picked multicab runs, a
-// team account's fixes become packets by the send rule (shared/telemetry/sendRule), each stored in
+// live map account's fixes become packets by the send rule (shared/telemetry/sendRule), each stored in
 // the phone's buffer and sent from there as one batch. A failed send keeps the buffer and tries again
 // later (retryDelayS); the buffer is also sent at start and on return to the app, so a
 // relay that ended in a dead zone still arrives. Nothing is sent while the app is in the background.
-export function useGpsBroadcast(session: RelayBroadcast | null, teamAccount: boolean): UplinkStatus {
+export function useGpsBroadcast(session: RelayBroadcast | null, liveMapAccess: boolean): UplinkStatus {
   const [active, setActive] = useState(AppState.currentState === 'active');
   const [saved, setSaved] = useState(0);
   const [failing, setFailing] = useState(false);
@@ -50,7 +50,7 @@ export function useGpsBroadcast(session: RelayBroadcast | null, teamAccount: boo
 
   const flush = useCallback(async () => {
     const db = getLocalDb();
-    if (!teamAccount || !db) return;
+    if (!liveMapAccess || !db) return;
     if (flushing.current) {
       flushAgain.current = true;
       return;
@@ -79,7 +79,7 @@ export function useGpsBroadcast(session: RelayBroadcast | null, teamAccount: boo
       flushing.current = false;
     }
     if (flushAgain.current && !retryTimer.current) void flushRef.current();
-  }, [teamAccount]);
+  }, [liveMapAccess]);
 
   useEffect(() => {
     flushRef.current = flush;
@@ -105,7 +105,7 @@ export function useGpsBroadcast(session: RelayBroadcast | null, teamAccount: boo
   const startedMs = session?.startedMs ?? null;
   // BT1: a Secondary sends no positions until it is promoted
   const backup = useRelayStore((store) => store.baton === 'secondary');
-  const broadcasting = active && teamAccount && vehicleId !== null && seatTier !== null && !backup;
+  const broadcasting = active && liveMapAccess && vehicleId !== null && seatTier !== null && !backup;
 
   useEffect(() => {
     startedRef.current = startedMs;
@@ -133,7 +133,7 @@ export function useGpsBroadcast(session: RelayBroadcast | null, teamAccount: boo
     });
   }, [broadcasting, vehicleId, seatTier, startedMs, flush]);
 
-  if (!teamAccount) return { kind: 'offTeam' };
+  if (!liveMapAccess) return { kind: 'offTeam' };
   if (!vehicleId) return { kind: 'noVehicle' };
   if (backup) return { kind: 'backup' };
   if (failing && saved > 0) return { kind: 'saved', count: saved };

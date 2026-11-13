@@ -17,8 +17,9 @@ type SessionState = {
   // The signed-in account's id, once the auth library has it; kept only on the phone (accountOwner)
   userId: string | null;
   error: string | null;
-  // Whether this account may see live vehicles (team accounts only in v0); null until known
-  teamAccount: boolean | null;
+  // Whether this account may see and use the live map (every account since 2026-11-13, team
+  // accounts only while the server's live_map_team_only is on); null until known
+  liveMapAccess: boolean | null;
 };
 
 export const useSessionStore = create<SessionState>(() => ({
@@ -26,14 +27,18 @@ export const useSessionStore = create<SessionState>(() => ({
   email: null,
   userId: null,
   error: null,
-  teamAccount: null,
+  liveMapAccess: null,
 }));
 
-// Asks the database whether the signed-in account is on the team list, so the Live tab can say why
-// a non-team account sees no vehicles. Row Level Security still decides what comes back.
-async function syncTeamAccount(): Promise<void> {
-  const { data, error } = await getSupabase().rpc('is_team_account');
-  useSessionStore.setState({ teamAccount: error ? null : data === true });
+// Asks the database whether the signed-in account may use the live map, so the Map can say why one
+// sees no vehicles. Row Level Security still decides what comes back. A server without
+// may_use_live_map (before migration 20261113000000) is asked the old team question instead.
+const FUNCTION_NOT_FOUND = 'PGRST202';
+async function syncLiveMapAccess(): Promise<void> {
+  const supabase = getSupabase();
+  let { data, error } = await supabase.rpc('may_use_live_map');
+  if (error?.code === FUNCTION_NOT_FOUND) ({ data, error } = await supabase.rpc('is_team_account'));
+  useSessionStore.setState({ liveMapAccess: error ? null : data === true });
 }
 
 let started = false;
@@ -56,11 +61,11 @@ export function startSessionTracking(): void {
     const same = before.status === status && before.email === email;
     // The saved session read before the library has it carries no id; the library's report then does
     const userId = signedIn ? (session?.user.id ?? (same ? before.userId : null)) : null;
-    useSessionStore.setState({ status, email, userId, error: null, ...(same ? {} : { teamAccount: null }) });
+    useSessionStore.setState({ status, email, userId, error: null, ...(same ? {} : { liveMapAccess: null }) });
     // SB2: the handle follows the account
     if (signedIn) {
       void syncUsername().catch(() => undefined);
-      void syncTeamAccount().catch(() => undefined);
+      void syncLiveMapAccess().catch(() => undefined);
     }
   };
 

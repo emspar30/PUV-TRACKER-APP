@@ -20,7 +20,7 @@ export function RelaySheet({ onClose }: { onClose: () => void }) {
   const { colors, routeColor } = useTheme();
   const { lines, stops } = useRouteData();
   const repos = useRepositories();
-  const teamAccount = useSessionStore((state) => state.teamAccount);
+  const liveMapAccess = useSessionStore((state) => state.liveMapAccess);
   const commuter = useCommuterPosition();
   // B2: each route with one stored leg also has its stand-in other leg
   const loopLines = useMemo(() => withReturnLegs(lines), [lines]);
@@ -53,7 +53,7 @@ export function RelaySheet({ onClose }: { onClose: () => void }) {
       linesOf={linesOf}
       position={commuter}
       checkGps={() => canReportWithGps(placeOf(commuter, useLocationStore.getState().fix, Date.now()))}
-      liveMapAllowed={repos.vehicles.source !== 'live' || teamAccount === true}
+      liveMapAllowed={repos.vehicles.source !== 'live' || liveMapAccess === true}
       onClose={onClose}
     />
   );

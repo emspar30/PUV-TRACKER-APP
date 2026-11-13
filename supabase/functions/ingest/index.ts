@@ -28,7 +28,12 @@ const deps: IngestDeps = {
     return error ? null : (data.user?.id ?? null);
   },
 
+  // 2026-11-13: any account while open sign-up is on and live_map_team_only is off (as
+  // may_participate and may_use_live_map in the database); team accounts always
   isAllowedWriter: async (userId) => {
+    const { data: config, error: configError } = await admin.from('app_config').select('open_signup, live_map_team_only').single();
+    if (configError) throw configError;
+    if (config.open_signup && !config.live_map_team_only) return true;
     const { data, error } = await admin.from('team_accounts').select('user_id').eq('user_id', userId).maybeSingle();
     if (error) throw error;
     return data !== null;
