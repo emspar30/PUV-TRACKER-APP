@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
 import { MapPin, Search, X } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import Animated, { FadeIn, KeyboardState, SlideInDown, useAnimatedKeyboard, useAnimatedReaction, useAnimatedStyle } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chip } from '@/components';
@@ -41,7 +42,8 @@ import { useBleVehicle, type BleState } from './useBleVehicle';
 import { blockedBySuspension } from '@/state/moderationStore';
 
 const ICON_SIZE = spacing.md + spacing.xs;
-const PANEL_MAX_HEIGHT = '80%';
+// The panel's tallest, as a share of the screen
+const PANEL_MAX_SHARE = 0.8;
 const SEARCH_ICON = spacing.md + spacing.xs;
 const SEAT_TIERS: readonly SeatTier[] = ['green', 'amber', 'red'];
 const MS_PER_S = 1000;
@@ -150,6 +152,34 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   const { colors, typography } = useTheme();
   // The panel ends above Android's navigation bar, so the Relay update button is never under it
   const insets = useSafeAreaInsets();
+  const window = useWindowDimensions();
+  // Tester note (2026-11-13): the panel rides on top of the keyboard, never taller than the room left
+  // above it, and the destination box scrolls into view while it is typed in
+  const keyboard = useAnimatedKeyboard();
+  const keyboardStyle = useAnimatedStyle(() => {
+    const lift = keyboard.height.value;
+    return {
+      marginBottom: lift,
+      maxHeight: lift > 0 ? Math.min(window.height * PANEL_MAX_SHARE, window.height - insets.top - lift) : window.height * PANEL_MAX_SHARE,
+      paddingBottom: spacing.md + (lift > 0 ? 0 : insets.bottom),
+    };
+  });
+  const scroll = useRef<ScrollView>(null);
+  const scrollContent = useRef<View>(null);
+  const searchBox = useRef<View>(null);
+  const typingDestination = useRef(false);
+  const revealSearch = useCallback(() => {
+    const content = scrollContent.current;
+    if (!typingDestination.current || !content) return;
+    searchBox.current?.measureLayout(content, (_x, y) => scroll.current?.scrollTo({ y: Math.max(0, y - spacing.md), animated: true }));
+  }, []);
+  useAnimatedReaction(
+    () => keyboard.state.value,
+    (state, previous) => {
+      if (state === KeyboardState.OPEN && previous !== KeyboardState.OPEN) scheduleOnRN(revealSearch);
+    },
+    [revealSearch],
+  );
   // PRD 14: a relay is sent over the internet; offline, Send fails, so the panel says so first
   const offline = useConnectionStore((state) => state.online === false);
   const demoData = useSettingsStore((state) => state.demoData);
@@ -309,7 +339,7 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   return (
     <Animated.View style={styles.backdrop} entering={FadeIn.duration(motion.dialogMs)}>
       <Pressable style={styles.grow} onPress={onClose} accessibilityLabel={strings.report.close} />
-      <Animated.View style={[styles.panel, { paddingBottom: spacing.md + insets.bottom }]} entering={SlideInDown.duration(motion.cardMs)}>
+      <Animated.View style={[styles.panel, keyboardStyle]} entering={SlideInDown.duration(motion.cardMs)}>
         <View style={styles.head}>
           <Text style={[typography.headlineSm, styles.grow]} accessibilityRole="header">
             {strings.report.title}
@@ -318,7 +348,8 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
             <X color={colors.textSecondary} size={ICON_SIZE} />
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scroll} keyboardShouldPersistTaps="handled">
+          <View ref={scrollContent} style={styles.body} collapsable={false}>
           {offline ? (
             <View style={styles.notice} accessibilityRole="alert">
               <Text style={[typography.bodySm, styles.noticeText]}>{strings.report.offline}</Text>
@@ -369,7 +400,7 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
               </View>
             ) : !open || destinations.length > 0 ? (
               <>
-                <View style={styles.searchBox}>
+                <View ref={searchBox} style={styles.searchBox} collapsable={false}>
                   <Search color={colors.textSecondary} size={SEARCH_ICON} />
                   <TextInput
                     style={[typography.bodyLg, styles.searchInput]}
@@ -378,7 +409,15 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
                       setQuery(text);
                       setSearchIssue(null);
                     }}
-                    onFocus={() => setSearching(true)}
+                    onFocus={() => {
+                      setSearching(true);
+                      typingDestination.current = true;
+                      // Already open (the keyboard stayed up): scroll now
+                      revealSearch();
+                    }}
+                    onBlur={() => {
+                      typingDestination.current = false;
+                    }}
                     onSubmitEditing={() => (matches[0] ? chooseDestination(matches[0]) : undefined)}
                     placeholder={strings.report.destinationSearch}
                     placeholderTextColor={colors.textTertiary}
@@ -411,6 +450,7 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
             </Text>
           ) : null}
           <Button label={strings.report.send} onPress={send} disabled={!ready} />
+          </View>
         </ScrollView>
       </Animated.View>
     </Animated.View>
@@ -484,8 +524,6 @@ const useStyles = makeStyles(({ colors }) => ({
     flex: 1,
   },
   panel: {
-    maxHeight: PANEL_MAX_HEIGHT,
-    paddingBottom: spacing.md,
     borderTopLeftRadius: radii.sheet,
     borderTopRightRadius: radii.sheet,
     backgroundColor: colors.card,

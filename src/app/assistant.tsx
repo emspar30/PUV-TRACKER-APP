@@ -1,7 +1,7 @@
 import { router, useIsFocused } from 'expo-router';
 import { SendHorizontal, WifiOff, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, KeyboardAvoidingView, Pressable, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomSheet, Chip, TOP_BAR_HEIGHT, type SheetRequest } from '@/components';
@@ -192,8 +192,8 @@ export default function AssistantScreen() {
   );
 
   return (
-    // The sheet's room shrinks with the keyboard, so the message box stays just above it
-    <KeyboardAvoidingView style={styles.overlay} behavior="padding">
+    // The sheet keeps its size; its message box rides on top of the keyboard (BottomSheet's chat mode)
+    <View style={styles.overlay}>
       {/* Above the sheet: a tap closes Ask Tunton and goes back to the Map */}
       <Pressable style={styles.outside} onPress={close} accessibilityLabel={strings.assistant.close} />
       <BottomSheet
@@ -225,7 +225,7 @@ export default function AssistantScreen() {
           </View>
         ))}
       </BottomSheet>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

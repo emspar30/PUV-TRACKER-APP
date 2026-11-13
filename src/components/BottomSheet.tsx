@@ -2,7 +2,18 @@ import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, View, type AccessibilityActionEvent, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withSpring, withTiming, Extrapolation } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  interpolate,
+  KeyboardState,
+  useAnimatedKeyboard,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  Extrapolation,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -129,6 +140,28 @@ export function BottomSheet({
   const topHeight = useSharedValue(0);
   const footerHeight = useSharedValue(0);
 
+  // Tester note (2026-11-13): in a chat the message box rides on top of the keyboard, as in a
+  // messaging app, and the conversation shrinks above it. The keyboard's height counts from the
+  // screen's bottom; the part already under the sheet (the tab bar lift or the navigation bar) is
+  // taken off. Other sheets are left as they were.
+  const keyboard = useAnimatedKeyboard();
+  const bottomOffset = bottomInset > 0 ? bottomInset : insets.bottom;
+  const keyboardLift = useSharedValue(0);
+  useAnimatedReaction(
+    () => (chat ? Math.max(0, keyboard.height.value - bottomOffset) : 0),
+    (lift) => keyboardLift.set(lift),
+    [chat, bottomOffset],
+  );
+  // The newest message stays in view when the keyboard opens
+  const scrollChatToEnd = useCallback(() => scroll.current?.scrollToEnd({ animated: true }), []);
+  useAnimatedReaction(
+    () => keyboard.state.value,
+    (state, previous) => {
+      if (chat && state === KeyboardState.OPEN && previous !== KeyboardState.OPEN) scheduleOnRN(scrollChatToEnd);
+    },
+    [chat, scrollChatToEnd],
+  );
+
   const moveTo = useCallback((target: SnapName) => {
     setPosition((current) => ({ snap: target, seq: current.seq + 1 }));
   }, []);
@@ -228,13 +261,13 @@ export function BottomSheet({
     const peek = heights?.peek ?? 0;
     const half = heights?.half ?? 1;
     return {
-      transform: [{ translateY: height.get() - expandedHeight }],
+      transform: [{ translateY: height.get() - expandedHeight - keyboardLift.get() }],
       opacity: interpolate(height.get(), [peek, half], [0, 1], Extrapolation.CLAMP),
     };
   });
   // A chat's body fills what shows between the top and the footer
   const chatBodyStyle = useAnimatedStyle(() => ({
-    height: Math.max(0, height.get() - topHeight.get() - footerHeight.get()),
+    height: Math.max(0, height.get() - topHeight.get() - footerHeight.get() - keyboardLift.get()),
   }));
 
   const onAccessibilityAction = (event: AccessibilityActionEvent) => {
