@@ -101,6 +101,10 @@ export const ASSISTANT_SAME_PLACE_M = 50;
 export const ASSISTANT_FUZZY_MAX_EDITS = 2;
 export const ASSISTANT_FUZZY_SHORT_CHARS = 5;
 export const ASSISTANT_FUZZY_MIN_CHARS = 4;
+// A typed word of at least ASSISTANT_KEYWORD_MIN_CHARS letters that is one letter off a single from or
+// to marker ("paingln", "gikn") is read as that marker, so a typo does not lose the destination
+export const ASSISTANT_KEYWORD_MIN_CHARS = 4;
+export const ASSISTANT_KEYWORD_MAX_EDITS = 1;
 // CA1.1 conversation kept on the phone: the newest questions (each with its answer), none older
 // than this; there is no manual clear (Emjay, 2026-10-22)
 export const ASSISTANT_HISTORY_MAX = 50;

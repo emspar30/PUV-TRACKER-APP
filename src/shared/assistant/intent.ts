@@ -3,7 +3,8 @@
 // "to Y", "pila plete gikan X paingon Y"), help. No network and no model: the same words always give
 // the same intent. Place names stay as text here; resolve.ts finds them. Pure: no React Native or Expo.
 
-import { normalizeSearch } from '../routing/placeSearch';
+import { ASSISTANT_KEYWORD_MAX_EDITS, ASSISTANT_KEYWORD_MIN_CHARS } from '../config';
+import { editDistance, normalizeSearch } from '../routing/placeSearch';
 
 import { guideTopicOf, type GuideTopic } from './guide';
 
@@ -142,8 +143,23 @@ function tripOf(words: readonly string[]): TripIntent | null {
 const TRIP_FIRST: readonly GuideTopic[] = ['pay', 'fareRules', 'flag', 'lost', 'multicab'];
 const PEOPLE = new Set(['driver', 'the driver', 'drayber', 'konduktor', 'conductor', 'the conductor']);
 
+// The one-word from and to markers a typo is matched against ("paingon", "gikan"). Fare words are
+// left out: "bayan" and "bilay" in place names are one letter off "bayad" and "pilay"
+const KEYWORDS = [...new Set([TO_MARKERS, FROM_MARKERS].flatMap((list) => list.filter((phrase) => !phrase.includes(' '))))].filter(
+  (word) => word.length > ASSISTANT_KEYWORD_MIN_CHARS,
+);
+// Every word the parser already knows; a known word is never read as a typo
+const KNOWN_WORDS = singleWords([TO_MARKERS, WEAK_TO_MARKERS, FROM_MARKERS, FARE_WORDS, RIDE_WORDS, RUNNING_WORDS, ROUTE_WORDS, NEAREST_WORDS, WHERE_WORDS, STOP_WORDS, HERE_WORDS, GREETINGS, FILLER_WORDS]);
+
+// A word one letter off exactly one keyword becomes that keyword; any other word stays as typed
+export function keywordOf(word: string): string {
+  if (word.length < ASSISTANT_KEYWORD_MIN_CHARS || KNOWN_WORDS.has(word)) return word;
+  const near = KEYWORDS.filter((keyword) => editDistance(word, keyword) <= ASSISTANT_KEYWORD_MAX_EDITS);
+  return near.length === 1 ? near[0] : word;
+}
+
 export function parseQuery(text: string): Intent {
-  const words = normalizeSearch(text).split(' ').filter(Boolean);
+  const words = normalizeSearch(text).split(' ').filter(Boolean).map(keywordOf);
   if (words.length === 0) return { kind: 'help' };
 
   const code = routeCodeIn(words);

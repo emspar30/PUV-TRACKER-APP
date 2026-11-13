@@ -4,11 +4,11 @@
 import { getSeedRouteData } from '../../data/routeSource';
 import { MAP_PLACES } from '../../data/seed/places';
 import { answer, routeStatus, routesToWatch, withChoice, type AssistantContext } from '../assistant/answer';
-import { parseQuery, type Intent } from '../assistant/intent';
+import { keywordOf, parseQuery, type Intent } from '../assistant/intent';
 import { resolvePlace } from '../assistant/resolve';
 import { ASSISTANT_ASK_CHOICES_MAX, COVERAGE_LIVE_MAX_AGE_S, FARE_REGULAR_MULTIPLIER, GHOST_MAX_AGE_S } from '../config';
 import { discountMultiplier } from '../fare/fare';
-import { editDistance, fuzzyPlaces, type SearchablePlace } from '../routing/placeSearch';
+import { editDistance, fuzzyPlaces, normalizeSearch, type SearchablePlace } from '../routing/placeSearch';
 import type { VehicleSnapshot } from '../telemetry/vehicle';
 
 const data = getSeedRouteData();
@@ -99,6 +99,23 @@ describe('the question parser', () => {
     expect(parseQuery('Tiniwisan Crossing')).toEqual({ kind: 'trip', from: null, to: text('tiniwisan crossing'), focus: 'route' });
     expect(parseQuery('Purok 4')).toEqual({ kind: 'trip', from: null, to: text('purok 4'), focus: 'route' });
   });
+
+  it('reads a from or to marker typed one letter off as that marker', () => {
+    // Tester note, 2026-11-05: "paingln" for paingon lost the destination
+    expect(parseQuery('Pila pete gikan cCSU paingln Libertad?')).toEqual({ kind: 'trip', from: text('ccsu'), to: text('libertad'), focus: 'fare' });
+    expect(parseQuery('pila plete gikn SM padolong Ampayon')).toEqual({ kind: 'trip', from: text('sm'), to: text('ampayon'), focus: 'fare' });
+  });
+
+  it('leaves short words, known words and words near no keyword as typed', () => {
+    expect(keywordOf('pala')).toBe('pala');
+    expect(keywordOf('take')).toBe('take');
+    expect(keywordOf('libertad')).toBe('libertad');
+  });
+
+  it('never reads a word of a stop or place name as a keyword', () => {
+    const changed = PLACES.flatMap((place) => normalizeSearch(place.title).split(' ').filter(Boolean)).filter((word) => keywordOf(word) !== word);
+    expect([...new Set(changed)]).toEqual([]);
+  });
 });
 
 describe('finding places', () => {
@@ -163,6 +180,13 @@ describe('trip answers', () => {
     if (reply.kind !== 'trip') return;
     expect(reply.fare).toBeGreaterThan(0);
     expect(reply.rideKm).toBeGreaterThan(1);
+  });
+
+  it('answers a misspelled fare question from a tester with a fare', () => {
+    const reply = answer(parseQuery('Pila pete gikan cCSU paingln Libertad?'), context());
+    expect(reply).toMatchObject({ kind: 'trip', focus: 'fare', to: { title: 'Libertad' } });
+    if (reply.kind !== 'trip') return;
+    expect(reply.fare).toBeGreaterThan(0);
   });
 
   it('answers casual Bisaya the same way', () => {
