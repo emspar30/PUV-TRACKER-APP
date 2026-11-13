@@ -58,14 +58,17 @@ const SETTINGS = {
     // Backlog 128 (2026-10-28): Android's backup restored an old setup on reinstall, without its
     // Keystore keys, so the phone looked set up but could not sign; the driver app is never backed up
     allowBackup: false,
-    // Owner, 2026-10-18: the commuter icon with its colours reversed (light square, dark bus)
+    // Owner, 2026-11-13: the owner's design (assets/new-driver-icon.png), the commuter icon's dark style
+    // with a steering wheel in the window. The adaptive layers are its glyph cut out on the dark background
     icon: './assets/driver-icon.png',
     adaptiveIcon: {
-      backgroundColor: '#eef1f8',
+      backgroundColor: '#14191e',
       foregroundImage: './assets/driver-adaptive-foreground.png',
-      backgroundImage: './assets/driver-adaptive-background.png',
-      monochromeImage: './assets/tunton-adaptive-monochrome.png',
+      backgroundImage: './assets/tunton-adaptive-background.png',
+      monochromeImage: './assets/driver-adaptive-monochrome.png',
     },
+    // The splash shows the driver icon, not the commuter one, in light and dark mode
+    splashImage: './assets/driver-icon.png',
   },
   gateway: {
     name: 'Tunton Gateway',
@@ -85,6 +88,16 @@ const SETTINGS = {
     },
   },
 };
+
+// A variant's own splash image in app.json's expo-splash-screen entry (colours and size unchanged)
+function withSplashImage(plugins, image) {
+  if (!image || !plugins) return plugins;
+  return plugins.map((plugin) => {
+    if (!Array.isArray(plugin) || plugin[0] !== 'expo-splash-screen') return plugin;
+    const [name, options] = plugin;
+    return [name, { ...options, image, dark: options.dark ? { ...options.dark, image } : undefined }];
+  });
+}
 
 function appVariant() {
   const variant = process.env.APP_VARIANT || 'commuter';
@@ -113,7 +126,7 @@ module.exports = ({ config }) => {
       blockedPermissions: settings.blocked,
       allowBackup: settings.allowBackup ?? android.allowBackup,
     },
-    plugins: settings.plugin ? [...(config.plugins ?? []), settings.plugin] : config.plugins,
+    plugins: withSplashImage(settings.plugin ? [...(config.plugins ?? []), settings.plugin] : config.plugins, settings.splashImage),
     extra: {
       ...extra,
       appVariant: variant,
