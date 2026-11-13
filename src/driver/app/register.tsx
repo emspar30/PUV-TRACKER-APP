@@ -24,7 +24,7 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, AppState, Image, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import Animated, { SlideInLeft, SlideInRight } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
@@ -90,8 +90,6 @@ export default function Register() {
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // Which way the next step slides in: from the right going on, from the left going back
-  const [backwards, setBackwards] = useState(false);
   // The first step drawn does not slide in (backlog 131): animated on the screen's first render,
   // Reanimated placed it before the header had its height, about 34 dp too high, over the bar
   const [moved, setMoved] = useState(false);
@@ -102,7 +100,6 @@ export default function Register() {
   const go = (next: Step) => {
     setError(null);
     setBusy(false);
-    setBackwards(STEP_NUMBER[next.kind] < STEP_NUMBER[step.kind]);
     setMoved(true);
     setStep(next);
   };
@@ -239,8 +236,10 @@ export default function Register() {
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
       <StepHeader title={text.title} onBack={previous ? () => go(previous) : undefined} step={{ current: STEP_NUMBER[step.kind], total: STEP_COUNT }} />
-      {/* A new step slides in under the fixed header; a change within a step (keyed the same) does not */}
-      <Animated.View key={step.kind} entering={moved ? (backwards ? SlideInLeft : SlideInRight).duration(motion.stepMs) : undefined} style={styles.grow}>
+      {/* A new step fades in under the fixed header; a change within a step (keyed the same) does not.
+          2026-11-13: it used to slide in, but a slide-in can leave the touch area where the slide began,
+          so a finger's small movement drops the press (the commuter Relay panel's Continue did this) */}
+      <Animated.View key={step.kind} entering={moved ? FadeIn.duration(motion.stepMs) : undefined} style={styles.grow}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {body}
         </ScrollView>

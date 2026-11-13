@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { MapPin, Search, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeIn, SlideInDown, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { FadeIn, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chip } from '@/components';
@@ -334,7 +334,10 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   return (
     <Animated.View style={styles.backdrop} entering={FadeIn.duration(motion.dialogMs)}>
       <Pressable style={styles.grow} onPress={onClose} accessibilityLabel={strings.report.close} />
-      <Animated.View style={[styles.panel, keyboardStyle]} entering={SlideInDown.duration(motion.cardMs)}>
+      {/* Tester note (2026-11-13): Continue and the other buttons ignored a finger. A slide-in left the
+          panel's touch area a screen lower than the panel, so a finger's tiny movement counted as
+          leaving the button and the press was dropped (a still tap from adb worked). A fade moves nothing. */}
+      <Animated.View style={[styles.panel, keyboardStyle]} entering={FadeIn.duration(motion.cardMs)}>
         <View style={styles.head}>
           <Text style={[typography.headlineSm, styles.grow]} accessibilityRole="header">
             {strings.report.title}
