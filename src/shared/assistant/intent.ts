@@ -140,7 +140,7 @@ function tripOf(words: readonly string[]): TripIntent | null {
 
 // Guide topics that give way to a trip with a destination: "how much to pay to SM" and "jeep to
 // Libertad" are trips; "what do I say to the driver" is not, since a person is no destination
-const TRIP_FIRST: readonly GuideTopic[] = ['pay', 'fareRules', 'flag', 'lost', 'multicab'];
+const TRIP_FIRST: readonly GuideTopic[] = ['app', 'pay', 'fareRules', 'flag', 'lost', 'multicab'];
 const PEOPLE = new Set(['driver', 'the driver', 'drayber', 'konduktor', 'conductor', 'the conductor']);
 
 // The one-word from and to markers a typo is matched against ("paingon", "gikan"). Fare words are
@@ -168,6 +168,8 @@ export function parseQuery(text: string): Intent {
   if (topic) {
     const destination = trip?.to && 'text' in trip.to && !PEOPLE.has(trip.to.text) ? trip.to : null;
     if (!(destination && TRIP_FIRST.includes(topic))) return { kind: 'guide', topic };
+    // "How do I use the app to get to SM": the trip starts from the rider, not from "use the app"
+    if (topic === 'app' && trip) return { ...trip, from: null };
   }
   // A route named without a trip in it is a status question ("naa bay R4?", "R14")
   if (code && !trip) return { kind: 'status', routeCode: code };

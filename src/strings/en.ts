@@ -1237,6 +1237,16 @@ export const en = {
         '"Asa ko manaog para sa SM?" (AH-sah ko mah-NAH-og): where do I get off for SM?',
         '"Wala koy barya" (WAH-lah koy BAR-yah): I have no small change.',
       ],
+      // Tester note (2026-11-13): what Tunton is, tab by tab
+      app: [
+        "Tunton helps you ride Butuan's multicabs. It shows where they are and how full, from what riders share.",
+        'Map: the multicabs near you. Tap one, then Track, to know when it reaches your stop.',
+        'Check-in: tell drivers you are waiting at a stop, so they know where riders are.',
+        'Relay: inside a multicab, share its seats so riders down the road know if it has room.',
+        'Crowdsource: the latest updates from other riders.',
+        'My Rides: plan a trip, with the route to ride, the walk and the fare.',
+        'And me, Tunie: ask me about routes, fares, the nearest stop, or how to ride a multicab.',
+      ],
       visitor: [
         'Welcome to Butuan! Riding a multicab in four steps:',
         '1. Find your route: ask me "how do I get to SM?" or use My Rides.',
@@ -1298,6 +1308,7 @@ export const en = {
       place: (title: string, near: string | undefined) => (near ? `${title}, ${near}` : title),
       // Commuter guide: each topic asked as a question (parses back to the same topic)
       guide: {
+        app: 'What is Tunton?',
         getOff: 'How do I get off?',
         askDriver: 'What do I say to the driver?',
         pay: 'How do I pay?',

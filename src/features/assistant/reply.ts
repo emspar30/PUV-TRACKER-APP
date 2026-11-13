@@ -28,6 +28,7 @@ const PERCENT = 100;
 
 // Commuter guide: the topics offered after each answer, so a visitor can go step by step
 const RELATED: Record<GuideTopic, readonly GuideTopic[]> = {
+  app: ['visitor', 'multicab', 'fareRules'],
   visitor: ['flag', 'pay', 'getOff', 'phrases'],
   getOff: ['pay', 'phrases', 'lost'],
   askDriver: ['pay', 'getOff', 'phrases'],

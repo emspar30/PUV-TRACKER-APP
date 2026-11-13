@@ -178,6 +178,8 @@ export const FILLER_WORDS: readonly string[] = [
 // driver". Each list avoids words that are place names or part of a trip question ("stop", "board",
 // "sakay"), and "gabii" alone (it is in "maayong gabii").
 export const GUIDE_WORDS = {
+  // Tester note (2026-11-13): "What is this app all about?" was read as a place
+  app: ['this app', 'the app', 'tunton', 'tunie', 'what can you do', 'what do you do', 'who are you', 'what are you', 'how to use', 'how do i use', 'what is this', 'features', 'about the app', 'about this'],
   getOff: ['get off', 'getting off', 'get down', 'alight', 'drop me', 'drop off', 'para', 'lugar lang', 'diri lang', 'manaog', 'monaog', 'naog', 'stop the multicab', 'stop the jeep', 'stop the vehicle', 'driver to stop', 'want to stop', 'tap', 'tap a coin', 'knock', 'signal the driver', 'signal to stop'],
   askDriver: ['ask the driver', 'say to the driver', 'tell the driver', 'talk to the driver', 'what do i say', 'what to say', 'what should i say', 'moagi', 'muagi', 'agi ba'],
   pay: ['pay', 'paying', 'payment', 'how to bayad', 'unsaon pagbayad', 'pagbayad', 'sukli', 'barya', 'change', 'coins', 'pass the fare', 'pasa', 'ipasa', 'usa ra', 'duha'],

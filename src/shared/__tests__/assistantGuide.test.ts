@@ -52,6 +52,13 @@ describe('commuter guide topics', () => {
 
   it('a question with no guide words has no topic', () => {
     expect(guideTopicOf(['robinsons'])).toBeNull();
-    expect(GUIDE_TOPICS).toHaveLength(12);
+    // Twelve riding topics, and what the app is (tester note, 2026-11-13)
+    expect(GUIDE_TOPICS).toHaveLength(13);
+  });
+
+  it('questions about the app itself find the app topic', () => {
+    for (const question of ['what is this app all about', 'what can you do', 'who are you', 'what is tunton', 'how do i use the app']) {
+      expect(topicOf(question)).toBe('app');
+    }
   });
 });

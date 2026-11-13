@@ -89,6 +89,11 @@ describe('the question parser', () => {
     ['hi', { kind: 'help' }],
     ['Maayong buntag!', { kind: 'help' }],
     ['help me', { kind: 'help' }],
+    // Tester note (2026-11-13): questions about the app itself
+    ['What is this app all about', { kind: 'guide', topic: 'app' }],
+    ['what can you do?', { kind: 'guide', topic: 'app' }],
+    ['What is Tunton?', { kind: 'guide', topic: 'app' }],
+    ['how do I use the app to go to SM', { kind: 'trip', from: null, to: text('sm'), focus: 'route' }],
     ['   ', { kind: 'help' }],
   ])('%s', (question, intent) => {
     expect(parseQuery(question)).toEqual(intent);
