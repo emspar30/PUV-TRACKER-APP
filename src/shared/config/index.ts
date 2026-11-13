@@ -676,6 +676,9 @@ export const BEACON_PRESENCE_S = 3;
 export const BEACON_LOST_S = 10;
 // The commuter app listens for this long once armed (PRD 8.1)
 export const ARMED_SCAN_MIN = 15;
+// Tester note (2026-11-13): the Relay panel keeps a found multicab through short signal drops, but
+// lets it go once it has not been heard for this long (as a queued relay ends, RELAY_QUEUE_BEACON_GONE_S)
+export const RELAY_PANEL_BEACON_GONE_S = 30;
 
 // --- Driver beacon (PRD 8.2, 9.2; DR2, docs/IMPLEMENTATION_PLAN_DRIVER.md section 6.1). Not a secret:
 // every Tunton beacon advertises this service UUID, so commuter phones can filter on it.

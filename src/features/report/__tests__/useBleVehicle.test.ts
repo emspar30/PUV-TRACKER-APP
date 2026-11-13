@@ -3,7 +3,7 @@
 
 import type { BeaconVerdict } from '@/services/beacon';
 import { encodeBeacon, payloadToHex, slotOf } from '@/shared/beacon/code';
-import { ARMED_SCAN_MIN, BEACON_SCAN_MODE, BEACON_SERVICE_UUID, BEACON_SLOT_S } from '@/shared/config';
+import { ARMED_SCAN_MIN, BEACON_SCAN_MODE, BEACON_SERVICE_UUID, BEACON_SLOT_S, RELAY_PANEL_BEACON_GONE_S } from '@/shared/config';
 
 import type { BeaconReading, ScanStart, ScanStopped } from '../../../../modules/tunton-beacon';
 import { createBleSession, type BleView } from '../bleSession';
@@ -158,12 +158,30 @@ describe('useBleVehicle session (DR8)', () => {
     expect(listening()).toBe(false);
   });
 
-  it('keeps a verified multicab when the scan times out; says it stopped when none was found', async () => {
+  it('the panel keeps a multicab through a short drop, and lets it go after RELAY_PANEL_BEACON_GONE_S', async () => {
+    // Tester note, 2026-11-13: the beacon was turned off and the panel still said Found 3 minutes later
+    const { session, verify, hear, last } = setUp();
+    await session.start();
+    await hear([{ shortId: 7, rssi: STRONG }], 5000);
+    expect(last()).toMatchObject({ kind: 'found' });
+    // A drop longer than BEACON_LOST_S but shorter than the panel's limit: still found
+    await hear([], (RELAY_PANEL_BEACON_GONE_S - 5) * MS_PER_S);
+    expect(last()).toMatchObject({ kind: 'found' });
+    await hear([], 5 * MS_PER_S);
+    expect(last()).toEqual({ kind: 'searching' });
+    // Heard again: present for 3 s, asked about again, found again
+    const asked = verify.mock.calls.length;
+    await hear([{ shortId: 7, rssi: STRONG }], 5000);
+    expect(verify.mock.calls.length).toBe(asked + 1);
+    expect(last()).toMatchObject({ kind: 'found' });
+  });
+
+  it('lets a found multicab go when the scan times out; says it stopped either way', async () => {
     const found = setUp();
     await found.session.start();
     await found.hear([{ shortId: 7, rssi: STRONG }], 5000);
     found.stopScan('timeout');
-    expect(found.last()).toMatchObject({ kind: 'found' });
+    expect(found.last()).toEqual({ kind: 'unavailable', reason: 'stopped' });
 
     const none = setUp();
     await none.session.start();

@@ -1,7 +1,7 @@
 import type { BeaconFailure, BeaconVerdict, BleVehicle } from '@/services/beacon';
 import { decodeBeacon, payloadFromHex } from '@/shared/beacon/code';
 import { pickBeacon, updateBeacon, type BeaconTrack } from '@/shared/beacon/presence';
-import { ARMED_SCAN_MIN, BEACON_PAYLOAD_VERSION, BEACON_SCAN_MODE, BEACON_SERVICE_UUID } from '@/shared/config';
+import { ARMED_SCAN_MIN, BEACON_PAYLOAD_VERSION, BEACON_SCAN_MODE, BEACON_SERVICE_UUID, RELAY_PANEL_BEACON_GONE_S } from '@/shared/config';
 
 import type { BeaconReading, EventSubscription, ScanOptions, ScanStart, ScanStopped } from '../../../modules/tunton-beacon';
 import { fieldLog } from '@/state/fieldLogStore';
@@ -9,9 +9,11 @@ import { fieldLog } from '@/state/fieldLogStore';
 // DR8: one Bluetooth scan while the Relay panel is open (PRD 8.1 to 8.2, 10.1). Readings are tracked
 // per beacon (its short id, which stays the same while the code rotates); a beacon present for
 // BEACON_PRESENCE_S and the margin rule pick the multicab; the server checks its code once per slot.
-// A verified multicab stays chosen while the panel is open, and its newest code goes with the relay.
+// A verified multicab stays chosen while it is heard (through drops shorter than
+// RELAY_PANEL_BEACON_GONE_S), and its newest code goes with the relay.
 // The native scanner and the server check are passed in, so this runs in tests without either.
 
+const MS_PER_S = 1000;
 const MS_PER_MIN = 60_000;
 // The presence rule depends on time as well as readings: look again this often
 export const BLE_TICK_MS = 1000;
@@ -38,8 +40,9 @@ export type BleSessionDeps = {
   verify: (payloadHex: string) => Promise<BeaconVerdict>;
   now: () => number;
   onChange: (view: BleView) => void;
-  // The Relay panel keeps a verified multicab while it is open (sticky). RL2c's queue wants the
-  // beacons heard now: a multicab no longer picked is dropped, so leaving it reads as none.
+  // The Relay panel keeps a verified multicab through short signal drops (sticky), until it has not
+  // been heard for RELAY_PANEL_BEACON_GONE_S. RL2c's queue wants the beacons heard now: a multicab no
+  // longer picked is dropped, so leaving it reads as none.
   sticky?: boolean;
   // How long the scan runs (ARMED_SCAN_MIN for the panel)
   durationMin?: number;
@@ -97,6 +100,12 @@ export function createBleSession({ scanner, verify, now, onChange, sticky = true
     const pick = scanning ? pickBeacon(tracks, now()) : { kind: 'none' as const };
     let failure: BeaconFailure | null = null;
     if (!sticky && found && (pick.kind !== 'one' || pick.key !== found.shortId)) found = null;
+    // Tester note (2026-11-13): a found multicab not heard for RELAY_PANEL_BEACON_GONE_S is let go, and
+    // asked about again if it comes back, so a rider who got off cannot keep the form unlocked
+    if (sticky && found && now() - (tracks.get(found.shortId)?.lastHeardMs ?? 0) >= RELAY_PANEL_BEACON_GONE_S * MS_PER_S) {
+      verdicts.delete(found.shortId);
+      found = null;
+    }
     if (pick.kind === 'one') {
       const code = latest.get(pick.key);
       const answer = verdicts.get(pick.key);
@@ -129,10 +138,12 @@ export function createBleSession({ scanner, verify, now, onChange, sticky = true
     timer = null;
   };
 
+  // The scan ended (ARMED_SCAN_MIN): nothing more can be heard, so a found multicab is let go too
   const onStopped = () => {
     scanning = false;
     stopTimer();
-    if (!found) show({ kind: 'unavailable', reason: 'stopped' });
+    found = null;
+    show({ kind: 'unavailable', reason: 'stopped' });
   };
 
   const removeSubscriptions = () => {
