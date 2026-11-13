@@ -24,7 +24,7 @@ import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { Button, Card, LineBadge, Logo, OptionRow, StepHeader } from '@/components';
+import { Button, Card, LineBadge, Logo, OptionRow, StatusPill, StepHeader } from '@/components';
 import { useRouteData } from '@/data/RouteDataProvider';
 import { LANDMARKS } from '@/data/seed/landmarks.placeholder';
 import { useLocationPermission } from '@/features/map/useCommuterPosition';
@@ -90,6 +90,10 @@ export default function OnboardingScreen() {
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>('welcome');
+  // Tester note (2026-11-13): opened from Menu, Replay introduction, by someone who finished it. The
+  // steps only show: every choice is greyed out and locked, and finishing saves nothing (the
+  // username and avatar are changed in Profile)
+  const [replay] = useState(() => useProfileStore.getState().onboarded);
 
   const assignAvatar = useProfileStore((state) => state.assignAvatar);
   const setOnboarded = useProfileStore((state) => state.setOnboarded);
@@ -138,6 +142,11 @@ export default function OnboardingScreen() {
   };
 
   const finish = () => {
+    if (replay) {
+      if (router.canGoBack()) router.back();
+      else router.replace('/');
+      return;
+    }
     saveHandle();
     // Skipping still gives an avatar, from all of them when there is no answer
     assignAvatar();
@@ -154,6 +163,7 @@ export default function OnboardingScreen() {
   if (step === 'welcome') {
     return (
       <View style={[styles.root, { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom }]}>
+        {replay ? <ReplayBadge /> : null}
         <Welcome
           onSignIn={() => router.push('/sign-in')}
           onContinue={next}
@@ -177,23 +187,30 @@ export default function OnboardingScreen() {
         onSkip={finish}
         step={{ current: index, total: COUNTED }}
       />
+      {replay ? <ReplayBadge /> : null}
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {step === 'profile' ? (
-          <ProfileStep handle={handle} onHandle={setHandle} onSuggest={() => setHandle(suggestUsername(Math.random))} valid={handleValid} />
-        ) : null}
-        {step === 'type' ? <TypeStep /> : null}
-        {step === 'places' ? <PlacesStep /> : null}
-        {step === 'permissions' ? <PermissionsStep /> : null}
+        <View
+          style={[styles.steps, replay && styles.locked]}
+          pointerEvents={replay ? 'none' : 'auto'}
+          accessibilityState={{ disabled: replay }}
+        >
+          {step === 'profile' ? (
+            <ProfileStep handle={handle} onHandle={setHandle} onSuggest={() => setHandle(suggestUsername(Math.random))} valid={handleValid} />
+          ) : null}
+          {step === 'type' ? <TypeStep /> : null}
+          {step === 'places' ? <PlacesStep /> : null}
+          {step === 'permissions' ? <PermissionsStep /> : null}
+        </View>
       </ScrollView>
       <View style={styles.actions}>
         <Button
           label={index === STEPS.length - 1 ? strings.onboarding.finish : strings.onboarding.next}
           icon={ArrowRight}
           onPress={() => {
-            if (step === 'profile') saveHandle();
+            if (step === 'profile' && !replay) saveHandle();
             next();
           }}
-          disabled={step === 'profile' && !handleValid}
+          disabled={!replay && step === 'profile' && !handleValid}
         />
       </View>
     </View>
@@ -238,6 +255,18 @@ function Welcome({ onSignIn, onContinue }: { onSignIn: () => void; onContinue: (
         </View>
       </View>
     </>
+  );
+}
+
+// Tester note (2026-11-13): marks a replayed introduction, whose choices are locked
+function ReplayBadge() {
+  const styles = useStyles();
+  const { typography } = useTheme();
+  return (
+    <View style={styles.replay} accessibilityRole="text" accessibilityLabel={strings.onboarding.replayLabel}>
+      <StatusPill label={strings.onboarding.replayBadge} tone="warning" />
+      <Text style={[typography.bodySm, styles.muted, styles.grow]}>{strings.onboarding.replayNote}</Text>
+    </View>
   );
 }
 
@@ -533,6 +562,23 @@ const useStyles = makeStyles(({ colors }) => ({
   content: {
     padding: spacing.md,
     gap: spacing.md,
+  },
+  steps: {
+    gap: spacing.md,
+  },
+  // A replayed introduction: the steps show but cannot be used (as a disabled button)
+  locked: {
+    opacity: 0.5,
+  },
+  replay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  grow: {
+    flex: 1,
   },
   hero: {
     alignItems: 'center',

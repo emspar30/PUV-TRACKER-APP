@@ -1423,6 +1423,10 @@ export const en = {
   },
 
   onboarding: {
+    // Tester note (2026-11-13): Menu, Replay introduction shows the steps without changing anything
+    replayBadge: 'Replay',
+    replayNote: 'Nothing here can be changed. Edit your username and avatar in Profile.',
+    replayLabel: 'Replay of the introduction. Nothing here can be changed; edit your username and avatar in Profile.',
     step: (current: number, total: number) => `Step ${current} of ${total}`,
     next: 'Continue',
     finish: 'Finish setup',
