@@ -117,6 +117,10 @@ module.exports = ({ config }) => {
     extra: {
       ...extra,
       appVariant: variant,
+      // Which Expo project builds this (2026-11-13). EAS_PROJECT_ID, set in the shell that runs eas, picks
+      // another account's project (the commuter tester APK on emzi00); EAS_BUILD_PROJECT_ID is set by the
+      // EAS build server to the project being built. Neither set: app.json's project, as before
+      eas: { ...extra.eas, projectId: process.env.EAS_PROJECT_ID || process.env.EAS_BUILD_PROJECT_ID || extra.eas?.projectId },
       // Read by the Expo CLI (extra.router.root) to choose the route folder; absent = src/app
       router: settings.routerRoot ? { ...extra.router, root: settings.routerRoot } : extra.router,
     },
