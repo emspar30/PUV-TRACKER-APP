@@ -60,3 +60,19 @@ modules/*/android/build/
 /session-context.md
 /HANDOFF.md
 /docs/history/
+
+# Files kept only on the team PC, not in git (2026-11-13): the manuscript and its working notes, the
+# saved tracker page, marketing drafts and generated output. Not part of the app; never uploaded
+/docs/Manuscript_Revised_*.docx
+/docs/Manuscript_Revised_*.pdf
+/docs/A Mobile-Based Real-time Public Utility*.pdf
+/docs/MANUSCRIPT_BRIEF.md
+/docs/PANEL_COMMENTS_PROMPT.md
+/docs/Tunton Build Tracker.html
+/docs/Tunton Build Tracker_files/
+/assets/data/BRAND.txt
+/assets/data/LAUNCH.txt
+/assets/data/TREND.txt
+/assets/data/VALUE.txt
+/graphify-out/
+__pycache__/
