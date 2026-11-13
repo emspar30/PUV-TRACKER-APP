@@ -1,7 +1,7 @@
 // The Notifications page's list: newest first, no repeats, at most NOTIFICATIONS_KEEP.
 
 import { NOTIFICATIONS_KEEP } from '../config';
-import { addToInbox, type InboxItem } from '../notifications/inbox';
+import { addToInbox, hasUnread, type InboxItem } from '../notifications/inbox';
 
 const item = (n: number): InboxItem => ({ id: `id-${n}`, title: `Notice ${n}`, body: null, atMs: n });
 
@@ -22,5 +22,11 @@ describe('notifications inbox', () => {
     expect(items).toHaveLength(NOTIFICATIONS_KEEP);
     expect(items[0].id).toBe(`id-${NOTIFICATIONS_KEEP + 4}`);
     expect(items.at(-1)?.id).toBe('id-5');
+  });
+
+  it('is unread while a notice came in after the list was last opened', () => {
+    expect(hasUnread([item(5), item(3)], 4)).toBe(true);
+    expect(hasUnread([item(5), item(3)], 5)).toBe(false);
+    expect(hasUnread([], 0)).toBe(false);
   });
 });

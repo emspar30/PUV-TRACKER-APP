@@ -349,6 +349,7 @@ export const en = {
     // Shown until the user picks a username
     guest: 'Commuter',
     notifications: 'Notifications',
+    notificationsUnread: 'Notifications, new ones not read yet',
     energy: (balance: string, refill: string | null) => `${balance} Tracking Energy${refill ? `, refill in ${refill}` : ''}`,
     // ST2-D: the balance in the header, out of the wallet's cap
     energyOf: (balance: string, cap: number) => `${balance}/${cap}`,

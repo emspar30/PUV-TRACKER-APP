@@ -8,8 +8,10 @@ import { TrustedAvatar } from '@/features/profile/TrustedAvatar';
 import { TourTarget } from '@/features/tour/TourTarget';
 import type { TourStepId } from '@/shared/ui/tourPlacement';
 import { ENERGY_UI_VISIBLE, ENERGY_WALLET_CAP } from '@/shared/config';
+import { hasUnread } from '@/shared/notifications/inbox';
 import { useConnectionStore } from '@/state/connectionStore';
 import { useEnergyStore } from '@/state/energyStore';
+import { useNotificationsStore } from '@/state/notificationsStore';
 import { useFareType } from '@/state/fareType';
 import { useProfileStore } from '@/state/profileStore';
 import { useUsernameStore } from '@/state/usernameStore';
@@ -21,6 +23,9 @@ const ICON_SIZE = spacing.md + spacing.xs;
 // The icons sit close together; the slop keeps each touch target at 48 dp
 const ICON_BOX = spacing.xl + spacing.sm;
 const ICON_HIT_SLOP = (MIN_TOUCH_TARGET - ICON_BOX) / 2;
+// The unread dot on the bell, the size of the tab bar's dots
+const DOT_SIZE = spacing.sm + spacing.xs / 2;
+const DOT_BORDER = 2;
 
 // The bar at the top of every tab (restyle): the user's avatar, handle and fare type (opens
 // Profile), the Tracking Energy balance and the refill countdown under it (SB2, opens Profile; hidden
@@ -44,6 +49,7 @@ export function TopBar({ tour = false }: { tour?: boolean }) {
   const energy = useEnergyStore((state) => state.snapshot);
   const refillIn = useRefillCountdown();
   const offline = useConnectionStore((state) => state.online === false);
+  const unread = useNotificationsStore((state) => hasUnread(state.items, state.seenAtMs));
   return (
     <View style={styles.wrap}>
       <View style={styles.bar}>
@@ -81,9 +87,12 @@ export function TopBar({ tour = false }: { tour?: boolean }) {
             hitSlop={ICON_HIT_SLOP}
             onPress={() => router.push('/notifications')}
             accessibilityRole="button"
-            accessibilityLabel={strings.topBar.notifications}
+            accessibilityLabel={unread ? strings.topBar.notificationsUnread : strings.topBar.notifications}
           >
-            <Bell color={colors.textPrimary} size={ICON_SIZE} />
+            <View>
+              <Bell color={colors.textPrimary} size={ICON_SIZE} />
+              {unread ? <View style={styles.dot} /> : null}
+            </View>
           </Pressable>
           <Tour id="menu" on={tour}>
             <Pressable
@@ -170,5 +179,16 @@ const useStyles = makeStyles(({ colors, elevation }) => ({
     height: ICON_BOX,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dot: {
+    position: 'absolute',
+    top: -DOT_BORDER,
+    right: -DOT_BORDER,
+    width: DOT_SIZE,
+    height: DOT_SIZE,
+    borderRadius: radii.pill,
+    borderWidth: DOT_BORDER,
+    borderColor: colors.card,
+    backgroundColor: colors.danger,
   },
 }));

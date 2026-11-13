@@ -7,11 +7,13 @@ import { addToInbox, type InboxItem } from '@/shared/notifications/inbox';
 // The Notifications page's list, kept on this phone between app starts. Filled by showToast for
 // the toasts marked `inbox`; nothing here is sent anywhere.
 
-type StoredNotifications = { items: InboxItem[] };
+// seenAtMs: when the list was last open; a newer item puts a dot on the bell
+type StoredNotifications = { items: InboxItem[]; seenAtMs: number };
 
 type NotificationsState = StoredNotifications & {
   add: (title: string, body: string | null, atMs: number) => void;
   clear: () => void;
+  markSeen: (atMs: number) => void;
 };
 
 const deviceStorage = createJSONStorage<StoredNotifications>(() => ({
@@ -26,13 +28,15 @@ export const useNotificationsStore = create<NotificationsState>()(
   persist(
     (set) => ({
       items: [],
+      seenAtMs: 0,
       add: (title, body, atMs) => set((state) => ({ items: addToInbox(state.items, { id: `${atMs}-${title}`, title, body, atMs }) })),
       clear: () => set({ items: [] }),
+      markSeen: (atMs) => set({ seenAtMs: atMs }),
     }),
     {
       name: 'notifications',
       storage: deviceStorage,
-      partialize: ({ items }) => ({ items }),
+      partialize: ({ items, seenAtMs }) => ({ items, seenAtMs }),
     },
   ),
 );

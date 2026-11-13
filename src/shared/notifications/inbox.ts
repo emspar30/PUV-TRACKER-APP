@@ -14,3 +14,8 @@ export type InboxItem = {
 export function addToInbox(items: readonly InboxItem[], item: InboxItem, keep = NOTIFICATIONS_KEEP): InboxItem[] {
   return [item, ...items.filter((old) => old.id !== item.id)].slice(0, keep);
 }
+
+// Tester note, 2026-11-05: the bell shows a dot while a notification came in after the list was last opened
+export function hasUnread(items: readonly InboxItem[], seenAtMs: number): boolean {
+  return items.some((item) => item.atMs > seenAtMs);
+}

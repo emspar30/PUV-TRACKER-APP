@@ -1,5 +1,5 @@
 import { Bell, BellOff } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { Button, Card, Screen, SkeletonCard } from '@/components';
@@ -20,6 +20,11 @@ export default function NotificationsScreen() {
   const { colors, typography } = useTheme();
   const items = useNotificationsStore((state) => state.items);
   const clear = useNotificationsStore((state) => state.clear);
+  const markSeen = useNotificationsStore((state) => state.markSeen);
+  // Opening the list reads everything in it, and one that arrives while it is open; the bell dot goes
+  useEffect(() => {
+    markSeen(Date.now());
+  }, [items, markSeen]);
   // The page reads the time once when it opens, for "5 min ago"
   const [nowMs] = useState(() => Date.now());
   // B8: a short placeholder first, like the other screens whose data comes over the network
