@@ -2,6 +2,7 @@ import { Pressable, View } from 'react-native';
 
 import { Chip } from '@/components';
 import { avatarSetFor } from '@/shared/profile/avatarPick';
+import { avatarChosen } from '@/state/avatarSync';
 import { useProfileStore } from '@/state/profileStore';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, spacing } from '@/theme';
@@ -12,7 +13,7 @@ const AVATAR_SIZE = MIN_TOUCH_TARGET;
 const RING = spacing.xs;
 
 // A grid of the avatars in the user's own set: the set for the gender answer, or all of them for
-// "Prefer not to say" or no answer (decision after F1 review). The choice is saved on this phone only.
+// "Prefer not to say" or no answer (decision after F1 review). The choice follows the account (avatarSync, 2026-11-13).
 // B7: onPick lets Profile close the grid again after a choice.
 export function AvatarPicker({ onPick }: { onPick?: () => void } = {}) {
   const styles = useStyles();
@@ -30,6 +31,7 @@ export function AvatarPicker({ onPick }: { onPick?: () => void } = {}) {
             style={[styles.option, selected && styles.optionSelected]}
             onPress={() => {
               setAvatarId(id);
+              avatarChosen();
               onPick?.();
             }}
             accessibilityRole="radio"

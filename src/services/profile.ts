@@ -37,3 +37,25 @@ export async function loadTrustPoints(): Promise<number | null> {
     return null;
   }
 }
+
+// 2026-11-13: the number of the preset avatar the account uses (0 to 15), kept on the account's own
+// profile row so every phone shows the same one; null when none is saved yet, or on any error
+export async function loadAvatarId(): Promise<number | null> {
+  try {
+    const { data, error } = await getSupabase().from('profiles').select('avatar_id').maybeSingle();
+    const id = data?.avatar_id as number | null | undefined;
+    return error || typeof id !== 'number' ? null : id;
+  } catch {
+    return null;
+  }
+}
+
+// Saves the account's avatar number through set_avatar; false on any error (sent again later)
+export async function saveAvatarId(avatarId: number): Promise<boolean> {
+  try {
+    const { error } = await getSupabase().rpc('set_avatar', { avatar: avatarId });
+    return !error;
+  } catch {
+    return false;
+  }
+}

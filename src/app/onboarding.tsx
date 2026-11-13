@@ -47,6 +47,7 @@ import { routesNear } from '@/shared/routing/suggest';
 import { compareRouteCodes } from '@/shared/ui/routeVisibility';
 import { useDestinationsStore } from '@/state/destinationsStore';
 import { useFareType } from '@/state/fareType';
+import { avatarChosen } from '@/state/avatarSync';
 import { useProfileStore } from '@/state/profileStore';
 import { useSessionStore } from '@/state/sessionStore';
 import { useTourStore } from '@/state/tourStore';
@@ -140,6 +141,8 @@ export default function OnboardingScreen() {
     saveHandle();
     // Skipping still gives an avatar, from all of them when there is no answer
     assignAvatar();
+    // 2026-11-13: the avatar the rider ends the introduction with follows the account
+    avatarChosen();
     setOnboarded(true);
     // Opened from Settings there is a screen to go back to; on first launch there is not
     if (router.canGoBack()) router.back();

@@ -148,10 +148,12 @@ describe('migration: tables', () => {
     expect(sql).toMatch(/verification_reasons\s+jsonb not null default '\[\]'::jsonb/);
   });
 
-  it('stores no rider category, avatar, name, email or phone in any table', () => {
-    for (const word of ['classification', 'avatar', 'full_name', 'email', 'discount']) {
+  it('stores no rider category, name, email or phone in any table; the avatar only as its preset number', () => {
+    for (const word of ['classification', 'full_name', 'email', 'discount']) {
       expect(sql).not.toContain(word);
     }
+    // 2026-11-13 (Emjay): the avatar follows the account as profiles.avatar_id, nothing else of it
+    expect([...sql.matchAll(/\bavatar\w*/g)].map((match) => match[0]).filter((word) => word !== 'avatar' && word !== 'avatar_id')).toEqual([]);
     // The driver side (20261013000000_driver_side, 20261027000000_driver_registration) keeps the
     // numbers of driver phones, SMS gateways and registering drivers, never a rider's
     const withPhone = [...sql.matchAll(/create table (public\.\w+) \(([\s\S]*?)\);/g)]
@@ -646,7 +648,7 @@ describe('migration: ended Crowdsource relays stay (2026-11-05)', () => {
     expect(body).toContain('f.ended_at is null');
     expect(body).toMatch(/when not f\.live_map and f\.expires_at > now\(\)\s+then f\.created_at \+ make_interval\(mins => cfg\.feed_lifetime_min\)/);
     expect(body).toContain('else least(f.expires_at, now())');
-    expect(keepSql).not.toMatch(/drop/);
+    expect(keepSql).not.toMatch(/\bdrop\b/);
   });
 });
 
@@ -725,6 +727,24 @@ describe('migration: the live map for every account (2026-11-13)', () => {
 
   it('removes nothing', () => {
     expect(openSql).not.toMatch(/\b(drop|truncate|delete from public\.(?!relay_sessions))/);
+  });
+});
+
+describe('migration: the avatar follows the account (2026-11-13)', () => {
+  const avatarSql = read(['20261113000001_profile_avatar.sql']);
+
+  it('stores only a preset number, 0 to 15, on the account own row', () => {
+    expect(avatarSql).toContain('add column avatar_id smallint check (avatar_id between 0 and 15)');
+    expect(avatarSql).toContain('create function public.set_avatar(avatar smallint)');
+    expect(avatarSql).toContain('security definer');
+    expect(avatarSql).toContain("set search_path = ''");
+    expect(avatarSql).toContain('insert into public.profiles (user_id, avatar_id) values (uid, set_avatar.avatar)');
+    expect(avatarSql).toContain('revoke execute on function public.set_avatar(smallint) from public, anon');
+    expect(avatarSql).toContain('grant execute on function public.set_avatar(smallint) to authenticated');
+  });
+
+  it('reading stays limited to the own row, and nothing is removed', () => {
+    expect(avatarSql).not.toMatch(/create policy|grant select|\bdrop\b/);
   });
 });
 

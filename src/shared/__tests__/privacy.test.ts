@@ -26,16 +26,24 @@ const code = (file: string) =>
 const mentions = (pattern: RegExp) => (file: string) => pattern.test(code(file));
 
 describe('no cloud payload contains classification', () => {
-  it('code that talks to the backend never mentions the classification, gender, avatar or destinations', () => {
+  // 2026-11-13 (Emjay): the preset avatar's number follows the account (profiles.avatar_id); the
+  // classification, the gender answer and destinations still never leave the phone
+  it('code that talks to the backend never mentions the classification, gender or destinations', () => {
     const files = sourceFiles(path.join(ROOT, 'src', 'services'));
     expect(files.length).toBeGreaterThan(0);
-    expect(files.filter(mentions(/classification|avatar|onboard|gender|destination|landmark/i))).toEqual([]);
+    expect(files.filter(mentions(/classification|onboard|gender|destination|landmark/i))).toEqual([]);
   });
 
-  it('server code and migrations never mention the classification, gender, avatar or destinations', () => {
+  it('server code and migrations never mention the classification, gender or destinations', () => {
     const files = sourceFiles(path.join(ROOT, 'supabase'));
     expect(files.length).toBeGreaterThan(0);
-    expect(files.filter(mentions(/classification|avatar|gender|destination|landmark/i))).toEqual([]);
+    expect(files.filter(mentions(/classification|gender|destination|landmark/i))).toEqual([]);
+  });
+
+  it('the avatar sync reads only the avatar from the profile store and sends only its number', () => {
+    const source = code(path.join(ROOT, 'src', 'state', 'avatarSync.ts'));
+    expect(source).not.toMatch(/classification|gender|onboarded|destination/i);
+    expect([...source.matchAll(/from '([^']+)'/g)].map((match) => match[1]).filter((s) => /services/.test(s))).toEqual(['@/services/profile']);
   });
 
   it('the profile store keeps it on the device: it imports no service or network code', () => {
@@ -67,7 +75,8 @@ describe('no cloud payload contains classification', () => {
         const talksToBackend = /from '[^']*(services\/|@supabase)/.test(source);
         const readsPrivate =
           /from '[^']*(profileStore|destinationsStore|landmarks\.placeholder|profile\/avatarPick|profile\/destinations)'/.test(source);
-        return talksToBackend && readsPrivate;
+        // The avatar sync is the one exception, checked above: it sends only the avatar's number
+        return talksToBackend && readsPrivate && !file.endsWith(`${path.sep}state${path.sep}avatarSync.ts`);
       })
       .map((file) => path.relative(ROOT, file).split(path.sep).join('/'));
     expect(offenders).toEqual([]);

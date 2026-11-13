@@ -11,11 +11,12 @@ import {
   type Gender,
 } from '@/shared/profile/avatarPick';
 
-// PRD 7.1 and 19 (D3): the fare classification, the gender answer and the avatar are stored ONLY
-// on this device. The classification applies the discount to the fare estimate; the gender answer
-// only chooses the set the avatar is drawn from; the avatar is shown only to the user. None of
-// them is ever sent to a server: this store imports nothing from src/services, and a unit test
-// checks that no service or server code mentions them.
+// PRD 7.1 and 19 (D3): the fare classification and the gender answer are stored ONLY on this
+// device. The classification applies the discount to the fare estimate; the gender answer only
+// chooses the set the avatar is drawn from; the avatar is shown only to the user. Neither is ever
+// sent to a server: this store imports nothing from src/services, and a unit test checks that no
+// service or server code mentions them. Since 2026-11-13 the avatar's number alone follows the
+// account (state/avatarSync), so every phone shows the same avatar.
 
 type StoredProfile = {
   classification: Classification;

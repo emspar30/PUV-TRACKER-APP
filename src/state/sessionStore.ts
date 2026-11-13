@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { getSupabase, isSupabaseConfigured, readStoredSession } from '@/services/supabase';
 import { isSignedIn, type SessionStatus } from '@/shared/auth/gate';
 
+import { stopAvatarSync, syncAvatar } from './avatarSync';
 import { syncUsername } from './usernameStore';
 
 // The backend sign-in state. It holds only what the screens show: whether someone is signed in
@@ -66,7 +67,9 @@ export function startSessionTracking(): void {
     if (signedIn) {
       void syncUsername().catch(() => undefined);
       void syncLiveMapAccess().catch(() => undefined);
-    }
+      // 2026-11-13: the saved avatar replaces a phone's own draw
+      void syncAvatar().catch(() => undefined);
+    } else stopAvatarSync();
   };
 
   try {
