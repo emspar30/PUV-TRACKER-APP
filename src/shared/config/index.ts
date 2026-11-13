@@ -679,6 +679,9 @@ export const ARMED_SCAN_MIN = 15;
 // Tester note (2026-11-13): the Relay panel keeps a found multicab through short signal drops, but
 // lets it go once it has not been heard for this long (as a queued relay ends, RELAY_QUEUE_BEACON_GONE_S)
 export const RELAY_PANEL_BEACON_GONE_S = 30;
+// Tester note (2026-11-13): the Relay panel stops scanning after this long without hearing any
+// multicab, to save battery, and offers Try again
+export const RELAY_PANEL_SEARCH_S = 120;
 
 // --- Driver beacon (PRD 8.2, 9.2; DR2, docs/IMPLEMENTATION_PLAN_DRIVER.md section 6.1). Not a secret:
 // every Tunton beacon advertises this service UUID, so commuter phones can filter on it.

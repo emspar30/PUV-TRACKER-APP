@@ -1,4 +1,4 @@
-import { Bluetooth, BluetoothSearching, Bus } from 'lucide-react-native';
+import { Bluetooth, BluetoothSearching, Bus, RotateCw } from 'lucide-react-native';
 import { ActivityIndicator, Linking, Text, View } from 'react-native';
 
 import { Button, IconTile, LineBadge } from '@/components';
@@ -122,10 +122,15 @@ export function BleCard({ ble, routeColor }: BleCardProps) {
 
   const line = nearby.status === 'needs_location' ? text.nearby.needsLocation : nearby.status === 'location_off' ? text.nearby.locationOff : lineFor(view);
   if (!line) return null;
+  // The scan stopped (nothing heard for a while, or its time ran out): a new one on request
+  const stopped = view?.kind === 'unavailable' && view.reason === 'stopped';
   return (
-    <View style={[styles.note, styles.row]}>
-      <BluetoothSearching size={ICON_SIZE} color={colors.textSecondary} />
-      <Text style={[typography.bodySm, styles.grow]}>{line}</Text>
+    <View style={styles.note}>
+      <View style={styles.row}>
+        <BluetoothSearching size={ICON_SIZE} color={colors.textSecondary} />
+        <Text style={[typography.bodySm, styles.grow]}>{line}</Text>
+      </View>
+      {stopped ? <Button label={text.ble.tryAgain} variant="secondary" leadingIcon={RotateCw} onPress={ble.retry} /> : null}
     </View>
   );
 }

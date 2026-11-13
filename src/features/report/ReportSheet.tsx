@@ -80,7 +80,8 @@ function beaconOf(ble: BleState): RelayBeacon {
     case 'ambiguous':
       return { kind: 'several' };
     case 'unavailable':
-      return { kind: 'off' };
+      // A scan that stopped looking heard no registered multicab; the others cannot scan at all
+      return { kind: view.reason === 'stopped' ? 'unregistered' : 'off' };
     case 'found':
       return { kind: 'found', vehicle: view.vehicle };
     case 'failed':

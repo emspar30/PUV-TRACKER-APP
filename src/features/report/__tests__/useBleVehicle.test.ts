@@ -3,7 +3,7 @@
 
 import type { BeaconVerdict } from '@/services/beacon';
 import { encodeBeacon, payloadToHex, slotOf } from '@/shared/beacon/code';
-import { ARMED_SCAN_MIN, BEACON_SCAN_MODE, BEACON_SERVICE_UUID, BEACON_SLOT_S, RELAY_PANEL_BEACON_GONE_S } from '@/shared/config';
+import { ARMED_SCAN_MIN, BEACON_SCAN_MODE, BEACON_SERVICE_UUID, BEACON_SLOT_S, RELAY_PANEL_BEACON_GONE_S, RELAY_PANEL_SEARCH_S } from '@/shared/config';
 
 import type { BeaconReading, ScanStart, ScanStopped } from '../../../../modules/tunton-beacon';
 import { createBleSession, type BleView } from '../bleSession';
@@ -174,6 +174,37 @@ describe('useBleVehicle session (DR8)', () => {
     await hear([{ shortId: 7, rssi: STRONG }], 5000);
     expect(verify.mock.calls.length).toBe(asked + 1);
     expect(last()).toMatchObject({ kind: 'found' });
+  });
+
+  it('stops looking after RELAY_PANEL_SEARCH_S with nothing heard, to save battery', async () => {
+    // Tester note, 2026-11-13: with every beacon off the panel kept looking for 15 minutes
+    const { session, scanner, hear, last } = setUp();
+    await session.start();
+    await hear([], (RELAY_PANEL_SEARCH_S - 5) * MS_PER_S);
+    expect(last()).toEqual({ kind: 'searching' });
+    await hear([], 6 * MS_PER_S);
+    expect(last()).toEqual({ kind: 'unavailable', reason: 'stopped' });
+    expect(scanner.stop).toHaveBeenCalled();
+  });
+
+  it('counts the search again from when a found multicab was lost', async () => {
+    const { session, hear, last } = setUp();
+    await session.start();
+    await hear([], 60 * MS_PER_S);
+    await hear([{ shortId: 7, rssi: STRONG }], 5000);
+    expect(last()).toMatchObject({ kind: 'found' });
+    // Lost after RELAY_PANEL_BEACON_GONE_S, then still looking until RELAY_PANEL_SEARCH_S after that
+    await hear([], (RELAY_PANEL_BEACON_GONE_S + RELAY_PANEL_SEARCH_S - 10) * MS_PER_S);
+    expect(last()).toEqual({ kind: 'searching' });
+    await hear([], 12 * MS_PER_S);
+    expect(last()).toEqual({ kind: 'unavailable', reason: 'stopped' });
+  });
+
+  it('the queue scan never stops early: it has its own limits', async () => {
+    const { session, hear, last } = setUp('scanning', R4, false);
+    await session.start();
+    await hear([], (RELAY_PANEL_SEARCH_S + 10) * MS_PER_S);
+    expect(last()).toEqual({ kind: 'searching' });
   });
 
   it('lets a found multicab go when the scan times out; says it stopped either way', async () => {

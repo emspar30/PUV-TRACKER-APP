@@ -18,6 +18,8 @@ export type BleState = {
   nearby: NearbyPermission;
   // Null while the scan may not run (see nearby.status)
   view: BleView | null;
+  // Starts a new scan, from nothing (Try again after the panel stopped looking)
+  retry: () => void;
 };
 
 const nativeScanner: BleScanner = {
@@ -69,6 +71,8 @@ export function useBleVehicle(wanted: boolean, options?: BleOptions): BleState {
   const bluetoothOn = useBluetoothOn(scan);
   const sticky = options?.sticky;
   const durationMin = options?.durationMin;
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((count) => count + 1), []);
 
   useEffect(() => {
     if (!scan) return undefined;
@@ -79,7 +83,7 @@ export function useBleVehicle(wanted: boolean, options?: BleOptions): BleState {
       // A later scan starts from nothing, not from this one's multicab
       setView(null);
     };
-  }, [scan, bluetoothOn, sticky, durationMin]);
+  }, [scan, bluetoothOn, sticky, durationMin, attempt]);
 
-  return { nearby, view: scan ? view : null };
+  return { nearby, view: scan ? view : null, retry };
 }

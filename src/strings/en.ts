@@ -203,7 +203,9 @@ export const en = {
       bluetooth_off: 'Bluetooth is off. Turn it on to find your multicab.',
       no_permission: 'Nearby devices is off for Tunton.',
       not_supported: 'This phone cannot look for multicabs, so it cannot relay.',
-      stopped: 'Stopped looking for your multicab. Close and open Relay to look again.',
+      // Tester note (2026-11-13): the scan stops after RELAY_PANEL_SEARCH_S with nothing heard, to save battery
+      stopped: 'Tunton stopped looking, to save battery. Sit inside the multicab, then try again.',
+      tryAgain: 'Try again',
       beacon_invalid: "This multicab's signal did not check out.",
       beacon_expired: "This multicab's signal is out of date.",
       unknown_vehicle: 'This multicab is not registered with Tunton.',

@@ -1,7 +1,7 @@
 import type { BeaconFailure, BeaconVerdict, BleVehicle } from '@/services/beacon';
 import { decodeBeacon, payloadFromHex } from '@/shared/beacon/code';
 import { pickBeacon, updateBeacon, type BeaconTrack } from '@/shared/beacon/presence';
-import { ARMED_SCAN_MIN, BEACON_PAYLOAD_VERSION, BEACON_SCAN_MODE, BEACON_SERVICE_UUID, RELAY_PANEL_BEACON_GONE_S } from '@/shared/config';
+import { ARMED_SCAN_MIN, BEACON_PAYLOAD_VERSION, BEACON_SCAN_MODE, BEACON_SERVICE_UUID, RELAY_PANEL_BEACON_GONE_S, RELAY_PANEL_SEARCH_S } from '@/shared/config';
 
 import type { BeaconReading, EventSubscription, ScanOptions, ScanStart, ScanStopped } from '../../../modules/tunton-beacon';
 import { fieldLog } from '@/state/fieldLogStore';
@@ -63,6 +63,8 @@ export function createBleSession({ scanner, verify, now, onChange, sticky = true
   const asking = new Set<string>();
   const subscriptions: EventSubscription[] = [];
   let found: { shortId: number; vehicle: BleVehicle } | null = null;
+  // The panel only: when it last had a multicab or heard one; RELAY_PANEL_SEARCH_S after it, it stops
+  let searchSinceMs = 0;
   let shown = '';
   let scanning = false;
   let disposed = false;
@@ -105,6 +107,18 @@ export function createBleSession({ scanner, verify, now, onChange, sticky = true
     if (sticky && found && now() - (tracks.get(found.shortId)?.lastHeardMs ?? 0) >= RELAY_PANEL_BEACON_GONE_S * MS_PER_S) {
       verdicts.delete(found.shortId);
       found = null;
+    }
+    // Tester note (2026-11-13): nothing heard for RELAY_PANEL_SEARCH_S stops the scan (Try again starts
+    // a new one); a multicab found or heard starts the count again
+    if (sticky && scanning) {
+      if (found || pick.kind !== 'none') searchSinceMs = now();
+      else if (now() - searchSinceMs >= RELAY_PANEL_SEARCH_S * MS_PER_S) {
+        scanning = false;
+        stopTimer();
+        void scanner.stop();
+        show({ kind: 'unavailable', reason: 'stopped' });
+        return;
+      }
     }
     if (pick.kind === 'one') {
       const code = latest.get(pick.key);
@@ -167,6 +181,7 @@ export function createBleSession({ scanner, verify, now, onChange, sticky = true
         return;
       }
       scanning = true;
+      searchSinceMs = now();
       timer = setInterval(evaluate, BLE_TICK_MS);
       evaluate();
     },
