@@ -5,7 +5,9 @@
 
 import { ETA_MIN_SPEED_KMH, RELAY_PROGRESS_SNAP_M } from '../config';
 import { haversineMeters, type LatLon } from '../geo/haversine';
-import { projectOntoLine, type LineCoordinates } from '../geo/line';
+import type { Position } from 'geojson';
+
+import { projectOntoLine, sliceCoordinates, type LineCoordinates } from '../geo/line';
 
 import type { RelayBroadcast } from './broadcast';
 import { askInMin } from './limits';
@@ -29,19 +31,35 @@ export type RelayProgress = {
   askInMin: number;
 };
 
-// Metres along one of the route's lines from `from` to `to`, the shortest where both lie on a line
+type RoutePart = { line: LineCoordinates; fromKm: number; toKm: number };
+
+// The shortest part of one of the route's lines from `from` to `to`, where both lie on the line
 // (within RELAY_PROGRESS_SNAP_M) with `to` ahead; null when no line has both
-export function alongRouteM(lines: readonly LineCoordinates[], from: LatLon, to: LatLon): number | null {
-  let best: number | null = null;
+function routePart(lines: readonly LineCoordinates[], from: LatLon, to: LatLon): RoutePart | null {
+  let best: RoutePart | null = null;
   for (const line of lines) {
     if (line.length < MIN_LINE_POINTS) continue;
     const a = projectOntoLine(line, from);
     const b = projectOntoLine(line, to);
     if (a.offsetM > RELAY_PROGRESS_SNAP_M || b.offsetM > RELAY_PROGRESS_SNAP_M || b.chainageKm < a.chainageKm) continue;
-    const metres = (b.chainageKm - a.chainageKm) * M_PER_KM;
-    if (best === null || metres < best) best = metres;
+    if (best === null || b.chainageKm - a.chainageKm < best.toKm - best.fromKm) best = { line, fromKm: a.chainageKm, toKm: b.chainageKm };
   }
   return best;
+}
+
+// Metres along one of the route's lines from `from` to `to` (routePart); null when no line has both
+export function alongRouteM(lines: readonly LineCoordinates[], from: LatLon, to: LatLon): number | null {
+  const part = routePart(lines, from, to);
+  return part ? (part.toKm - part.fromKm) * M_PER_KM : null;
+}
+
+// Tester note (2026-11-13): the ride left to the destination, drawn on the Map during a relay like a
+// directions line. The same part of the same line as "km to go"; null when it cannot be told
+export function alongRoutePath(lines: readonly LineCoordinates[], from: LatLon, to: LatLon): Position[] | null {
+  const part = routePart(lines, from, to);
+  if (!part) return null;
+  const coordinates = sliceCoordinates(part.line, part.fromKm, part.toKm);
+  return coordinates.length >= MIN_LINE_POINTS ? coordinates : null;
 }
 
 export function relayProgress(input: {

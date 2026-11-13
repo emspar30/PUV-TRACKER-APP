@@ -537,6 +537,11 @@ export const RELAY_ARRIVAL_COUNTDOWN_S = 60;
 // Emjay, 2026-11-02: once, when the rider first comes within this of the destination, a toast and a
 // vibration say to get ready to get off, before the arrival countdown above
 export const RELAY_GET_OFF_WARN_M = 300;
+// Tester note (2026-11-13): ride alerts that can wake a sleeping rider. The phone notification's
+// channel and the in-app buzz use this pattern (milliseconds: wait, buzz, pause, buzz, ...); at the
+// get-off point the in-app buzz repeats until "Got it", for at most GET_OFF_BUZZ_MAX_S
+export const RIDE_ALERT_VIBRATION_MS = [0, 800, 400, 800, 400, 1200] as const;
+export const GET_OFF_BUZZ_MAX_S = 30;
 // RL1 (PRD 8.4): idle stop. Fixes that stay within RELAY_IDLE_RADIUS_M for RELAY_IDLE_MIN end the
 // relay; RELAY_IDLE_TERMINAL_MIN within RELAY_TERMINAL_RADIUS_M of a terminal (the route's first and
 // last stop until real terminals are listed, D3)

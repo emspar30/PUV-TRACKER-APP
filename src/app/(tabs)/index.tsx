@@ -1,7 +1,7 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, Minus, Plus, WifiOff, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, Vibration, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInRight, FadeOutRight } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -33,6 +33,8 @@ import { useCommuterPosition } from '@/features/map/useCommuterPosition';
 import { useSkeleton } from '@/features/loading/useSkeleton';
 import { useLiveLocation } from '@/features/map/useLiveLocation';
 import { useOfflineTiles } from '@/features/map/useOfflineTiles';
+import { buzzOnce, notifyRide, prepareRideAlerts } from '@/features/alerts/rideAlerts';
+import { RelayPathLayer } from '@/features/report/RelayPathLayer';
 import { TrackingLayers } from '@/features/tracking/TrackingLayers';
 import { TourTarget } from '@/features/tour/TourTarget';
 import { TrackingBar } from '@/features/tracking/TrackingBar';
@@ -327,9 +329,19 @@ export default function MapScreen() {
   // The arrival alert is for the commuter's own boarding point only
   const trackedEtaS = trackedEta?.kind === 'approaching' && etaTarget === 'mine' ? trackedEta.etaS : null;
 
+  // Tester note (2026-11-13): the notification permission is asked once a ride alert can come
+  const alertsWanted = trackedId !== null || relay !== null;
+  useEffect(() => {
+    if (alertsWanted) void prepareRideAlerts();
+  }, [alertsWanted]);
+
   // A short vibration once, when the ETA first reaches the alert threshold
   useEffect(() => {
-    if (alertOn && crossesAlert(previousEtaS.current, trackedEtaS, TRACK_ALERT_ETA_S)) Vibration.vibrate();
+    // Tester note (2026-11-13): on the lock screen too, so a rider waiting with the phone away knows
+    if (alertOn && trackedEtaS !== null && crossesAlert(previousEtaS.current, trackedEtaS, TRACK_ALERT_ETA_S)) {
+      buzzOnce();
+      void notifyRide(strings.live.tracking.alertNow(strings.live.tracking.minutes(trackedEtaS)), null);
+    }
     previousEtaS.current = trackedEtaS;
   }, [alertOn, trackedEtaS]);
 
@@ -359,24 +371,19 @@ export default function MapScreen() {
       previousKm.current = null;
       fieldLog('arrived', undefined, trackedLabel ?? undefined);
       stopTracking();
-      Vibration.vibrate();
-      showToast({
-        inbox: true,
-        icon: CircleCheck,
-        title: strings.live.tracking.arrivedTitle,
-        body: trackedLabel ? strings.live.tracking.arrivedBody(trackedLabel) : undefined,
-      });
+      buzzOnce();
+      const arrivedBody = trackedLabel ? strings.live.tracking.arrivedBody(trackedLabel) : undefined;
+      void notifyRide(strings.live.tracking.arrivedTitle, arrivedBody ?? null);
+      showToast({ inbox: true, icon: CircleCheck, title: strings.live.tracking.arrivedTitle, body: arrivedBody });
       return;
     }
     const crossedM = alertOn ? crossedDistance(previous, trackedKm, TRACK_DISTANCE_ALERTS_M) : null;
     if (crossedM === null) return;
-    Vibration.vibrate();
-    showToast({
-      inbox: true,
-      icon: BellRing,
-      title: strings.live.tracking.nearTitle(strings.checkin.distance(crossedM)),
-      body: trackedLabel ? strings.live.tracking.nearBody(trackedLabel) : undefined,
-    });
+    buzzOnce();
+    const nearTitle = strings.live.tracking.nearTitle(strings.checkin.distance(crossedM));
+    const nearBody = trackedLabel ? strings.live.tracking.nearBody(trackedLabel) : undefined;
+    void notifyRide(nearTitle, nearBody ?? null);
+    showToast({ inbox: true, icon: BellRing, title: nearTitle, body: nearBody });
   }, [alertOn, trackedKm, trackedLabel, stopTracking]);
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
@@ -690,6 +697,8 @@ export default function MapScreen() {
             }}
           />
         ) : null}
+        {/* Tester note (2026-11-13): during a relay, the ride left to the destination, like a directions line */}
+        {relay && commuter ? <RelayPathLayer position={commuter} destination={relay.destination} lines={relayLines} /> : null}
         {/* CA1.1: the commuter's "You" dot on All routes too (a simulated or pinned spot has no blue dot) */}
         {commuter ? (
           <TrackingLayers

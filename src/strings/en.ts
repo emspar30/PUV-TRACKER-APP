@@ -360,6 +360,13 @@ export const en = {
   },
 
   // PRD 14: toasts when the server stops or starts answering (useConnectionProbe)
+  // Tester note (2026-11-13): the phone notifications for ride alerts (local, made on the phone)
+  alerts: {
+    channelName: 'Ride alerts',
+    channelDescription: 'Get ready to get off, and the multicab you track coming near or arriving.',
+    gotIt: 'Got it',
+  },
+
   connection: {
     lostTitle: 'You are offline',
     lostBody: 'The map, routes and fares still work. Live updates pause until you are back online.',

@@ -3,7 +3,8 @@
 
 import { ETA_MIN_SPEED_KMH, RELAY_PROGRESS_SNAP_M, RELAY_SESSION_CAP_H } from '../config';
 import type { RelayBroadcast } from '../relay/broadcast';
-import { alongRouteM, relayProgress } from '../relay/progress';
+import { haversineMeters } from '../geo/haversine';
+import { alongRouteM, alongRoutePath, relayProgress } from '../relay/progress';
 import { FIXTURE_OUTBOUND, FIXTURE_RETURN, pointAt } from './fixtures/routeFixture';
 
 const T0 = 1_790_000_000_000;
@@ -63,5 +64,24 @@ describe('relay progress', () => {
     expect(relayProgress({ session, position: pointAt(4), lines: LINES, speedKmh: null, capFromMs: T0, nowMs: T0 + 200 * MIN }).askInMin).toBe(0);
     // After Keep sharing the hours start again
     expect(relayProgress({ session, position: null, lines: LINES, speedKmh: null, capFromMs: T0 + 180 * MIN, nowMs: T0 + 200 * MIN }).askInMin).toBe(CAP_MIN - 20);
+  });
+});
+
+describe('the ride left on the Map (tester note, 2026-11-13)', () => {
+  it('follows the line the rider is on, from the rider to the destination, as long as km to go', () => {
+    const path = alongRoutePath(LINES, pointAt(2), pointAt(6));
+    expect(path).not.toBeNull();
+    if (!path) return;
+    const [lon0, lat0] = path[0];
+    const [lon1, lat1] = path[path.length - 1];
+    expect(haversineMeters({ lat: lat0, lon: lon0 }, pointAt(2))).toBeLessThan(RELAY_PROGRESS_SNAP_M);
+    expect(haversineMeters({ lat: lat1, lon: lon1 }, pointAt(6))).toBeLessThan(RELAY_PROGRESS_SNAP_M);
+    let metres = 0;
+    for (let i = 1; i < path.length; i += 1) metres += haversineMeters({ lat: path[i - 1][1], lon: path[i - 1][0] }, { lat: path[i][1], lon: path[i][0] });
+    expect(metres).toBeCloseTo(alongRouteM(LINES, pointAt(2), pointAt(6)) ?? 0, -1);
+  });
+
+  it('draws nothing off the route', () => {
+    expect(alongRoutePath(LINES, pointAt(2, RELAY_PROGRESS_SNAP_M + 50), pointAt(6))).toBeNull();
   });
 });

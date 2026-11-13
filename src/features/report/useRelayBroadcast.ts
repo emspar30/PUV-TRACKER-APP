@@ -1,7 +1,7 @@
 import { BellRing, CircleCheck, Clock, RadioTower } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Vibration } from 'react-native';
 
+import { buzzOnce, buzzUntilStopped, notifyRide, stopBuzz } from '@/features/alerts/rideAlerts';
 import { RELAY_CAP_ANSWER_MIN, RELAY_CHECK_S, RELAY_GET_OFF_WARN_M, RELAY_HEARTBEAT_MIN, RELAY_SESSION_CAP_H } from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
 import type { RelayBroadcast, RelayPost } from '@/shared/relay/broadcast';
@@ -105,8 +105,13 @@ export function useRelayBroadcast(position: LatLon | null): RelayBroadcast | nul
   const getOffSoon = session !== null && watch.getOffSoon;
   useEffect(() => {
     if (!getOffSoon || !session) return;
-    Vibration.vibrate();
-    showToast({ icon: BellRing, title: strings.report.getOffSoonTitle, body: strings.report.getOffSoonBody(session.destination.name, RELAY_GET_OFF_WARN_M) });
+    // Tester note (2026-11-13): strong enough to wake a dozing rider: a buzz that repeats until Got it,
+    // a dialog in the app, and a notification on the lock screen
+    const title = strings.report.getOffSoonTitle;
+    const body = strings.report.getOffSoonBody(session.destination.name, RELAY_GET_OFF_WARN_M);
+    buzzUntilStopped();
+    void notifyRide(title, body);
+    showDialog({ tone: 'warning', icon: BellRing, title, body, actions: [{ label: strings.alerts.gotIt, onPress: stopBuzz }] });
     // Only the change to true matters; the session is read at that moment
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getOffSoon]);
@@ -116,7 +121,8 @@ export function useRelayBroadcast(position: LatLon | null): RelayBroadcast | nul
     if (!session || !end) return;
     const toast = endToast(end, session);
     stop();
-    Vibration.vibrate();
+    stopBuzz();
+    buzzOnce();
     showToast({ ...toast, inbox: true });
   }, [session, end, stop]);
 
