@@ -2,11 +2,11 @@ import { router } from 'expo-router';
 import { MapPin, Search, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeIn, KeyboardState, SlideInDown, useAnimatedKeyboard, useAnimatedReaction, useAnimatedStyle } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import Animated, { FadeIn, SlideInDown, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chip } from '@/components';
+import { useKeyboardHeight } from '@/components/useKeyboardHeight';
 import type { VehiclesRepository } from '@/data/repositories/types';
 import { useBoardingEndsCheckIn } from '@/features/checkin/useBoardingEndsCheckIn';
 import { isNight, relayedRecently, type FeedPhrase } from '@/shared/backend/rules';
@@ -155,15 +155,6 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   const window = useWindowDimensions();
   // Tester note (2026-11-13): the panel rides on top of the keyboard, never taller than the room left
   // above it, and the destination box scrolls into view while it is typed in
-  const keyboard = useAnimatedKeyboard();
-  const keyboardStyle = useAnimatedStyle(() => {
-    const lift = keyboard.height.value;
-    return {
-      marginBottom: lift,
-      maxHeight: lift > 0 ? Math.min(window.height * PANEL_MAX_SHARE, window.height - insets.top - lift) : window.height * PANEL_MAX_SHARE,
-      paddingBottom: spacing.md + (lift > 0 ? 0 : insets.bottom),
-    };
-  });
   const scroll = useRef<ScrollView>(null);
   const scrollContent = useRef<View>(null);
   const searchBox = useRef<View>(null);
@@ -173,13 +164,17 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
     if (!typingDestination.current || !content) return;
     searchBox.current?.measureLayout(content, (_x, y) => scroll.current?.scrollTo({ y: Math.max(0, y - spacing.md), animated: true }));
   }, []);
-  useAnimatedReaction(
-    () => keyboard.state.value,
-    (state, previous) => {
-      if (state === KeyboardState.OPEN && previous !== KeyboardState.OPEN) scheduleOnRN(revealSearch);
-    },
-    [revealSearch],
-  );
+  // The keyboard's height is above the navigation bar, so the panel is lifted by both
+  const keyboardHeight = useKeyboardHeight(revealSearch);
+  const keyboardStyle = useAnimatedStyle(() => {
+    const keyboardUp = keyboardHeight.get();
+    const lift = keyboardUp > 0 ? keyboardUp + insets.bottom : 0;
+    return {
+      marginBottom: lift,
+      maxHeight: lift > 0 ? Math.min(window.height * PANEL_MAX_SHARE, window.height - insets.top - lift) : window.height * PANEL_MAX_SHARE,
+      paddingBottom: spacing.md + (lift > 0 ? 0 : insets.bottom),
+    };
+  });
   // PRD 14: a relay is sent over the internet; offline, Send fails, so the panel says so first
   const offline = useConnectionStore((state) => state.online === false);
   const demoData = useSettingsStore((state) => state.demoData);
