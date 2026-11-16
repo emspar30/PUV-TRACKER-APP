@@ -1,5 +1,5 @@
 import { driftSample, driftStatus } from '../driver/drift';
-import { ageMinutes, applyMessage, displayCount, emptyHeatmap, freshness, heatmapBand } from '../driver/heatmap';
+import { ageMinutes, applyMessage, displayCount, emptyHeatmap, freshness, heatmapBand, isQuiet } from '../driver/heatmap';
 import { isSameNumber, normalizePhNumber } from '../driver/phone';
 import type { HeatmapMessage } from '../sms/protocol';
 
@@ -47,6 +47,23 @@ describe('driver heatmap state (PRD 9.3, 9.4; DR2)', () => {
     expect(freshness(state, NOON + 15 * MIN - 100)).toBe('fresh');
     expect(freshness(state, NOON + 15 * MIN)).toBe('stale');
     expect(ageMinutes(state, NOON + 17 * MIN + 30_000)).toBe(17);
+  });
+
+  it('2026-11-16: after a "cleared" message (nobody anywhere) it stays fresh 60 minutes, not 15', () => {
+    const busy = applyMessage(emptyHeatmap('R4'), { ...message(1, [['SMB', 3]]), full: true }, NOON);
+    const cleared = applyMessage(busy, { ...message(2, []), full: true }, NOON + MIN);
+    expect(isQuiet(cleared)).toBe(true);
+    expect(freshness(cleared, NOON + MIN + 59 * MIN)).toBe('fresh');
+    expect(freshness(cleared, NOON + MIN + 60 * MIN)).toBe('stale');
+  });
+
+  it('2026-11-16: anyone at or near a stop is not quiet, so the 15-minute warning stays', () => {
+    const near = applyMessage(emptyHeatmap('R4'), { ...message(1, []), nodes: [{ code: 'BAA', count: 0, near: 1 }], full: true }, NOON);
+    expect(isQuiet(near)).toBe(false);
+    expect(freshness(near, NOON + 15 * MIN)).toBe('stale');
+    // A partial message (v2) never makes the route quiet: the other stops are not known
+    const partial = applyMessage(emptyHeatmap('R4'), message(1, [['SMB', 0]]), NOON);
+    expect(isQuiet(partial)).toBe(false);
   });
 
   it('shows exact numbers by day and only bands from 21:00 (Q5, Q11)', () => {

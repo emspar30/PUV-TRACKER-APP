@@ -1,4 +1,4 @@
-import { ageMinutes, displayCount, freshness, heatmapBand, type Freshness, type HeatmapState, type StopDisplay } from './heatmap';
+import { ageMinutes, displayCount, freshness, heatmapBand, isQuiet, type Freshness, type HeatmapState, type StopDisplay } from './heatmap';
 
 // What the driver's home screen shows (PRD 9.4; DR5), worked out here so the rules are tested in
 // plain Node: the stops in riding order, each unknown (never sent since setup) or known with its
@@ -17,6 +17,8 @@ export type HeatmapView = {
   rows: HeatmapRow[];
   // True when no row shows an exact count (Q5, Q11): the list then says the counts are bands
   bandsOnly: boolean;
+  // Emjay, 2026-11-16: the last message said nobody waits anywhere on the route (isQuiet)
+  quiet: boolean;
 };
 
 export function heatmapView(state: HeatmapState | null, stops: readonly HeatmapStop[], nowMs: number): HeatmapView {
@@ -27,6 +29,7 @@ export function heatmapView(state: HeatmapState | null, stops: readonly HeatmapS
     ageMin: state ? ageMinutes(state, nowMs) : null,
     rows,
     bandsOnly: known.length > 0 && known.every((row) => row.display.kind === 'known' && row.display.exact === null),
+    quiet: state ? isQuiet(state) : false,
   };
 }
 

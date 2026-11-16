@@ -12,10 +12,13 @@ const MIN_PER_HOUR = 60;
 // Below this the clock offset is shown in seconds
 const SECONDS_UP_TO = 120;
 
-export function describeUpdate(view: Pick<HeatmapView, 'freshness' | 'ageMin'>): Described {
+// Emjay, 2026-11-16: a fresh quiet route (the last message said nobody waits) reads "Nobody waiting",
+// in a few plain words for drivers who read little English
+export function describeUpdate(view: Pick<HeatmapView, 'freshness' | 'ageMin'> & { quiet?: boolean }): Described {
   const text = strings.driver.heatmap;
   if (view.freshness === 'never' || view.ageMin === null) return { tone: 'warn', label: text.never };
   if (view.freshness === 'stale') return { tone: 'bad', label: text.stale(Math.floor(view.ageMin / MIN_PER_HOUR), view.ageMin % MIN_PER_HOUR) };
+  if (view.quiet) return { tone: 'ok', label: text.nobodyWaiting };
   return { tone: 'ok', label: view.ageMin === 0 ? text.justNow : text.updated(view.ageMin) };
 }
 

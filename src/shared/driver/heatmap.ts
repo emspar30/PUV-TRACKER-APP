@@ -1,4 +1,4 @@
-import { DRIVER_NIGHT_BANDS_ONLY, DRIVER_SHOW_EXACT_COUNTS, HEATMAP_BAND_EDGES, SMS_STALE_HEATMAP_MIN } from '../config';
+import { DRIVER_NIGHT_BANDS_ONLY, DRIVER_SHOW_EXACT_COUNTS, HEATMAP_BAND_EDGES, SMS_STALE_HEATMAP_MIN, SMS_STALE_QUIET_MIN } from '../config';
 import { isNight } from '../backend/rules';
 import type { HeatmapMessage } from '../sms/protocol';
 
@@ -63,9 +63,23 @@ export function heatmapBand(count: number): HeatmapBand {
   return band;
 }
 
+// True when the whole route is known and nobody waits at or near any stop: the worker's "cleared"
+// message (or a first full message with nobody), after which it sends nothing until someone checks in
+export function isQuiet(state: HeatmapState): boolean {
+  return (
+    state.lastAcceptedMs !== null &&
+    state.whole === true &&
+    Object.values(state.counts).every((count) => count === 0) &&
+    Object.values(state.near ?? {}).every((count) => count === 0)
+  );
+}
+
+// Emjay, 2026-11-16: a quiet route goes stale after SMS_STALE_QUIET_MIN, not SMS_STALE_HEATMAP_MIN,
+// since silence there is expected; a route with anyone waiting is texted every few minutes
 export function freshness(state: HeatmapState, nowMs: number): Freshness {
   if (state.lastAcceptedMs === null) return 'never';
-  return nowMs - state.lastAcceptedMs >= SMS_STALE_HEATMAP_MIN * MS_PER_MIN ? 'stale' : 'fresh';
+  const limitMin = isQuiet(state) ? SMS_STALE_QUIET_MIN : SMS_STALE_HEATMAP_MIN;
+  return nowMs - state.lastAcceptedMs >= limitMin * MS_PER_MIN ? 'stale' : 'fresh';
 }
 
 // Minutes since the last valid message, for "Updated 3 min ago" and "No update for 17 min"

@@ -706,6 +706,10 @@ export const BEACON_VERIFY_PER_MIN = 30;
 // --- SMS protocol v2 (PRD 12.3)
 export const SMS_MAX_AGE_MIN = 30;
 export const SMS_STALE_HEATMAP_MIN = 15;
+// Emjay, 2026-11-16: after a message saying nobody waits anywhere on the route, the worker sends nothing
+// more until someone checks in, so the driver list stays calm ("Nobody waiting") this long before it
+// warns that the counts are old
+export const SMS_STALE_QUIET_MIN = 60;
 export const SMS_SEQ_MODULUS = 10000;
 // A sequence number is newer if it is 1 to this many ahead of the last one, modulo SMS_SEQ_MODULUS.
 export const SMS_SEQ_NEWER_WINDOW = 5000;

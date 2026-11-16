@@ -1526,6 +1526,8 @@ export const en = {
       never: 'No update yet',
       justNow: 'Updated just now',
       updated: (min: number) => `Updated ${min} min ago`,
+      // Emjay, 2026-11-16: the last message said nobody waits anywhere on the route
+      nobodyWaiting: 'Nobody waiting',
       // Owner, 2026-10-18: an hour or more as hours and minutes ("No update for 1 hr 6 min")
       stale: (hours: number, min: number) =>
         hours === 0 ? `No update for ${min} min` : min === 0 ? `No update for ${hours} hr` : `No update for ${hours} hr ${min} min`,

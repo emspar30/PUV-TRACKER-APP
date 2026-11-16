@@ -23,4 +23,9 @@ describe('heatmap age in words', () => {
     expect(describeUpdate({ freshness: 'fresh', ageMin: 3 })).toEqual({ tone: 'ok', label: strings.driver.heatmap.updated(3) });
     expect(describeUpdate({ freshness: 'never', ageMin: null })).toEqual({ tone: 'warn', label: strings.driver.heatmap.never });
   });
+
+  it('2026-11-16: a fresh quiet route says "Nobody waiting"; a stale one still warns', () => {
+    expect(describeUpdate({ freshness: 'fresh', ageMin: 40, quiet: true })).toEqual({ tone: 'ok', label: 'Nobody waiting' });
+    expect(describeUpdate({ freshness: 'stale', ageMin: 61, quiet: true })).toEqual({ tone: 'bad', label: 'No update for 1 hr 1 min' });
+  });
 });
