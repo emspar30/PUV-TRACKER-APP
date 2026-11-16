@@ -27,6 +27,21 @@ describe('busiestStop (the "most waiting" line over the driver list)', () => {
     });
   });
 
+  it('counts those checked in near a stop (a stop with only "Near 1" is named)', () => {
+    const nearOnly: StopDisplay = { kind: 'known', band: 0, exact: 0, near: 1 };
+    expect(busiestStop([row('A', known(0, 0)), row('B', nearOnly)])).toEqual({ code: 'B', name: 'Stop B', band: 1, exact: 1 });
+  });
+
+  it('adds the near count to the at-stop count', () => {
+    const atAndNear: StopDisplay = { kind: 'known', band: 1, exact: 3, near: 2 };
+    expect(busiestStop([row('A', known(1, 4)), row('B', atAndNear)])).toEqual({ code: 'B', name: 'Stop B', band: 2, exact: 5 });
+  });
+
+  it('at night, someone near makes the stop at least Light', () => {
+    const nearAtNight: StopDisplay = { kind: 'known', band: 0, exact: null, near: 1 };
+    expect(busiestStop([row('A', known(0, null)), row('B', nearAtNight)])).toEqual({ code: 'B', name: 'Stop B', band: 1, exact: null });
+  });
+
   it('names nothing when no one is waiting or nothing is known', () => {
     expect(busiestStop([row('A', known(0, 0)), row('B', { kind: 'unknown' })])).toBeNull();
     expect(busiestStop([])).toBeNull();
