@@ -8,6 +8,8 @@
 // Backlog 134 (2026-10-30): a second receiver on the same filters, in the beacon module, reads only a
 // retire notice signed with this phone's key, turns the beacon off and posts a notification, so a
 // phone whose app is closed is told too. It keeps nothing; the app still reads the stored copy.
+// 2026-11-16: the beacon's slot alarm receiver (not exported) and the exact-alarm permissions, so the
+// beacon code keeps changing while the screen is off.
 
 const { AndroidConfig, withAndroidManifest } = require('expo/config-plugins');
 
@@ -25,6 +27,12 @@ const PERMISSIONS = [
   { name: 'android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE' },
   { name: 'android.permission.RECEIVE_BOOT_COMPLETED' },
   { name: 'android.permission.RECEIVE_SMS' },
+  // 2026-11-16: the beacon's wall-clock alarm at each slot boundary (BeaconRotationReceiver), so the
+  // code keeps changing with the screen off. USE_EXACT_ALARM is granted at install from Android 13;
+  // Android 12 grants SCHEDULE_EXACT_ALARM at install; before 12 none is needed. The APK is installed
+  // directly, not from the Play Store, whose policy limits USE_EXACT_ALARM to alarm and calendar apps.
+  { name: 'android.permission.SCHEDULE_EXACT_ALARM', maxSdkVersion: '32' },
+  { name: 'android.permission.USE_EXACT_ALARM' },
 ];
 
 function addPermissions(manifest) {
@@ -77,6 +85,9 @@ function addComponents(application) {
       },
     ],
   });
+  // Only this app's own alarm may reach it
+  application.receiver = application.receiver.filter((entry) => entry.$['android:name'] !== `${BEACON}.BeaconRotationReceiver`);
+  application.receiver.push({ $: { 'android:name': `${BEACON}.BeaconRotationReceiver`, 'android:exported': 'false' } });
   for (const name of [`${SMS}.SmsReceiver`, `${BEACON}.RetireNoticeReceiver`]) {
     application.receiver = application.receiver.filter((entry) => entry.$['android:name'] !== name);
     application.receiver.push(smsReceiver(name));
@@ -94,3 +105,4 @@ function withDriverAndroid(config) {
 module.exports = withDriverAndroid;
 module.exports.DATA_SMS_PORT = DATA_SMS_PORT;
 module.exports.addComponents = addComponents;
+module.exports.addPermissions = addPermissions;

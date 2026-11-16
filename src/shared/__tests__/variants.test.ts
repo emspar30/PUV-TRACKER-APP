@@ -53,9 +53,10 @@ const DRIVER_SIDE_ONLY = [
 ];
 const BLUETOOTH_SCAN = 'android.permission.BLUETOOTH_SCAN';
 const { addPermissions: addCommuterBle } = jest.requireActual<{ addPermissions: (manifest: object) => object }>(path.join(ROOT, 'plugins', 'withCommuterBle.js'));
-const { addComponents: addDriverComponents } = jest.requireActual<{ addComponents: (application: object) => void }>(
-  path.join(ROOT, 'plugins', 'withDriverAndroid.js'),
-);
+const { addComponents: addDriverComponents, addPermissions: addDriverPermissions } = jest.requireActual<{
+  addComponents: (application: object) => void;
+  addPermissions: (manifest: object) => void;
+}>(path.join(ROOT, 'plugins', 'withDriverAndroid.js'));
 const pluginNames = (config: ExpoConfig) => config.plugins.map((plugin) => (Array.isArray(plugin) ? plugin[0] : plugin));
 
 describe('app variants (DR1)', () => {
@@ -150,6 +151,26 @@ describe('app variants (DR1)', () => {
       expect(filters.map((filter) => filter.action[0].$['android:name'])).toEqual(['android.intent.action.DATA_SMS_RECEIVED', 'android.provider.Telephony.SMS_RECEIVED']);
       expect(filters[0].data?.[0].$['android:port']).toBe(String(DATA_SMS_PORT));
     }
+  });
+
+  it('2026-11-16: the beacon slot alarm receiver is in the driver manifest once, not exported, with no filter', () => {
+    type Entry = { $: Record<string, string>; 'intent-filter'?: unknown[] };
+    const application: { receiver?: Entry[]; service?: Entry[] } = {};
+    addDriverComponents(application);
+    addDriverComponents(application);
+    const rotation = (application.receiver ?? []).filter((entry) => entry.$['android:name'] === 'expo.modules.tuntonbeacon.BeaconRotationReceiver');
+    expect(rotation).toHaveLength(1);
+    expect(rotation[0].$['android:exported']).toBe('false');
+    expect(rotation[0]['intent-filter']).toBeUndefined();
+  });
+
+  it('2026-11-16: the driver app asks for exact alarms (USE_EXACT_ALARM, and SCHEDULE_EXACT_ALARM up to Android 12)', () => {
+    type Permission = { $: Record<string, string> };
+    const manifest: { 'uses-permission'?: Permission[] } = {};
+    addDriverPermissions(manifest);
+    const byName = (name: string) => (manifest['uses-permission'] ?? []).find((entry) => entry.$['android:name'] === name);
+    expect(byName('android.permission.USE_EXACT_ALARM')?.$['android:maxSdkVersion']).toBeUndefined();
+    expect(byName('android.permission.SCHEDULE_EXACT_ALARM')?.$['android:maxSdkVersion']).toBe('32');
   });
 
   it('refuses an unknown variant', () => {

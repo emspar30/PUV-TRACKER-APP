@@ -2,9 +2,11 @@ package expo.modules.tuntonbeacon
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -95,6 +97,7 @@ class BeaconAdvertiserService : Service() {
     secret = BeaconCode.hexToBytes(secretHex)
     shortId = store.shortId
     running = true
+    instance = this
 
     startInForeground(loaded)
     if (!receiverRegistered) {
@@ -119,6 +122,7 @@ class BeaconAdvertiserService : Service() {
       receiverRegistered = false
     }
     running = false
+    if (instance === this) instance = null
     BeaconState.update(advertising = false, lastError = BeaconState.lastError)
     super.onDestroy()
   }
@@ -187,6 +191,7 @@ class BeaconAdvertiserService : Service() {
   @SuppressLint("MissingPermission")
   private fun stopAdvertising() {
     handler.removeCallbacks(rotate)
+    cancelAlarm()
     starting = false
     val adapter = (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
     try {
@@ -226,13 +231,46 @@ class BeaconAdvertiserService : Service() {
     }
   }
 
-  // Next slot boundary on the wall clock, plus a small margin, so the code changes when the server's slot does
+  // Next slot boundary on the wall clock, plus a small margin, so the code changes when the server's slot does.
+  // 2026-11-16: the handler counts only awake time, so it stalls while the screen is off and the
+  // processor sleeps; a wall-clock alarm that wakes the phone (BeaconRotationReceiver) fires at the same
+  // boundary. Whichever runs first changes the code; the other finds the same slot and sets the same code.
   private fun scheduleRotation() {
     val slotMs = (settings?.slotSeconds ?: return) * 1000L
     val now = System.currentTimeMillis()
     val delay = slotMs - (now % slotMs) + ROTATION_MARGIN_MS
     handler.removeCallbacks(rotate)
     handler.postAtTime(rotate, SystemClock.uptimeMillis() + delay)
+    scheduleAlarm(now + delay)
+  }
+
+  private fun rotationIntent(): PendingIntent =
+    PendingIntent.getBroadcast(
+      this,
+      0,
+      Intent(this, BeaconRotationReceiver::class.java),
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+  // Exact when allowed (USE_EXACT_ALARM from Android 13, SCHEDULE_EXACT_ALARM on 12; none needed
+  // before 12); otherwise an inexact alarm, which may come a little late but still wakes the phone
+  private fun scheduleAlarm(atMs: Long) {
+    val alarms = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
+    try {
+      if (exact) {
+        alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, rotationIntent())
+      } else {
+        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, rotationIntent())
+      }
+    } catch (error: SecurityException) {
+      // Exact alarms withdrawn in Settings between the check and the call: the handler still runs
+      alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, rotationIntent())
+    }
+  }
+
+  private fun cancelAlarm() {
+    (getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(rotationIntent())
   }
 
   private fun intervalOf(mode: String) = when (mode) {
@@ -254,6 +292,15 @@ class BeaconAdvertiserService : Service() {
     // "enabled" setting is still true: the app then knows to start the service again.
     @Volatile var running: Boolean = false
       private set
+
+    // The running service, for the slot alarm (BeaconRotationReceiver). Both run on the main thread.
+    @Volatile private var instance: BeaconAdvertiserService? = null
+
+    // Called by the slot alarm: change the code now and set the next alarm. Nothing when the service
+    // is not running (its alarm was cancelled with it; a late one finds nothing to do).
+    fun rotateFromAlarm() {
+      instance?.let { it.rotate.run() }
+    }
 
     private const val CHANNEL_ID = "tunton_beacon"
     private const val NOTIFICATION_ID = 4101
