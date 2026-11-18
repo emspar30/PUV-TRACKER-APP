@@ -64,6 +64,9 @@ const deps: RegistrationDeps = {
       route: args.route,
       token_hash: args.tokenHash,
       verified_within_min: args.withinMin,
+      driver_name: args.name,
+      document: args.document,
+      selfie_at: args.selfieAt,
     });
   },
   status: async (tokenHash, ttlDays) => {

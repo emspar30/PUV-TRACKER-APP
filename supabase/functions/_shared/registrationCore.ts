@@ -5,7 +5,8 @@
 // They are served by one Edge Function, driver-registration (handleDriverRegistration). The driver
 // app calls it without an account (it has none), with a JSON body { action, ... }:
 //   registering  start  { phone }                        the check id and two photo upload links
-//                submit { check, plate, route }          a pending registration, and its install token
+//                submit { check, plate, route, name, document, selfieAtMs }
+//                                                       a pending registration, and its install token
 //   setup        status  { token }                       pending, approved, rejected (reason), ...
 //                collect { token }                       the setup, once (the QR's payload)
 // The install token is made here at submission and returned once, to the submitting phone only (the
@@ -18,7 +19,7 @@
 // the hour within which the registration must be submitted.
 
 import { normalizePhNumber } from './phone.ts';
-import { checkText, isInstallToken, isRouteCode, normalizePlate } from './registrationRules.ts';
+import { checkText, isDocumentType, isInstallToken, isRouteCode, normalizeDriverName, normalizePlate, type DocumentType } from './registrationRules.ts';
 import {
   PROVISIONING_QR_TTL_MIN,
   REGISTRATION_CHECK_MAX_TRIES,
@@ -27,6 +28,7 @@ import {
   REGISTRATION_CHECKS_PER_NUMBER_PER_DAY,
   REGISTRATION_SETUP_TTL_DAYS,
   REGISTRATION_SUBMIT_WITHIN_MIN,
+  SELFIE_TIME_SLACK_MIN,
 } from './serverConfig.ts';
 
 const MS_PER_S = 1000;
@@ -60,7 +62,18 @@ export type CheckStartArgs = {
   perDay: number;
 };
 
-export type SubmitArgs = { check: string; plate: string; route: string; tokenHash: string; withinMin: number };
+export type SubmitArgs = {
+  check: string;
+  plate: string;
+  route: string;
+  tokenHash: string;
+  withinMin: number;
+  // 2026-11-19 (owner): the name on the LTFRB document, which document, and when the selfie was taken
+  // (an ISO time, or null when the phone's clock was too far off to keep it)
+  name: string;
+  document: DocumentType;
+  selfieAt: string | null;
+};
 
 // What registration_collect returns (the database's names)
 export type CollectedSetup = {
@@ -187,6 +200,17 @@ async function start(body: Record<string, unknown>, deps: RegistrationDeps): Pro
   return ok({ phone, check, uploads, submitWithinS: REGISTRATION_SUBMIT_WITHIN_MIN * S_PER_MIN });
 }
 
+// The selfie's time as the phone gave it, kept only when it is no later than now and no earlier than
+// the submission window allows (with SELFIE_TIME_SLACK_MIN either way for clock drift); otherwise null.
+// A wrong phone clock never blocks a registration.
+export function selfieTime(raw: unknown, nowMs: number): string | null {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
+  const slackMs = SELFIE_TIME_SLACK_MIN * S_PER_MIN * MS_PER_S;
+  const earliest = nowMs - REGISTRATION_SUBMIT_WITHIN_MIN * S_PER_MIN * MS_PER_S - slackMs;
+  if (raw < earliest || raw > nowMs + slackMs) return null;
+  return new Date(raw).toISOString();
+}
+
 async function submit(body: Record<string, unknown>, deps: RegistrationDeps): Promise<RegistrationResponse> {
   const check = text(body.check);
   if (!UUID_RE.test(check)) return refused(HTTP_BAD_REQUEST, 'check_not_verified');
@@ -194,14 +218,21 @@ async function submit(body: Record<string, unknown>, deps: RegistrationDeps): Pr
   if (!plate) return refused(HTTP_BAD_REQUEST, 'invalid_plate');
   const route = text(body.route);
   if (!isRouteCode(route)) return refused(HTTP_BAD_REQUEST, 'invalid_route');
+  const name = normalizeDriverName(text(body.name));
+  if (!name) return refused(HTTP_BAD_REQUEST, 'invalid_name');
+  const document = text(body.document);
+  if (!isDocumentType(document)) return refused(HTTP_BAD_REQUEST, 'invalid_document');
+  const selfieAt = selfieTime(body.selfieAtMs, deps.nowMs());
   const token = deps.newToken();
   if (!isInstallToken(token)) throw new Error('the install token is malformed');
   const tokenHash = await deps.sha256Hex(token);
-  const result = await attempt(() => deps.submit({ check, plate, route, tokenHash, withinMin: REGISTRATION_SUBMIT_WITHIN_MIN }), {
+  const result = await attempt(() => deps.submit({ check, plate, route, tokenHash, withinMin: REGISTRATION_SUBMIT_WITHIN_MIN, name, document, selfieAt }), {
     check_not_verified: refused(HTTP_BAD_REQUEST, 'check_not_verified'),
     photos_missing: refused(HTTP_BAD_REQUEST, 'photos_missing'),
     invalid_plate: refused(HTTP_BAD_REQUEST, 'invalid_plate'),
     invalid_route: refused(HTTP_BAD_REQUEST, 'invalid_route'),
+    invalid_name: refused(HTTP_BAD_REQUEST, 'invalid_name'),
+    invalid_document: refused(HTTP_BAD_REQUEST, 'invalid_document'),
   });
   if (isResponse(result)) return result;
   return ok({ plate, route, token });

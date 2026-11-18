@@ -13,19 +13,30 @@ import { normalizePhNumber } from './phone';
 // inbox entry, the install token's hash, and the D6 limits as the database enforces them.
 
 export {
+  canApprove,
   canMove,
   CHECK_TEXT_PREFIX,
   checkText,
   decodeCheckData,
+  DOCUMENT_TYPES,
   encodeCheckData,
+  failedChecks,
   isCheckCode,
+  isDocumentType,
   isInstallToken,
+  isReviewChecks,
   isRouteCode,
+  normalizeDriverName,
   normalizePlate,
   parseCheckText,
+  REVIEW_CHECKS,
   setupExpired,
   vehicleIdFor,
+  type CheckResult,
+  type DocumentType,
   type RegistrationStatus,
+  type ReviewCheck,
+  type ReviewChecks,
 } from '../../../supabase/functions/_shared/registrationRules.ts';
 
 const MS_PER_MIN = 60000;

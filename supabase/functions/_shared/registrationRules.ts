@@ -8,7 +8,14 @@
 //   data: 0x56 'V' | 0x01 | the code as ASCII digits
 //   text: HM2|V|<code>
 
-import { PLATE_MAX_CHARS, PLATE_MIN_CHARS, REGISTRATION_CODE_DIGITS, REGISTRATION_SETUP_TTL_DAYS } from './serverConfig.ts';
+import {
+  DRIVER_NAME_MAX_CHARS,
+  DRIVER_NAME_MIN_CHARS,
+  PLATE_MAX_CHARS,
+  PLATE_MIN_CHARS,
+  REGISTRATION_CODE_DIGITS,
+  REGISTRATION_SETUP_TTL_DAYS,
+} from './serverConfig.ts';
 
 const CHECK_MAGIC = 0x56;
 const CHECK_VERSION = 0x01;
@@ -106,4 +113,56 @@ export function canMove(from: RegistrationStatus, to: RegistrationStatus): boole
 // An approved setup not collected within REGISTRATION_SETUP_TTL_DAYS is expired
 export function setupExpired(approvedAtMs: number, nowMs: number): boolean {
   return nowMs >= approvedAtMs + REGISTRATION_SETUP_TTL_DAYS * MS_PER_DAY;
+}
+
+// --- The LTFRB document and the admin's checks (owner, 2026-11-19; docs/DRIVER_CHANGES_PLAN.md)
+// Multicabs are PUVs under the LTFRB. The driver takes a selfie holding one of two LTFRB documents;
+// the admin checks it by eye. Nothing here reads a photo: verification is a human decision.
+
+export const DOCUMENT_TYPES = ['academy_id', 'academy_certificate'] as const;
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
+export function isDocumentType(value: string): value is DocumentType {
+  return (DOCUMENT_TYPES as readonly string[]).includes(value);
+}
+
+// Letters of any language (ñ, é), spaces, and the marks names carry: . , ' -
+const NAME_CHARS_RE = /^[\p{L}][\p{L} .,'-]*$/u;
+
+// The name in its one stored form (trimmed, single spaces), or null if it is not 2 to 80 characters
+// of letters and name marks
+export function normalizeDriverName(raw: string): string | null {
+  const name = raw.replace(/\s+/g, ' ').trim();
+  if (name.length < DRIVER_NAME_MIN_CHARS || name.length > DRIVER_NAME_MAX_CHARS) return null;
+  return NAME_CHARS_RE.test(name) ? name : null;
+}
+
+// The admin's checklist, in the order the console shows it
+export const REVIEW_CHECKS = ['document', 'name', 'list', 'face', 'plate'] as const;
+export type ReviewCheck = (typeof REVIEW_CHECKS)[number];
+export type CheckResult = 'pass' | 'fail' | 'na';
+export type ReviewChecks = Record<ReviewCheck, CheckResult>;
+
+const CHECK_RESULTS: readonly string[] = ['pass', 'fail', 'na'];
+
+// Exactly the five checks, each pass, fail or na
+export function isReviewChecks(value: unknown): value is ReviewChecks {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const keys = Object.keys(value);
+  return (
+    keys.length === REVIEW_CHECKS.length &&
+    REVIEW_CHECKS.every((check) => CHECK_RESULTS.includes((value as Record<string, unknown>)[check] as string))
+  );
+}
+
+// Approve needs Document, Name, On the list and Plate to pass. Face must pass for the old ID (it has a
+// photo) and be N/A for the certificate (it has none). The database applies the same rule.
+export function canApprove(document: DocumentType, checks: ReviewChecks): boolean {
+  const others = REVIEW_CHECKS.filter((check) => check !== 'face').every((check) => checks[check] === 'pass');
+  return others && checks.face === (document === 'academy_id' ? 'pass' : 'na');
+}
+
+// The checks that failed: a rejection's reason is chosen from these
+export function failedChecks(checks: ReviewChecks): ReviewCheck[] {
+  return REVIEW_CHECKS.filter((check) => checks[check] === 'fail');
 }

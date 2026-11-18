@@ -121,31 +121,57 @@ describe('driver-register start (the number as typed, no SMS)', () => {
 });
 
 describe('driver-register submit', () => {
+  // 2026-11-19 (owner): the name on the LTFRB document, which document, and the selfie's time
+  const FIELDS = { check: CHECK, plate: 'ABC 1234', route: 'R4', name: 'Juan  Dela Cruz ', document: 'academy_certificate', selfieAtMs: NOW - 120_000 };
+
   it('submits the plate in its stored form and the route, stores only the hash of the token it makes, and returns the token once', async () => {
     const deps = fake();
-    const response = await handleRegister(post({ action: 'submit', check: CHECK, plate: 'abc-1234', route: 'R4' }), deps);
+    const response = await handleRegister(post({ action: 'submit', ...FIELDS, plate: 'abc-1234' }), deps);
     expect(response).toEqual({ status: 200, body: { ok: true, plate: 'ABC 1234', route: 'R4', token: TOKEN } });
-    expect(deps.submitted).toEqual([{ check: CHECK, plate: 'ABC 1234', route: 'R4', tokenHash: TOKEN_HASH, withinMin: 60 }]);
+    expect(deps.submitted).toEqual([
+      {
+        check: CHECK,
+        plate: 'ABC 1234',
+        route: 'R4',
+        tokenHash: TOKEN_HASH,
+        withinMin: 60,
+        name: 'Juan Dela Cruz',
+        document: 'academy_certificate',
+        selfieAt: new Date(NOW - 120_000).toISOString(),
+      },
+    ]);
     expect(JSON.stringify(deps.submitted)).not.toContain(TOKEN);
   });
 
   it.each([
-    [{ check: 'not-a-uuid', plate: 'ABC 1234', route: 'R4' }, 'check_not_verified'],
-    [{ check: CHECK, plate: 'AB', route: 'R4' }, 'invalid_plate'],
-    [{ check: CHECK, plate: 'ABC 1234', route: '4' }, 'invalid_route'],
+    [{ ...FIELDS, check: 'not-a-uuid' }, 'check_not_verified'],
+    [{ ...FIELDS, plate: 'AB' }, 'invalid_plate'],
+    [{ ...FIELDS, route: '4' }, 'invalid_route'],
+    [{ ...FIELDS, name: '' }, 'invalid_name'],
+    [{ ...FIELDS, name: 'J' }, 'invalid_name'],
+    [{ ...FIELDS, document: 'cttmd_id' }, 'invalid_document'],
+    [{ ...FIELDS, document: undefined }, 'invalid_document'],
   ])('refuses %j with %s', async (fields, reason) => {
     const deps = fake();
     expect((await handleRegister(post({ action: 'submit', ...fields }), deps)).body.error).toBe(reason);
     expect(deps.submitted).toEqual([]);
   });
 
-  it.each(['check_not_verified', 'photos_missing'])('answers the database refusal %s with 400', async (reason) => {
-    const response = await handleRegister(post({ action: 'submit', check: CHECK, plate: 'ABC 1234', route: 'R4' }), fake({ submit: refusing(reason) }));
+  it('keeps no selfie time from a phone clock far off, and still submits', async () => {
+    for (const selfieAtMs of [NOW + 60 * 60_000, NOW - 3 * 60 * 60_000, 'yesterday', undefined]) {
+      const deps = fake();
+      expect((await handleRegister(post({ action: 'submit', ...FIELDS, selfieAtMs }), deps)).status).toBe(200);
+      expect(deps.submitted[0].selfieAt).toBeNull();
+    }
+  });
+
+  it.each(['check_not_verified', 'photos_missing', 'invalid_name', 'invalid_document'])('answers the database refusal %s with 400', async (reason) => {
+    const response = await handleRegister(post({ action: 'submit', ...FIELDS }), fake({ submit: refusing(reason) }));
     expect(response).toEqual({ status: 400, body: { ok: false, error: reason } });
   });
 
   it('never hands out a malformed token', async () => {
-    await expect(handleRegister(post({ action: 'submit', check: CHECK, plate: 'ABC 1234', route: 'R4' }), fake({ newToken: () => 'short' }))).rejects.toThrow('malformed');
+    await expect(handleRegister(post({ action: 'submit', ...FIELDS }), fake({ newToken: () => 'short' }))).rejects.toThrow('malformed');
   });
 });
 

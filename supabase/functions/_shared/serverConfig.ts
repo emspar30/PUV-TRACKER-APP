@@ -36,8 +36,9 @@ export const PACKET_BACKLOG_MAX_AGE_S = 1800;
 export const PROVISIONING_QR_TTL_MIN = 15;
 
 // --- Driver registration (PRD 9.5 and 0.3; docs/IMPLEMENTATION_PLAN_DRIVER_REGISTRATION.md, owner
-// decisions D1 to D6). The photos of the CTTDM driver ID and the multicab: the long side at most this
-// many pixels, as JPEG, and never more than this many bytes. They are deleted at the decision (D1).
+// decisions D1 to D6). The photos (since 2026-11-19, owner: a selfie holding an LTFRB document, and
+// the multicab): the long side at most this many pixels, as JPEG, and never more than this many bytes.
+// They are deleted at the decision (D1).
 export const REGISTRATION_PHOTO_MAX_PX = 1600;
 export const REGISTRATION_PHOTO_MAX_BYTES = 1_000_000;
 // The number check. Since 2026-10-28 (owner) no text is sent: the function confirms its own code at
@@ -58,6 +59,13 @@ export const REGISTRATION_SETUP_TTL_DAYS = 7;
 // A plate has this many letters and digits (at least one of each); the database allows 16 characters
 export const PLATE_MIN_CHARS = 3;
 export const PLATE_MAX_CHARS = 10;
+// The driver's full name as written on the LTFRB document (2026-11-19), kept only while the driver
+// takes part
+export const DRIVER_NAME_MIN_CHARS = 2;
+export const DRIVER_NAME_MAX_CHARS = 80;
+// A selfie time further than this from the submission is not kept (a phone clock may be wrong; the
+// registration still goes through)
+export const SELFIE_TIME_SLACK_MIN = 10;
 
 // NM1 Night Mode stop view (PRD 10.4): an accepted position within NODE_PASS_RADIUS_M of a stop of the
 // vehicle's route records that the route passed the stop, at most once per vehicle and stop every

@@ -18,8 +18,15 @@ const DRIVER_SIDE = '20261013000000_driver_side.sql';
 const DRIVER_REGISTRATION = '20261027000000_driver_registration.sql';
 const RETIRE_NOTICE = '20261028000000_retire_notice.sql';
 const RETIRE_NOTICE_DATA = '20261029000000_retire_notice_data.sql';
+// 2026-11-19 (owner): the LTFRB selfie registration, which keeps a registering driver's name
+const LTFRB_REGISTRATION = '20261119000000_ltfrb_selfie_registration.sql';
 const DRIVER_SIDE_FILES = FILES.filter(
-  (name) => name.startsWith('20261013') || name === DRIVER_REGISTRATION || name === RETIRE_NOTICE || name === RETIRE_NOTICE_DATA,
+  (name) =>
+    name.startsWith('20261013') ||
+    name === DRIVER_REGISTRATION ||
+    name === RETIRE_NOTICE ||
+    name === RETIRE_NOTICE_DATA ||
+    name === LTFRB_REGISTRATION,
 );
 
 const read = (names: string[]) =>
@@ -149,9 +156,13 @@ describe('migration: tables', () => {
   });
 
   it('stores no rider category, name, email or phone in any table; the avatar only as its preset number', () => {
-    for (const word of ['classification', 'full_name', 'email', 'discount']) {
+    for (const word of ['classification', 'email', 'discount']) {
       expect(sql).not.toContain(word);
     }
+    // A name is kept for registering drivers only (2026-11-19, the LTFRB document), never for a rider
+    expect(riderSql).not.toContain('full_name');
+    const withName = [...sql.matchAll(/alter table (public\.\w+)\s+add column full_name/g)].map((match) => match[1]);
+    expect(withName).toEqual(['public.driver_registrations']);
     // 2026-11-13 (Emjay): the avatar follows the account as profiles.avatar_id, nothing else of it
     expect([...sql.matchAll(/\bavatar\w*/g)].map((match) => match[0]).filter((word) => word !== 'avatar' && word !== 'avatar_id')).toEqual([]);
     // The driver side (20261013000000_driver_side, 20261027000000_driver_registration) keeps the
@@ -764,5 +775,55 @@ describe('migration: detours (DT1)', () => {
     expect(sql).toContain('unknown_detour_alert_count smallint not null default 3');
     expect(sql).toContain("if count_now = (select c.unknown_detour_alert_count from public.app_config c) then");
     expect(sql).toContain("values ('unknown_detour'");
+  });
+});
+
+describe('migration: LTFRB selfie registration (2026-11-19)', () => {
+  const ltfrbSql = read([LTFRB_REGISTRATION]);
+  const ltfrbStatements = ltfrbSql
+    .split(';')
+    .map((statement) => statement.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+  it('adds the name, the document type, the selfie time and the checks, and no image column', () => {
+    expect(ltfrbSql).toContain('add column full_name text check (char_length(full_name) between 2 and 80)');
+    expect(ltfrbSql).toContain("add column document_type text check (document_type in ('academy_id', 'academy_certificate'))");
+    expect(ltfrbSql).toContain('add column selfie_taken_at timestamptz');
+    expect(ltfrbSql).toContain('add column checks jsonb');
+    expect(ltfrbSql).not.toMatch(/add column \w*(photo|image|selfie_path|bytea)/);
+    expect(ltfrbSql).not.toMatch(/\bbytea\b/);
+  });
+
+  it('applies the approve rule in the database: face passes for the old ID and is N/A for the certificate', () => {
+    expect(ltfrbSql).toContain("when 'academy_id' then review ->> 'face' = 'pass'");
+    expect(ltfrbSql).toContain("when 'academy_certificate' then review ->> 'face' = 'na'");
+    for (const check of ['document', 'name', 'list', 'plate']) expect(ltfrbSql).toContain(`review ->> '${check}' = 'pass'`);
+    expect(ltfrbSql).toContain("if not public.registration_can_approve(reg.document_type, review) then raise exception 'checks_not_passed'");
+    expect(ltfrbSql).toContain("raise exception 'no_failed_check'");
+  });
+
+  it('clears the name when the registration is rejected, replaced, expired or its phone retired', () => {
+    expect(ltfrbSql).toContain("set status = 'rejected', reason = left(trim(decision_reason), 200), checks = review, full_name = null");
+    expect(ltfrbSql).toContain("set status = 'expired', reason = 'replaced by a newer registration', full_name = null");
+    expect(ltfrbSql).toContain("update public.driver_registrations r set status = 'expired', full_name = null");
+    expect(ltfrbSql).toContain('update public.driver_registrations r set full_name = null where r.device_id = device');
+  });
+
+  it('closes the old decide to the console, and lets only the service role submit', () => {
+    expect(ltfrbStatements).toContain('revoke execute on function public.console_decide(uuid, boolean, text, integer) from authenticated');
+    expect(ltfrbStatements).toContain('grant execute on function public.console_decide(uuid, boolean, jsonb, text, integer) to authenticated');
+    expect(ltfrbStatements).toContain(
+      'revoke execute on function public.registration_submit(uuid, text, text, text, integer, text, text, timestamptz) from public, anon, authenticated',
+    );
+    expect(ltfrbStatements).toContain('grant execute on function public.registration_submit(uuid, text, text, text, integer, text, text, timestamptz) to service_role');
+    for (const fn of ['registration_checks_valid(jsonb)', 'registration_can_approve(text, jsonb)']) {
+      expect(ltfrbStatements).toContain(`revoke execute on function public.${fn} from public, anon, authenticated`);
+      expect(ltfrbStatements.some((s) => s.startsWith(`grant execute on function public.${fn}`))).toBe(false);
+    }
+  });
+
+  it('removes nothing, and stores nothing from the LTFRB list', () => {
+    expect(ltfrbSql).not.toMatch(/\b(drop|truncate)\b|delete from/);
+    expect(ltfrbSql).not.toMatch(/ltfrb_list|create table/);
   });
 });

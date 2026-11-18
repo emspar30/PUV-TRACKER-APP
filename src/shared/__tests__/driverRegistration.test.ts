@@ -5,8 +5,17 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import { decodeHeatmapBinary } from '../sms/binary';
 import { parseHeatmap } from '../sms/protocol';
 import {
+  canApprove,
   canMove,
   checkAllowed,
+  DOCUMENT_TYPES,
+  failedChecks,
+  isDocumentType,
+  isReviewChecks,
+  normalizeDriverName,
+  REVIEW_CHECKS,
+  type CheckResult,
+  type ReviewChecks,
   checkText,
   decodeCheckData,
   encodeCheckData,
@@ -164,5 +173,62 @@ describe('install token and status', () => {
   it('expires an approved setup after 7 days', () => {
     expect(setupExpired(NOW, NOW + 7 * DAY - 1)).toBe(false);
     expect(setupExpired(NOW, NOW + 7 * DAY)).toBe(true);
+  });
+});
+
+// 2026-11-19 (owner): the LTFRB document and the admin's checklist (docs/DRIVER_CHANGES_PLAN.md)
+describe('LTFRB document and name', () => {
+  it('knows exactly the two LTFRB documents', () => {
+    expect(DOCUMENT_TYPES).toEqual(['academy_id', 'academy_certificate']);
+    expect(isDocumentType('academy_id')).toBe(true);
+    expect(isDocumentType('cttmd_id')).toBe(false);
+  });
+
+  it('writes the name trimmed with single spaces, accents and name marks kept', () => {
+    expect(normalizeDriverName('  Juan   Dela Cruz ')).toBe('Juan Dela Cruz');
+    expect(normalizeDriverName('Ma. Señora O\'Neil-Abad, Jr.')).toBe("Ma. Señora O'Neil-Abad, Jr.");
+  });
+
+  it('refuses a name too short, too long, or with digits or symbols', () => {
+    expect(normalizeDriverName('J')).toBeNull();
+    expect(normalizeDriverName('   ')).toBeNull();
+    expect(normalizeDriverName('A'.repeat(81))).toBeNull();
+    expect(normalizeDriverName('A'.repeat(80))).toBe('A'.repeat(80));
+    expect(normalizeDriverName('Juan 2')).toBeNull();
+    expect(normalizeDriverName('-Juan')).toBeNull();
+  });
+});
+
+describe('the admin checklist', () => {
+  const all = (result: CheckResult): ReviewChecks => ({ document: result, name: result, list: result, face: result, plate: result });
+
+  it('approves the certificate with Face N/A, and not with Face pass', () => {
+    expect(canApprove('academy_certificate', { ...all('pass'), face: 'na' })).toBe(true);
+    expect(canApprove('academy_certificate', all('pass'))).toBe(false);
+  });
+
+  it('approves the old ID only with Face pass', () => {
+    expect(canApprove('academy_id', all('pass'))).toBe(true);
+    expect(canApprove('academy_id', { ...all('pass'), face: 'fail' })).toBe(false);
+    expect(canApprove('academy_id', { ...all('pass'), face: 'na' })).toBe(false);
+  });
+
+  it.each(['document', 'name', 'list', 'plate'] as const)('blocks approval when %s is not a pass', (check) => {
+    expect(canApprove('academy_id', { ...all('pass'), [check]: 'fail' })).toBe(false);
+    expect(canApprove('academy_certificate', { ...all('pass'), face: 'na', [check]: 'na' })).toBe(false);
+  });
+
+  it('lists the failed checks in the console order, for the rejection reason', () => {
+    expect(failedChecks({ ...all('pass'), plate: 'fail', list: 'fail' })).toEqual(['list', 'plate']);
+    expect(failedChecks(all('pass'))).toEqual([]);
+  });
+
+  it('takes exactly the five checks, each pass, fail or na', () => {
+    expect(REVIEW_CHECKS).toEqual(['document', 'name', 'list', 'face', 'plate']);
+    expect(isReviewChecks(all('na'))).toBe(true);
+    expect(isReviewChecks({ ...all('pass'), extra: 'pass' })).toBe(false);
+    expect(isReviewChecks({ ...all('pass'), face: 'maybe' })).toBe(false);
+    expect(isReviewChecks({ document: 'pass' })).toBe(false);
+    expect(isReviewChecks(null)).toBe(false);
   });
 });
