@@ -1,7 +1,30 @@
 # Tunton: system status audit (commuter app, driver side, admin console)
 
-Audit date: 2026-11-22. Code state: branch `feat/beacon-battery` at commit `c0e0563`, which contains
-every change up to the final-defense revisions (none of them pushed to GitHub yet).
+Audit date: 2026-11-22, last updated the same day after the security changes, the push and the APK
+builds. Code state: branch `main` at commit `bd1345c`, pushed to GitHub. Every final-defense change is
+in it, and the new commuter and driver APKs were built from it (section 2). Section 0 lists what
+changed since the first version of this audit.
+
+## 0. What happened since the first version of this audit (2026-11-22)
+
+1. **Security hardening (weak points the panel may ask about).** All built, all database changes
+   applied on the live Supabase project:
+   - **Device ban:** a suspension now also covers every other account used on the same phone (3.3).
+   - **Admin two-step sign-in:** the admin console asks for a 6-digit authenticator-app code after the
+     password; the database refuses admin actions without it. Set up and confirmed working by the
+     owner (QR code scanned, code accepted) (5).
+   - **Admin action log:** who approved, rejected, retired or changed the PIN, and when (5).
+   - **Supabase Security Advisor:** 0 errors after closing one database function to app users (8).
+   - **Passwords need at least 8 characters**, in the app and in Supabase Auth.
+2. **Small-screen fix (commuter Map tab).** On short screens (under 700 dp tall) the map buttons and
+   the night card no longer crowd each other. Reported by the partner on a small phone; checked by the
+   owner on a tablet in its normal and "small phone" display sizes.
+3. **ISO/IEC 25010 self-test run.** Most of the 46 steps were run by the team with evidence; results
+   are in section 6.1. TAM results of the user survey are in section 6.2.
+4. **Pushed to GitHub** (`main` at `bd1345c`).
+5. **New APKs built** on 2026-11-22 from `bd1345c`: commuter (EAS build `0dbacde9`) and driver (EAS
+   build `c89c010e`). Both builds finished without errors. The driver build is the first compile of
+   the screen-off beacon change of 2026-11-16. **Neither APK is installed and phone-checked yet.**
 
 ## How to use this file
 
@@ -15,8 +38,9 @@ actually does today and how far each part has been tested, so the paper claims o
   real multicab.
 - **"Field-tested"** means tried in a real multicab with real riders. **Almost nothing is
   field-tested yet** (section 6).
-- No measured results exist yet for ETA accuracy, map delay, battery use, data use or position error.
-  Do not write numbers for these; describe them as planned measurements.
+- Measured values now exist only for what section 6.1 lists (driver battery, data use, SMS delay,
+  phone brands). No measured results exist for ETA accuracy (in seconds), map delay or position
+  error. Do not write numbers for these; describe them as planned measurements.
 - Where this file and an older document disagree, this file is newer. The detailed requirements are
   in `docs/PRD.md` (the source of truth); the known limits are in `docs/SCOPE_AND_LIMITS.md`.
 
@@ -36,7 +60,7 @@ offline.
 
 | Check | Result |
 |---|---|
-| Automated tests (`npx jest`) | 136 suites, 1,909 tests, all passing |
+| Automated tests (`npx jest`) | 138 suites, 1,924 tests, all passing (re-run after the security changes) |
 | TypeScript typecheck (`npx tsc --noEmit`, strict) | No errors (all apps, admin console, SMS worker) |
 | Lint (`npx expo lint`) | Clean |
 | Android bundle of each app (`expo export`) | Commuter, driver and gateway all bundle without errors |
@@ -47,10 +71,11 @@ offline.
 | Live database tests (`npm run test:live`) | Not run in this audit (they write test rows to the live project) |
 | Phone checklist (build tracker) | 464 current test steps: 185 passed, 41 N/A, 1 failed (since fixed, see 5.1), 237 not tested yet |
 
-**APK status:** the newest changes (2026-11-19 to 2026-11-22) are not in any installed APK yet. A new
-commuter APK and a new driver APK are needed before they can be tested on phones. The driver APK
-build will also be the first compile of a Kotlin change from 2026-11-16 (the beacon code keeps
-changing with the screen off).
+**APK status:** a new commuter APK and a new driver APK were built on 2026-11-22 from commit
+`bd1345c` (EAS builds `0dbacde9` and `c89c010e`, both finished without errors). They contain every
+change of 2026-11-19 to 2026-11-22. The driver build compiled the screen-off beacon change of
+2026-11-16 without errors. Until they are installed and phone-checked, everything marked "Changed
+today" or "Built 2026-11-22" below is untested on a phone.
 
 ## 3. Commuter app
 
@@ -72,6 +97,7 @@ and automatic tests done, not yet checked on a phone, or only partly), **Partial
 | Short detour (gas station, side street) | **Changed today** | More than 60 m off the route: the marker stays where it left the route and the Track view says "ETA paused"; allowed up to 300 m and 10 minutes |
 | Track view status: Moving, Stopped · N min, Off route · temporary | **Changed today** | Shown only in the Track view. The map marker now shows the position only (the earlier status marks on the marker were removed) |
 | Night Mode (21:00 to 04:59): no multicab positions; "Where R4 has been" stop view | Phone-checked (demo) | |
+| Small screens (under 700 dp tall) | **Changed today** | Tunie button stays round beside the second button column; the night card shows 2 stops instead of more. Checked on a tablet set to a small display size; not yet on a small phone |
 | Offline banner and offline behaviour of every tab | Phone-checked | |
 
 ### 3.2 Check-in (telling drivers someone is waiting)
@@ -96,7 +122,7 @@ and automatic tests done, not yet checked on a phone, or only partly), **Partial
 | Two riders on one multicab (Primary and Secondary, take-over after 90 s) | Built | Needs a two-phone ride |
 | Crowdsource feed, flags (3 flags hide a post), Trusted badge | Phone-checked | |
 | Moderation: strikes, 7-day suspensions, Merit shields, appeals | Built | No moderator screen; moderators use SQL functions in the Supabase dashboard |
-| Device ban: a suspension covers every account used on the same phone | Built 2026-11-22 (migration to apply) | Only a keyed HMAC of the Android ID is stored. Evaded by a factory reset, another phone or a rooted phone |
+| Device ban: a suspension covers every account used on the same phone | Built 2026-11-22, database change applied | At each sign-in the phone sends its Android ID; only a keyed HMAC-SHA256 of it is stored (key in Supabase Vault). A new account on a banned phone gets the same suspension, and lifting the ban (upheld appeal) lifts the copies. Evaded by a factory reset, another phone or a rooted phone; two people sharing one phone share a ban. Not phone-checked yet |
 | Known detour routes (Active Detour Mode) | Built | No detour lines traced yet, so not usable |
 
 Important: the phone listens for the beacon only while the Relay panel is open. After a relay is
@@ -111,7 +137,7 @@ declined by the owner on 2026-11-22).
 | Earning: +1.0 for a relay on the live map, +0.5 in Crowdsource | Built | Steps marked N/A so far (need a real beacon) |
 | My Rides: trip planner, walking directions, fare estimate with 20% discount for student, senior and PWD | Phone-checked (21 steps) | Fare ₱14.00 for 4 km, ₱2.00 per further km: an estimate until the LTFRB fare guide is received |
 | Ask Tunie (rule-based assistant, English and Bisaya questions, offline) and the commuter guide | Phone-checked | Bisaya phrases not yet checked by a Butuan speaker |
-| Account required (email sign-in), introduction, avatar, profile, badges | Phone-checked | Badges count on the phone only |
+| Account required (email sign-in), introduction, avatar, profile, badges | Phone-checked | Badges count on the phone only. New accounts need a password of at least 8 characters (since 2026-11-22) |
 | Location consent and accuracy checks (mock locations refused) | Phone-checked | Consent text awaits the Data Protection Officer's review |
 | Delete account, privacy contact | Phone-checked | |
 | Settings, Demo and simulation menu, tips tour, notifications screen | Phone-checked | |
@@ -123,7 +149,7 @@ declined by the owner on 2026-11-22).
 
 | Feature | Status | Notes |
 |---|---|---|
-| Bluetooth beacon with a code that changes every 60 s (signed, checked by the server) | Phone-checked (partner, DR4) | Screen-off code change (2026-11-16) not yet compiled or tested |
+| Bluetooth beacon with a code that changes every 60 s (signed, checked by the server) | Phone-checked (partner, DR4) | Screen-off code change (2026-11-16) compiled in the 2026-11-22 driver APK; not yet tested on a phone |
 | Waiting counts per stop received by SMS, no internet after setup | Built; partner device tests DR5 partly run | |
 | Self-registration (number, plate, route, photos), then setup collected once after approval | Phone-checked by the partner (DRG6, 2026-10-29) with the old form | |
 | **New registration form (LTFRB)** | **Built 2026-11-19 to 22, not on a phone yet** | Full name as written on the LTFRB document; choice of "Driver's Academy ID (old LTFRB ID)" or "Driver's Academy certificate (LTFRB)"; a selfie holding that document (in-app camera only, front camera first, capture time recorded) and a multicab photo; consent text citing R.A. 10173 |
@@ -151,8 +177,8 @@ Multicabs fall under the **LTFRB** (not the city transport office). Earlier docu
 | Photos deleted right after approve or reject | Built and covered by automatic tests | Only a text record remains: the decision, each check's result, the document type, who decided and when |
 | Drivers list, route filter, plate search, Retire | Built | Shows "Also on this plate: DRV-00xx" for abang drivers |
 | Admin PIN for the driver phones' Admin screen | Built | |
-| Two-step sign-in (authenticator app code after the password) | Built 2026-11-22 (migration to apply) | The database refuses admin actions from a session without it |
-| Admin action log (approve, reject, retire, PIN change, with who and when) | Built 2026-11-22 (migration to apply) | Written by database triggers; cannot be edited; listed on Settings |
+| Two-step sign-in (authenticator app code after the password) | **Built 2026-11-22, applied, checked by the owner** | First sign-in shows a QR code to scan with Google or Microsoft Authenticator; every later sign-in asks for the 6-digit code. The database refuses every admin action from a session without it (`is_admin()` needs the second factor) |
+| Admin action log (approve, reject, retire, PIN change, with who and when) | Built 2026-11-22, applied | Written by database triggers, so it cannot be skipped or edited from the console; the last 50 entries are listed on Settings ("You", "System" or "Admin" plus a short ID). Database check confirmed the triggers exist |
 | Moderation screens | Not built | Done in the Supabase dashboard instead |
 
 Verification of drivers is a **human decision**: there is no OCR, face recognition or document
@@ -173,8 +199,51 @@ again. Fixed on 2026-11-02 (commit `0ce4588`); the newer steps that re-test it (
 | Position error (target median 50 m or less) | No experiment planned yet |
 | Driver beacon battery (beacon on vs off, % per hour) | Procedure written (`docs/APP_CHANGES_PLAN.md`); **not run yet** |
 | User survey | Draft in `docs/TESTER_SURVEY.md`. Decision of 2026-11-19: commuters and drivers answer the TAM part only; the System Usability Scale and the IT-expert part are left out of the paper. Not run yet; the Google Form is not made yet |
-| ISO/IEC 25010:2023 quality evaluation | No IT expert was found, so the team tests the 9 characteristics itself with recorded evidence (46 steps in the build tracker). To be stated as a limitation, with an independent expert evaluation recommended. Not run yet |
-| Real multicab field test | One informal field test on a real multicab showed the marker was right but arrival was delayed by stops, lights and traffic, and the multicab sometimes left its route (a gas station). The ETA and detour changes of 2026-11-22 answer that; they are not re-tested yet |
+| ISO/IEC 25010:2023 quality evaluation | No IT expert was found, so the team tested the 9 characteristics itself with recorded evidence (46-step test plan). **Mostly run; results in 6.1.** To be stated as a limitation, with an independent expert evaluation recommended |
+| Real multicab field test | One informal field test on a real multicab showed the marker was right but arrival was delayed by stops, lights and traffic, and the multicab sometimes left its route (a gas station). The ETA passed this test by eye (no seconds measured), but with the **old** ETA rule. The ETA and detour changes of 2026-11-22 answer what it found; they are not re-tested yet |
+
+### 6.1 ISO/IEC 25010 self-test results (team-run, 2026-11-22)
+
+Numbers are the team's own test-plan step numbers (1 to 46). Results as reported by the owner from the
+test-plan sheet; the evidence (screen recordings, screenshots) is kept by the team.
+
+| Steps | Result |
+|---|---|
+| 1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 20, 21, 22, 28, 29, 30, 31, 32, 40, 43, 44, 45, 46 | Pass |
+| 14 | N/A (driver app storage measured at 267 MB) |
+| 41 | Fail: the Map tab was crowded on a small phone. Since partly fixed (section 0, item 2); not re-tested on a small phone |
+| 23 to 27, 33 to 39 | Not tested yet |
+| 2, 3, 19, 42 | Result not recorded in this audit |
+
+Measured values:
+
+| Measure | Value | Note for the paper |
+|---|---|---|
+| Driver phone battery, beacon on | 3 to 5% per 30 minutes | |
+| Driver phone battery, beacon off | 2 to 3% per 30 minutes | So the beacon adds about 1 to 2% per 30 minutes |
+| Commuter phone battery | 0.21% (as recorded) | Looks too low for real tracking; re-check how it was measured (duration, screen on or off) before reporting it |
+| Commuter data use | 425.5 KB per hour | **Above the 150 KB per hour target** in the PRD. Report it honestly as not meeting the target (or explain what was running, e.g. map tiles, Demo data, live updates) |
+| SMS delay, check-in to driver's phone | About 1 minute | Earlier single test: 15 to 41 s Globe to TNT |
+| Phone brands | Works on Xiaomi, Vivo and Honor | Plus the Samsung phone and tablet used during development |
+
+Caveats for the paper:
+
+- **Step 25's pass rule is wrong.** It expects a relay to end when the beacon is lost. The app does not
+  do that: after a relay is released it runs on GPS, and losing the beacon does not end it (3.3). Change
+  the expected result before running it, or the step will "fail" on correct behaviour.
+- Steps 12 and 13 are marked Pass; check them against their targets (13 is data use, which is above the
+  150 KB per hour target).
+- These are developer self-tests, not an independent evaluation.
+
+### 6.2 User survey (TAM)
+
+| Group | Perceived ease of use (mean, 5-point scale) |
+|---|---|
+| Commuters | 4.39 |
+| Drivers | 3.63 |
+
+Only the perceived-ease-of-use results were reported to this audit. The drivers' lower score fits
+the driver app's harder steps (registration with photos, Bluetooth and permissions setup).
 
 ## 7. Changes made for the final defense (2026-11-19 to 2026-11-22)
 
@@ -185,9 +254,24 @@ again. Fixed on 2026-11-02 (commit `0ce4588`); the newer steps that re-test it (
    go by SMS to every driver of the multicab.
 4. **Fares:** unchanged, in one config place, waiting for the LTFRB PUJ General Fare Guide.
 5. **Driver beacon battery:** lower-power settings prepared but off; battery test procedure written.
+6. **Device ban** (commuter accounts): see 3.3.
+7. **Admin two-step sign-in and admin action log:** see 5.
+8. **Security Advisor fix and 8-character passwords:** see 8.
+9. **Small-screen Map tab fix:** see 3.1.
 
-Database: the LTFRB and abang migrations are applied on the live Supabase project, and the
-`driver-registration` function is redeployed (2026-11-22). Whether the earlier migrations of
+Database: these migrations are applied on the live Supabase project (2026-11-22), each checked with
+a query afterwards:
+
+| Migration | What it does |
+|---|---|
+| `20261119000000_ltfrb_selfie_registration` | LTFRB selfie registration and the five review checks |
+| `20261122000000_abang_shared_plate` | Several drivers per multicab |
+| `20261122000001_device_ban` | Device ban |
+| `20261122000002_admin_mfa` | Admin actions need the second factor |
+| `20261122000003_admin_log` | Admin action log |
+| `20261122000004_security_advisor` | Closes `rls_auto_enable()` to app users |
+
+The `driver-registration` function is redeployed (2026-11-22). Whether the earlier migrations of
 2026-11-02 to 2026-11-13 (verification, two-rider baton, moderation, detours, open live map,
 account avatar) are all applied is not confirmed in this audit; `npx supabase migration list`
 shows it.
@@ -215,8 +299,12 @@ shows it.
 - Supabase Security Advisor (2026-11-22): 0 errors. Its warnings are the app's own access-checked
   database functions (by design), and leaked-password protection, which needs a paid plan (passwords
   need 8 characters instead).
-- Outside this phase on purpose: Play Integrity and device fingerprint, Cebuano screens, Play Store
-  release, route updates without an app release.
+- The device ban is a deterrent, not proof: a factory reset, another phone or a rooted phone evades it.
+- Commuter data use measured above the PRD's 150 KB per hour target (6.1).
+- The admin's authenticator phone is now needed to sign in to the console; losing it needs a reset in
+  the Supabase dashboard.
+- Outside this phase on purpose: Play Integrity, Cebuano screens, Play Store release, route updates
+  without an app release.
 
 ## 9. Where the evidence is
 
