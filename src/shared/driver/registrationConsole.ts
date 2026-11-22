@@ -1,8 +1,8 @@
 import { REGISTRATION_REASON_MAX_CHARS } from '../config';
-import type { RegistrationStatus } from './registration';
+import { canApprove, failedChecks, REVIEW_CHECKS, type CheckResult, type DocumentType, type RegistrationStatus, type ReviewCheck, type ReviewChecks } from './registration';
 
 // DRG5: the admin console's rules (PRD 9.5), kept out of the page so they are tested in plain Node.
-// The rows are what the console_registrations and console_drivers database functions return.
+// The rows are what the console_registrations_ltfrb and console_drivers database functions return.
 
 export type ConsoleRegistration = {
   registration_id: string;
@@ -18,6 +18,13 @@ export type ConsoleRegistration = {
   decided_at: string | null;
   // The active phone already on the same plate, which an approval replaces
   active_device: string | null;
+  // 2026-11-19 (owner): the name as written on the LTFRB document, which document, when the selfie
+  // was taken, and the admin's checks once decided. Null on registrations sent before then; the name
+  // is also cleared at a rejection, an expiry and a retire.
+  full_name: string | null;
+  document_type: DocumentType | null;
+  selfie_taken_at: string | null;
+  checks: ReviewChecks | null;
 };
 
 export type ConsoleDriver = {
@@ -122,4 +129,91 @@ export function filterDrivers(rows: readonly ConsoleDriver[], route: string | nu
   return rows
     .filter((row) => (route === null || row.route_id === route) && plateKey(row.plate).includes(wanted))
     .sort((a, b) => b.provisioned_at.localeCompare(a.provisioned_at));
+}
+
+// --- The LTFRB checklist (owner, 2026-11-19; docs/APP_CHANGES_PLAN.md). The admin marks each check by
+// eye; console_decide applies the same rule again in the database.
+
+export type DraftChecks = Partial<ReviewChecks>;
+
+// The results a check may take. Face is N/A for the certificate (it carries no photo) and Pass or Fail
+// for the old ID; a registration sent before the document type existed may use any of the three. The
+// other checks are Pass or Fail.
+export function checkChoices(check: ReviewCheck, document: DocumentType | null): readonly CheckResult[] {
+  if (check !== 'face') return ['pass', 'fail'];
+  if (document === 'academy_certificate') return ['na'];
+  if (document === 'academy_id') return ['pass', 'fail'];
+  return ['pass', 'fail', 'na'];
+}
+
+// The checks as a card opens: Face already N/A for the certificate, nothing else marked
+export function startingChecks(document: DocumentType | null): DraftChecks {
+  return document === 'academy_certificate' ? { face: 'na' } : {};
+}
+
+// All five checks once each is marked with a result it may take, else null
+export function completeChecks(draft: DraftChecks, document: DocumentType | null): ReviewChecks | null {
+  for (const check of REVIEW_CHECKS) {
+    const result = draft[check];
+    if (result === undefined || !checkChoices(check, document).includes(result)) return null;
+  }
+  return draft as ReviewChecks;
+}
+
+// Approve: every check marked, Document, Name, On the list and Plate passed, and Face passed for the
+// old ID or N/A for the certificate (either, for a registration without a document type)
+export function mayApprove(draft: DraftChecks, document: DocumentType | null): boolean {
+  const checks = completeChecks(draft, document);
+  if (!checks) return false;
+  if (document !== null) return canApprove(document, checks);
+  return canApprove('academy_id', { ...checks, face: checks.face === 'na' ? 'pass' : checks.face });
+}
+
+// Reject: every check marked and at least one failed; the reason is chosen from the failed ones
+export function mayReject(draft: DraftChecks, document: DocumentType | null): boolean {
+  const checks = completeChecks(draft, document);
+  return checks !== null && failedChecks(checks).length > 0;
+}
+
+// --- Deciding, then deleting both photos (D1; PRD 9.5). Storage and the database are passed in, so
+// the order is tested without either: the photos go right after the decision, and their deletion is
+// recorded only once the bucket no longer holds them.
+
+export type ConsoleResult<T> = { ok: true; value: T } | { ok: false; error: string };
+
+export type PhotoBucket = {
+  // How many files storage says it deleted
+  remove(paths: readonly string[]): Promise<ConsoleResult<number>>;
+  // Whether any of the files is still there
+  stillStored(paths: readonly string[]): Promise<boolean>;
+};
+
+// Storage answers without an error even when it deleted nothing, so a short answer is checked against
+// the bucket before the deletion is recorded (console_photos_deleted clears the paths)
+export async function deletePhotos(
+  paths: readonly string[],
+  bucket: PhotoBucket,
+  recordDeleted: () => Promise<ConsoleResult<boolean>>,
+): Promise<ConsoleResult<boolean>> {
+  if (paths.length > 0) {
+    const removed = await bucket.remove(paths);
+    if (!removed.ok) return removed;
+    if (removed.value < paths.length && (await bucket.stillStored(paths))) return { ok: false, error: 'photos_not_deleted' };
+  }
+  return recordDeleted();
+}
+
+export type DecidedPhotos = { id_photo_path: string | null; vehicle_photo_path: string | null };
+
+// The decision (approve or reject), then the deletion of the photo paths it returns. A deletion that
+// does not finish leaves the decision standing; the next load of the list finishes it (photosLeft).
+export async function decideThenDelete(
+  decide: () => Promise<ConsoleResult<DecidedPhotos[]>>,
+  removePhotos: (paths: string[]) => Promise<ConsoleResult<boolean>>,
+): Promise<ConsoleResult<null>> {
+  const decided = await decide();
+  if (!decided.ok) return decided;
+  const paths = decided.value.flatMap((row) => [row.id_photo_path, row.vehicle_photo_path]).filter((path): path is string => path !== null);
+  await removePhotos(paths);
+  return { ok: true, value: null };
 }

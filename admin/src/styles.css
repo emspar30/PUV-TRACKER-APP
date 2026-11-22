@@ -693,6 +693,100 @@ textarea:focus-visible {
   color: var(--textTertiary);
 }
 
+.name-value {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+/* The LTFRB checklist: one row per check, Pass / Fail / N/A */
+
+.checks {
+  display: grid;
+  gap: 8px;
+  padding: 0 20px 20px;
+}
+
+.checks h3 {
+  color: var(--textSecondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.check-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.check-text {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.check-name {
+  font-weight: 600;
+}
+
+.check-choices {
+  display: flex;
+  gap: 4px;
+}
+
+.check-choice {
+  min-width: 64px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--card);
+  color: var(--textPrimary);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.check-choice:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.check-choice:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.check-choice.pass[aria-pressed='true'] {
+  border-color: var(--success);
+  background: var(--successContainer);
+  box-shadow: inset 0 0 0 1px var(--success);
+}
+
+.check-choice.fail[aria-pressed='true'] {
+  border-color: var(--danger);
+  background: var(--dangerContainer);
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+.check-choice.na[aria-pressed='true'] {
+  border-color: var(--textSecondary);
+  background: var(--surfaceHigh);
+  box-shadow: inset 0 0 0 1px var(--textSecondary);
+}
+
+.check-choice:disabled[aria-pressed='true'] {
+  opacity: 1;
+}
+
+.check-note {
+  flex-basis: 100%;
+}
+
 .review-actions {
   display: flex;
   flex-wrap: wrap;

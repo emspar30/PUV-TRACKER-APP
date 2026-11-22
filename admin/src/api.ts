@@ -2,7 +2,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { CONSOLE_PHOTO_LINK_TTL_S, REGISTRATION_NOTICE_TTL_MIN } from '@/shared/config';
 import { hashAdminPin } from '@/shared/driver/provisioning';
-import type { ConsoleDriver, ConsoleRegistration } from '@/shared/driver/registrationConsole';
+import type { ReviewChecks } from '@/shared/driver/registration';
+import {
+  decideThenDelete,
+  deletePhotos as deleteThenRecord,
+  type ConsoleDriver,
+  type ConsoleRegistration,
+  type ConsoleResult,
+  type DecidedPhotos,
+} from '@/shared/driver/registrationConsole';
 
 // DRG5: everything the console does (PRD 9.5). It goes through the console_* database functions, which
 // check is_admin() first, and the private photo bucket, which only the admin account may read and
@@ -14,11 +22,14 @@ export const PHOTO_BUCKET = 'driver-registrations';
 const SALT_BYTES = 16;
 const NOT_ADMIN_CODE = '42501';
 
-export type Outcome<T> = { ok: true; value: T } | { ok: false; error: string };
+export type Outcome<T> = ConsoleResult<T>;
+
+// The database's own refusals, which errors.ts words for the admin
+const KNOWN_ERRORS = ['not_pending', 'checks_not_passed', 'no_failed_check', 'reason_needed', 'invalid_checks'];
 
 function failure(error: { code?: string; message: string }): { ok: false; error: string } {
   if (error.code === NOT_ADMIN_CODE) return { ok: false, error: 'not_admin' };
-  if (error.message === 'not_pending') return { ok: false, error: 'not_pending' };
+  if (KNOWN_ERRORS.includes(error.message)) return { ok: false, error: error.message };
   if (/failed to fetch|network/i.test(error.message)) return { ok: false, error: 'offline' };
   return { ok: false, error: error.message };
 }
@@ -46,24 +57,30 @@ export function consoleApi(client: SupabaseClient) {
     return false;
   }
 
-  // Deletes the photos, then records that they are gone. Storage answers without an error even when it
-  // deleted nothing, so a short answer is checked against the bucket before anything is recorded.
-  async function deletePhotos(registrationId: string, paths: string[]): Promise<Outcome<boolean>> {
-    if (paths.length > 0) {
-      try {
-        const { data, error } = await client.storage.from(PHOTO_BUCKET).remove(paths);
-        if (error) return failure(error);
-        if (data.length < paths.length && (await stillStored(paths))) return { ok: false, error: 'photos_not_deleted' };
-      } catch {
-        return { ok: false, error: 'offline' };
-      }
+  // Deletes the photos, then records that they are gone (the order is in deletePhotos, shared and tested)
+  async function remove(paths: readonly string[]): Promise<Outcome<number>> {
+    try {
+      const { data, error } = await client.storage.from(PHOTO_BUCKET).remove([...paths]);
+      return error ? failure(error) : { ok: true, value: data.length };
+    } catch {
+      return { ok: false, error: 'offline' };
     }
-    return rpc<boolean>('console_photos_deleted', { registration: registrationId });
   }
 
+  async function stillStoredSafe(paths: readonly string[]): Promise<boolean> {
+    try {
+      return await stillStored([...paths]);
+    } catch {
+      return true;
+    }
+  }
+
+  const deletePhotos = (registrationId: string, paths: string[]): Promise<Outcome<boolean>> =>
+    deleteThenRecord(paths, { remove, stillStored: stillStoredSafe }, () => rpc<boolean>('console_photos_deleted', { registration: registrationId }));
+
   return {
-    // Waiting first, then the newest (at most 200)
-    registrations: () => rpc<ConsoleRegistration[]>('console_registrations'),
+    // Waiting first, then the newest (at most 200), with the LTFRB name, document and checks
+    registrations: () => rpc<ConsoleRegistration[]>('console_registrations_ltfrb'),
 
     // Short-lived links to the photos, by path
     async photoLinks(paths: string[]): Promise<Outcome<Record<string, string>>> {
@@ -79,20 +96,21 @@ export function consoleApi(client: SupabaseClient) {
       }
     },
 
-    // Approves (which queues the "approved" text) or rejects with the reason, then deletes both
-    // photos (D1). If the deletion does not finish, the next load of the list finishes it.
-    async decide(registrationId: string, approve: boolean, reason: string | null): Promise<Outcome<null>> {
-      const decided = await rpc<{ id_photo_path: string | null; vehicle_photo_path: string | null }[]>('console_decide', {
-        registration: registrationId,
-        approve,
-        decision_reason: approve ? null : reason,
-        notice_ttl_min: REGISTRATION_NOTICE_TTL_MIN,
-      });
-      if (!decided.ok) return decided;
-      const paths = decided.value.flatMap((row) => [row.id_photo_path, row.vehicle_photo_path]).filter((path): path is string => path !== null);
-      await deletePhotos(registrationId, paths);
-      return { ok: true, value: null };
-    },
+    // Approves (which queues the "approved" text) or rejects with the reason, keeping the five checks
+    // either way, then deletes both photos (D1). If the deletion does not finish, the next load of the
+    // list finishes it.
+    decide: (registrationId: string, approve: boolean, checks: ReviewChecks, reason: string | null): Promise<Outcome<null>> =>
+      decideThenDelete(
+        () =>
+          rpc<DecidedPhotos[]>('console_decide', {
+            registration: registrationId,
+            approve,
+            review: checks,
+            decision_reason: approve ? null : reason,
+            notice_ttl_min: REGISTRATION_NOTICE_TTL_MIN,
+          }),
+        (paths) => deletePhotos(registrationId, paths),
+      ),
 
     deletePhotos,
 

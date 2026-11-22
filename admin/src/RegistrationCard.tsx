@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { REGISTRATION_REASON_MAX_CHARS } from '@/shared/config';
-import { localPhNumber, rejectionReason, type ConsoleRegistration } from '@/shared/driver/registrationConsole';
+import { failedChecks, REVIEW_CHECKS, type CheckResult, type ReviewCheck } from '@/shared/driver/registration';
+import {
+  checkChoices,
+  completeChecks,
+  localPhNumber,
+  mayApprove,
+  mayReject,
+  rejectionReason,
+  startingChecks,
+  type ConsoleRegistration,
+  type DraftChecks,
+} from '@/shared/driver/registrationConsole';
 import { strings } from '@/strings';
 
 import type { ConsoleApi } from './api';
@@ -10,6 +21,7 @@ import { Icon } from './Icon';
 
 const text = strings.adminConsole;
 const t = text.registrations;
+const RESULTS: readonly CheckResult[] = ['pass', 'fail', 'na'];
 
 type Props = {
   row: ConsoleRegistration;
@@ -21,11 +33,14 @@ type Props = {
   onDecided: () => void;
 };
 
-// One registration waiting for review: the ID photo, the multicab photo with the typed plate under it
-// (the two must match), the details and the decision. Rejecting opens the reason panel underneath.
+// One registration waiting for review: the selfie holding the LTFRB document, the multicab photo with
+// the typed plate under it, the typed name, the document type and the other details, then the five
+// checks (Pass, Fail or N/A) and the decision. Approve opens once the checks allow it (mayApprove);
+// Reject needs a failed check, and its reason is picked from the failed ones in the panel underneath.
 export function RegistrationCard({ row, position, api, canApprove, onDecided }: Props) {
   const [links, setLinks] = useState<Record<string, string> | null>(null);
   const [rejecting, setRejecting] = useState(false);
+  const [draft, setDraft] = useState<DraftChecks>(() => startingChecks(row.document_type));
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +61,26 @@ export function RegistrationCard({ row, position, api, canApprove, onDecided }: 
   const phone = localPhNumber(row.phone_e164);
   const reasonToSend = rejectionReason(reason);
   const reasonId = `reason-${row.registration_id}`;
+  const document = row.document_type;
+  const checks = completeChecks(draft, document);
+  const approvable = mayApprove(draft, document);
+  const rejectable = mayReject(draft, document);
+  const failed = checks ? failedChecks(checks) : [];
+  const checksNote = !checks ? t.checksIncomplete : !approvable && !rejectable ? t.approveNeeds : null;
+
+  function mark(check: ReviewCheck, result: CheckResult) {
+    const next = { ...draft, [check]: result };
+    setDraft(next);
+    // A reason picked from a check that no longer fails is dropped
+    const stillFailing = (Object.keys(t.failReasons) as ReviewCheck[]).filter((key) => next[key] === 'fail').map((key) => t.failReasons[key]);
+    if (rejecting && reason && Object.values(t.failReasons).includes(reason) && !stillFailing.includes(reason)) setReason(stillFailing[0] ?? '');
+  }
 
   async function decide(approve: boolean) {
+    if (!checks) return;
     setBusy(true);
     setError(null);
-    const result = await api.decide(row.registration_id, approve, reasonToSend);
+    const result = await api.decide(row.registration_id, approve, checks, reasonToSend);
     setBusy(false);
     if (result.ok) onDecided();
     else setError(result.error);
@@ -59,6 +89,11 @@ export function RegistrationCard({ row, position, api, canApprove, onDecided }: 
   function approve() {
     const question = t.confirmApprove(row.plate, row.route_id, phone) + (row.active_device ? t.confirmReplace(row.active_device) : '');
     if (window.confirm(question)) void decide(true);
+  }
+
+  function startRejecting() {
+    setRejecting(true);
+    setReason(failed[0] ? t.failReasons[failed[0]] : '');
   }
 
   function cancelRejecting() {
@@ -111,6 +146,15 @@ export function RegistrationCard({ row, position, api, canApprove, onDecided }: 
 
         <div className="review-col details">
           <div>
+            <p className="detail-label">{t.nameLabel}</p>
+            <p className="name-value">{row.full_name ?? t.noDetail}</p>
+          </div>
+          <div>
+            <p className="detail-label">{t.documentLabel}</p>
+            <p>{document ? t.documents[document] : t.noDetail}</p>
+            {row.selfie_taken_at && <p className="muted small">{t.selfieTaken(text.when(row.selfie_taken_at))}</p>}
+          </div>
+          <div className="detail-divided">
             <p className="detail-label">{t.routeLabel}</p>
             <p className="route-value">{row.route_id}</p>
           </div>
@@ -121,30 +165,61 @@ export function RegistrationCard({ row, position, api, canApprove, onDecided }: 
               {phone}
             </p>
           </div>
-          {error && (
-            <p className="notice error" role="alert">
-              <Icon name="error" />
-              {errorText(error)}
-            </p>
+        </div>
+      </div>
+
+      <div className="checks">
+        <h3>{t.checksTitle}</h3>
+        {REVIEW_CHECKS.map((check) => {
+          const choices = checkChoices(check, document);
+          return (
+            <div key={check} className="check-row" role="group" aria-labelledby={`${reasonId}-${check}`}>
+              <div className="check-text">
+                <p id={`${reasonId}-${check}`} className="check-name">
+                  {t.checks[check]}
+                </p>
+                <p className="muted small">{t.checkHints[check]}</p>
+              </div>
+              <div className="check-choices">
+                {RESULTS.map((result) => (
+                  <button
+                    key={result}
+                    type="button"
+                    className={`check-choice ${result}`}
+                    aria-pressed={draft[check] === result}
+                    disabled={busy || !choices.includes(result)}
+                    onClick={() => mark(check, result)}>
+                    {t.results[result]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {error && (
+          <p className="notice error" role="alert">
+            <Icon name="error" />
+            {errorText(error)}
+          </p>
+        )}
+        <div className="review-actions">
+          {rejecting ? (
+            <p className="muted small">{t.rejectingNote}</p>
+          ) : (
+            <>
+              {checksNote && <p className="muted small check-note">{checksNote}</p>}
+              <button type="button" className="button primary grow" disabled={busy || !canApprove || !approvable} onClick={approve}>
+                <Icon name="check" />
+                {busy ? t.saving : t.approve}
+              </button>
+              <button type="button" className="button secondary" disabled={busy || !rejectable} onClick={startRejecting}>
+                <span className="danger-ink">
+                  <Icon name="close" />
+                </span>
+                {t.reject}
+              </button>
+            </>
           )}
-          <div className="review-actions">
-            {rejecting ? (
-              <p className="muted small">{t.rejectingNote}</p>
-            ) : (
-              <>
-                <button type="button" className="button primary grow" disabled={busy || !canApprove} onClick={approve}>
-                  <Icon name="check" />
-                  {busy ? t.saving : t.approve}
-                </button>
-                <button type="button" className="button secondary" disabled={busy} onClick={() => setRejecting(true)}>
-                  <span className="danger-ink">
-                    <Icon name="close" />
-                  </span>
-                  {t.reject}
-                </button>
-              </>
-            )}
-          </div>
         </div>
       </div>
 
@@ -160,12 +235,15 @@ export function RegistrationCard({ row, position, api, canApprove, onDecided }: 
             <span className="muted small">{t.driverSeesIt}</span>
           </div>
           <div className="picks">
-            {t.reasonPicks.map((pick) => (
-              <button key={pick} type="button" className="pick" aria-pressed={reason === pick} onClick={() => setReason(pick)}>
-                <span>{pick}</span>
-                <Icon name="checkCircle" />
-              </button>
-            ))}
+            {failed.map((check) => {
+              const pick = t.failReasons[check];
+              return (
+                <button key={check} type="button" className="pick" aria-pressed={reason === pick} onClick={() => setReason(pick)}>
+                  <span>{pick}</span>
+                  <Icon name="checkCircle" />
+                </button>
+              );
+            })}
           </div>
           <textarea
             id={reasonId}
@@ -181,7 +259,7 @@ export function RegistrationCard({ row, position, api, canApprove, onDecided }: 
               <button type="button" className="button text" disabled={busy} onClick={cancelRejecting}>
                 {t.cancel}
               </button>
-              <button type="button" className="button danger" disabled={busy || reasonToSend === null} onClick={() => void decide(false)}>
+              <button type="button" className="button danger" disabled={busy || reasonToSend === null || !rejectable} onClick={() => void decide(false)}>
                 <Icon name="block" />
                 {busy ? t.saving : t.sendRejection}
               </button>

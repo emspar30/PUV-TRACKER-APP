@@ -1,20 +1,30 @@
 import { REGISTRATION_REASON_MAX_CHARS } from '../config';
 import { localPhDigits, normalizePhNumber } from '../driver/phone';
 import {
+  checkChoices,
+  completeChecks,
+  decideThenDelete,
+  deletePhotos,
   driverRegistration,
   filterDrivers,
   inTab,
   listedRoutes,
   localPhNumber,
+  mayApprove,
+  mayReject,
   onRoute,
   photosLeft,
   REGISTRATION_TABS,
   rejectionReason,
   rowsInTab,
   splitRegistrations,
+  startingChecks,
   tabCounts,
   type ConsoleDriver,
   type ConsoleRegistration,
+  type ConsoleResult,
+  type DecidedPhotos,
+  type PhotoBucket,
 } from '../driver/registrationConsole';
 
 // DRG5: the admin console's rules (src/shared/driver/registrationConsole.ts)
@@ -33,6 +43,10 @@ function row(id: string, status: ConsoleRegistration['status'], createdAt: strin
     created_at: createdAt,
     decided_at: null,
     active_device: null,
+    full_name: null,
+    document_type: null,
+    selfie_taken_at: null,
+    checks: null,
   };
 }
 
@@ -206,5 +220,131 @@ describe('driverRegistration', () => {
 
   it('finds none for a phone set up without a recorded number', () => {
     expect(driverRegistration({ ...driver, phone_e164: null }, [collected('a', '2026-10-28T00:00:00.000Z')])).toBeNull();
+  });
+});
+
+describe('the LTFRB checklist on a registration card', () => {
+  const PASSED = { document: 'pass', name: 'pass', list: 'pass', plate: 'pass' } as const;
+
+  it('fixes Face at N/A for the certificate and allows only Pass or Fail for the old ID', () => {
+    expect(checkChoices('face', 'academy_certificate')).toEqual(['na']);
+    expect(checkChoices('face', 'academy_id')).toEqual(['pass', 'fail']);
+    expect(checkChoices('face', null)).toEqual(['pass', 'fail', 'na']);
+    expect(checkChoices('list', 'academy_id')).toEqual(['pass', 'fail']);
+    expect(startingChecks('academy_certificate')).toEqual({ face: 'na' });
+    expect(startingChecks('academy_id')).toEqual({});
+  });
+
+  it('approves a certificate with every check passed and Face N/A', () => {
+    const draft = { ...startingChecks('academy_certificate'), ...PASSED };
+    expect(mayApprove(draft, 'academy_certificate')).toBe(true);
+    expect(mayReject(draft, 'academy_certificate')).toBe(false);
+  });
+
+  it('approves the old ID only with Face passed', () => {
+    expect(mayApprove({ ...PASSED, face: 'pass' }, 'academy_id')).toBe(true);
+    expect(mayApprove({ ...PASSED, face: 'fail' }, 'academy_id')).toBe(false);
+    // N/A is not a result Face may take for the ID, so the checks are not complete
+    expect(completeChecks({ ...PASSED, face: 'na' }, 'academy_id')).toBeNull();
+    expect(mayApprove({ ...PASSED, face: 'na' }, 'academy_id')).toBe(false);
+  });
+
+  it('needs every check marked, for approve and for reject', () => {
+    expect(mayApprove({ document: 'pass', name: 'pass', face: 'pass' }, 'academy_id')).toBe(false);
+    expect(mayReject({ document: 'fail' }, 'academy_id')).toBe(false);
+  });
+
+  it('blocks approve and allows reject once a check fails', () => {
+    const draft = { ...PASSED, list: 'fail', face: 'pass' } as const;
+    expect(mayApprove(draft, 'academy_id')).toBe(false);
+    expect(mayReject(draft, 'academy_id')).toBe(true);
+  });
+
+  it('lets a registration sent before the LTFRB form pass with Face passed or N/A', () => {
+    expect(mayApprove({ ...PASSED, face: 'na' }, null)).toBe(true);
+    expect(mayApprove({ ...PASSED, face: 'pass' }, null)).toBe(true);
+    expect(mayApprove({ ...PASSED, face: 'fail' }, null)).toBe(false);
+  });
+});
+
+describe('deleting the photos after a decision', () => {
+  const PATHS = ['c1/id.jpg', 'c1/vehicle.jpg'];
+
+  function bucket(removed: ConsoleResult<number>, stored: boolean) {
+    const calls: string[] = [];
+    const store: PhotoBucket = {
+      remove: async (paths) => {
+        calls.push(`remove ${paths.join(',')}`);
+        return removed;
+      },
+      stillStored: async () => {
+        calls.push('list');
+        return stored;
+      },
+    };
+    const record = async (): Promise<ConsoleResult<boolean>> => {
+      calls.push('record');
+      return { ok: true, value: true };
+    };
+    return { store, record, calls };
+  }
+
+  it('deletes both photos, then records the deletion', async () => {
+    const { store, record, calls } = bucket({ ok: true, value: 2 }, false);
+    expect(await deletePhotos(PATHS, store, record)).toEqual({ ok: true, value: true });
+    expect(calls).toEqual(['remove c1/id.jpg,c1/vehicle.jpg', 'record']);
+  });
+
+  it('records nothing while a photo is still in the bucket', async () => {
+    const { store, record, calls } = bucket({ ok: true, value: 1 }, true);
+    expect(await deletePhotos(PATHS, store, record)).toEqual({ ok: false, error: 'photos_not_deleted' });
+    expect(calls).not.toContain('record');
+  });
+
+  it('records the deletion when a short answer was only files already gone', async () => {
+    const { store, record, calls } = bucket({ ok: true, value: 0 }, false);
+    expect(await deletePhotos(PATHS, store, record)).toEqual({ ok: true, value: true });
+    expect(calls).toEqual(['remove c1/id.jpg,c1/vehicle.jpg', 'list', 'record']);
+  });
+
+  it('records nothing when storage refuses', async () => {
+    const { store, record, calls } = bucket({ ok: false, error: 'offline' }, true);
+    expect(await deletePhotos(PATHS, store, record)).toEqual({ ok: false, error: 'offline' });
+    expect(calls).not.toContain('record');
+  });
+
+  it('deletes the photos the decision returns (approve and reject both return them)', async () => {
+    const deleted: string[][] = [];
+    const decided: DecidedPhotos[] = [{ id_photo_path: 'c1/id.jpg', vehicle_photo_path: 'c1/vehicle.jpg' }];
+    const result = await decideThenDelete(
+      async () => ({ ok: true, value: decided }),
+      async (paths) => {
+        deleted.push(paths);
+        return { ok: true, value: true };
+      },
+    );
+    expect(result).toEqual({ ok: true, value: null });
+    expect(deleted).toEqual([PATHS]);
+  });
+
+  it('deletes nothing when the decision is refused', async () => {
+    const deleted: string[][] = [];
+    const result = await decideThenDelete(
+      async () => ({ ok: false, error: 'checks_not_passed' }),
+      async (paths) => {
+        deleted.push(paths);
+        return { ok: true, value: true };
+      },
+    );
+    expect(result).toEqual({ ok: false, error: 'checks_not_passed' });
+    expect(deleted).toEqual([]);
+  });
+
+  it('keeps the decision when the deletion does not finish (the next list load retries it)', async () => {
+    const result = await decideThenDelete(
+      async () => ({ ok: true, value: [{ id_photo_path: 'c1/id.jpg', vehicle_photo_path: null }] }),
+      async () => ({ ok: false, error: 'photos_not_deleted' }),
+    );
+    expect(result).toEqual({ ok: true, value: null });
   });
 });
