@@ -151,6 +151,7 @@ Multicabs fall under the **LTFRB** (not the city transport office). Earlier docu
 | Photos deleted right after approve or reject | Built and covered by automatic tests | Only a text record remains: the decision, each check's result, the document type, who decided and when |
 | Drivers list, route filter, plate search, Retire | Built | Shows "Also on this plate: DRV-00xx" for abang drivers |
 | Admin PIN for the driver phones' Admin screen | Built | |
+| Two-step sign-in (authenticator app code after the password) | Built 2026-11-22 (migration to apply) | The database refuses admin actions from a session without it |
 | Moderation screens | Not built | Done in the Supabase dashboard instead |
 
 Verification of drivers is a **human decision**: there is no OCR, face recognition or document

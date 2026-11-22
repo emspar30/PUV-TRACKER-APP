@@ -1922,6 +1922,20 @@ export const en = {
       busy: 'Signing in…',
       wrong: 'Wrong email or password.',
     },
+    // 2026-11-22: two-factor sign-in (an authenticator app's 6-digit code after the password)
+    twoFactor: {
+      heading: 'Enter your code',
+      body: 'Open your authenticator app and enter the 6-digit code for Tunton admin.',
+      setupHeading: 'Set up two-step sign-in',
+      setupBody:
+        'Scan this QR code with an authenticator app (Google Authenticator or Microsoft Authenticator), then enter the 6-digit code it shows. You need this app every time you sign in.',
+      qrAlt: 'QR code for the authenticator app',
+      secretLabel: 'Cannot scan? Type this key into the app instead:',
+      codeLabel: '6-digit code',
+      codeInvalid: 'Enter the 6 digits from the app.',
+      codeWrong: 'That code is not right, or it has expired. Enter the newest code from the app.',
+      submit: 'Verify',
+    },
     signOut: 'Sign out',
     notAdmin: 'This account is not the admin account. Sign out, then sign in with the admin account.',
     offline: 'Cannot reach Supabase. Check the internet connection, then try again.',

@@ -914,3 +914,16 @@ describe('migration: device ban (2026-11-22, PRD 10.3)', () => {
     expect(banSql).not.toMatch(/\b(drop|truncate)\b|delete from/);
   });
 });
+
+describe('migration: admin two-factor sign-in (2026-11-22)', () => {
+  const mfaSql = read(['20261122000002_admin_mfa.sql']);
+
+  it('makes every admin check need the second factor (aal2), replaced in place', () => {
+    expect(mfaSql).toContain('create or replace function public.is_admin()');
+    expect(mfaSql).toContain("and coalesce((select auth.jwt()) ->> 'aal', '') = 'aal2'");
+    // The last is_admin() in the migrations is this one
+    const last = [...sql.matchAll(/create (?:or replace )?function public\.is_admin\(\)[^$]*\$\$([\s\S]*?)\$\$/g)].pop()![1];
+    expect(last).toContain("'aal2'");
+    expect(mfaSql).not.toMatch(/\b(drop|truncate)\b|delete from/);
+  });
+});

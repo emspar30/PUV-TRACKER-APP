@@ -1196,6 +1196,24 @@ tbody tr:hover td {
   padding: 32px 16px;
 }
 
+.totp-setup {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.totp-setup img {
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.totp-secret {
+  font-family: var(--mono);
+  font-size: 13px;
+  word-break: break-all;
+  text-align: center;
+}
+
 .signin {
   display: grid;
   gap: 24px;

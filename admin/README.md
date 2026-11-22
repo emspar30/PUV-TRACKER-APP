@@ -46,3 +46,16 @@ A static site does not sleep. It rebuilds by itself when `admin/`, the shared co
 - The console's power is the admin account: a strong password, and **Sign out** on a computer others use.
 - The page loads nothing but itself and the Supabase project (the content security policy in `render.yaml`), and asks search engines not to list it.
 - Photo links work for 5 minutes (`CONSOLE_PHOTO_LINK_TTL_S`), and the photos are deleted at the decision.
+
+## Two-step sign-in (2026-11-22)
+
+After the email and password, the console asks for a 6-digit code from an authenticator app
+(Google Authenticator, Microsoft Authenticator or similar). The first sign-in shows a QR code to scan;
+after that, every sign-in asks for the current code. The database refuses every admin action from a
+session without it (migration `20261122000002_admin_mfa.sql`), so a stolen password alone opens
+nothing.
+
+- Apply that migration only once the console in use has the two-step screen (this branch, locally with
+  `npm run admin:dev`, or the hosted console after a push). Otherwise the admin cannot sign in.
+- Lost the phone with the authenticator app: in the Supabase dashboard open Authentication, Users, the
+  admin account, and delete its MFA factor; the next sign-in sets it up again.

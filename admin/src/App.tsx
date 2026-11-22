@@ -11,6 +11,7 @@ import { Registrations } from './Registrations';
 import { Settings } from './Settings';
 import { SignIn } from './SignIn';
 import { api, client } from './supabase';
+import { TwoFactorGate } from './TwoFactor';
 import { useRegistrations } from './useRegistrations';
 
 const text = strings.adminConsole;
@@ -45,7 +46,12 @@ export function App() {
   }
   if (session === undefined) return null;
   if (!session) return <SignIn client={supabase} />;
-  return <Console api={api} email={session.user.email ?? ''} onSignOut={() => void supabase.auth.signOut()} />;
+  // 2026-11-22: the console opens only after the second factor (the database checks it too)
+  return (
+    <TwoFactorGate key={session.user.id} client={supabase}>
+      <Console api={api} email={session.user.email ?? ''} onSignOut={() => void supabase.auth.signOut()} />
+    </TwoFactorGate>
+  );
 }
 
 // Signed in: the side navigation and the open section
