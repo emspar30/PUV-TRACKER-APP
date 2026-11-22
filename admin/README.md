@@ -82,7 +82,8 @@ The rules run by themselves (migration `20261123000000_auto_moderation.sql`):
 - 2 strikes within 30 days: a 7-day suspension. After a suspension, 2 new strikes within 30 days: a
   permanent ban. The device ban applies both to every account on the same phone.
 - Appeals wait on the Moderation tab. Uphold lifts the strike and any suspension or ban it caused.
-- Suspend an account lets you suspend (1 to 30 days) or ban by hand, with a reason. Lift ends one early.
+- Suspensions and bans come only from these rules (no manual Suspend). Lift ends one early to fix a
+  mistake.
 
 The tab's count is what needs you: flagged verified rides and appeals. Every action, automatic or yours,
 is listed in Admin activity on Settings.

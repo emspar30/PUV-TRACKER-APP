@@ -4,8 +4,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { BAN_STRIKES, MANUAL_SUSPEND_MAX_DAYS, MODERATION_LIST_DAYS, SUSPENSION_STRIKES } from '../config';
-import { evidenceHint, validSuspension, waitingCount } from '../moderation/console';
+import { BAN_STRIKES, MODERATION_LIST_DAYS, SUSPENSION_STRIKES } from '../config';
+import { evidenceHint, waitingCount } from '../moderation/console';
 import { autoStrike, isBan, needsReview, settleOutcome, type Strike } from '../moderation/rules';
 
 const DAY = 86_400_000;
@@ -83,12 +83,7 @@ describe('the console evidence hint', () => {
     expect(evidenceHint({ ...base, verified: true, beacon_ok: false })).toBe('unclear');
   });
 
-  it('a manual suspension needs a reason and 1 to 30 days, or a ban', () => {
-    expect(validSuspension(7, false, 'spamming')).toBe(true);
-    expect(validSuspension(7, false, null)).toBe(false);
-    expect(validSuspension(0, false, 'other')).toBe(false);
-    expect(validSuspension(MANUAL_SUSPEND_MAX_DAYS + 1, false, 'other')).toBe(false);
-    expect(validSuspension(0, true, 'abusive')).toBe(true);
+  it('counts what needs the admin', () => {
     expect(waitingCount({ reviews: 2, appeals: 1 })).toBe(3);
     expect(waitingCount(null)).toBe(0);
   });
@@ -141,6 +136,15 @@ describe('migration: automatic moderation (2026-11-23)', () => {
       expect(statements).toContain(`revoke execute on function public.${fn} from public, anon, authenticated`);
       expect(statements.some((s) => s.startsWith(`grant execute on function public.${fn}`))).toBe(false);
     }
+  });
+
+  it('closes the manual suspend functions to every client (rules only, 2026-11-23)', () => {
+    const closed = fs
+      .readFileSync(path.join(__dirname, '..', '..', '..', 'supabase', 'migrations', '20261123000001_rules_only_suspend.sql'), 'utf8')
+      .replace(/--.*$/gm, '');
+    expect(closed).toContain('revoke execute on function public.console_suspend(uuid, integer, boolean, text) from public, anon, authenticated');
+    expect(closed).toContain('revoke execute on function public.console_find_accounts(text) from public, anon, authenticated');
+    expect(closed).not.toMatch(/grant/);
   });
 
   it('holds no contact details, location or destination', () => {

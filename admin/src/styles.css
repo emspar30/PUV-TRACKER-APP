@@ -1636,9 +1636,3 @@ tbody tr:hover td {
   border-left: 3px solid var(--line);
   white-space: pre-wrap;
 }
-
-label.check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}

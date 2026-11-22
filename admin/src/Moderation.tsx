@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { MANUAL_SUSPEND_DEFAULT_DAYS, MANUAL_SUSPEND_MAX_DAYS, SUSPEND_REASONS, type SuspendReason } from '@/shared/config';
-import { evidenceHint, validSuspension, type FlaggedPost, type FoundAccount, type PendingAppeal, type Suspension } from '@/shared/moderation/console';
+import { evidenceHint, type FlaggedPost, type PendingAppeal, type Suspension } from '@/shared/moderation/console';
 import { strings } from '@/strings';
 
 import type { ConsoleApi } from './api';
@@ -14,14 +13,14 @@ const t = text.moderation;
 const feed = strings.crowdsource;
 
 type Lists = { flagged: FlaggedPost[]; appeals: PendingAppeal[]; suspensions: Suspension[] };
-type Picked = { id: string; account: string };
 
 const phraseOf = (phrase: string | null) => (phrase && phrase in feed.phrases ? feed.phrases[phrase as keyof typeof feed.phrases] : t.noPhrase);
 const tagOf = (tag: string) => (tag in feed.flagTags ? feed.flagTags[tag as keyof typeof feed.flagTags] : tag);
 
 // Moderation (owner, 2026-11-23): the rules run by themselves (migration
 // 20261123000000_auto_moderation.sql). The admin decides flagged verified rides (the evidence
-// conflicts) and appeals, and may suspend, ban or lift by hand. Every action goes into Admin activity.
+// conflicts) and appeals, and may lift a suspension or ban to fix a mistake. Suspensions and bans come
+// only from the rules (owner, 2026-11-23). Every action goes into Admin activity.
 // onChanged: the console's count of what waits here
 export function Moderation({ api, onChanged }: { api: ConsoleApi; onChanged: () => void }) {
   const [lists, setLists] = useState<Lists | null>(null);
@@ -29,7 +28,6 @@ export function Moderation({ api, onChanged }: { api: ConsoleApi; onChanged: () 
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [picked, setPicked] = useState<Picked | null>(null);
 
   const load = useCallback(async () => {
     const [flagged, appeals, suspensions] = await Promise.all([api.flaggedPosts(), api.appeals(), api.suspensions()]);
@@ -97,7 +95,6 @@ export function Moderation({ api, onChanged }: { api: ConsoleApi; onChanged: () 
           <section className="card form-card" aria-labelledby="flagged-heading">
             <div>
               <h2 id="flagged-heading">{t.flaggedHeading}</h2>
-              <p className="muted">{t.flaggedBody}</p>
             </div>
             {lists.flagged.length === 0 ? (
               <p className="muted">{t.flaggedEmpty}</p>
@@ -110,10 +107,6 @@ export function Moderation({ api, onChanged }: { api: ConsoleApi; onChanged: () 
                     busy={busy}
                     onConfirm={() => void act(t.confirmAsk(post.author), () => api.confirmReport(post.post_id), t.confirmed)}
                     onDismiss={() => void act(t.dismissAsk, () => api.dismissReport(post.post_id), t.dismissed)}
-                    onSuspend={() => {
-                      setPicked({ id: post.author_id, account: post.author });
-                      setTimeout(() => document.getElementById('suspend-form')?.scrollIntoView({ behavior: 'smooth' }), 0);
-                    }}
                   />
                 ))}
               </ul>
@@ -123,7 +116,6 @@ export function Moderation({ api, onChanged }: { api: ConsoleApi; onChanged: () 
           <section className="card form-card" aria-labelledby="appeals-heading">
             <div>
               <h2 id="appeals-heading">{t.appealsHeading}</h2>
-              <p className="muted">{t.appealsBody}</p>
             </div>
             {lists.appeals.length === 0 ? (
               <p className="muted">{t.appealsEmpty}</p>
@@ -161,7 +153,6 @@ export function Moderation({ api, onChanged }: { api: ConsoleApi; onChanged: () 
           <section className="card form-card" aria-labelledby="suspended-heading">
             <div>
               <h2 id="suspended-heading">{t.suspendedHeading}</h2>
-              <p className="muted">{t.suspendedBody}</p>
             </div>
             {lists.suspensions.length === 0 ? (
               <p className="muted">{t.suspendedEmpty}</p>
@@ -189,30 +180,13 @@ export function Moderation({ api, onChanged }: { api: ConsoleApi; onChanged: () 
             )}
           </section>
 
-          <SuspendForm
-            api={api}
-            busy={busy}
-            picked={picked}
-            onPick={setPicked}
-            onSuspend={(account, days, permanent, reason) =>
-              void act(
-                permanent ? t.banAsk(account.account) : t.suspendAsk(account.account, days),
-                async () => {
-                  const result = await api.suspend(account.id, days, permanent, reason);
-                  if (result.ok) setPicked(null);
-                  return result;
-                },
-                t.suspended(account.account),
-              )
-            }
-          />
         </>
       )}
     </>
   );
 }
 
-function FlaggedItem({ post, busy, onConfirm, onDismiss, onSuspend }: { post: FlaggedPost; busy: boolean; onConfirm: () => void; onDismiss: () => void; onSuspend: () => void }) {
+function FlaggedItem({ post, busy, onConfirm, onDismiss }: { post: FlaggedPost; busy: boolean; onConfirm: () => void; onDismiss: () => void }) {
   const hint = evidenceHint(post);
   return (
     <li className={`mod-item${post.needs_review ? ' needs-you' : ''}`}>
@@ -256,133 +230,7 @@ function FlaggedItem({ post, busy, onConfirm, onDismiss, onSuspend }: { post: Fl
         <button type="button" className="button secondary" disabled={busy} onClick={onDismiss}>
           {t.dismiss}
         </button>
-        <button type="button" className="button text" disabled={busy} onClick={onSuspend}>
-          {t.suspendAuthor}
-        </button>
       </div>
     </li>
-  );
-}
-
-function SuspendForm({
-  api,
-  busy,
-  picked,
-  onPick,
-  onSuspend,
-}: {
-  api: ConsoleApi;
-  busy: boolean;
-  picked: Picked | null;
-  onPick: (account: Picked | null) => void;
-  onSuspend: (account: Picked, days: number, permanent: boolean, reason: SuspendReason) => void;
-}) {
-  const [query, setQuery] = useState('');
-  const [found, setFound] = useState<FoundAccount[] | null>(null);
-  const [reason, setReason] = useState<SuspendReason | null>(null);
-  const [days, setDays] = useState(MANUAL_SUSPEND_DEFAULT_DAYS);
-  const [permanent, setPermanent] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    const typed = query.trim();
-    const timer = setTimeout(() => {
-      if (typed.replace(/^@/, '').length < 2) {
-        if (live) setFound(null);
-        return;
-      }
-      void api.findAccounts(typed).then((result) => {
-        if (live) setFound(result.ok ? result.value : []);
-      });
-    }, 300);
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, [api, query]);
-
-  const ready = picked !== null && validSuspension(days, permanent, reason);
-
-  return (
-    <form
-      id="suspend-form"
-      className="card form-card"
-      aria-labelledby="suspend-heading"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (ready && picked && reason) onSuspend(picked, days, permanent, reason);
-      }}>
-      <div>
-        <h2 id="suspend-heading">{t.suspendHeading}</h2>
-        <p className="muted">{t.suspendBody}</p>
-      </div>
-      {picked ? (
-        <p className="callout">
-          <Icon name="block" />
-          <strong>{picked.account}</strong>
-          <button type="button" className="button text" onClick={() => onPick(null)}>
-            {text.twoFactor.cancel}
-          </button>
-        </p>
-      ) : (
-        <div className="field">
-          <label htmlFor="mod-search">{t.searchLabel}</label>
-          <input id="mod-search" type="search" autoComplete="off" placeholder={t.searchPlaceholder} value={query} onChange={(event) => setQuery(event.target.value)} />
-          {found !== null &&
-            (found.length === 0 ? (
-              <p className="muted small">{t.noAccounts}</p>
-            ) : (
-              <ul className="mod-list">
-                {found.map((account) => (
-                  <li key={account.account_id} className="mod-row">
-                    <span>
-                      {account.account}
-                      <span className="muted small plate-partners">
-                        {t.strikes(account.strikes_now)}
-                        {account.suspended_until ? ` · ${t.until(text.whenFull(account.suspended_until))}` : ''}
-                      </span>
-                    </span>
-                    <button type="button" className="button secondary" onClick={() => onPick({ id: account.account_id, account: account.account })}>
-                      {t.pick}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ))}
-        </div>
-      )}
-      <div className="field">
-        <label htmlFor="mod-reason">{t.reasonLabel}</label>
-        <select id="mod-reason" value={reason ?? ''} onChange={(event) => setReason(event.target.value === '' ? null : (event.target.value as SuspendReason))}>
-          <option value="">—</option>
-          {SUSPEND_REASONS.map((name) => (
-            <option key={name} value={name}>
-              {t.reasons[name]}
-            </option>
-          ))}
-        </select>
-      </div>
-      <label className="check">
-        <input type="checkbox" checked={permanent} onChange={(event) => setPermanent(event.target.checked)} /> {t.permanent}
-      </label>
-      {!permanent && (
-        <div className="field">
-          <label htmlFor="mod-days">{t.daysLabel(MANUAL_SUSPEND_MAX_DAYS)}</label>
-          <input
-            id="mod-days"
-            type="number"
-            min={1}
-            max={MANUAL_SUSPEND_MAX_DAYS}
-            value={days}
-            onChange={(event) => setDays(Number.parseInt(event.target.value, 10) || 0)}
-          />
-        </div>
-      )}
-      <div className="actions">
-        <button type="submit" className="button danger-soft" disabled={busy || !ready}>
-          {permanent ? t.banButton : t.suspend}
-        </button>
-      </div>
-    </form>
   );
 }

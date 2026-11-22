@@ -2,8 +2,6 @@
 // the rows the console_* functions return, and the evidence hint shown beside a flagged post. The
 // admin decides; the hint only sums up the evidence. Pure: no React, React Native or Expo imports.
 
-import { MANUAL_SUSPEND_MAX_DAYS, type SuspendReason } from '../config';
-
 export type FlaggedPost = {
   post_id: number;
   author_id: string;
@@ -54,8 +52,6 @@ export type Suspension = {
   strikes_now: number;
 };
 
-export type FoundAccount = { account_id: string; account: string; suspended_until: string | null; strikes_now: number };
-
 export type ModerationWaiting = { reviews: number; appeals: number };
 
 // What the evidence says. likely_real: the ride passed its checks and the phone showed nothing wrong.
@@ -67,12 +63,6 @@ export function evidenceHint(post: Pick<FlaggedPost, 'verified' | 'beacon_ok' | 
   if (post.verified && post.beacon_ok === true) return 'likely_real';
   if (!post.verified && post.beacon_ok !== true && post.weighted_flags > 0 && post.weighted_flags === post.flags) return 'likely_false';
   return 'unclear';
-}
-
-// A manual suspension the console may send: 1 to MANUAL_SUSPEND_MAX_DAYS whole days, or a ban
-export function validSuspension(days: number, permanent: boolean, reason: SuspendReason | null): boolean {
-  if (reason === null) return false;
-  return permanent || (Number.isInteger(days) && days >= 1 && days <= MANUAL_SUSPEND_MAX_DAYS);
 }
 
 // The tab's count: what needs the admin

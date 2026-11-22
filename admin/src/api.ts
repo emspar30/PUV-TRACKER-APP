@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { CONSOLE_LOG_ROWS, CONSOLE_PHOTO_LINK_TTL_S, REGISTRATION_NOTICE_TTL_MIN } from '@/shared/config';
-import type { SuspendReason } from '@/shared/config';
 import { hashAdminPin } from '@/shared/driver/provisioning';
 import type { ReviewChecks } from '@/shared/driver/registration';
 import {
@@ -13,7 +12,7 @@ import {
   type ConsoleResult,
   type DecidedPhotos,
 } from '@/shared/driver/registrationConsole';
-import type { FlaggedPost, FoundAccount, ModerationWaiting, PendingAppeal, Suspension } from '@/shared/moderation/console';
+import type { FlaggedPost, ModerationWaiting, PendingAppeal, Suspension } from '@/shared/moderation/console';
 
 // DRG5: everything the console does (PRD 9.5). It goes through the console_* database functions, which
 // check is_admin() first, and the private photo bucket, which only the admin account may read and
@@ -39,10 +38,6 @@ const KNOWN_ERRORS = [
   'no_such_post',
   'no_such_appeal',
   'not_suspended',
-  'is_admin_account',
-  'no_such_account',
-  'bad_days',
-  'bad_reason',
 ];
 
 function failure(error: { code?: string; message: string }): { ok: false; error: string } {
@@ -154,9 +149,6 @@ export function consoleApi(client: SupabaseClient) {
     appeals: () => rpc<PendingAppeal[]>('console_appeals'),
     decideAppeal: (appealId: number, upheld: boolean) => rpc<null>('console_decide_appeal', { appeal: appealId, upheld }),
     suspensions: () => rpc<Suspension[]>('console_suspensions'),
-    findAccounts: (nameStart: string) => rpc<FoundAccount[]>('console_find_accounts', { name_start: nameStart }),
-    suspend: (accountId: string, days: number, permanent: boolean, reason: SuspendReason) =>
-      rpc<string>('console_suspend', { account: accountId, days: permanent ? null : days, permanent, reason }),
     lift: (accountId: string) => rpc<null>('console_lift', { account: accountId }),
 
     // Only the salted hash leaves the page (D5), in the form the setup payload carries
