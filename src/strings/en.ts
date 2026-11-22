@@ -2106,6 +2106,15 @@ export const en = {
       savePin: 'Save PIN',
       pinSaved: 'PIN saved.',
       account: (email: string) => `Signed in as ${email}`,
+      // 2026-11-22: the admin action log
+      logHeading: 'Admin activity',
+      logBody: 'Every approval, rejection, retired phone and PIN change, newest first. It cannot be edited or deleted.',
+      logEmpty: 'Nothing recorded yet.',
+      logSystem: 'System',
+      logYou: 'You',
+      logOther: (id: string) => `Admin ${id}`,
+      logColumns: { when: 'When', who: 'Who', action: 'Action', what: 'Details' },
+      logActions: { approve: 'Approved', reject: 'Rejected', retire: 'Retired', pin_change: 'Changed the PIN' },
     },
   },
 

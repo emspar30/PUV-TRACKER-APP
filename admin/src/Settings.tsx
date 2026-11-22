@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { ADMIN_PIN_DIGITS } from '@/shared/config';
 import { isValidPin } from '@/shared/driver/provisioning';
+import { logActor, type ConsoleLogEntry } from '@/shared/driver/registrationConsole';
 import { strings } from '@/strings';
 
 import type { ConsoleApi } from './api';
@@ -17,13 +18,25 @@ const digitsOnly = (value: string) => value.replace(/\D/g, '').slice(0, ADMIN_PI
 
 // The one admin PIN of the pilot driver phones (D5). It goes into each setup a phone collects from now
 // on; only its salted hash leaves the page.
-export function Settings({ api, email }: { api: ConsoleApi; email: string }) {
+export function Settings({ api, email, userId }: { api: ConsoleApi; email: string; userId: string }) {
   const [pinSet, setPinSet] = useState<boolean | null>(null);
   const [pin, setPin] = useState('');
   const [again, setAgain] = useState('');
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [log, setLog] = useState<ConsoleLogEntry[] | null>(null);
+
+  // 2026-11-22: the admin activity list, read again after a PIN change (which it records)
+  useEffect(() => {
+    let live = true;
+    void api.adminLog().then((result) => {
+      if (live) setLog(result.ok ? result.value : []);
+    });
+    return () => {
+      live = false;
+    };
+  }, [api, saved]);
 
   useEffect(() => {
     let live = true;
@@ -147,6 +160,47 @@ export function Settings({ api, email }: { api: ConsoleApi; email: string }) {
         </div>
       </form>
       {email && <p className="muted small">{t.account(email)}</p>}
+
+      <section className="card form-card" aria-labelledby="log-heading">
+        <div>
+          <h2 id="log-heading">{t.logHeading}</h2>
+          <p className="muted">{t.logBody}</p>
+        </div>
+        {log === null ? null : log.length === 0 ? (
+          <p className="muted">{t.logEmpty}</p>
+        ) : (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">{t.logColumns.when}</th>
+                  <th scope="col">{t.logColumns.who}</th>
+                  <th scope="col">{t.logColumns.action}</th>
+                  <th scope="col">{t.logColumns.what}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {log.map((entry, index) => (
+                  <tr key={`${entry.at}-${index}`}>
+                    <td className="nowrap muted">{text.when(entry.at)}</td>
+                    <td>{actorLabel(entry.actor, userId)}</td>
+                    <td className="nowrap">{t.logActions[entry.action]}</td>
+                    <td>
+                      {entry.target ?? ''}
+                      {entry.detail ? <span className="muted small plate-partners">{entry.detail}</span> : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </>
   );
+}
+
+function actorLabel(actor: string | null, userId: string): string {
+  const who = logActor(actor, userId);
+  return who.kind === 'you' ? t.logYou : who.kind === 'system' ? t.logSystem : t.logOther(who.id ?? '');
 }

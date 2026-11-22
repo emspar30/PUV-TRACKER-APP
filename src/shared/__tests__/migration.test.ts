@@ -153,6 +153,10 @@ describe('migration: tables', () => {
       'feed_posts_trust',
       'feed_flags_trust',
       'profiles_share_device_suspension',
+      // The admin action log (2026-11-22), which only records
+      'driver_registrations_log_decision',
+      'driver_devices_log_retired',
+      'driver_settings_log_pin',
     ]);
   });
 
@@ -925,5 +929,28 @@ describe('migration: admin two-factor sign-in (2026-11-22)', () => {
     const last = [...sql.matchAll(/create (?:or replace )?function public\.is_admin\(\)[^$]*\$\$([\s\S]*?)\$\$/g)].pop()![1];
     expect(last).toContain("'aal2'");
     expect(mfaSql).not.toMatch(/\b(drop|truncate)\b|delete from/);
+  });
+});
+
+describe('migration: admin action log (2026-11-22)', () => {
+  const logSql = read(['20261122000003_admin_log.sql']);
+  const logStatements = logSql
+    .split(';')
+    .map((statement) => statement.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+  it('records approve, reject, retire and PIN changes, never the PIN or personal details', () => {
+    expect(logSql).toContain("check (action in ('approve', 'reject', 'retire', 'pin_change'))");
+    expect(logSql).toContain('after update of status on public.driver_registrations');
+    expect(logSql).toContain('after update of active on public.driver_devices');
+    expect(logSql).toContain('after update of admin_pin_hash on public.driver_settings');
+    expect(logSql).not.toMatch(/admin_log[^;]*(phone_e164|full_name|pin_hash,|photo)/);
+  });
+
+  it('keeps the log from every client; only an admin reads it, through the console function', () => {
+    expect(logStatements).toContain('revoke all on public.admin_log from anon, authenticated');
+    expect(logStatements).toContain('grant execute on function public.console_admin_log(integer) to authenticated');
+    expect(logSql).toContain("if not public.is_admin() then raise exception 'admins only'");
+    expect(logSql).not.toMatch(/update public\.admin_log|delete from public\.admin_log|\btruncate\b/);
   });
 });

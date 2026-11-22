@@ -49,13 +49,13 @@ export function App() {
   // 2026-11-22: the console opens only after the second factor (the database checks it too)
   return (
     <TwoFactorGate key={session.user.id} client={supabase}>
-      <Console api={api} email={session.user.email ?? ''} onSignOut={() => void supabase.auth.signOut()} />
+      <Console api={api} email={session.user.email ?? ''} userId={session.user.id} onSignOut={() => void supabase.auth.signOut()} />
     </TwoFactorGate>
   );
 }
 
 // Signed in: the side navigation and the open section
-function Console({ api, email, onSignOut }: { api: ConsoleApi; email: string; onSignOut: () => void }) {
+function Console({ api, email, userId, onSignOut }: { api: ConsoleApi; email: string; userId: string; onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>(tabFromAddress);
   const registrations = useRegistrations(api);
   const waiting = registrations.rows ? splitRegistrations(registrations.rows).waiting.length : 0;
@@ -104,7 +104,7 @@ function Console({ api, email, onSignOut }: { api: ConsoleApi; email: string; on
         <div className="workspace-inner">
           {tab === 'registrations' && <Registrations api={api} state={registrations} />}
           {tab === 'drivers' && <Drivers api={api} registrations={registrations.rows} />}
-          {tab === 'settings' && <Settings api={api} email={email} />}
+          {tab === 'settings' && <Settings api={api} email={email} userId={userId} />}
         </div>
       </main>
     </div>

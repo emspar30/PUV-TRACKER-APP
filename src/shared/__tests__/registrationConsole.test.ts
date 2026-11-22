@@ -10,6 +10,7 @@ import {
   inTab,
   listedRoutes,
   localPhNumber,
+  logActor,
   mayApprove,
   mayReject,
   onRoute,
@@ -361,5 +362,13 @@ describe('abang: other drivers on the same plate', () => {
     expect(platePartners(drivers[0], drivers)).toEqual(['DRV-0031']);
     expect(platePartners(drivers[1], drivers)).toEqual(['DRV-0027']);
     expect(platePartners(drivers[2], drivers)).toEqual([]);
+  });
+});
+
+describe('admin activity: who did it', () => {
+  it('says you, the system, or another admin by the start of the id', () => {
+    expect(logActor('3f1c9a2b-0000-4000-8000-000000000001', '3f1c9a2b-0000-4000-8000-000000000001')).toEqual({ kind: 'you' });
+    expect(logActor(null, 'me')).toEqual({ kind: 'system' });
+    expect(logActor('7d2e4b61-0000-4000-8000-000000000002', 'me')).toEqual({ kind: 'other', id: '7d2e4b61' });
   });
 });

@@ -59,3 +59,10 @@ nothing.
   `npm run admin:dev`, or the hosted console after a push). Otherwise the admin cannot sign in.
 - Lost the phone with the authenticator app: in the Supabase dashboard open Authentication, Users, the
   admin account, and delete its MFA factor; the next sign-in sets it up again.
+
+## Admin activity (2026-11-22)
+
+Settings lists the newest 50 admin actions: approvals, rejections, retired phones and PIN changes,
+with who (You, another admin, or System for the SQL editor and scripts) and when. Database triggers
+write it (migration `20261122000003_admin_log.sql`), so every path is recorded, and no one can edit or
+delete it.

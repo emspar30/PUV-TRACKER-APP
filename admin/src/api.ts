@@ -1,12 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { CONSOLE_PHOTO_LINK_TTL_S, REGISTRATION_NOTICE_TTL_MIN } from '@/shared/config';
+import { CONSOLE_LOG_ROWS, CONSOLE_PHOTO_LINK_TTL_S, REGISTRATION_NOTICE_TTL_MIN } from '@/shared/config';
 import { hashAdminPin } from '@/shared/driver/provisioning';
 import type { ReviewChecks } from '@/shared/driver/registration';
 import {
   decideThenDelete,
   deletePhotos as deleteThenRecord,
   type ConsoleDriver,
+  type ConsoleLogEntry,
   type ConsoleRegistration,
   type ConsoleResult,
   type DecidedPhotos,
@@ -121,6 +122,9 @@ export function consoleApi(client: SupabaseClient) {
     retire: (deviceId: string) => rpc<boolean>('console_retire', { device: deviceId, notice_ttl_min: REGISTRATION_NOTICE_TTL_MIN }),
 
     pinIsSet: () => rpc<boolean>('console_pin_is_set'),
+
+    // 2026-11-22: the newest admin actions (approve, reject, retire, PIN change), with who and when
+    adminLog: () => rpc<ConsoleLogEntry[]>('console_admin_log', { max_rows: CONSOLE_LOG_ROWS }),
 
     // Only the salted hash leaves the page (D5), in the form the setup payload carries
     setPin(pin: string): Promise<Outcome<null>> {

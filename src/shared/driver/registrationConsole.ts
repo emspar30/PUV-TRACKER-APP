@@ -228,3 +228,16 @@ export function platePartners(driver: Pick<ConsoleDriver, 'device_id' | 'plate'>
     .map((other) => other.device_id)
     .sort();
 }
+
+// --- Admin activity (owner, 2026-11-22): what console_admin_log returns. actor is the admin's account
+// id, null for an action by the service role or the SQL editor
+export type AdminLogAction = 'approve' | 'reject' | 'retire' | 'pin_change';
+export type ConsoleLogEntry = { at: string; actor: string | null; action: AdminLogAction; target: string | null; detail: string | null };
+
+const ACTOR_ID_SHOWN = 8;
+
+// Who did it, as the console says it: you, the system, or another admin by the start of their id
+export function logActor(actor: string | null, myId: string): { kind: 'you' | 'system' | 'other'; id?: string } {
+  if (actor === null) return { kind: 'system' };
+  return actor === myId ? { kind: 'you' } : { kind: 'other', id: actor.slice(0, ACTOR_ID_SHOWN) };
+}
