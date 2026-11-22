@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Button, IconTile, StatusPill, type IconTone } from '@/components';
 import { ETA_MAX_KM, VEHICLE_CAPACITY_SEATS } from '@/shared/config';
 import { etaDistanceKm, type Eta, type TrackProgress } from '@/shared/tracking/eta';
+import type { TrackStatus } from '@/shared/tracking/status';
 import { ageSeconds } from '@/shared/telemetry/coverage';
 import { seatTier, type SeatTier } from '@/shared/telemetry/occupancy';
 import type { VehicleSnapshot } from '@/shared/telemetry/vehicle';
@@ -20,6 +21,8 @@ type TrackingPanelProps = {
   etaTarget?: 'mine' | 'next';
   // The vehicle has gone past the commuter; the ETA and distance are to its next time round
   passedMe?: boolean;
+  // Phase 2: Moving, Stopped or Off route; null without a recent position
+  status?: TrackStatus | null;
   alertOn: boolean;
   // Shown once the alert has fired
   alertMessage: string | null;
@@ -35,8 +38,22 @@ const TIER_TONE: Record<SeatTier, IconTone> = { green: 'success', amber: 'warnin
 
 // Tracking one multicab (L2, PRD 19.2 D9): the ETA to the commuter's stop, where the vehicle is among
 // the stops, the vehicle and its seats, an in-app arrival alert (blue when on), and Stop (red).
-// One update time only: the Last updated box.
-export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine', passedMe = false, alertOn, alertMessage, onToggleAlert, onStop }: TrackingPanelProps) {
+// One update time only: the Last updated box. Phase 2 (owner, 2026-11-22): what the multicab is
+// doing (Moving, Stopped · 2 min, Off route · temporary) shows here only, never on the map marker,
+// and a short detour says ETA paused.
+export function TrackingPanel({
+  vehicle,
+  nowMs,
+  eta,
+  progress,
+  etaTarget = 'mine',
+  passedMe = false,
+  status = null,
+  alertOn,
+  alertMessage,
+  onToggleAlert,
+  onStop,
+}: TrackingPanelProps) {
   const styles = useStyles();
   const { colors, typography, elevation } = useTheme();
   const t = strings.live.tracking;
@@ -55,7 +72,9 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine
         ? t.passed
         : eta?.kind === 'unknown' && eta.reason === 'too_far'
           ? t.tooFar(ETA_MAX_KM)
-          : vehicle
+          : eta?.kind === 'unknown' && eta.reason === 'paused'
+            ? t.paused
+            : vehicle
             ? t.unknown
             : t.lost;
   const segments = [
@@ -78,19 +97,16 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine
           </View>
           {/* Emjay, 2026-10-26: the stop being approached is on the bar below, so the badge shows
               only what the bar cannot: a lost signal, a multicab gone past, or a time to its next stop */}
-          {stale ? (
-            <View style={styles.row}>
+          <View style={styles.row}>
+            {status && !stale ? <StatusPill label={statusLabel(status)} tone={status.kind === 'moving' ? 'neutral' : 'warning'} /> : null}
+            {stale ? (
               <StatusPill label={t.signalLost} tone="warning" />
-            </View>
-          ) : passedMe ? (
-            <View style={styles.row}>
+            ) : passedMe ? (
               <StatusPill label={t.passedYou} tone="warning" />
-            </View>
-          ) : eta?.kind === 'approaching' && etaTarget === 'next' && progress.next ? (
-            <View style={styles.row}>
+            ) : eta?.kind === 'approaching' && etaTarget === 'next' && progress.next ? (
               <StatusPill label={t.toNextStop(progress.next.code)} tone="neutral" />
-            </View>
-          ) : null}
+            ) : null}
+          </View>
         </View>
         {age ? (
           <View style={styles.updated}>
@@ -157,6 +173,13 @@ export function TrackingPanel({ vehicle, nowMs, eta, progress, etaTarget = 'mine
   );
 }
 
+function statusLabel(status: TrackStatus): string {
+  const t = strings.live.tracking.status;
+  if (status.kind === 'moving') return t.moving;
+  if (status.kind === 'stopped') return t.stopped(status.minutes);
+  return status.temporary ? t.offRouteTemporary : t.offRoute;
+}
+
 const useStyles = makeStyles(({ colors }) => ({
   panel: {
     gap: spacing.md,
@@ -181,6 +204,8 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
     paddingTop: spacing.xs,
   },
   updated: {

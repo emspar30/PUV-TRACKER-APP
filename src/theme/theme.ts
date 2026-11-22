@@ -167,9 +167,6 @@ export const MAP_GEOMETRY = {
     selectedHaloRadius: 16,
     selectedHaloOpacity: 0.25,
     badgeHalo: 1.5,
-    // VS1: the status mark (assets/map/status-*.png, 16 dp) at the marker's top right, kept upright
-    statusIconSize: 1,
-    statusOffsetPx: [11, -11],
   },
 } as const;
 

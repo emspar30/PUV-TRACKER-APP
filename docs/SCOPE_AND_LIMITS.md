@@ -82,6 +82,8 @@ Two earlier items were replaced by later steps, not dropped. The old Energy earn
 - **The location consent text** awaits the Data Protection Officer's review.
 - **Tunie's Bisaya phrases** come from general Cebuano and commuter guides. They still need a check by a Butuan speaker.
 - **Driver verification is by eye.** The admin compares the selfie, the document and the plate; there is no OCR or face matching. The LTFRB list is checked outside the app and never stored, so the app cannot show that check's evidence.
+- **A relay does not follow the beacon during the ride.** The phone listens for the multicab's beacon only while the Relay panel is open. So a relay is not ended when the beacon is lost; it ends at the destination, by Stop, after a detour that goes too far or too long (300 m, 10 minutes), after 20 minutes in one spot, or at the 3-hour check. Following the beacon for the whole ride needs a native change and a new app build.
+- **The ETA's stop allowance is a guess.** 30 s per km for stops, lights and traffic is a starting value; the field test log's ETA error will tell if it is right.
 - **The selfie's readability is not confirmed on budget phones.** The front camera is used first; on a phone whose front camera cannot make the name readable, the driver switches to the back camera and someone else takes the photo.
 
 ## 5. How it was tested

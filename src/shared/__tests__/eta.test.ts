@@ -1,8 +1,17 @@
 // L2: the simple ETA (D9) and the stops around a tracked vehicle. Fixtures only.
 
-import { COVERAGE_LIVE_MAX_AGE_S, ETA_MAX_KM, ETA_MIN_SPEED_KMH, TRACK_ALERT_ETA_S, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M, TRACK_DISTANCE_ALERTS_M } from '../config';
+import {
+  COVERAGE_LIVE_MAX_AGE_S,
+  ETA_MAX_KM,
+  ETA_MOVING_WINDOW_S,
+  ETA_STOP_ALLOWANCE_S_PER_KM,
+  TRACK_ALERT_ETA_S,
+  TRACK_ARRIVED_M,
+  TRACK_ARRIVED_PASS_M,
+  TRACK_DISTANCE_ALERTS_M,
+} from '../config';
 import { lineLengthKm } from '../geo/line';
-import { crossedDistance, crossesAlert, etaDistanceKm, etaNow, etaTo, hasArrived, trackProgress } from '../tracking/eta';
+import { crossedDistance, crossesAlert, etaDistanceKm, etaNow, etaTo, hasArrived, movingSpeedKmh, trackProgress } from '../tracking/eta';
 import { FIXTURE_OUTBOUND, FIXTURE_RETURN, FIXTURE_STOPS, pointAt } from './fixtures/routeFixture';
 
 const LINES = [FIXTURE_OUTBOUND, FIXTURE_RETURN];
@@ -12,20 +21,50 @@ const speeds = (kmh: number, count = 3) => Array.from({ length: count }, (_v, i)
 const at = (km: number, kmh = 20, lineId = 'T1-OUT', count = 3) => ({ ...pointAt(km), lineId, lastPacketMs: NOW, recentSpeeds: speeds(kmh, count) });
 
 describe('ETA (D9)', () => {
-  it('is the distance along the line over the recent speed', () => {
+  it('is the distance along the line over the moving speed, plus the stop allowance per km', () => {
     const eta = etaTo(at(1, 20), LINES, pointAt(3));
     expect(eta.kind).toBe('approaching');
     if (eta.kind !== 'approaching') return;
     expect(eta.distanceKm).toBeCloseTo(2, 1);
-    expect(eta.etaS).toBeCloseTo(360, -1);
+    // 2 km at 20 km/h is 360 s, plus 2 x 30 s
+    expect(eta.etaS).toBeCloseTo(360 + 2 * ETA_STOP_ALLOWANCE_S_PER_KM, -1);
+    expect(eta.movingNow).toBe(true);
   });
 
-  it('is hidden below the minimum speed (PRD 19.4), and keeps the distance for arrival and alerts', () => {
+  it('Phase 2: a stop does not lower the speed or hide the ETA; the last moving speed is kept', () => {
+    // Moving at 20 km/h until 2 minutes ago, standing still since
+    const recentSpeeds = [
+      { atMs: NOW - 200 * S, speedKmh: 20 },
+      { atMs: NOW - 150 * S, speedKmh: 20 },
+      { atMs: NOW - 90 * S, speedKmh: 0 },
+      { atMs: NOW - 30 * S, speedKmh: 0 },
+      { atMs: NOW, speedKmh: 0 },
+    ];
+    const vehicle = { ...pointAt(1), lineId: 'T1-OUT', lastPacketMs: NOW, recentSpeeds };
+    expect(movingSpeedKmh(vehicle)).toBe(20);
+    const eta = etaTo(vehicle, LINES, pointAt(3));
+    expect(eta).toMatchObject({ kind: 'approaching', speedKmh: 20, movingNow: false });
+    // Stopped: the ETA holds between packets instead of counting down
+    expect(etaNow(eta, 25)).toEqual(eta);
+  });
+
+  it('needs two moving speeds in the moving window; standing all along gives no time but keeps the distance', () => {
     const stopped = etaTo(at(1, 0), LINES, pointAt(2));
-    expect(stopped).toMatchObject({ kind: 'unknown', reason: 'slow' });
+    expect(stopped).toMatchObject({ kind: 'unknown', reason: 'few_samples' });
     expect(etaDistanceKm(stopped)).toBeCloseTo(1, 1);
-    expect(etaTo(at(1, ETA_MIN_SPEED_KMH - 0.1), LINES, pointAt(2))).toMatchObject({ kind: 'unknown', reason: 'slow' });
-    expect(etaTo(at(1, ETA_MIN_SPEED_KMH), LINES, pointAt(2)).kind).toBe('approaching');
+    const old = { ...pointAt(1), lineId: 'T1-OUT', lastPacketMs: NOW, recentSpeeds: [{ atMs: NOW - (ETA_MOVING_WINDOW_S + 10) * S, speedKmh: 20 }, { atMs: NOW, speedKmh: 20 }] };
+    expect(movingSpeedKmh(old)).toBeNull();
+  });
+
+  it('Phase 2: a slow crawl still gives a (longer) ETA', () => {
+    const crawl = etaTo(at(1, 3), LINES, pointAt(2));
+    expect(crawl.kind).toBe('approaching');
+  });
+
+  it('Phase 2: is paused while the multicab is on a short detour, with the distance kept', () => {
+    const paused = etaTo({ ...at(1), offRouteSinceMs: NOW - 60 * S }, LINES, pointAt(3));
+    expect(paused).toMatchObject({ kind: 'unknown', reason: 'paused' });
+    expect(etaDistanceKm(paused)).toBeCloseTo(2, 1);
   });
 
   it(`is hidden beyond ${ETA_MAX_KM} km (PRD 19.4), with the distance kept`, () => {

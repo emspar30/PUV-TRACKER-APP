@@ -13,12 +13,7 @@ import { useGhostClock } from './useGhostClock';
 
 const POINTS = 'vehicles';
 const ICON = 'puv';
-const ICON_IMAGES = {
-  [ICON]: require('../../../assets/map/puv.png'),
-  'status-stopped': require('../../../assets/map/status-stopped.png'),
-  'status-loading': require('../../../assets/map/status-loading.png'),
-  'status-traffic': require('../../../assets/map/status-traffic.png'),
-};
+const ICON_IMAGES = { [ICON]: require('../../../assets/map/puv.png') };
 
 type VehicleMarkersProps = {
   vehicles: readonly VehicleSnapshot[];
@@ -51,7 +46,9 @@ const HITBOX = { top: spacing.lg, right: spacing.lg, bottom: spacing.lg, left: s
 // ("DEMO 01" on simulated vehicles). Tapping one selects it; the selected one has a route-colour halo.
 // CF1: a vehicle silent for 90 s to 5 minutes moves along its line at its recent speed, fainter,
 // with "Estimated" after its plate; positions are worked out every second while one shows.
-// VS1: a mark at the top right says Stopped, Loading passengers or Heavy traffic, each its own shape.
+// VS1's status marks (Stopped, Loading passengers, Heavy traffic) are no longer drawn on the marker
+// (Phase 2, owner 2026-11-22: the map icon is the position only); the vehicle card still names the
+// relay status, and the Track view says Moving, Stopped or Off route.
 // The source keeps its id, so each refresh only replaces its data; the layers are never remounted.
 export function VehicleMarkers({ vehicles, nowMs, color, labels, selectedId = null, onPressVehicle, othersOpacity = 1, lineOf, relays = NO_RELAYS }: VehicleMarkersProps) {
   const { mapPaint, colors, baseMap } = useTheme();
@@ -87,16 +84,6 @@ export function VehicleMarkers({ vehicles, nowMs, color, labels, selectedId = nu
           'icon-size': g.iconSize,
           'icon-rotate': ['get', 'heading'],
           'icon-rotation-alignment': 'map',
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-        },
-        paint: { 'icon-opacity': fade },
-      },
-      status: {
-        layout: {
-          'icon-image': ['match', ['get', 'status'], 'stopped', 'status-stopped', 'loading', 'status-loading', 'status-traffic'],
-          'icon-size': g.statusIconSize,
-          'icon-offset': g.statusOffsetPx,
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
         },
@@ -141,13 +128,6 @@ export function VehicleMarkers({ vehicles, nowMs, color, labels, selectedId = nu
         />
         <Layer id={`${POINTS}-halo`} type="circle" paint={paints.halo as never} />
         <Layer id={`${POINTS}-icon`} type="symbol" layout={paints.icon.layout as never} paint={paints.icon.paint as never} />
-        <Layer
-          id={`${POINTS}-status`}
-          type="symbol"
-          filter={['!=', ['get', 'status'], 'moving'] as never}
-          layout={paints.status.layout as never}
-          paint={paints.status.paint as never}
-        />
         {labels ? <Layer id={`${POINTS}-label`} type="symbol" layout={paints.badge.layout as never} paint={paints.badge.paint as never} /> : null}
       </GeoJSONSource>
     </>

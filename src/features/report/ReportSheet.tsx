@@ -312,6 +312,7 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
         destination: { code: destination.code, name: destination.name, lat: destination.lat, lon: destination.lon },
         startPoint: { lat: position.lat, lon: position.lon },
         terminals: terminalsOf(stopsOf(vehicle.routeCode)),
+        lines: linesOf(vehicle.routeCode),
       },
       vehicleId: vehicle.vehicleId,
       demo: demoData,

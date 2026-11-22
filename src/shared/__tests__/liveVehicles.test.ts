@@ -4,7 +4,7 @@
 import { createLiveVehicles, type LiveVehiclesPort } from '../../data/live/liveVehicles';
 import { selectRepositories } from '../../data/repositories/select';
 import type { DemoClock } from '../../data/demo/demoVehicles';
-import { LIVE_RELOAD_INTERVAL_S, LIVE_SPEED_HISTORY_S, LIVE_UI_REFRESH_INTERVAL_S, STATIONARY_DURATION_S } from '../config';
+import { LIVE_RELOAD_INTERVAL_S, LIVE_SPEED_HISTORY_S, LIVE_UI_REFRESH_INTERVAL_S, SHORT_DETOUR_FROM_M, STATIONARY_DURATION_S } from '../config';
 import { headingGapDeg, matchLine, rowToSnapshot, type LiveRow } from '../telemetry/liveRow';
 import { isStopped } from '../telemetry/stopped';
 import type { VehicleSnapshot } from '../telemetry/vehicle';
@@ -203,5 +203,25 @@ describe('choosing the repository', () => {
 
   it('falls back to "No data" with Demo off and no Supabase set up', () => {
     expect(selectRepositories({ ...input, demo: false, live: null }).vehicles.source).toBe('none');
+  });
+});
+
+describe('Phase 2: a short detour keeps the marker on the route', () => {
+  it('stays at the last position on the route, marked off route, until it is back', () => {
+    const onRoute = rowToSnapshot(row(), 'T1', LINES)!;
+    expect(onRoute.offRouteSinceMs).toBeUndefined();
+    const detour = rowToSnapshot(row({ ...pointAt(3.2, SHORT_DETOUR_FROM_M + 50), atMs: T0 + 30 * S }), 'T1', LINES, onRoute)!;
+    expect(detour).toMatchObject({ lat: onRoute.lat, lon: onRoute.lon, lineId: onRoute.lineId, offRouteSinceMs: T0 + 30 * S, lastPacketMs: T0 + 30 * S });
+    const still = rowToSnapshot(row({ ...pointAt(3.3, SHORT_DETOUR_FROM_M + 80), atMs: T0 + 60 * S }), 'T1', LINES, detour)!;
+    expect(still).toMatchObject({ lat: onRoute.lat, lon: onRoute.lon, offRouteSinceMs: T0 + 30 * S });
+    const back = rowToSnapshot(row({ ...pointAt(3.5), atMs: T0 + 90 * S }), 'T1', LINES, still)!;
+    expect(back.offRouteSinceMs).toBeUndefined();
+    expect(back.lat).toBeCloseTo(pointAt(3.5).lat, 6);
+  });
+
+  it('a multicab first seen off the route is drawn where it is, marked off route', () => {
+    const first = rowToSnapshot(row({ ...pointAt(3, SHORT_DETOUR_FROM_M + 50) }), 'T1', LINES)!;
+    expect(first.offRouteSinceMs).toBe(T0);
+    expect(first.lat).toBeCloseTo(pointAt(3, SHORT_DETOUR_FROM_M + 50).lat, 6);
   });
 });

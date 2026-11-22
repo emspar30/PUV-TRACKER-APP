@@ -27,4 +27,8 @@ export type VehicleSnapshot = {
   // for a moment around that restart so the jump is never drawn as a slide
   layover?: boolean;
   hidden?: boolean;
+  // Phase 2 (owner, 2026-11-22): live only. Since when the multicab has been off its route line
+  // (farther than SHORT_DETOUR_FROM_M); while set, lat, lon, heading and line stay at its last
+  // position on the route, and the Track view pauses the ETA
+  offRouteSinceMs?: number;
 };

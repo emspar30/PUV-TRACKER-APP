@@ -2,7 +2,15 @@ import { BellRing, CircleCheck, Clock, RadioTower } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 
 import { buzzOnce, buzzUntilStopped, notifyRide, stopBuzz } from '@/features/alerts/rideAlerts';
-import { RELAY_CAP_ANSWER_MIN, RELAY_CHECK_S, RELAY_GET_OFF_WARN_M, RELAY_HEARTBEAT_MIN, RELAY_SESSION_CAP_H } from '@/shared/config';
+import {
+  RELAY_CAP_ANSWER_MIN,
+  RELAY_CHECK_S,
+  RELAY_GET_OFF_WARN_M,
+  RELAY_HEARTBEAT_MIN,
+  RELAY_SESSION_CAP_H,
+  SHORT_DETOUR_MAX_M,
+  SHORT_DETOUR_MAX_MIN,
+} from '@/shared/config';
 import type { LatLon } from '@/shared/geo/haversine';
 import type { RelayBroadcast, RelayPost } from '@/shared/relay/broadcast';
 import { askedWatch, capDue, idleLimitMin, relayEnd, watchRelay, type RelayEnd } from '@/shared/relay/limits';
@@ -28,12 +36,15 @@ function endToast(end: RelayEnd, session: RelayBroadcast) {
     }
     case 'capped':
       return { icon: RadioTower, title: t.cappedTitle, body: t.cappedBody };
+    case 'detour':
+      return { icon: RadioTower, title: t.detourTitle, body: t.detourBody(SHORT_DETOUR_MAX_M, SHORT_DETOUR_MAX_MIN) };
   }
 }
 
 // B4, RL1: keeps the relay's GPS sharing going until it ends by itself (shared/relay/limits): at the
-// destination after the arrival countdown, after standing still (held in high-traffic zones), or
-// when "Still riding?" gets no answer after the 3-hour cap. The watch is brought up to date with each
+// destination after the arrival countdown, after standing still (held in high-traffic zones), when
+// "Still riding?" gets no answer after the 3-hour cap, or (Phase 2) after a detour off the route
+// that went too far or lasted too long. The watch is brought up to date with each
 // position and every RELAY_CHECK_S (every second during the arrival countdown); the end comes with a
 // short vibration and a toast. Returns the running session, or null.
 // RL2a (D12): a Crowdsource relay's post is kept up by a "still riding" signal every

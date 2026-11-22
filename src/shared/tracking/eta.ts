@@ -1,15 +1,18 @@
 // Tracking one vehicle (L2): its simple ETA to the commuter's boarding point (PRD 19.2 D9) and where it
 // is among the stops. B2: the distance follows the vehicle's round (routing/loop), so once it has
 // passed the commuter the ETA counts on to its next time round instead of stopping. Pass the lines
-// with their stand-in legs (withReturnLegs). Pure: no React Native or Expo imports.
+// with their stand-in legs (withReturnLegs). Phase 2 (owner, 2026-11-22): the speed counts moving
+// time only, a stop allowance per km is added, a stopped multicab's ETA holds instead of counting
+// down, and a multicab on a short detour has its ETA paused. Pure: no React Native or Expo imports.
 
 import {
   COVERAGE_LIVE_MAX_AGE_S,
   ETA_MAX_KM,
   ETA_MIN_SAMPLES,
-  ETA_MIN_SPEED_KMH,
-  ETA_SAMPLE_WINDOW_S,
+  ETA_MOVING_WINDOW_S,
+  ETA_STOP_ALLOWANCE_S_PER_KM,
   ROUTE_STOP_MAX_DISTANCE_M,
+  STATIONARY_SPEED_KMH,
 } from '../config';
 import { lineEndKm } from '../geo/line';
 import type { LatLon } from '../geo/haversine';
@@ -19,13 +22,15 @@ import type { DirectedLine, RouteStop } from '../routing/types';
 import type { VehicleSnapshot } from '../telemetry/vehicle';
 
 export type Eta =
-  | { kind: 'approaching'; distanceKm: number; etaS: number; speedKmh: number }
+  // speedKmh: the moving speed; movingNow: the last speed was a moving one (a stopped multicab's ETA
+  // holds between packets instead of counting down)
+  | { kind: 'approaching'; distanceKm: number; etaS: number; speedKmh: number; movingNow: boolean }
   // Already past the boarding point, on a route with no way round to it again
   | { kind: 'passed' }
-  // Shown as "ETA unavailable": the line does not pass the point, it is too far, too few speeds, too
-  // slow (PRD 19.4) or no longer Live. distanceKm is kept whenever the line reaches the point, so
-  // arrival and the distance alerts do not depend on the ETA being shown.
-  | { kind: 'unknown'; reason: 'off_line' | 'too_far' | 'few_samples' | 'slow' | 'stale'; distanceKm?: number };
+  // Shown as "ETA unavailable": the line does not pass the point, it is too far, too few moving
+  // speeds or no longer Live; "ETA paused" while the multicab is on a short detour. distanceKm is kept
+  // whenever the line reaches the point, so arrival and the distance alerts do not depend on the ETA.
+  | { kind: 'unknown'; reason: 'off_line' | 'too_far' | 'few_samples' | 'stale' | 'paused'; distanceKm?: number };
 
 const MS_PER_S = 1000;
 const S_PER_H = 3600;
@@ -38,7 +43,18 @@ export function etaDistanceKm(eta: Eta | null): number | null {
 }
 
 // The heading, when known, places the vehicle on the right pass of a line that uses a street twice
-type Tracked = Pick<VehicleSnapshot, 'lat' | 'lon' | 'lineId' | 'lastPacketMs' | 'recentSpeeds'> & { headingDeg?: number };
+type Tracked = Pick<VehicleSnapshot, 'lat' | 'lon' | 'lineId' | 'lastPacketMs' | 'recentSpeeds' | 'offRouteSinceMs'> & { headingDeg?: number };
+
+// The mean of the moving speeds (STATIONARY_SPEED_KMH or more) in the last ETA_MOVING_WINDOW_S before
+// the last packet, so the time stood at a stop does not lower it; null with too few of them
+export function movingSpeedKmh(vehicle: Pick<VehicleSnapshot, 'lastPacketMs' | 'recentSpeeds'>): number | null {
+  const fromMs = vehicle.lastPacketMs - ETA_MOVING_WINDOW_S * MS_PER_S;
+  const moving = vehicle.recentSpeeds.filter(
+    (sample) => sample.atMs >= fromMs && sample.atMs <= vehicle.lastPacketMs && sample.speedKmh >= STATIONARY_SPEED_KMH,
+  );
+  if (moving.length < ETA_MIN_SAMPLES) return null;
+  return moving.reduce((sum, sample) => sum + sample.speedKmh, 0) / moving.length;
+}
 
 // maxOffsetM: how far the boarding point may be from the line (a stop is close; a rider may walk to it).
 // round: false keeps to the vehicle's own leg, so a vehicle past the point says 'passed' (route ranking).
@@ -53,24 +69,28 @@ export function etaTo(
   const distanceKm = distanceRound(round ? legs : legs.slice(0, 1), vehicle, boarding, maxOffsetM);
   if (distanceKm === null) return { kind: 'unknown', reason: 'off_line' };
   if (distanceKm === 'passed') return { kind: 'passed' };
+  // Phase 2: on a short detour the marker stays where it left the route and the ETA waits for it
+  if (vehicle.offRouteSinceMs !== undefined) return { kind: 'unknown', reason: 'paused', distanceKm };
   if (distanceKm > ETA_MAX_KM) return { kind: 'unknown', reason: 'too_far', distanceKm };
-  const fromMs = vehicle.lastPacketMs - ETA_SAMPLE_WINDOW_S * MS_PER_S;
-  const samples = vehicle.recentSpeeds.filter((sample) => sample.atMs >= fromMs && sample.atMs <= vehicle.lastPacketMs);
-  if (samples.length < ETA_MIN_SAMPLES) return { kind: 'unknown', reason: 'few_samples', distanceKm };
-  const speedKmh = samples.reduce((sum, sample) => sum + sample.speedKmh, 0) / samples.length;
-  // PRD 19.4: a stopped or crawling vehicle (a crossing, traffic, loading) gives no ETA at all
-  if (speedKmh < ETA_MIN_SPEED_KMH) return { kind: 'unknown', reason: 'slow', distanceKm };
-  return { kind: 'approaching', distanceKm, etaS: (distanceKm / speedKmh) * S_PER_H, speedKmh };
+  const speedKmh = movingSpeedKmh(vehicle);
+  if (speedKmh === null) return { kind: 'unknown', reason: 'few_samples', distanceKm };
+  const upToPacket = vehicle.recentSpeeds.filter((sample) => sample.atMs <= vehicle.lastPacketMs);
+  const last = upToPacket[upToPacket.length - 1];
+  const movingNow = last !== undefined && last.speedKmh >= STATIONARY_SPEED_KMH;
+  const etaS = (distanceKm / speedKmh) * S_PER_H + distanceKm * ETA_STOP_ALLOWANCE_S_PER_KM;
+  return { kind: 'approaching', distanceKm, etaS, speedKmh, movingNow };
 }
 
 // L2: the ETA now, from one measured at the vehicle's last packet. A live position is up to a
-// packet interval old (30 s from phones, PRD 8.4), so the vehicle has driven on at its recent speed
-// for ageS; the time and distance count down between packets. Once the position is older than
-// Live (COVERAGE_LIVE_MAX_AGE_S) the ETA is hidden: the data is no longer good enough (D9).
-// Arrival and the distance alerts keep to the measured distance, so a guess never ends tracking.
+// packet interval old (30 s from phones, PRD 8.4), so a moving vehicle has driven on at its speed
+// for ageS; the time and distance count down between packets. A stopped one (Phase 2) holds its ETA
+// until it moves. Once the position is older than Live (COVERAGE_LIVE_MAX_AGE_S) the ETA is hidden:
+// the data is no longer good enough (D9). Arrival and the distance alerts keep to the measured
+// distance, so a guess never ends tracking.
 export function etaNow(eta: Eta, ageS: number, maxAgeS = COVERAGE_LIVE_MAX_AGE_S): Eta {
   if (eta.kind !== 'approaching') return eta;
   if (ageS >= maxAgeS) return { kind: 'unknown', reason: 'stale', distanceKm: eta.distanceKm };
+  if (!eta.movingNow) return eta;
   const elapsedS = Math.max(0, ageS);
   return {
     ...eta,

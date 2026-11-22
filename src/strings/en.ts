@@ -259,6 +259,10 @@ export const en = {
     stillRidingBody: (hours: number, minutes: number) =>
       `You have shared your location for ${hours} hours. Keep sharing, or it stops in ${minutes} min.`,
     keepSharing: 'Keep sharing',
+    // Phase 2: the multicab left its route for longer or farther than a short detour
+    detourTitle: 'Location sharing stopped',
+    detourBody: (metres: number, minutes: number) =>
+      `The multicab left its route for over ${minutes} min, or more than ${metres} m away. Relay again when it is back on the route.`,
     cappedTitle: 'Location sharing ended',
     cappedBody: 'No answer to "Still riding?". Relay again if you are still riding.',
     // RL2a (Emjay's D9): one switch, off by default and remembered
@@ -536,6 +540,14 @@ export const en = {
       you: 'You',
       demoStop: (stop: string) => `Demo: you wait at ${stop}`,
       lost: 'No recent position',
+      // Phase 2: what the multicab is doing, in the Track view only
+      paused: 'ETA paused',
+      status: {
+        moving: 'Moving',
+        stopped: (minutes: number) => (minutes < 1 ? 'Stopped' : `Stopped · ${minutes} min`),
+        offRouteTemporary: 'Off route · temporary',
+        offRoute: 'Off route',
+      },
       // Under the greyed-out Track button, without the phone's location (and no simulated one)
       turnOnToTrack: 'Turn on location to track',
       // SB2: paying for a session

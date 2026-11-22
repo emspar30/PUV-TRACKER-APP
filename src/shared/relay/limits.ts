@@ -9,6 +9,10 @@
 //   "Still riding?"; with no answer within RELAY_CAP_ANSWER_MIN the relay ends.
 // - Get off soon (Emjay, 2026-11-02): once, when the rider first comes within RELAY_GET_OFF_WARN_M
 //   of the destination after a reading farther out. Not when the relay starts that close.
+// - Detour (Phase 2, owner 2026-11-22): farther than SHORT_DETOUR_FROM_M from the route line (and
+//   from its terminals) is a short detour, allowed up to SHORT_DETOUR_MAX_M away and for
+//   SHORT_DETOUR_MAX_MIN; past either the relay ends. Being stopped never ends it by itself, except
+//   the idle rule above (kept while the phone cannot listen for the beacon during a relay).
 // The watch is brought up to date with each position and clock tick (watchRelay) and read by relayEnd.
 // Pure: no React Native or Expo imports.
 
@@ -25,6 +29,9 @@ import {
   RELAY_IDLE_TERMINAL_MIN,
   RELAY_SESSION_CAP_H,
   RELAY_TERMINAL_RADIUS_M,
+  SHORT_DETOUR_FROM_M,
+  SHORT_DETOUR_MAX_M,
+  SHORT_DETOUR_MAX_MIN,
 } from '../config';
 import { haversineMeters, type LatLon } from '../geo/haversine';
 import { projectOntoLine } from '../geo/line';
@@ -49,14 +56,25 @@ export type RelayWatch = {
   destinationM: number | null;
   // True once the rider has been told to get ready to get off
   getOffSoon: boolean;
+  // Phase 2: since when the rider has been off the route line, and the farthest from it; null on it
+  offRoute: { sinceMs: number; farthestM: number } | null;
 };
 
-export type RelayEnd = 'arrived' | 'idle' | 'capped';
+export type RelayEnd = 'arrived' | 'idle' | 'capped' | 'detour';
 
 export type HighTrafficZone = (typeof HIGH_TRAFFIC_ZONES)[number];
 
 export function startWatch(startedMs: number): RelayWatch {
-  return { arrivingSinceMs: null, idle: null, capFromMs: startedMs, askedMs: null, destinationM: null, getOffSoon: false };
+  return { arrivingSinceMs: null, idle: null, capFromMs: startedMs, askedMs: null, destinationM: null, getOffSoon: false, offRoute: null };
+}
+
+// Metres from the position to the route: its nearest line, or a terminal (a terminal's parking may
+// sit off the line); null without lines (no detour check)
+export function routeOffsetM(session: Pick<RelayBroadcast, 'lines' | 'terminals'>, position: LatLon): number | null {
+  const lines = (session.lines ?? []).filter((line) => line.length > 0);
+  if (lines.length === 0) return null;
+  if (session.terminals.some((terminal) => haversineMeters(terminal, position) <= RELAY_TERMINAL_RADIUS_M)) return 0;
+  return Math.min(...lines.map((line) => projectOntoLine(line, position).offsetM));
 }
 
 // Metres from the position to the zone: to its point, or to the stretch between its two points
@@ -86,13 +104,25 @@ export function watchRelay(watch: RelayWatch, session: RelayBroadcast, position:
   const getOffSoon = watch.getOffSoon || (watch.destinationM !== null && crossesAlert(watch.destinationM, destinationM, RELAY_GET_OFF_WARN_M));
   // In an active zone the idle clock starts again at every look, so it never runs out there
   const moved = !watch.idle || haversineMeters(watch.idle.at, position) > RELAY_IDLE_RADIUS_M || activeZone(position, nowMs) !== null;
+  const offsetM = routeOffsetM(session, position);
+  const offRoute =
+    offsetM === null || offsetM <= SHORT_DETOUR_FROM_M
+      ? null
+      : { sinceMs: watch.offRoute?.sinceMs ?? nowMs, farthestM: Math.max(watch.offRoute?.farthestM ?? 0, offsetM) };
   return {
     ...watch,
     arrivingSinceMs: arriving ? (watch.arrivingSinceMs ?? nowMs) : null,
     idle: moved ? { at: { lat: position.lat, lon: position.lon }, sinceMs: nowMs } : watch.idle,
     destinationM,
     getOffSoon,
+    offRoute,
   };
+}
+
+// True when the short detour went too far or lasted too long
+export function detourExceeded(watch: Pick<RelayWatch, 'offRoute'>, nowMs: number): boolean {
+  const off = watch.offRoute;
+  return off !== null && (off.farthestM > SHORT_DETOUR_MAX_M || nowMs - off.sinceMs >= SHORT_DETOUR_MAX_MIN * MS_PER_MIN);
 }
 
 // How long the rider may stand still at this spot: longer at a terminal
@@ -113,6 +143,7 @@ export const renewedWatch = (watch: RelayWatch, nowMs: number): RelayWatch => ({
 // Why the relay ends now, or null while it goes on
 export function relayEnd(session: RelayBroadcast, watch: RelayWatch, nowMs: number): RelayEnd | null {
   if (watch.arrivingSinceMs !== null && nowMs - watch.arrivingSinceMs >= RELAY_ARRIVAL_COUNTDOWN_S * MS_PER_S) return 'arrived';
+  if (detourExceeded(watch, nowMs)) return 'detour';
   if (watch.idle && nowMs - watch.idle.sinceMs >= idleLimitMin(session, watch.idle.at) * MS_PER_MIN) return 'idle';
   if (watch.askedMs !== null && nowMs - watch.askedMs >= RELAY_CAP_ANSWER_MIN * MS_PER_MIN) return 'capped';
   return null;

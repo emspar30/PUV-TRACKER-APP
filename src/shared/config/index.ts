@@ -132,12 +132,21 @@ export const USERNAME_BLOCKED_WORDS: readonly string[] = [
 ];
 
 // --- Tracking one vehicle and its ETA (L2; PRD 19.2 D9, plan decision 17). ETA = distance along the
-// line to the boarding point / recent speed. Shown only with at least ETA_MIN_SAMPLES speeds from the
-// last ETA_SAMPLE_WINDOW_S, within ETA_MAX_KM and at ETA_MIN_SPEED_KMH or faster; hidden otherwise
-// (PRD 19.4). The distance is still known, so arrival and the distance alerts keep working.
-export const ETA_MIN_SPEED_KMH = 5;
-export const ETA_SAMPLE_WINDOW_S = 90;
+// line to the boarding point / moving speed, plus a stop allowance per km. The distance is still
+// known when the ETA is hidden, so arrival and the distance alerts keep working.
+// Phase 2 (field test on a real multicab; docs/APP_CHANGES_PLAN.md, owner 2026-11-22): stops at
+// stops, lights and traffic delayed arrival. The moving speed is the mean of the speeds of
+// STATIONARY_SPEED_KMH or more in the last ETA_MOVING_WINDOW_S, so a stop no longer drags it down or
+// hides the ETA (the old rule hid it under 5 km/h); at least ETA_MIN_SAMPLES of them are needed.
+// ETA_STOP_ALLOWANCE_S_PER_KM adds the time lost on the way: a starting guess of about one unloading
+// stop or red light a km at 30 s each, to be tuned with the field test log's ETA error.
+export const ETA_MOVING_WINDOW_S = 300;
+export const ETA_STOP_ALLOWANCE_S_PER_KM = 30;
 export const ETA_MIN_SAMPLES = 2;
+// Dead reckoning (CF1) still uses the recent speeds of this window
+export const ETA_SAMPLE_WINDOW_S = 90;
+// Relay details only (CA1.1): the minutes left are hidden while the rider's own speed is under this
+export const ETA_MIN_SPEED_KMH = 5;
 // PRD 19.4 (Emjay, 2026-10-08: back from B2's 60 km to the PRD value)
 export const ETA_MAX_KM = 10;
 // "Alert near arrival" fires once when the ETA drops to this (in-app banner and a short vibration)
@@ -164,8 +173,8 @@ export const DEMO_COMMUTER_STOP_CODE = 'SMB';
 export const RECENT_RIDES_MAX = 5;
 
 // --- Live vehicles from the database (L1)
-// Speeds kept per vehicle for the stopped check (longer than STATIONARY_DURATION_S)
-export const LIVE_SPEED_HISTORY_S = 120;
+// Speeds kept per vehicle for the stopped check and the moving-speed ETA (at least ETA_MOVING_WINDOW_S)
+export const LIVE_SPEED_HISTORY_S = 300;
 // Lines within this much of the nearest are compared by heading (two-way roads share a street)
 export const LIVE_LINE_TIE_M = 30;
 // The line's direction is read over this distance around the snapped point
@@ -379,6 +388,8 @@ export const NIGHT_STOPS_REFRESH_S = 60;
 export const NIGHT_STOPS_SHOWN = 4;
 // Speeds kept per vehicle for the stopped check, this far apart
 export const DEMO_SPEED_SAMPLE_S = 5;
+// Phase 2: older demo speeds, back to ETA_MOVING_WINDOW_S, are sampled this sparsely (fewer position look-ups)
+export const DEMO_SPEED_SAMPLE_FAR_S = 30;
 // Demo feed (Crowdsource tab, restyle): one slot of this many minutes holds 0 to DEMO_FEED_SLOT_MAX posts
 export const DEMO_FEED_SLOT_MIN = 6;
 export const DEMO_FEED_SLOT_MAX = 2;
@@ -581,6 +592,14 @@ export const HIGH_TRAFFIC_ZONES: readonly {
     hours: ['16:00', '18:59'],
   },
 ];
+// Phase 2 (field test, owner 2026-11-22): a short detour, such as a gas station or a blocked street.
+// A position farther than SHORT_DETOUR_FROM_M from the route line is off the route (the line's 30 m
+// snap plus GPS slack, as RELAY_STOP_AREA_M). Up to SHORT_DETOUR_MAX_M away and SHORT_DETOUR_MAX_MIN
+// long it is allowed: the map keeps the multicab at its last position on the route and the Track view
+// says ETA paused. Past either limit a relay ends. Hand-mapped zones are not used for this.
+export const SHORT_DETOUR_FROM_M = 60;
+export const SHORT_DETOUR_MAX_M = 300;
+export const SHORT_DETOUR_MAX_MIN = 10;
 // B4: how often the relay's limits are checked while it shares the location
 export const RELAY_CHECK_S = 30;
 // RL2a (Emjay, D10, 2026-10-23): a relay needs a verified multicab beacon. With none verified after

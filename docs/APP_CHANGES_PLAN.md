@@ -187,6 +187,24 @@ helper) is DONE.
 | Takeover dialog | Keep skipping it (the Nov 19 decision), recorded as a limitation |
 | Branches | Rename `feat/abang-selfie-registration` to `feat/selfie-ltfrb`, use the prompt's branch names, and stop for approval after each phase |
 
+### Phase 2 as built (2026-11-22, branch `feat/relay-stops-detours`)
+
+- Constants (`src/shared/config/index.ts`): `ETA_MOVING_WINDOW_S = 300`, `ETA_STOP_ALLOWANCE_S_PER_KM = 30`,
+  `SHORT_DETOUR_FROM_M = 60`, `SHORT_DETOUR_MAX_M = 300`, `SHORT_DETOUR_MAX_MIN = 10`, `LIVE_SPEED_HISTORY_S = 300`.
+- **ETA** (`src/shared/tracking/eta.ts`): moving speeds only, plus 30 s per km; it holds while the multicab
+  stands and is paused on a short detour. The "hidden under 5 km/h" rule is gone. Per km rather than per
+  stop: lights and traffic are spread along the road, not only at stops, and the field log can tune one
+  number.
+- **Detour on the map** (`src/shared/telemetry/liveRow.ts`): a live position farther than 60 m from the route
+  keeps the marker at its last on-route position, marked off route; the next on-route position moves it.
+- **Detour in a relay** (`src/shared/relay/limits.ts`): the relay ends past 300 m or 10 minutes off the route.
+- **Track view** (`src/shared/tracking/status.ts`, `TrackingPanel.tsx`): Moving, Stopped · N min, Off route ·
+  temporary, ETA paused, and the Last updated box. The map marker no longer shows the VS1 status marks.
+- **Not built (owner decision):** ending a relay on beacon loss, and keeping it while the beacon is heard
+  past the idle limit. The idle stop and the high-traffic zones stay.
+- **Alerts while stopped:** unchanged, they use the distance (tests in `eta.test.ts`).
+- **Field test logging:** already built (S10); unchanged.
+
 ## 3. Plan (after your answers)
 
 ### Phase 1: `feat/selfie-ltfrb`

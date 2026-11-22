@@ -12,6 +12,9 @@ import {
   RELAY_IDLE_RADIUS_M,
   RELAY_IDLE_TERMINAL_MIN,
   RELAY_SESSION_CAP_H,
+  SHORT_DETOUR_FROM_M,
+  SHORT_DETOUR_MAX_M,
+  SHORT_DETOUR_MAX_MIN,
 } from '../config';
 import type { LatLon } from '../geo/haversine';
 import type { RelayBroadcast } from '../relay/broadcast';
@@ -215,5 +218,57 @@ describe('RL1 3-hour cap', () => {
     expect(capDue(renewed, DAY + capMs + MIN + capMs - 1)).toBe(false);
     expect(capDue(renewed, DAY + capMs + MIN + capMs)).toBe(true);
     expect(askInMin(renewed.capFromMs, DAY + capMs + MIN)).toBe(RELAY_SESSION_CAP_H * 60);
+  });
+});
+
+describe('Phase 2: a short detour off the route', () => {
+  // A route line running east from ROAD; north(ROAD, m) is m metres from it
+  const LINE = [
+    [ROAD.lon, ROAD.lat],
+    [ROAD.lon + 0.02, ROAD.lat],
+  ] as const;
+  const withLine = (startedMs: number): RelayBroadcast => ({ ...session(startedMs), lines: [LINE.map(([lon, lat]) => [lon, lat] as [number, number])] });
+
+  it('a stop on the route never ends the relay before the idle limit', () => {
+    const relay = withLine(DAY);
+    expect(run(relay, startWatch(DAY), ROAD, DAY, DAY + (RELAY_IDLE_MIN - 1) * MIN).end).toBeNull();
+  });
+
+  it(`continues off the route up to ${SHORT_DETOUR_MAX_M} m and ${SHORT_DETOUR_MAX_MIN} min`, () => {
+    const relay = withLine(DAY);
+    const gasStation = north(ROAD, SHORT_DETOUR_MAX_M - 50);
+    const watch = watchRelay(startWatch(DAY), relay, gasStation, DAY);
+    expect(watch.offRoute).toMatchObject({ sinceMs: DAY });
+    expect(relayEnd(relay, watchRelay(watch, relay, gasStation, DAY + (SHORT_DETOUR_MAX_MIN * MIN - S)), DAY + (SHORT_DETOUR_MAX_MIN * MIN - S))).toBeNull();
+  });
+
+  it(`ends after ${SHORT_DETOUR_MAX_MIN} min off the route`, () => {
+    const relay = withLine(DAY);
+    const off = north(ROAD, SHORT_DETOUR_FROM_M + 40);
+    const watch = watchRelay(startWatch(DAY), relay, off, DAY);
+    const later = DAY + SHORT_DETOUR_MAX_MIN * MIN;
+    expect(relayEnd(relay, watchRelay(watch, relay, off, later), later)).toBe('detour');
+  });
+
+  it(`ends at once farther than ${SHORT_DETOUR_MAX_M} m from the route`, () => {
+    const relay = withLine(DAY);
+    const far = north(ROAD, SHORT_DETOUR_MAX_M + 50);
+    expect(relayEnd(relay, watchRelay(startWatch(DAY), relay, far, DAY), DAY)).toBe('detour');
+  });
+
+  it('back on the route clears the detour clock', () => {
+    const relay = withLine(DAY);
+    const off = watchRelay(startWatch(DAY), relay, north(ROAD, SHORT_DETOUR_FROM_M + 40), DAY);
+    const back = watchRelay(off, relay, north(ROAD, 10), DAY + 5 * MIN);
+    expect(back.offRoute).toBeNull();
+    const again = watchRelay(back, relay, north(ROAD, SHORT_DETOUR_FROM_M + 40), DAY + 6 * MIN);
+    expect(relayEnd(relay, again, DAY + 14 * MIN)).toBeNull();
+  });
+
+  it('a terminal off the line is on the route; a relay without lines has no detour check', () => {
+    const terminal = north(ROAD, 200);
+    const relay = { ...withLine(DAY), terminals: [terminal] };
+    expect(watchRelay(startWatch(DAY), relay, terminal, DAY).offRoute).toBeNull();
+    expect(watchRelay(startWatch(DAY), session(DAY), north(ROAD, 1000), DAY).offRoute).toBeNull();
   });
 });

@@ -12,6 +12,7 @@ import {
   DEMO_SILENT_SEND_S,
   DEMO_SPEED_MAX_KMH,
   DEMO_SPEED_MIN_KMH,
+  DEMO_SPEED_SAMPLE_FAR_S,
   DEMO_SPEED_SAMPLE_S,
   DEMO_STOP_MAX_S,
   DEMO_STOP_MIN_S,
@@ -20,6 +21,7 @@ import {
   DEMO_TERMINAL_MIN_S,
   DEMO_VEHICLES_MAX_PER_ROUTE,
   DEMO_VEHICLES_MIN_PER_ROUTE,
+  ETA_MOVING_WINDOW_S,
   OCCUPANCY_AMBER_MAX_TAKEN,
   OCCUPANCY_GREEN_MAX_TAKEN,
   ROUTE_STOP_MAX_DISTANCE_M,
@@ -281,9 +283,14 @@ export function demoSnapshot(
   const nowS = nowMs / MS_PER_S;
   const packetS = lastPacketS(plan, nowS, config);
   const at = positionAt(plan, packetS);
-  // Speeds as of the last packet, far enough back for the stopped check
+  // Speeds as of the last packet: every DEMO_SPEED_SAMPLE_S for the stopped check, then every
+  // DEMO_SPEED_SAMPLE_FAR_S back to ETA_MOVING_WINDOW_S for the moving-speed ETA (Phase 2)
   const recentSpeeds: SpeedSample[] = [];
-  for (let back = STATIONARY_DURATION_S + DEMO_SPEED_SAMPLE_S; back >= 0; back -= DEMO_SPEED_SAMPLE_S) {
+  const near = STATIONARY_DURATION_S + DEMO_SPEED_SAMPLE_S;
+  for (let back = ETA_MOVING_WINDOW_S; back > near; back -= DEMO_SPEED_SAMPLE_FAR_S) {
+    recentSpeeds.push({ atMs: (packetS - back) * MS_PER_S, speedKmh: positionAt(plan, packetS - back).speedKmh });
+  }
+  for (let back = near; back >= 0; back -= DEMO_SPEED_SAMPLE_S) {
     recentSpeeds.push({ atMs: (packetS - back) * MS_PER_S, speedKmh: positionAt(plan, packetS - back).speedKmh });
   }
   return {

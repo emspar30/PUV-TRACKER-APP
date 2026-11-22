@@ -81,6 +81,7 @@ import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import { vehicleStatus } from '@/shared/telemetry/vehicleStatus';
 import { crossedDistance, crossesAlert, etaDistanceKm, etaNow, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
+import { trackStatus } from '@/shared/tracking/status';
 import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
 import { isNetworkFailure } from '@/shared/util/networkError';
@@ -850,6 +851,7 @@ export default function MapScreen() {
             progress={trackedProgress}
             etaTarget={etaTarget}
             passedMe={trackedPassedMe}
+            status={tracked ? trackStatus(tracked, live.nowMs) : null}
             alertOn={alertOn}
             alertMessage={
               alertOn && trackedEtaS !== null && trackedEtaS <= TRACK_ALERT_ETA_S

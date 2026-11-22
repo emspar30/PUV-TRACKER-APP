@@ -1,7 +1,7 @@
 // Turns a telemetry_latest row (L1) into the VehicleSnapshot the Live tab already draws for demo
 // vehicles. Pure: no React Native or Expo imports.
 
-import { LIVE_HEADING_PROBE_M, LIVE_LINE_TIE_M, LIVE_SPEED_HISTORY_S } from '../config';
+import { LIVE_HEADING_PROBE_M, LIVE_LINE_TIE_M, LIVE_SPEED_HISTORY_S, SHORT_DETOUR_FROM_M } from '../config';
 import { pointAtChainage, projectOntoLine } from '../geo/line';
 import type { DirectedLine } from '../routing/types';
 import type { VehicleSnapshot } from './vehicle';
@@ -63,7 +63,17 @@ export function matchLine(
   return close.reduce((best, candidate) => (gap(candidate) < gap(best) ? candidate : best)).line;
 }
 
-// previous: this vehicle's last snapshot, whose speeds are kept for the stopped check
+// Metres from the point to the nearest of the route's lines; Infinity when the route has none
+export function offRouteM(lines: readonly DirectedLine[], routeCode: string, point: { lat: number; lon: number }): number {
+  const own = lines.filter((line) => line.routeCode === routeCode);
+  return own.length === 0 ? Infinity : Math.min(...own.map((line) => projectOntoLine(line.coordinates, point).offsetM));
+}
+
+// previous: this vehicle's last snapshot, whose speeds are kept for the stopped check.
+// Phase 2 (owner, 2026-11-22): a position farther than SHORT_DETOUR_FROM_M from the route line (a
+// gas station, a blocked street) keeps the multicab at its last position on the route, marked with
+// when it left; the first position back on the route moves it again. A multicab first seen off the
+// route has no position to keep and is drawn where it is, marked off the route.
 export function rowToSnapshot(
   row: LiveRow,
   routeCode: string,
@@ -75,7 +85,7 @@ export function rowToSnapshot(
   if (!line || Number.isNaN(packetMs)) return null;
   const keepFromMs = packetMs - LIVE_SPEED_HISTORY_S * MS_PER_S;
   const earlier = (previous?.recentSpeeds ?? []).filter((sample) => sample.atMs < packetMs && sample.atMs >= keepFromMs);
-  return {
+  const snapshot: VehicleSnapshot = {
     id: row.vehicle_id,
     label: row.vehicle_id,
     routeCode,
@@ -90,4 +100,8 @@ export function rowToSnapshot(
     demo: false,
     verified: row.verified === true,
   };
+  if (offRouteM(lines, routeCode, row) <= SHORT_DETOUR_FROM_M) return snapshot;
+  const sinceMs = previous?.offRouteSinceMs ?? packetMs;
+  if (!previous || previous.routeCode !== routeCode) return { ...snapshot, offRouteSinceMs: sinceMs };
+  return { ...snapshot, lat: previous.lat, lon: previous.lon, headingDeg: previous.headingDeg, lineId: previous.lineId, offRouteSinceMs: sinceMs };
 }
