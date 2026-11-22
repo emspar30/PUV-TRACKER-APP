@@ -1,5 +1,6 @@
 // The live vehicles repository (L1): the route's vehicles from public.telemetry_latest, kept current
-// by Realtime changes and a reload every LIVE_RELOAD_INTERVAL_S. The database decides who sees what
+// by Realtime changes, a reload whenever the Realtime channel rejoins after a drop, and a reload every
+// LIVE_RELOAD_INTERVAL_S. The database decides who sees what
 // (team accounts only in v0; moving vehicles hidden at night), so a signed-out phone simply gets no
 // rows and the Live tab says "No data". Pure: the network sits behind LiveVehiclesPort.
 
@@ -13,8 +14,9 @@ import type { Unsubscribe, VehiclesRepository } from '../repositories/types';
 export type LiveVehiclesPort = {
   // The route's active vehicles and their newest rows; rejects on a network or permission error
   load(routeCode: string): Promise<{ vehicleIds: string[]; rows: LiveRow[] }>;
-  // Every insert or update of telemetry_latest for these vehicles
-  watch(vehicleIds: readonly string[], onRow: (row: LiveRow) => void): Unsubscribe;
+  // Every insert or update of telemetry_latest for these vehicles. onRejoin: the channel joined again
+  // after a drop, so changes may have been missed
+  watch(vehicleIds: readonly string[], onRow: (row: LiveRow) => void, onRejoin?: () => void): Unsubscribe;
   // NM1: night_stop_updates(route); rejects on a network or permission error
   nightStops?(routeCode: string): Promise<{ stop_code: string; passed_at: string }[]>;
 };
@@ -69,11 +71,17 @@ export function createLiveVehicles(
           if (result.vehicleIds.join() !== vehicleIds.join()) {
             vehicleIds = result.vehicleIds;
             stopWatching();
-            stopWatching = port.watch(vehicleIds, (row) => {
-              if (closed || !vehicleIds.includes(row.vehicle_id)) return;
-              apply(row);
-              emit();
-            });
+            stopWatching = port.watch(
+              vehicleIds,
+              (row) => {
+                if (closed || !vehicleIds.includes(row.vehicle_id)) return;
+                apply(row);
+                emit();
+              },
+              () => {
+                if (!closed) void reload();
+              },
+            );
           }
           emit();
         } catch {

@@ -27,10 +27,12 @@ export const supabaseVehiclesPort: LiveVehiclesPort = {
     return (result.data ?? []) as { stop_code: string; passed_at: string }[];
   },
 
-  watch(vehicleIds, onRow) {
+  watch(vehicleIds, onRow, onRejoin) {
     if (vehicleIds.length === 0) return () => undefined;
     const supabase = getSupabase();
     channelCount += 1;
+    // The first join follows a fresh load; a later one (after a dropped connection) may have missed changes
+    let joins = 0;
     const channel = supabase
       .channel(`telemetry-latest-${channelCount}`)
       .on(
@@ -44,7 +46,11 @@ export const supabaseVehiclesPort: LiveVehiclesPort = {
           onRow(row);
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return;
+        joins += 1;
+        if (joins > 1) onRejoin?.();
+      });
     return () => {
       void supabase.removeChannel(channel);
     };

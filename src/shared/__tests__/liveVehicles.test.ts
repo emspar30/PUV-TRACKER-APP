@@ -104,15 +104,16 @@ function manualClock(start: number) {
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 function fakePort(rows: LiveRow[], vehicleIds = ['T1-TEST-01']) {
-  const state = { rows, vehicleIds, loads: 0, fail: false, watchers: [] as ((row: LiveRow) => void)[], unwatched: 0 };
+  const state = { rows, vehicleIds, loads: 0, fail: false, watchers: [] as ((row: LiveRow) => void)[], rejoins: [] as (() => void)[], unwatched: 0 };
   const port: LiveVehiclesPort = {
     load: async () => {
       state.loads += 1;
       if (state.fail) throw new Error('offline');
       return { vehicleIds: state.vehicleIds, rows: state.rows };
     },
-    watch: (_ids, onRow) => {
+    watch: (_ids, onRow, onRejoin) => {
       state.watchers.push(onRow);
+      if (onRejoin) state.rejoins.push(onRejoin);
       return () => {
         state.unwatched += 1;
       };
@@ -159,6 +160,21 @@ describe('the live vehicles repository', () => {
     await flush();
     expect(state.loads).toBe(2);
     stop();
+  });
+
+  it('reloads when the Realtime channel rejoins after a drop, without waiting for the timer', async () => {
+    const { clock } = manualClock(T0);
+    const { port, state } = fakePort([row()]);
+    const stop = createLiveVehicles(port, LINES, clock).subscribe('T1', () => undefined);
+    await flush();
+    expect(state.loads).toBe(1);
+    state.rejoins[0]();
+    await flush();
+    expect(state.loads).toBe(2);
+    stop();
+    state.rejoins[0]();
+    await flush();
+    expect(state.loads).toBe(2);
   });
 
   it('keeps the known vehicles when a reload fails, and drops a vehicle no longer active', async () => {

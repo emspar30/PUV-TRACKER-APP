@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 
 import { ADMIN_PIN_DIGITS } from '@/shared/config';
@@ -10,6 +11,7 @@ import { errorText } from './errors';
 import { Icon } from './Icon';
 import { PageHeader } from './PageHeader';
 import { SecretInput } from './SecretInput';
+import { TwoFactorSettings } from './TwoFactor';
 
 const text = strings.adminConsole;
 const t = text.settings;
@@ -18,7 +20,7 @@ const digitsOnly = (value: string) => value.replace(/\D/g, '').slice(0, ADMIN_PI
 
 // The one admin PIN of the pilot driver phones (D5). It goes into each setup a phone collects from now
 // on; only its salted hash leaves the page.
-export function Settings({ api, email, userId }: { api: ConsoleApi; email: string; userId: string }) {
+export function Settings({ api, client, email, userId }: { api: ConsoleApi; client: SupabaseClient; email: string; userId: string }) {
   const [pinSet, setPinSet] = useState<boolean | null>(null);
   const [pin, setPin] = useState('');
   const [again, setAgain] = useState('');
@@ -160,6 +162,8 @@ export function Settings({ api, email, userId }: { api: ConsoleApi; email: strin
         </div>
       </form>
       {email && <p className="muted small">{t.account(email)}</p>}
+
+      <TwoFactorSettings client={client} />
 
       <section className="card form-card" aria-labelledby="log-heading">
         <div>

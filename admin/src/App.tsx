@@ -1,6 +1,8 @@
-import type { Session } from '@supabase/supabase-js';
-import { useEffect, useState } from 'react';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import { useEffect, useRef, useState } from 'react';
 
+import { idleExpired } from '@/shared/auth/adminMfa';
+import { ADMIN_IDLE_CHECK_S, ADMIN_IDLE_SIGNOUT_MIN } from '@/shared/config';
 import { splitRegistrations } from '@/shared/driver/registrationConsole';
 import { strings } from '@/strings';
 
@@ -30,12 +32,21 @@ export function App() {
   const supabase = client;
   // undefined until Supabase says whether this browser is signed in
   const [session, setSession] = useState<Session | null | undefined>(supabase ? undefined : null);
+  const [idleOut, setIdleOut] = useState(false);
 
   useEffect(() => {
     if (!supabase) return undefined;
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next);
+      if (next) setIdleOut(false);
+    });
     return () => data.subscription.unsubscribe();
   }, [supabase]);
+
+  useIdleSignOut(Boolean(session), () => {
+    setIdleOut(true);
+    void supabase?.auth.signOut();
+  });
 
   if (!supabase || !api) {
     return (
@@ -45,17 +56,64 @@ export function App() {
     );
   }
   if (session === undefined) return null;
-  if (!session) return <SignIn client={supabase} />;
+  if (!session) return <SignIn client={supabase} notice={idleOut ? text.idleSignedOut(ADMIN_IDLE_SIGNOUT_MIN) : null} />;
   // 2026-11-22: the console opens only after the second factor (the database checks it too)
   return (
     <TwoFactorGate key={session.user.id} client={supabase}>
-      <Console api={api} email={session.user.email ?? ''} userId={session.user.id} onSignOut={() => void supabase.auth.signOut()} />
+      <Console api={api} client={supabase} email={session.user.email ?? ''} userId={session.user.id} onSignOut={() => void supabase.auth.signOut()} />
     </TwoFactorGate>
   );
 }
 
+const ACTIVITY_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'] as const;
+
+// 2026-11-22 (weak-point fixes): a signed-in console with no click, key press, scroll or touch for
+// ADMIN_IDLE_SIGNOUT_MIN signs out, so a console left open on a shared PC does not stay signed in.
+// Checked every ADMIN_IDLE_CHECK_S and when the browser tab is shown again.
+function useIdleSignOut(signedIn: boolean, onIdle: () => void) {
+  const lastActive = useRef(0);
+  const idle = useRef(onIdle);
+  useEffect(() => {
+    idle.current = onIdle;
+  });
+
+  useEffect(() => {
+    if (!signedIn) return undefined;
+    lastActive.current = Date.now();
+    const touch = () => {
+      lastActive.current = Date.now();
+    };
+    const check = () => {
+      if (idleExpired(lastActive.current, Date.now())) idle.current();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check();
+    };
+    ACTIVITY_EVENTS.forEach((name) => window.addEventListener(name, touch, { passive: true, capture: true }));
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = window.setInterval(check, ADMIN_IDLE_CHECK_S * 1000);
+    return () => {
+      ACTIVITY_EVENTS.forEach((name) => window.removeEventListener(name, touch, { capture: true }));
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(timer);
+    };
+  }, [signedIn]);
+}
+
 // Signed in: the side navigation and the open section
-function Console({ api, email, userId, onSignOut }: { api: ConsoleApi; email: string; userId: string; onSignOut: () => void }) {
+function Console({
+  api,
+  client,
+  email,
+  userId,
+  onSignOut,
+}: {
+  api: ConsoleApi;
+  client: SupabaseClient;
+  email: string;
+  userId: string;
+  onSignOut: () => void;
+}) {
   const [tab, setTab] = useState<Tab>(tabFromAddress);
   const registrations = useRegistrations(api);
   const waiting = registrations.rows ? splitRegistrations(registrations.rows).waiting.length : 0;
@@ -104,7 +162,7 @@ function Console({ api, email, userId, onSignOut }: { api: ConsoleApi; email: st
         <div className="workspace-inner">
           {tab === 'registrations' && <Registrations api={api} state={registrations} />}
           {tab === 'drivers' && <Drivers api={api} registrations={registrations.rows} />}
-          {tab === 'settings' && <Settings api={api} email={email} userId={userId} />}
+          {tab === 'settings' && <Settings api={api} client={client} email={email} userId={userId} />}
         </div>
       </main>
     </div>

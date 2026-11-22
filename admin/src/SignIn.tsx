@@ -9,7 +9,8 @@ import { SecretInput } from './SecretInput';
 const text = strings.adminConsole;
 
 // The admin account's email and password (D4: one account, made in Supabase; admin/README.md)
-export function SignIn({ client }: { client: SupabaseClient }) {
+// notice: why the console signed out (2026-11-22: after ADMIN_IDLE_SIGNOUT_MIN without activity)
+export function SignIn({ client, notice = null }: { client: SupabaseClient; notice?: string | null }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -51,6 +52,12 @@ export function SignIn({ client }: { client: SupabaseClient }) {
             <h2>{text.signIn.heading}</h2>
             <p className="muted">{text.signIn.body}</p>
           </div>
+          {notice && !error && (
+            <p className="notice warning" role="status">
+              <Icon name="info" />
+              {notice}
+            </p>
+          )}
           {error && (
             <p className="notice error" role="alert">
               <Icon name="error" />

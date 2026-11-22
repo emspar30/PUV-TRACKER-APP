@@ -1935,7 +1935,24 @@ export const en = {
       codeInvalid: 'Enter the 6 digits from the app.',
       codeWrong: 'That code is not right, or it has expired. Enter the newest code from the app.',
       submit: 'Verify',
+      // 2026-11-22: more than one authenticator app set up
+      whichApp: 'Authenticator',
+      // Settings: backup authenticators
+      manageHeading: 'Two-step sign-in',
+      manageBody:
+        "The authenticator apps that can give the 6-digit code. Add one on a second phone (for example a teammate's) so a lost phone does not lock you out.",
+      added: (when: string) => `Added ${when}`,
+      addBackup: 'Add a backup authenticator',
+      backupSetupBody: 'Scan this QR code with the authenticator app on the other phone, then enter the 6-digit code it shows.',
+      backupAdded: 'Backup authenticator added.',
+      remove: 'Remove',
+      removeConfirm: (name: string) => `Remove "${name}"? Its codes stop working.`,
+      lastOne: 'The last authenticator cannot be removed.',
+      atLimit: (max: number) => `At most ${max} authenticators.`,
+      cancel: 'Cancel',
     },
+    // 2026-11-22: shown on the sign-in page after an idle console signed itself out
+    idleSignedOut: (minutes: number) => `Signed out after ${minutes} minutes without activity. Sign in again.`,
     signOut: 'Sign out',
     notAdmin: 'This account is not the admin account. Sign out, then sign in with the admin account.',
     offline: 'Cannot reach Supabase. Check the internet connection, then try again.',

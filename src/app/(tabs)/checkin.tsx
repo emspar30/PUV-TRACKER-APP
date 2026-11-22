@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { Bus, ChevronDown, Clock, LocateFixed, LocateOff, MapPinOff, WifiOff, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -81,6 +82,8 @@ export default function CheckInScreen() {
   const { state: tiles } = useOfflineTiles();
   const checkIn = useCheckInStore((state) => state.checkIn);
   const crowd = useCrowd();
+  // Data use (ISO step 13, 2026-11-22): the counts are read only while this tab is on screen
+  const focused = useIsFocused();
   const commuter = useCommuterPosition();
   const fix = useLocationStore((state) => state.fix);
   const hintSeen = useHintsStore((state) => state.seen.checkin);
@@ -144,11 +147,12 @@ export default function CheckInScreen() {
   const positioned = place && place.source !== 'pin' ? place : null;
 
   // C1: the waiting counts of the shown routes' stations, merged per station (B3), reloaded every
-  // CHECKIN_COUNTS_REFRESH_S and after the user's own check-in or its end
+  // CHECKIN_COUNTS_REFRESH_S while the tab is on screen, and after the user's own check-in or its end
   const [counts, setCounts] = useState<{ key: string; byStation: ReadonlyMap<string, number> | null } | null>(null);
   const [countsKey, setCountsKey] = useState(0);
   const countsFor = shownRoutes.join(',');
   useEffect(() => {
+    if (!focused) return undefined;
     let current = true;
     const load = () => {
       void Promise.all(
@@ -170,7 +174,7 @@ export default function CheckInScreen() {
       current = false;
       clearInterval(timer);
     };
-  }, [crowd, shownRoutes, countsFor, lines, stops, countsKey]);
+  }, [crowd, shownRoutes, countsFor, lines, stops, countsKey, focused]);
   const byStation = counts && counts.key === countsFor ? counts.byStation : null;
   const waitingAt = (code: string) => byStation?.get(code) ?? 0;
 

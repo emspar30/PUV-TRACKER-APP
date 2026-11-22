@@ -179,8 +179,10 @@ export const LIVE_SPEED_HISTORY_S = 300;
 export const LIVE_LINE_TIE_M = 30;
 // The line's direction is read over this distance around the snapped point
 export const LIVE_HEADING_PROBE_M = 20;
-// The whole route is read again this often, in case a Realtime change was missed
-export const LIVE_RELOAD_INTERVAL_S = 30;
+// The whole route is read again this often, in case a Realtime change was missed. Also read again
+// whenever the Realtime channel rejoins after a drop. Was 30 s: with one subscription per route in
+// the All routes view, that alone came near the measured 425.5 KB per hour (ISO step 13, 2026-11-22)
+export const LIVE_RELOAD_INTERVAL_S = 120;
 // Development simulator (scripts/sim-ingest.ts): one packet per vehicle this often
 export const SIM_INGEST_INTERVAL_S = 5;
 
@@ -509,7 +511,8 @@ export const ENERGY_HISTORY_LIMIT = 20;
 // How often the refill countdown in the top bar and Profile updates
 export const ENERGY_COUNTDOWN_TICK_S = 30;
 // C1: how often the station counts reload while Check-in is open; RP1/N1: the feed lines read
-export const CHECKIN_COUNTS_REFRESH_S = 30;
+// (read only while the Check-in tab is on screen; was 30 s before the data-use fix of 2026-11-22)
+export const CHECKIN_COUNTS_REFRESH_S = 60;
 export const FEED_READ_LIMIT = 50;
 export const FEED_LIFETIME_MIN = 60;
 // VS1 (Emjay, V3, 2026-10-29): a relay's "Loading passengers", "Heavy traffic" or "Not moving" shows
@@ -867,5 +870,12 @@ export const CONSOLE_LOG_ROWS = 50;
 // Authentication, Email, Minimum password length: 8, set 2026-11-22 after the Security Advisor)
 export const PASSWORD_MIN_LENGTH = 8;
 export const CONSOLE_REFRESH_S = 30;
+// 2026-11-22 (weak-point fixes): the console signs out after this long without a click, key press,
+// scroll or touch, so a console left open on a shared PC does not stay signed in. Checked this often.
+export const ADMIN_IDLE_SIGNOUT_MIN = 20;
+export const ADMIN_IDLE_CHECK_S = 30;
+// 2026-11-22: authenticator apps the admin account may have (the first plus backups on other phones,
+// so a lost phone does not lock the console). Supabase allows up to 10.
+export const ADMIN_MAX_AUTHENTICATORS = 3;
 export const REGISTRATION_NOTICE_TTL_MIN = 1440;
 export const REGISTRATION_REASON_MAX_CHARS = 200;

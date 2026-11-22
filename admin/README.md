@@ -57,8 +57,18 @@ nothing.
 
 - Apply that migration only once the console in use has the two-step screen (this branch, locally with
   `npm run admin:dev`, or the hosted console after a push). Otherwise the admin cannot sign in.
-- Lost the phone with the authenticator app: in the Supabase dashboard open Authentication, Users, the
-  admin account, and delete its MFA factor; the next sign-in sets it up again.
+- Backup authenticators: Settings, Two-step sign-in, "Add a backup authenticator" sets up the same
+  account on a second phone (up to 3 in all). With more than one, the code screen asks which app the
+  code comes from. The last one cannot be removed.
+- Lost the phone with the authenticator app: sign in with a backup authenticator, then remove the lost
+  one on Settings. Lost every one: in the Supabase dashboard open Authentication, Users, the admin
+  account, and delete its MFA factors; the next sign-in sets it up again.
+
+## Idle sign-out (2026-11-22)
+
+The console signs out after 20 minutes without a click, key press, scroll or touch
+(`ADMIN_IDLE_SIGNOUT_MIN`), and the sign-in page says why. This keeps a console left open on a shared
+PC from staying signed in.
 
 ## Admin activity (2026-11-22)
 

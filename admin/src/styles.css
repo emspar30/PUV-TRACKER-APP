@@ -1214,6 +1214,23 @@ tbody tr:hover td {
   text-align: center;
 }
 
+/* Settings: the admin account's authenticator apps */
+.factor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.factor-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .signin {
   display: grid;
   gap: 24px;

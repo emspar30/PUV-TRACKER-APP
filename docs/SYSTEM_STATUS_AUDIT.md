@@ -22,7 +22,16 @@ changed since the first version of this audit.
 3. **ISO/IEC 25010 self-test run.** Most of the 46 steps were run by the team with evidence; results
    are in section 6.1. TAM results of the user survey are in section 6.2.
 4. **Pushed to GitHub** (`main` at `bd1345c`).
-5. **New APKs built** on 2026-11-22 from `bd1345c`: commuter (EAS build `0dbacde9`) and driver (EAS
+5. **Weak-point fixes after the ISO run** (code done, not in any APK yet):
+   - **Commuter data use:** the live map re-reads a route every 120 s instead of 30 s (and at once
+     when its live connection comes back); the Check-in tab reads the waiting counts only while it
+     is open, every 60 s instead of 30 s. The 425.5 KB per hour measured in step 13 came mostly from
+     these re-reads (one per route in the All routes view). **Needs a new commuter APK and a new
+     measurement.**
+   - **Admin console idle sign-out** after 20 minutes without activity (web; no APK needed).
+   - **Backup authenticators:** the admin can add up to 2 more authenticator apps on other phones in
+     Settings, so a lost phone does not lock the console (web; no APK needed).
+6. **New APKs built** on 2026-11-22 from `bd1345c`: commuter (EAS build `0dbacde9`) and driver (EAS
    build `c89c010e`). Both builds finished without errors. The driver build is the first compile of
    the screen-off beacon change of 2026-11-16. **Neither APK is installed and phone-checked yet.**
 
@@ -178,6 +187,8 @@ Multicabs fall under the **LTFRB** (not the city transport office). Earlier docu
 | Drivers list, route filter, plate search, Retire | Built | Shows "Also on this plate: DRV-00xx" for abang drivers |
 | Admin PIN for the driver phones' Admin screen | Built | |
 | Two-step sign-in (authenticator app code after the password) | **Built 2026-11-22, applied, checked by the owner** | First sign-in shows a QR code to scan with Google or Microsoft Authenticator; every later sign-in asks for the 6-digit code. The database refuses every admin action from a session without it (`is_admin()` needs the second factor) |
+| Idle sign-out after 20 minutes without activity | Built 2026-11-22 (web) | Not checked yet. The sign-in page says why it signed out |
+| Backup authenticators (up to 3 phones in all) | Built 2026-11-22 (web) | Not checked yet. Settings, Two-step sign-in. With several, the code screen asks which app; the last one cannot be removed |
 | Admin action log (approve, reject, retire, PIN change, with who and when) | Built 2026-11-22, applied | Written by database triggers, so it cannot be skipped or edited from the console; the last 50 entries are listed on Settings ("You", "System" or "Admin" plus a short ID). Database check confirmed the triggers exist |
 | Moderation screens | Not built | Done in the Supabase dashboard instead |
 
@@ -222,7 +233,7 @@ Measured values:
 | Driver phone battery, beacon on | 3 to 5% per 30 minutes | |
 | Driver phone battery, beacon off | 2 to 3% per 30 minutes | So the beacon adds about 1 to 2% per 30 minutes |
 | Commuter phone battery | 0.21% (as recorded) | Looks too low for real tracking; re-check how it was measured (duration, screen on or off) before reporting it |
-| Commuter data use | 425.5 KB per hour | **Above the 150 KB per hour target** in the PRD. Report it honestly as not meeting the target (or explain what was running, e.g. map tiles, Demo data, live updates) |
+| Commuter data use | 425.5 KB per hour | **Above the 150 KB per hour target** in the PRD. Cause found and fixed after the test (section 0, item 5); measure again with the next commuter APK and report both numbers |
 | SMS delay, check-in to driver's phone | About 1 minute | Earlier single test: 15 to 41 s Globe to TNT |
 | Phone brands | Works on Xiaomi, Vivo and Honor | Plus the Samsung phone and tablet used during development |
 
@@ -300,9 +311,10 @@ shows it.
   database functions (by design), and leaked-password protection, which needs a paid plan (passwords
   need 8 characters instead).
 - The device ban is a deterrent, not proof: a factory reset, another phone or a rooted phone evades it.
-- Commuter data use measured above the PRD's 150 KB per hour target (6.1).
-- The admin's authenticator phone is now needed to sign in to the console; losing it needs a reset in
-  the Supabase dashboard.
+- Commuter data use measured above the PRD's 150 KB per hour target (6.1); fixed afterwards, not yet
+  measured again.
+- An authenticator phone is needed to sign in to the console; a backup on a second phone covers a lost
+  one, and losing every one needs a reset in the Supabase dashboard.
 - Outside this phase on purpose: Play Integrity, Cebuano screens, Play Store release, route updates
   without an app release.
 
