@@ -217,3 +217,14 @@ export async function decideThenDelete(
   await removePhotos(paths);
   return { ok: true, value: null };
 }
+
+// --- Abang (owner, 2026-11-22): 2 or 3 drivers on one plate, each with their own driver ID
+
+// The other active driver IDs on the same plate (spaces and case ignored), in ID order
+export function platePartners(driver: Pick<ConsoleDriver, 'device_id' | 'plate'>, drivers: readonly Pick<ConsoleDriver, 'device_id' | 'plate'>[]): string[] {
+  const key = plateKey(driver.plate);
+  return drivers
+    .filter((other) => other.device_id !== driver.device_id && plateKey(other.plate) === key)
+    .map((other) => other.device_id)
+    .sort();
+}

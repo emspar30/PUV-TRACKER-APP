@@ -1965,13 +1965,14 @@ export const en = {
       typedPlate: 'Typed plate',
       route: (route: string) => `Route ${route}`,
       sent: (when: string) => `Sent ${when}`,
+      // Abang (2026-11-22): a plate may have 2 or 3 drivers, who share its beacon
       replaces: (device: string) =>
-        `This plate already has a phone, ${device}. Approving replaces it: the old phone stops working when the new one collects its setup.`,
+        `This plate already has a driver, ${device}. Approving adds this driver to the same multicab; both keep working and share its beacon. To replace that phone instead, retire it in Drivers.`,
       approve: 'Approve',
       reject: 'Reject',
       confirmApprove: (plate: string, route: string, phone: string) =>
         `Approve ${plate} on route ${route}?\n\nThis sends one text to ${phone}: "You're approved. Open Tunton Driver while connected to the internet."`,
-      confirmReplace: (device: string) => `\n\n${device} stops working when the new phone collects its setup.`,
+      confirmReplace: (device: string) => `\n\n${device} keeps working: both drivers share this multicab.`,
       reasonLabel: 'Reason the driver sees',
       // 2026-11-19 (owner): the LTFRB checklist. Each check is marked by eye; the LTFRB list is checked
       // outside the console, and nothing from it is kept.
@@ -2067,7 +2068,9 @@ export const en = {
       },
       retire: 'Retire',
       confirmRetire: (device: string, plate: string) =>
-        `Retire ${device} (${plate})?\n\nThe phone stops working at once, and the multicab gets a new beacon secret. This sends the phone one text, so the driver app says it was removed. To use the app again, the driver registers again.`,
+        `Retire ${device} (${plate})?\n\nThe phone stops working at once. If no other driver of this multicab is active, the multicab also gets a new beacon secret. This sends the phone one text, so the driver app says it was removed. To use the app again, the driver registers again. Other drivers of this multicab keep working.`,
+      // Abang (2026-11-22): the other drivers of the same multicab
+      alsoOnPlate: (devices: readonly string[]) => `Also on this plate: ${devices.join(', ')}`,
       retired: (device: string) => `${device} is retired.`,
     },
     settings: {

@@ -5,6 +5,7 @@ import {
   filterDrivers,
   listedRoutes,
   localPhNumber,
+  platePartners,
   type ConsoleDriver,
   type ConsoleRegistration,
 } from '@/shared/driver/registrationConsole';
@@ -157,6 +158,8 @@ export function Drivers({ api, registrations }: { api: ConsoleApi; registrations
                       </td>
                       <td>
                         <span className="plate small">{driver.plate}</span>
+                        {/* Abang: the other drivers of this multicab */}
+                        {rows && platePartners(driver, rows).length > 0 && <span className="muted small plate-partners">{t.alsoOnPlate(platePartners(driver, rows))}</span>}
                       </td>
                       <td>
                         <span className="chip-code">{driver.route_id}</span>

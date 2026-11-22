@@ -20,14 +20,19 @@ const RETIRE_NOTICE = '20261028000000_retire_notice.sql';
 const RETIRE_NOTICE_DATA = '20261029000000_retire_notice_data.sql';
 // 2026-11-19 (owner): the LTFRB selfie registration, which keeps a registering driver's name
 const LTFRB_REGISTRATION = '20261119000000_ltfrb_selfie_registration.sql';
+// 2026-11-22 (owner): abang, several drivers on one plate
+const ABANG = '20261122000000_abang_shared_plate.sql';
 const DRIVER_SIDE_FILES = FILES.filter(
   (name) =>
     name.startsWith('20261013') ||
     name === DRIVER_REGISTRATION ||
     name === RETIRE_NOTICE ||
     name === RETIRE_NOTICE_DATA ||
-    name === LTFRB_REGISTRATION,
+    name === LTFRB_REGISTRATION ||
+    name === ABANG,
 );
+// The one drop in the migrations: abang replaces the one-phone-per-vehicle index (a rule, not data)
+const ALLOWED_DROP = 'drop index if exists public.driver_devices_one_active_per_vehicle';
 
 const read = (names: string[]) =>
   names
@@ -345,8 +350,9 @@ describe('migration: row level security and grants', () => {
     expect(published).toEqual(['alter publication supabase_realtime add table public.telemetry_latest']);
   });
 
-  it('contains no destructive statement', () => {
-    expect(statements.filter((s) => /^(drop|truncate|delete) /.test(s))).toEqual([]);
+  it('contains no destructive statement (apart from the one index abang replaces)', () => {
+    expect(statements.filter((s) => /^(drop|truncate|delete) /.test(s) && s !== ALLOWED_DROP)).toEqual([]);
+    expect(statements.filter((s) => s === ALLOWED_DROP)).toHaveLength(1);
   });
 });
 
@@ -825,5 +831,50 @@ describe('migration: LTFRB selfie registration (2026-11-19)', () => {
   it('removes nothing, and stores nothing from the LTFRB list', () => {
     expect(ltfrbSql).not.toMatch(/\b(drop|truncate)\b|delete from/);
     expect(ltfrbSql).not.toMatch(/ltfrb_list|create table/);
+  });
+});
+
+describe('migration: abang, several drivers on one plate (2026-11-22)', () => {
+  const abangSql = read([ABANG]);
+  const abangStatements = abangSql
+    .split(';')
+    .map((statement) => statement.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  const body = (name: string) => [...abangSql.matchAll(/create or replace function ([\w.]+)\([^$]*\$\$([\s\S]*?)\$\$/g)].find((m) => m[1] === name)![2];
+
+  it('allows one active phone per number instead of one per vehicle', () => {
+    expect(abangStatements).toContain(ALLOWED_DROP);
+    expect(abangStatements).toContain('create unique index driver_devices_one_active_per_phone on public.driver_devices (phone_e164) where active');
+  });
+
+  it('provisions a second phone on a multicab with its beacon secret, and refuses a number already active', () => {
+    const provision = body('public.admin_provision_driver');
+    expect(provision).toContain('where d.phone_e164 = phone and d.active');
+    expect(provision).not.toContain('where d.vehicle_id = vehicle and d.active;');
+    expect(provision).toContain("raise exception 'vehicle % is shared: give the new phone its beacon secret'");
+    // The secret is replaced only when no other phone of the multicab is active
+    expect(provision.indexOf('if shared then')).toBeLessThan(provision.indexOf('perform vault.update_secret(beacon_id, beacon_secret)'));
+  });
+
+  it('collects a setup without retiring the other drivers of the plate', () => {
+    const collect = body('public.registration_collect');
+    expect(collect).toContain('where d.active and d.phone_e164 = reg.phone_e164');
+    expect(collect).not.toContain("replace(v.plate, ' ', '')");
+    expect(collect).toContain('if stored is not null then beacon := stored; end if;');
+  });
+
+  it('retires one driver only: the beacon secret changes only when no driver of the multicab is left', () => {
+    const retire = body('public.admin_retire_device');
+    expect(retire).toContain('and not exists (select 1 from public.driver_devices d where d.vehicle_id = vehicle and d.active) then');
+    expect(retire).toContain('update public.driver_devices d set active = false, retired_at = now() where d.device_id = device');
+    expect(retire).toContain('update public.driver_registrations r set full_name = null where r.device_id = device');
+  });
+
+  it('keeps the functions to the service role, and deletes no row', () => {
+    for (const fn of ['admin_provision_driver(text, text, text, text, integer, text, text, text)', 'admin_retire_device(text, text)', 'registration_collect(text, integer)']) {
+      expect(abangStatements).toContain(`revoke execute on function public.${fn} from public, anon, authenticated`);
+      expect(abangStatements).toContain(`grant execute on function public.${fn} to service_role`);
+    }
+    expect(abangSql).not.toMatch(/\btruncate\b|delete from|update public\.driver_devices d set (?!active = false)/);
   });
 });

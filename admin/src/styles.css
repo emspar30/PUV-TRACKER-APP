@@ -80,6 +80,11 @@ a {
   color: var(--textSecondary);
 }
 
+.plate-partners {
+  display: block;
+  margin-top: 4px;
+}
+
 .small {
   font-size: 13px;
 }

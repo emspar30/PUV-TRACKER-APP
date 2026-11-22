@@ -205,6 +205,21 @@ helper) is DONE.
 - **Alerts while stopped:** unchanged, they use the distance (tests in `eta.test.ts`).
 - **Field test logging:** already built (S10); unchanged.
 
+### Phase 3 as built (2026-11-22, branch `feat/abang`)
+
+- Migration `supabase/migrations/20261122000000_abang_shared_plate.sql`: one active phone per number
+  (replacing one per vehicle; the old index is dropped, no row changes); `admin_provision_driver`,
+  `registration_collect` and `admin_retire_device` replaced in place as in DRIVER_CHANGES_PLAN Part A.
+- One marker per multicab: the drivers share the vehicle (route and plate) and its beacon secret, and
+  markers and relays are keyed by vehicle, so two phones on at once still read as one multicab.
+- Plate normalisation: `normalizePlate` (`supabase/functions/_shared/registrationRules.ts`), already
+  shared by the app and the Edge Function; the database keeps its check and compares without spaces.
+- Same phone and same plate twice: the number is unique among active phones; Set up again retires
+  the old one first.
+- Admin: "Also on this plate" in Drivers (`platePartners`); the registration warning and the retire
+  confirmation say the other drivers keep working.
+- Not built (owner): the takeover step. SMS keeps going to every active phone on the route.
+
 ## 3. Plan (after your answers)
 
 ### Phase 1: `feat/selfie-ltfrb`

@@ -14,6 +14,7 @@ import {
   mayReject,
   onRoute,
   photosLeft,
+  platePartners,
   REGISTRATION_TABS,
   rejectionReason,
   rowsInTab,
@@ -346,5 +347,19 @@ describe('deleting the photos after a decision', () => {
       async () => ({ ok: false, error: 'photos_not_deleted' }),
     );
     expect(result).toEqual({ ok: true, value: null });
+  });
+});
+
+describe('abang: other drivers on the same plate', () => {
+  const drivers = [
+    { device_id: 'DRV-0027', plate: 'ABC 1234' },
+    { device_id: 'DRV-0031', plate: 'abc1234' },
+    { device_id: 'DRV-0040', plate: 'XYZ 999' },
+  ];
+
+  it('lists the other driver IDs on the plate, spaces and case ignored', () => {
+    expect(platePartners(drivers[0], drivers)).toEqual(['DRV-0031']);
+    expect(platePartners(drivers[1], drivers)).toEqual(['DRV-0027']);
+    expect(platePartners(drivers[2], drivers)).toEqual([]);
   });
 });
