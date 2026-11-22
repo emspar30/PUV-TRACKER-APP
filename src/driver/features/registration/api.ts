@@ -1,5 +1,6 @@
 import { DRIVER_REQUEST_TIMEOUT_MS } from '@/shared/config';
 import { encodeProvisioning, parseProvisioning, type DriverProvisioning } from '@/shared/driver/provisioning';
+import type { DocumentType } from '@/shared/driver/registration';
 
 // DRG4: the driver app's only calls to the cloud (PRD 6.2's setup exception, 9.5): the
 // driver-registration Edge Function, with a plain fetch and the publishable key. The driver app has
@@ -39,8 +40,12 @@ export async function callRegistration<T>(body: Record<string, unknown>): Promis
 export const startRegistration = (phone: string) =>
   callRegistration<{ phone: string; check: string; uploads: { id: string; vehicle: string }; submitWithinS: number }>({ action: 'start', phone });
 
-export const submitRegistration = (check: string, plate: string, route: string) =>
-  callRegistration<{ plate: string; route: string; token: string }>({ action: 'submit', check, plate, route });
+// 2026-11-19: with the name on the LTFRB document, which document, and when the selfie was taken
+// (null if unknown; the server drops a time that does not fit, never the registration)
+export type Submission = { check: string; plate: string; route: string; name: string; document: DocumentType; selfieAtMs: number | null };
+
+export const submitRegistration = ({ check, plate, route, name, document, selfieAtMs }: Submission) =>
+  callRegistration<{ plate: string; route: string; token: string }>({ action: 'submit', check, plate, route, name, document, selfieAtMs });
 
 export const registrationStatus = (token: string) => callRegistration<{ status: string; reason: string | null }>({ action: 'status', token });
 

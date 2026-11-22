@@ -18,7 +18,9 @@ import {
   Settings,
   ShieldCheck,
   Smartphone,
+  SwitchCamera,
   TriangleAlert,
+  UserRound,
   Wifi,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -34,7 +36,7 @@ import { LineBadge } from '@/components/Pills';
 import { StepHeader } from '@/components/StepHeader';
 import { REGISTRATION_PHOTO_QUALITY, REGISTRATION_STATUS_POLL_S } from '@/shared/config';
 import { localPhDigits, localPhNumber, normalizePhNumber } from '@/shared/driver/phone';
-import { normalizePlate } from '@/shared/driver/registration';
+import { DOCUMENT_TYPES, normalizeDriverName, normalizePlate, type DocumentType } from '@/shared/driver/registration';
 import { checkFresh, mayCollect, mustRegisterAgain, pickPictureSize, resumeStep, waitingStatus, type WaitingStatus } from '@/shared/driver/registrationFlow';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, motion, radii, spacing, useTheme } from '@/theme';
@@ -52,7 +54,8 @@ import { useRegistrationStore } from '../state/registrationStore';
 // DRG4: registering this driver phone (PRD 9.5; docs/IMPLEMENTATION_PLAN_DRIVER_REGISTRATION.md). The
 // driver allows Nearby devices, notifications and text messages first (the number check arrives by
 // text), gives the number (the check is read from the inbox by itself), the plate and route, and
-// two photos, then waits for an admin. Once approved, the app collects its setup, once, and sets the
+// two photos, then waits for an admin. 2026-11-19 (owner): the driver also types the full name as on
+// their LTFRB document and picks which document it is; the first photo is a selfie holding it. Once approved, the app collects its setup, once, and sets the
 // phone up as the QR did. What is done is remembered (registrationStore), so a restart picks up there.
 // The setup QR stays available ("Use a setup code") for development and testing.
 
@@ -63,13 +66,14 @@ type Step =
   | { kind: 'permissions'; denied: 'nearby' | 'sms' | null }
   | { kind: 'number' }
   | { kind: 'vehicle' }
+  | { kind: 'driver' }
   | { kind: 'photos' }
   | { kind: 'review' }
   | { kind: 'waiting' }
   | { kind: 'done' };
 
-const STEP_NUMBER: Record<Step['kind'], number> = { welcome: 1, permissions: 2, number: 3, vehicle: 4, photos: 5, review: 6, waiting: 7, done: 7 };
-const STEP_COUNT = 7;
+const STEP_NUMBER: Record<Step['kind'], number> = { welcome: 1, permissions: 2, number: 3, vehicle: 4, driver: 5, photos: 6, review: 7, waiting: 8, done: 8 };
+const STEP_COUNT = 8;
 const CAMERA_HEIGHT = 360;
 const THUMB_SIZE = spacing.xl * 3;
 const DONE_MARK = spacing.xl * 3;
@@ -109,7 +113,8 @@ export default function Register() {
     permissions: { kind: 'welcome' },
     number: { kind: 'permissions', denied: null },
     vehicle: { kind: 'number' },
-    photos: { kind: 'vehicle' },
+    driver: { kind: 'vehicle' },
+    photos: { kind: 'driver' },
     review: { kind: 'photos' },
   };
   const previous = PREVIOUS[step.kind] ?? null;
@@ -151,7 +156,11 @@ export default function Register() {
       break;
 
     case 'vehicle':
-      body = <VehicleStep onDone={() => go({ kind: 'photos' })} />;
+      body = <VehicleStep onDone={() => go({ kind: 'driver' })} />;
+      break;
+
+    case 'driver':
+      body = <DriverStep onDone={() => go({ kind: 'photos' })} />;
       break;
 
     case 'photos':
@@ -178,6 +187,8 @@ export default function Register() {
                 <Text style={[typography.labelLg, { color: colors.primary }]}>{text.reviewEdit}</Text>
               </Pressable>
             </View>
+            <Row label={text.reviewName} value={progress.fullName ?? ''} />
+            <Row label={text.reviewDocument} value={progress.document ? text.documents[progress.document] : ''} />
             <Row label={text.reviewPlate} value={progress.plate ?? ''} />
             <Row label={text.reviewRoute} value={route ? `${strings.driver.route(route.routeCode)} · ${route.name}` : ''} />
             <Row label={text.reviewPhotos} value={text.reviewPhotosSent} />
@@ -192,8 +203,16 @@ export default function Register() {
           disabled={busy}
           onPress={async () => {
             if (!progress.check || !progress.plate || !progress.route) return go({ kind: 'welcome' });
+            if (!progress.fullName || !progress.document) return go({ kind: 'driver' });
             setBusy(true);
-            const result = await submitRegistration(progress.check, progress.plate, progress.route);
+            const result = await submitRegistration({
+              check: progress.check,
+              plate: progress.plate,
+              route: progress.route,
+              name: progress.fullName,
+              document: progress.document,
+              selfieAtMs: progress.selfieAtMs,
+            });
             setBusy(false);
             if (result.ok) {
               useRegistrationStore.getState().setToken(result.token);
@@ -201,6 +220,7 @@ export default function Register() {
               return;
             }
             if (result.error === 'photos_missing') return go({ kind: 'photos' });
+            if (result.error === 'invalid_name' || result.error === 'invalid_document') return go({ kind: 'driver' });
             if (result.error === 'check_not_verified') {
               // Over an hour since the number check: start again, saying why
               useRegistrationStore.getState().resetRegistration();
@@ -396,7 +416,56 @@ function VehicleStep({ onDone }: { onDone: () => void }) {
   );
 }
 
-// --- The two photos: each taken, then sent at once to its upload link
+// --- The name as written on the LTFRB document, and which document it is
+
+function DriverStep({ onDone }: { onDone: () => void }) {
+  const styles = useStyles();
+  const { colors, typography } = useTheme();
+  const text = strings.driver.register;
+  const saved = useRegistrationStore.getState();
+  const [name, setName] = useState(saved.fullName ?? '');
+  const [document, setDocument] = useState<DocumentType | null>(saved.document);
+  const [error, setError] = useState<string | null>(null);
+
+  const next = () => {
+    const normal = normalizeDriverName(name);
+    if (!normal) return setError(text.nameInvalid);
+    if (!document) return setError(text.documentPick);
+    useRegistrationStore.getState().setDriver(normal, document);
+    onDone();
+  };
+
+  return (
+    <>
+      <Intro title={text.driverTitle} />
+      <Text style={[typography.labelSm, styles.caps]}>{text.nameLabel}</Text>
+      <View style={styles.input}>
+        <UserRound color={colors.textSecondary} size={ICON_SIZE} />
+        <TextInput
+          style={[typography.bodyLg, styles.inputText]}
+          value={name}
+          onChangeText={setName}
+          placeholder={text.namePlaceholder}
+          placeholderTextColor={colors.textTertiary}
+          autoCapitalize="words"
+          autoComplete="name"
+          autoCorrect={false}
+          accessibilityLabel={text.nameLabel}
+        />
+      </View>
+      <Text style={[typography.labelSm, styles.caps]}>{text.documentLabel}</Text>
+      {DOCUMENT_TYPES.map((type) => (
+        <OptionRow key={type} icon={IdCard} title={text.documents[type]} selected={document === type} onPress={() => setDocument(type)} />
+      ))}
+      {error ? <Notice tone="danger" icon={CircleAlert} title={error} /> : null}
+      <Button label={text.next} icon={ArrowRight} onPress={next} />
+    </>
+  );
+}
+
+// --- The two photos: each taken, then sent at once to its upload link. The first is a selfie holding
+// the LTFRB document, so the camera starts on the front one; the driver may switch (someone else may
+// hold the phone). In-app camera only: no gallery.
 
 function PhotosStep({ onDone, onExpired }: { onDone: () => void; onExpired: () => void }) {
   const styles = useStyles();
@@ -409,7 +478,14 @@ function PhotosStep({ onDone, onExpired }: { onDone: () => void; onExpired: () =
   const [sending, setSending] = useState<Photo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [size, setSize] = useState<string | undefined>(undefined);
+  const [facing, setFacing] = useState<'front' | 'back'>('back');
   const view = useRef<CameraView>(null);
+
+  const open = (which: Photo) => {
+    setSize(undefined);
+    setFacing(which === 'id' ? 'front' : 'back');
+    setTaking(which);
+  };
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -423,13 +499,14 @@ function PhotosStep({ onDone, onExpired }: { onDone: () => void; onExpired: () =
     if (!uploads) return onExpired();
     const picture = await view.current?.takePictureAsync({ quality: REGISTRATION_PHOTO_QUALITY, shutterSound: false }).catch(() => undefined);
     if (!picture) return;
+    const takenAtMs = Date.now();
     setTaking(null);
     setPreviews((current) => ({ ...current, [which]: picture.uri }));
     setSending(which);
     setError(null);
     const outcome = await uploadPhoto(picture.uri, uploads[which]);
     setSending(null);
-    if (outcome === 'ok') useRegistrationStore.getState().setUploaded(which);
+    if (outcome === 'ok') useRegistrationStore.getState().setUploaded(which, takenAtMs);
     else setError(errorText(outcome === 'too_big' ? 'too_big' : outcome === 'offline' ? 'offline' : 'upload_failed'));
   };
 
@@ -442,9 +519,11 @@ function PhotosStep({ onDone, onExpired }: { onDone: () => void; onExpired: () =
         {camera?.granted ? (
           <View style={styles.cameraLive}>
             <CameraView
+              // A new camera offers other sizes: picked again once it is ready
+              key={facing}
               ref={view}
               style={styles.fill}
-              facing="back"
+              facing={facing}
               pictureSize={size}
               onCameraReady={() => {
                 view.current
@@ -461,7 +540,18 @@ function PhotosStep({ onDone, onExpired }: { onDone: () => void; onExpired: () =
           </Card>
         )}
         {camera?.granted ? (
-          <Button label={text.capture} leadingIcon={Camera} onPress={() => void capture(taking)} />
+          <>
+            <Button label={text.capture} leadingIcon={Camera} onPress={() => void capture(taking)} />
+            <Button
+              label={text.switchCamera}
+              leadingIcon={SwitchCamera}
+              variant="secondary"
+              onPress={() => {
+                setSize(undefined);
+                setFacing((current) => (current === 'front' ? 'back' : 'front'));
+              }}
+            />
+          </>
         ) : cameraBlocked ? (
           <Button label={strings.driver.setup.openSettings} leadingIcon={Settings} onPress={() => void Linking.openSettings()} />
         ) : (
@@ -488,7 +578,7 @@ function PhotosStep({ onDone, onExpired }: { onDone: () => void; onExpired: () =
           ) : undefined
         }
         below={
-          <Button label={done || previews[which] ? text.retake : text.takePhoto} leadingIcon={Camera} variant="secondary" disabled={sending !== null} onPress={() => setTaking(which)} />
+          <Button label={done || previews[which] ? text.retake : text.takePhoto} leadingIcon={Camera} variant="secondary" disabled={sending !== null} onPress={() => open(which)} />
         }
       />
     );
@@ -498,7 +588,7 @@ function PhotosStep({ onDone, onExpired }: { onDone: () => void; onExpired: () =
     <>
       <Intro title={text.photosTitle} />
       <OptionRow icon={ShieldCheck} title={text.consentTitle} subtitle={text.consentBody} />
-      {photoRow('id', text.photoId, text.photoIdHint, IdCard)}
+      {photoRow('id', text.photoId, text.photoIdHint, UserRound)}
       {photoRow('vehicle', text.photoVehicle, text.photoVehicleHint, Bus)}
       {error ? <Notice tone="danger" icon={CircleAlert} title={error} /> : null}
       <Button label={text.next} icon={ArrowRight} disabled={!progress.uploaded.id || !progress.uploaded.vehicle || sending !== null} onPress={onDone} />

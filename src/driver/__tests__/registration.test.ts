@@ -183,26 +183,43 @@ describe('the registration store', () => {
     const { store } = load();
     store.useRegistrationStore.getState().setChecked('+639171234567', CHECK, { id: 'https://upload/id', vehicle: 'https://upload/vehicle' }, 1000);
     store.useRegistrationStore.getState().setVehicle('ABC 1234', 'R4');
-    store.useRegistrationStore.getState().setUploaded('id');
+    store.useRegistrationStore.getState().setDriver('Juan Dela Cruz', 'academy_certificate');
+    store.useRegistrationStore.getState().setUploaded('id', 1500);
     store.useRegistrationStore.getState().setToken(TOKEN);
     const saved = [...mockSaved.values()].join('\n');
     expect(saved).not.toMatch(/file:\/\/|beaconSecret|smsKey/);
 
     const restarted = load().store.useRegistrationStore.getState();
-    expect(restarted).toMatchObject({ phone: '+639171234567', check: CHECK, checkedAtMs: 1000, plate: 'ABC 1234', route: 'R4', uploaded: { id: true, vehicle: false }, token: TOKEN });
+    expect(restarted).toMatchObject({
+      phone: '+639171234567',
+      check: CHECK,
+      checkedAtMs: 1000,
+      plate: 'ABC 1234',
+      route: 'R4',
+      fullName: 'Juan Dela Cruz',
+      document: 'academy_certificate',
+      selfieAtMs: 1500,
+      uploaded: { id: true, vehicle: false },
+      token: TOKEN,
+    });
   });
 
-  it('a new number starts the photos over and keeps the plate and route (an edit from "Check and send")', () => {
+  it('a new number starts the photos over and keeps the plate, route, name and document (an edit from "Check and send")', () => {
     const { store } = load();
     const state = store.useRegistrationStore.getState();
     state.setChecked('+639171234567', CHECK, { id: 'a', vehicle: 'b' }, 1000);
     state.setVehicle('ABC 1234', 'R4');
+    state.setDriver('Juan Dela Cruz', 'academy_id');
+    state.setUploaded('id', 1500);
     state.setUploaded('vehicle');
     state.setChecked('+639189876543', CHECK, { id: 'c', vehicle: 'd' }, 2000);
     expect(store.useRegistrationStore.getState()).toMatchObject({
       phone: '+639189876543',
       plate: 'ABC 1234',
       route: 'R4',
+      fullName: 'Juan Dela Cruz',
+      document: 'academy_id',
+      selfieAtMs: null,
       uploaded: { id: false, vehicle: false },
       uploads: { id: 'c', vehicle: 'd' },
     });
@@ -212,6 +229,7 @@ describe('the registration store', () => {
     const { store } = load();
     expect(store.validProgress('nonsense')).toMatchObject({ phone: null, token: null });
     expect(store.validProgress({ token: 'short', uploaded: { id: 'yes' } })).toMatchObject({ token: null, uploaded: { id: false, vehicle: false } });
+    expect(store.validProgress({ document: 'passport', fullName: 7, selfieAtMs: 'now' })).toMatchObject({ document: null, fullName: null, selfieAtMs: null });
   });
 });
 

@@ -20,6 +20,9 @@ const EMPTY: RegistrationProgress = {
   uploaded: { id: false, vehicle: false },
   plate: null,
   route: null,
+  fullName: null,
+  document: null,
+  selfieAtMs: null,
   token: null,
 };
 const CHECKED: RegistrationProgress = {
@@ -35,9 +38,12 @@ describe('resuming after a restart', () => {
     expect(resumeStep(EMPTY, NOW)).toBe('welcome');
   });
 
-  it('goes back to the plate, then the photos, then the review while the number check is fresh', () => {
+  it('goes back to the plate, then the name and document, then the photos, then the review while the number check is fresh', () => {
     expect(resumeStep(CHECKED, NOW)).toBe('vehicle');
-    const vehicle = { ...CHECKED, plate: 'ABC 1234', route: 'R4' };
+    const plateOnly = { ...CHECKED, plate: 'ABC 1234', route: 'R4' };
+    expect(resumeStep(plateOnly, NOW)).toBe('driver');
+    expect(resumeStep({ ...plateOnly, fullName: 'Juan Dela Cruz' }, NOW)).toBe('driver');
+    const vehicle = { ...plateOnly, fullName: 'Juan Dela Cruz', document: 'academy_id' as const };
     expect(resumeStep(vehicle, NOW)).toBe('photos');
     expect(resumeStep({ ...vehicle, uploaded: { id: true, vehicle: false } }, NOW)).toBe('photos');
     expect(resumeStep({ ...vehicle, uploaded: { id: true, vehicle: true } }, NOW)).toBe('review');

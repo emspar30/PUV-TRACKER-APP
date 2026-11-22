@@ -2,18 +2,22 @@ import Storage from 'expo-sqlite/kv-store';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { isInstallToken } from '@/shared/driver/registration';
+import { isDocumentType, isInstallToken, type DocumentType } from '@/shared/driver/registration';
 import type { RegistrationProgress } from '@/shared/driver/registrationFlow';
 
 // DRG4: what the driver phone remembers while it registers (PRD 9.5), so a restart picks up where it
 // was: the number checked, the plate and route, which photos are uploaded, and after submission the
 // install token. The token is kept in the app's private storage (owner decision D2): it works once,
 // only for collecting this phone's setup after approval. No photo, code or setup secret is kept here.
+// 2026-11-19: also the driver's name and LTFRB document type, and when the selfie was taken; all of it
+// is cleared once the setup is collected or the registration starts over.
 
 type RegistrationState = RegistrationProgress & {
   setChecked: (phone: string, check: string, uploads: { id: string; vehicle: string }, atMs: number) => void;
   setVehicle: (plate: string, route: string) => void;
-  setUploaded: (which: 'id' | 'vehicle') => void;
+  setDriver: (fullName: string, document: DocumentType) => void;
+  // atMs: when the photo was taken (kept for the selfie only)
+  setUploaded: (which: 'id' | 'vehicle', atMs?: number) => void;
   setToken: (token: string) => void;
   resetRegistration: () => void;
 };
@@ -26,6 +30,9 @@ const EMPTY: RegistrationProgress = {
   uploaded: { id: false, vehicle: false },
   plate: null,
   route: null,
+  fullName: null,
+  document: null,
+  selfieAtMs: null,
   token: null,
 };
 
@@ -55,6 +62,9 @@ export function validProgress(value: unknown): RegistrationProgress {
     uploaded: { id: uploaded?.id === true, vehicle: uploaded?.vehicle === true },
     plate: stringOrNull(saved.plate),
     route: stringOrNull(saved.route),
+    fullName: stringOrNull(saved.fullName),
+    document: isString(saved.document) && isDocumentType(saved.document) ? saved.document : null,
+    selfieAtMs: typeof saved.selfieAtMs === 'number' ? saved.selfieAtMs : null,
     token: token && isInstallToken(token) ? token : null,
   };
 }
@@ -64,18 +74,42 @@ export const useRegistrationStore = create<RegistrationState>()(
     (set) => ({
       ...EMPTY,
       // A new number (a new check) starts the photos over, since they are stored under the check; the
-      // plate and route typed before stay
+      // plate, route, name and document typed before stay
       setChecked: (phone, check, uploads, atMs) =>
-        set((state) => ({ ...EMPTY, phone, check, uploads, checkedAtMs: atMs, plate: state.plate, route: state.route })),
+        set((state) => ({
+          ...EMPTY,
+          phone,
+          check,
+          uploads,
+          checkedAtMs: atMs,
+          plate: state.plate,
+          route: state.route,
+          fullName: state.fullName,
+          document: state.document,
+        })),
       setVehicle: (plate, route) => set({ plate, route }),
-      setUploaded: (which) => set((state) => ({ uploaded: { ...state.uploaded, [which]: true } })),
+      setDriver: (fullName, document) => set({ fullName, document }),
+      setUploaded: (which, atMs) =>
+        set((state) => ({ uploaded: { ...state.uploaded, [which]: true }, ...(which === 'id' ? { selfieAtMs: atMs ?? null } : {}) })),
       setToken: (token) => set({ token }),
       resetRegistration: () => set(EMPTY),
     }),
     {
       name: 'driver-registration',
       storage: deviceStorage,
-      partialize: ({ phone, check, checkedAtMs, uploads, uploaded, plate, route, token }) => ({ phone, check, checkedAtMs, uploads, uploaded, plate, route, token }),
+      partialize: ({ phone, check, checkedAtMs, uploads, uploaded, plate, route, fullName, document, selfieAtMs, token }) => ({
+        phone,
+        check,
+        checkedAtMs,
+        uploads,
+        uploaded,
+        plate,
+        route,
+        fullName,
+        document,
+        selfieAtMs,
+        token,
+      }),
       merge: (persisted, current) => ({ ...current, ...validProgress(persisted) }),
     },
   ),

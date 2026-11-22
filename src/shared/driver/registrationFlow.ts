@@ -1,4 +1,5 @@
 import { REGISTRATION_PHOTO_MAX_BYTES, REGISTRATION_PHOTO_MAX_PX, REGISTRATION_SUBMIT_WITHIN_MIN } from '../config';
+import type { DocumentType } from './registration';
 
 // The driver app's registration flow (DRG4; PRD 9.5), as pure rules: where to pick up after the app
 // was closed, which camera size keeps a photo small, and what the app may do with each status.
@@ -16,18 +17,24 @@ export type RegistrationProgress = {
   uploaded: { id: boolean; vehicle: boolean };
   plate: string | null;
   route: string | null;
+  // 2026-11-19 (owner): the name as written on the LTFRB document, which document, and when the
+  // selfie holding it was taken (null until the selfie is sent)
+  fullName: string | null;
+  document: DocumentType | null;
+  selfieAtMs: number | null;
   // Returned once at submission; from then on the phone only waits
   token: string | null;
 };
 
-export type RegistrationStep = 'welcome' | 'vehicle' | 'photos' | 'review' | 'waiting';
+export type RegistrationStep = 'welcome' | 'vehicle' | 'driver' | 'photos' | 'review' | 'waiting';
 
 // After a restart: waiting once submitted; back at the plate while the number check is still fresh
-// (the photos follow it); otherwise from the start
+// (the name and document, then the photos, follow it); otherwise from the start
 export function resumeStep(progress: RegistrationProgress, nowMs: number): RegistrationStep {
   if (progress.token) return 'waiting';
   if (!checkFresh(progress, nowMs)) return 'welcome';
   if (!progress.plate || !progress.route) return 'vehicle';
+  if (!progress.fullName || !progress.document) return 'driver';
   if (!progress.uploaded.id || !progress.uploaded.vehicle) return 'photos';
   return 'review';
 }
