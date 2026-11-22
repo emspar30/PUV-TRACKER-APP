@@ -6,11 +6,11 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { Button, Screen } from '@/components';
 import { sendPasswordReset, signInWithPassword, signUpWithPassword } from '@/services/auth';
 import { syncUsername } from '@/state/usernameStore';
+import { PASSWORD_MIN_LENGTH } from '@/shared/config';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
 // Supabase asks for at least this many characters
-const PASSWORD_MIN_LENGTH = 6;
 const ICON_SIZE = spacing.md + spacing.xs;
 
 type Mode = 'signIn' | 'signUp';

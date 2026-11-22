@@ -863,6 +863,9 @@ export const REGISTRATION_PHOTO_QUALITY = 0.6;
 export const CONSOLE_PHOTO_LINK_TTL_S = 300;
 // 2026-11-22: the admin activity list on the console's Settings page shows the newest this many
 export const CONSOLE_LOG_ROWS = 50;
+// Sign-up passwords: at least this long. Supabase Auth refuses shorter ones too (dashboard,
+// Authentication, Email, Minimum password length: 8, set 2026-11-22 after the Security Advisor)
+export const PASSWORD_MIN_LENGTH = 8;
 export const CONSOLE_REFRESH_S = 30;
 export const REGISTRATION_NOTICE_TTL_MIN = 1440;
 export const REGISTRATION_REASON_MAX_CHARS = 200;
