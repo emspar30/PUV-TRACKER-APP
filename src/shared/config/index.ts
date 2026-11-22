@@ -551,6 +551,19 @@ export const TRUST_LEVEL_MIN_REPORTS = 10;
 export const FLAG_TAGS = ['false_location', 'spamming', 'not_a_puv'] as const;
 export type FlagTag = (typeof FLAG_TAGS)[number];
 export const APPEAL_MAX_CHARS = 500;
+// Automatic moderation (owner, 2026-11-23; migration 20261123000000_auto_moderation.sql, whose
+// app_config holds the same values): after a first suspension, BAN_STRIKES new strikes within
+// SUSPENSION_WINDOW_DAYS ban the account. A ban is a suspension more than BAN_READS_AFTER_YEARS ahead
+// (the server stores it BAN_YEARS ahead). The console's Moderation page lists flagged posts of the
+// last MODERATION_LIST_DAYS; a manual suspension lasts 1 to MANUAL_SUSPEND_MAX_DAYS days.
+export const BAN_STRIKES = 2;
+export const BAN_YEARS = 100;
+export const BAN_READS_AFTER_YEARS = 10;
+export const MODERATION_LIST_DAYS = 7;
+export const MANUAL_SUSPEND_MAX_DAYS = 30;
+export const MANUAL_SUSPEND_DEFAULT_DAYS = 7;
+export const SUSPEND_REASONS = ['false_location', 'spamming', 'not_a_puv', 'abusive', 'other'] as const;
+export type SuspendReason = (typeof SUSPEND_REASONS)[number];
 // RL1 (PRD 8.1 step 8): a relay with GPS ends RELAY_ARRIVAL_COUNTDOWN_S after the rider comes within
 // RELAY_ARRIVAL_RADIUS_M of the destination they picked; leaving that radius cancels the countdown
 export const RELAY_ARRIVAL_RADIUS_M = 50;

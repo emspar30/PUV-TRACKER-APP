@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { CONSOLE_LOG_ROWS, CONSOLE_PHOTO_LINK_TTL_S, REGISTRATION_NOTICE_TTL_MIN } from '@/shared/config';
+import type { SuspendReason } from '@/shared/config';
 import { hashAdminPin } from '@/shared/driver/provisioning';
 import type { ReviewChecks } from '@/shared/driver/registration';
 import {
@@ -12,6 +13,7 @@ import {
   type ConsoleResult,
   type DecidedPhotos,
 } from '@/shared/driver/registrationConsole';
+import type { FlaggedPost, FoundAccount, ModerationWaiting, PendingAppeal, Suspension } from '@/shared/moderation/console';
 
 // DRG5: everything the console does (PRD 9.5). It goes through the console_* database functions, which
 // check is_admin() first, and the private photo bucket, which only the admin account may read and
@@ -26,7 +28,22 @@ const NOT_ADMIN_CODE = '42501';
 export type Outcome<T> = ConsoleResult<T>;
 
 // The database's own refusals, which errors.ts words for the admin
-const KNOWN_ERRORS = ['not_pending', 'checks_not_passed', 'no_failed_check', 'reason_needed', 'invalid_checks'];
+const KNOWN_ERRORS = [
+  'not_pending',
+  'checks_not_passed',
+  'no_failed_check',
+  'reason_needed',
+  'invalid_checks',
+  // 2026-11-23: moderation
+  'already_struck',
+  'no_such_post',
+  'no_such_appeal',
+  'not_suspended',
+  'is_admin_account',
+  'no_such_account',
+  'bad_days',
+  'bad_reason',
+];
 
 function failure(error: { code?: string; message: string }): { ok: false; error: string } {
   if (error.code === NOT_ADMIN_CODE) return { ok: false, error: 'not_admin' };
@@ -125,6 +142,22 @@ export function consoleApi(client: SupabaseClient) {
 
     // 2026-11-22: the newest admin actions (approve, reject, retire, PIN change), with who and when
     adminLog: () => rpc<ConsoleLogEntry[]>('console_admin_log', { max_rows: CONSOLE_LOG_ROWS }),
+
+    // 2026-11-23: moderation (migration 20261123000000_auto_moderation.sql)
+    moderationWaiting: async (): Promise<Outcome<ModerationWaiting>> => {
+      const result = await rpc<ModerationWaiting[]>('console_moderation_waiting');
+      return result.ok ? { ok: true, value: result.value[0] ?? { reviews: 0, appeals: 0 } } : result;
+    },
+    flaggedPosts: () => rpc<FlaggedPost[]>('console_flagged_posts'),
+    confirmReport: (postId: number) => rpc<number>('console_confirm_report', { post: postId }),
+    dismissReport: (postId: number) => rpc<null>('console_dismiss_report', { post: postId }),
+    appeals: () => rpc<PendingAppeal[]>('console_appeals'),
+    decideAppeal: (appealId: number, upheld: boolean) => rpc<null>('console_decide_appeal', { appeal: appealId, upheld }),
+    suspensions: () => rpc<Suspension[]>('console_suspensions'),
+    findAccounts: (nameStart: string) => rpc<FoundAccount[]>('console_find_accounts', { name_start: nameStart }),
+    suspend: (accountId: string, days: number, permanent: boolean, reason: SuspendReason) =>
+      rpc<string>('console_suspend', { account: accountId, days: permanent ? null : days, permanent, reason }),
+    lift: (accountId: string) => rpc<null>('console_lift', { account: accountId }),
 
     // Only the salted hash leaves the page (D5), in the form the setup payload carries
     setPin(pin: string): Promise<Outcome<null>> {

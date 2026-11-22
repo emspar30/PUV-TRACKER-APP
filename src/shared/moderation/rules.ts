@@ -3,6 +3,8 @@
 
 import {
   APPEAL_WINDOW_DAYS,
+  BAN_READS_AFTER_YEARS,
+  BAN_STRIKES,
   FLAG_MIN_ACCOUNT_DAYS,
   FLAG_WEIGHT_MIN_AGE_H,
   MERIT_MAX,
@@ -21,7 +23,8 @@ const PERCENT = 100;
 const SAME_AUTHOR_MIN = 3;
 const FLAG_HISTORY = 5;
 
-export type StrikeReason = 'confirmed_report' | 'auto_evidence';
+// flagged_unverified (2026-11-23): hidden by flags and not a verified ride
+export type StrikeReason = 'confirmed_report' | 'auto_evidence' | 'flagged_unverified';
 export type AppealState = 'none' | 'pending' | 'upheld' | 'rejected';
 
 export type Strike = {
@@ -70,4 +73,40 @@ export function flagWeighted(accountMs: number, nowMs: number, recentAuthors: re
 
 export function mayAppeal(strike: Strike, nowMs: number): boolean {
   return strike.appealState === 'none' && !strike.lifted && nowMs - strike.createdMs <= APPEAL_WINDOW_DAYS * MS_PER_DAY;
+}
+
+// --- Automatic moderation (owner, 2026-11-23; migration 20261123000000_auto_moderation.sql) ---
+
+const DAYS_PER_YEAR = 365;
+
+// The strike a post gets when flags hide it: phone evidence first; else none for a verified ride (an
+// admin decides), else flagged_unverified
+export function autoStrike(hasRiskEvent: boolean, verifiedRide: boolean): StrikeReason | null {
+  if (hasRiskEvent) return 'auto_evidence';
+  return verifiedRide ? null : 'flagged_unverified';
+}
+
+// A hidden verified ride with no strike waits for the admin's decision
+export function needsReview(post: { hidden: boolean; verified: boolean; struck: boolean }): boolean {
+  return post.hidden && post.verified && !post.struck;
+}
+
+// A suspension this far ahead is a ban
+export function isBan(untilMs: number | null, nowMs: number): boolean {
+  return untilMs !== null && untilMs > nowMs + BAN_READS_AFTER_YEARS * DAYS_PER_YEAR * MS_PER_DAY;
+}
+
+// What the rules do next, as moderation_settle: a first suspension at SUSPENSION_STRIKES strikes in the
+// window; after one, a ban at BAN_STRIKES strikes made since it started
+export function settleOutcome(
+  strikes: readonly Strike[],
+  account: { suspensions: number; lastSuspendedMs: number | null; suspendedUntilMs: number | null },
+  nowMs: number,
+): 'none' | 'suspend' | 'ban' {
+  if (account.suspendedUntilMs !== null && account.suspendedUntilMs > nowMs) return 'none';
+  const since = nowMs - SUSPENSION_WINDOW_DAYS * MS_PER_DAY;
+  const counted = strikes.filter((strike) => strikeCounts(strike, nowMs) && strike.createdMs >= since);
+  if (account.suspensions === 0) return counted.length >= SUSPENSION_STRIKES ? 'suspend' : 'none';
+  const fresh = counted.filter((strike) => account.lastSuspendedMs !== null && strike.createdMs >= account.lastSuspendedMs);
+  return fresh.length >= BAN_STRIKES ? 'ban' : 'none';
 }

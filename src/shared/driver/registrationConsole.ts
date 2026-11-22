@@ -231,7 +231,20 @@ export function platePartners(driver: Pick<ConsoleDriver, 'device_id' | 'plate'>
 
 // --- Admin activity (owner, 2026-11-22): what console_admin_log returns. actor is the admin's account
 // id, null for an action by the service role or the SQL editor
-export type AdminLogAction = 'approve' | 'reject' | 'retire' | 'pin_change';
+// 2026-11-23: plus the moderation log (migration 20261123000000_auto_moderation.sql)
+export type AdminLogAction =
+  | 'approve'
+  | 'reject'
+  | 'retire'
+  | 'pin_change'
+  | 'confirm'
+  | 'dismiss'
+  | 'strike'
+  | 'suspend'
+  | 'ban'
+  | 'lift'
+  | 'appeal_upheld'
+  | 'appeal_denied';
 export type ConsoleLogEntry = { at: string; actor: string | null; action: AdminLogAction; target: string | null; detail: string | null };
 
 const ACTOR_ID_SHOWN = 8;

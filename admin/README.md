@@ -70,6 +70,23 @@ The console signs out after 20 minutes without a click, key press, scroll or tou
 (`ADMIN_IDLE_SIGNOUT_MIN`), and the sign-in page says why. This keeps a console left open on a shared
 PC from staying signed in.
 
+## Moderation (2026-11-23)
+
+The rules run by themselves (migration `20261123000000_auto_moderation.sql`):
+
+- A flag tells the report's author at once (never who flagged).
+- 3 weighted flags hide a report. If it was not a verified ride, its author gets a strike.
+- A hidden report that was a verified ride gets no strike: it shows on the Moderation tab as
+  **Needs you**, because the evidence conflicts. Confirm gives the strike; Dismiss shows the report
+  again and lifts any strike it gave.
+- 2 strikes within 30 days: a 7-day suspension. After a suspension, 2 new strikes within 30 days: a
+  permanent ban. The device ban applies both to every account on the same phone.
+- Appeals wait on the Moderation tab. Uphold lifts the strike and any suspension or ban it caused.
+- Suspend an account lets you suspend (1 to 30 days) or ban by hand, with a reason. Lift ends one early.
+
+The tab's count is what needs you: flagged verified rides and appeals. Every action, automatic or yours,
+is listed in Admin activity on Settings.
+
 ## Admin activity (2026-11-22)
 
 Settings lists the newest 50 admin actions: approvals, rejections, retired phones and PIN changes,

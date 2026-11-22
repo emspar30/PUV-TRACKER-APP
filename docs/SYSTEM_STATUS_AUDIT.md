@@ -31,7 +31,9 @@ changed since the first version of this audit.
    - **Admin console idle sign-out** after 20 minutes without activity (web; no APK needed).
    - **Backup authenticators:** the admin can add up to 2 more authenticator apps on other phones in
      Settings, so a lost phone does not lock the console (web; no APK needed).
-6. **New APKs built** on 2026-11-22 from `bd1345c`: commuter (EAS build `0dbacde9`) and driver (EAS
+6. **Automatic moderation and the console's Moderation page** (2026-11-23, web part built, its
+   migration to apply; the commuter app's part is a later step). See 3.3 and 5.
+7. **New APKs built** on 2026-11-22 from `bd1345c`: commuter (EAS build `0dbacde9`) and driver (EAS
    build `c89c010e`). Both builds finished without errors. The driver build is the first compile of
    the screen-off beacon change of 2026-11-16. **Neither APK is installed and phone-checked yet.**
 
@@ -130,7 +132,7 @@ and automatic tests done, not yet checked on a phone, or only partly), **Partial
 | Verification window (speed, route line, distance) and in-vehicle detection | Built | Thresholds are starting values; need field rides |
 | Two riders on one multicab (Primary and Secondary, take-over after 90 s) | Built | Needs a two-phone ride |
 | Crowdsource feed, flags (3 flags hide a post), Trusted badge | Phone-checked | |
-| Moderation: strikes, 7-day suspensions, Merit shields, appeals | Built | No moderator screen; moderators use SQL functions in the Supabase dashboard |
+| Moderation: strikes, 7-day suspensions, Merit shields, appeals | Built | Since 2026-11-23 automatic (see 5): a flag notifies the author; a report hidden by 3 weighted flags gives a strike unless it was a verified ride; after a suspension, 2 new strikes give a permanent ban. The rider-side notices and red flag icon need the next commuter APK |
 | Device ban: a suspension covers every account used on the same phone | Built 2026-11-22, database change applied | At each sign-in the phone sends its Android ID; only a keyed HMAC-SHA256 of it is stored (key in Supabase Vault). A new account on a banned phone gets the same suspension, and lifting the ban (upheld appeal) lifts the copies. Evaded by a factory reset, another phone or a rooted phone; two people sharing one phone share a ban. Not phone-checked yet |
 | Known detour routes (Active Detour Mode) | Built | No detour lines traced yet, so not usable |
 
@@ -190,7 +192,7 @@ Multicabs fall under the **LTFRB** (not the city transport office). Earlier docu
 | Idle sign-out after 20 minutes without activity | Built 2026-11-22 (web) | Not checked yet. The sign-in page says why it signed out |
 | Backup authenticators (up to 3 phones in all) | Built 2026-11-22 (web) | Not checked yet. Settings, Two-step sign-in. With several, the code screen asks which app; the last one cannot be removed |
 | Admin action log (approve, reject, retire, PIN change, with who and when) | Built 2026-11-22, applied | Written by database triggers, so it cannot be skipped or edited from the console; the last 50 entries are listed on Settings ("You", "System" or "Admin" plus a short ID). Database check confirmed the triggers exist |
-| Moderation screens | Not built | Done in the Supabase dashboard instead |
+| Moderation page | **Built 2026-11-23 (web), migration to apply** | Flagged reports with their evidence (ride check, beacon check, phone evidence, weighted flags, notes, author's strikes); the admin decides only hidden verified rides (evidence conflicts) and appeals; manual Suspend (1 to 30 days or ban, 5 reasons) and Lift. Every action, automatic or by hand, in Admin activity |
 
 Verification of drivers is a **human decision**: there is no OCR, face recognition or document
 classification. The admin checks the LTFRB driver list outside the app; the list is never imported or
@@ -311,6 +313,8 @@ shows it.
   database functions (by design), and leaked-password protection, which needs a paid plan (passwords
   need 8 characters instead).
 - The device ban is a deterrent, not proof: a factory reset, another phone or a rooted phone evades it.
+- Automatic strikes can hit an honest rider whose ride was not verified (for example, weak GPS); appeals
+  and the admin's Lift are the safety net. Hidden verified rides are never struck automatically.
 - Commuter data use measured above the PRD's 150 KB per hour target (6.1); fixed afterwards, not yet
   measured again.
 - An authenticator phone is needed to sign in to the console; a backup on a second phone covers a lost

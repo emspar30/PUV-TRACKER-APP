@@ -1564,3 +1564,81 @@ tbody tr:hover td {
     animation: none;
   }
 }
+
+/* Moderation page (2026-11-23) */
+.rules-card summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.rules-list,
+.notes-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+
+.mod-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.mod-item {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.mod-item.needs-you {
+  border-color: var(--primary);
+}
+
+.mod-item p {
+  margin: 0;
+}
+
+.mod-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mod-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.evidence {
+  display: grid;
+  gap: 4px;
+}
+
+.evidence .hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.appeal-body {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--line);
+  white-space: pre-wrap;
+}
+
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

@@ -1,14 +1,16 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { idleExpired } from '@/shared/auth/adminMfa';
-import { ADMIN_IDLE_CHECK_S, ADMIN_IDLE_SIGNOUT_MIN } from '@/shared/config';
+import { ADMIN_IDLE_CHECK_S, ADMIN_IDLE_SIGNOUT_MIN, CONSOLE_REFRESH_S } from '@/shared/config';
 import { splitRegistrations } from '@/shared/driver/registrationConsole';
+import { waitingCount, type ModerationWaiting } from '@/shared/moderation/console';
 import { strings } from '@/strings';
 
 import type { ConsoleApi } from './api';
 import { Drivers } from './Drivers';
 import { Icon, type IconName } from './Icon';
+import { Moderation } from './Moderation';
 import { Registrations } from './Registrations';
 import { Settings } from './Settings';
 import { SignIn } from './SignIn';
@@ -19,9 +21,9 @@ import { useRegistrations } from './useRegistrations';
 const text = strings.adminConsole;
 
 // The section is the page address's #part, so a reload or a shared link opens the same one
-const TABS = ['registrations', 'drivers', 'settings'] as const;
+const TABS = ['registrations', 'drivers', 'moderation', 'settings'] as const;
 type Tab = (typeof TABS)[number];
-const TAB_ICONS: Record<Tab, IconName> = { registrations: 'registrations', drivers: 'drivers', settings: 'settings' };
+const TAB_ICONS: Record<Tab, IconName> = { registrations: 'registrations', drivers: 'drivers', moderation: 'shield', settings: 'settings' };
 
 function tabFromAddress(): Tab {
   const wanted = window.location.hash.slice(1);
@@ -117,6 +119,21 @@ function Console({
   const [tab, setTab] = useState<Tab>(tabFromAddress);
   const registrations = useRegistrations(api);
   const waiting = registrations.rows ? splitRegistrations(registrations.rows).waiting.length : 0;
+  // 2026-11-23: what waits on the Moderation page (flagged verified rides and appeals)
+  const [moderation, setModeration] = useState<ModerationWaiting | null>(null);
+  const loadModeration = useCallback(async () => {
+    const result = await api.moderationWaiting();
+    if (result.ok) setModeration(result.value);
+  }, [api]);
+  useEffect(() => {
+    const first = setTimeout(() => void loadModeration(), 0);
+    const timer = setInterval(() => void loadModeration(), CONSOLE_REFRESH_S * 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [loadModeration]);
+  const counts: Partial<Record<Tab, number>> = { registrations: waiting, moderation: waitingCount(moderation) };
 
   useEffect(() => {
     const follow = () => setTab(tabFromAddress());
@@ -141,7 +158,7 @@ function Console({
             <a key={name} href={`#${name}`} className="sidenav-link" aria-current={tab === name ? 'page' : undefined}>
               <Icon name={TAB_ICONS[name]} />
               <span>{text.tabs[name]}</span>
-              {name === 'registrations' && waiting > 0 && <span className="count">{waiting}</span>}
+              {(counts[name] ?? 0) > 0 && <span className="count">{counts[name]}</span>}
             </a>
           ))}
         </nav>
@@ -162,6 +179,7 @@ function Console({
         <div className="workspace-inner">
           {tab === 'registrations' && <Registrations api={api} state={registrations} />}
           {tab === 'drivers' && <Drivers api={api} registrations={registrations.rows} />}
+          {tab === 'moderation' && <Moderation api={api} onChanged={() => void loadModeration()} />}
           {tab === 'settings' && <Settings api={api} client={client} email={email} userId={userId} />}
         </div>
       </main>
