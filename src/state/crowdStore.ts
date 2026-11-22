@@ -1,6 +1,8 @@
 import type { FlagTag } from '@/shared/config';
+import Storage from 'expo-sqlite/kv-store';
 import { useMemo } from 'react';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { createDemoCrowd } from '@/data/demo/demoCrowd';
 import { createLiveCrowd } from '@/data/live/liveCrowd';
@@ -10,6 +12,7 @@ import { supabaseCrowdPort } from '@/services/crowd';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { newRequestKey } from '@/shared/backend/rules';
 import type { LatLon } from '@/shared/geo/haversine';
+import { keepFlagged } from '@/shared/moderation/notices';
 import type { RelayPost } from '@/shared/relay/broadcast';
 import { DEMO_SEED } from '@/shared/config';
 
@@ -66,12 +69,33 @@ export function endCheckIn(boarded: boolean): void {
   void currentCrowd().checkins.end();
 }
 
-// N1: posts this user flagged are hidden for them at once (while the app is open); the server
-// hides a post for everyone at FEED_FLAG_HIDE_COUNT flags
-export const useFlaggedStore = create<{ ids: ReadonlySet<string>; add: (id: string) => void }>((set) => ({
-  ids: new Set(),
-  add: (id) => set((state) => ({ ids: new Set([...state.ids, id]) })),
+// N1 (changed 2026-11-23, owner): a post this user flagged stays in their feed, its flag filled red,
+// so they see it was sent and cannot flag it again. Kept on the phone (post id: when) for
+// FLAGGED_KEEP_H, so it survives a restart. The server hides a post for everyone at
+// FEED_FLAG_HIDE_COUNT weighted flags.
+type StoredFlags = { flagged: Record<string, number> };
+
+const flagStorage = createJSONStorage<StoredFlags>(() => ({
+  getItem: (key) => Storage.getItemSync(key),
+  setItem: (key, value) => Storage.setItemSync(key, value),
+  removeItem: (key) => {
+    Storage.removeItemSync(key);
+  },
 }));
+
+export const useFlaggedStore = create<StoredFlags & { add: (id: string) => void }>()(
+  persist(
+    (set) => ({
+      flagged: {},
+      add: (id) => set((state) => ({ flagged: { ...keepFlagged(state.flagged, Date.now()), [id]: Date.now() } })),
+    }),
+    {
+      name: 'tunton-flagged',
+      storage: flagStorage,
+      partialize: (state) => ({ flagged: keepFlagged(state.flagged, Date.now()) }),
+    },
+  ),
+);
 
 // EQ-7: posts sent from this phone while the app is open, so the feed marks them "You" even when
 // the handle on the phone and the one on the account differ

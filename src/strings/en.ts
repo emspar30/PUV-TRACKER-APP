@@ -110,7 +110,10 @@ export const en = {
     flagConfirm: 'Flag',
     flagCancel: 'Cancel',
     flaggedTitle: 'Thanks for flagging',
-    flaggedBody: 'The report is hidden for you.',
+    flaggedBody: 'It stays marked Flagged for you. After 3 flags it is hidden for everyone.',
+    // 2026-11-23: a report this phone already flagged
+    flaggedMark: 'Flagged',
+    flaggedMarkLabel: 'You flagged this report',
     // MOD1b: what is wrong with the report
     flagTags: {
       false_location: 'Wrong location',
@@ -925,6 +928,23 @@ export const en = {
               : `Given ${at.toLocaleDateString()}, ends ${expires.toLocaleDateString()}.`,
     appeal: 'Appeal',
     suspendedTitle: 'Account suspended',
+    // 2026-11-23: after a suspension, 2 new strikes within 30 days
+    bannedTitle: 'Account banned',
+    bannedBody: 'Two more strikes after a suspension: you can no longer relay, check in or flag. You can still use the map, routes and fares. If a strike was a mistake, appeal it on your Profile.',
+    // 2026-11-23: what the server tells the rider (my_moderation notices)
+    notices: {
+      flaggedTitle: 'Your report was flagged',
+      flaggedBody: (tag: string | null) =>
+        `Another commuter flagged one of your reports${tag ? ` as "${tag}"` : ''}. If 3 do, it is hidden, and a report that was not a verified ride gives a strike.`,
+      strikeTitle: 'You got a strike',
+      strikeBody: 'A report of yours was hidden by flags. 2 strikes within 30 days suspend your account for 7 days. See Trust and safety on your Profile to appeal.',
+      liftedTitle: 'Suspension lifted',
+      liftedBody: 'You can relay, check in and flag again.',
+      upheldTitle: 'Appeal upheld',
+      upheldBody: 'Your appeal was accepted and the strike is lifted.',
+      deniedTitle: 'Appeal not upheld',
+      deniedBody: 'The strike stays until it ends. See Trust and safety on your Profile.',
+    },
     suspendedBody: (until: Date) => `Two strikes within 30 days: you cannot relay, check in or flag until ${until.toLocaleString()}. You can still use the map, routes and fares, and appeal on your Profile.`,
     shieldTitle: 'A Merit shield was used',
     shieldBody: 'A report of yours was confirmed wrong, and one of your Merit shields took the strike. See Trust and safety on your Profile.',

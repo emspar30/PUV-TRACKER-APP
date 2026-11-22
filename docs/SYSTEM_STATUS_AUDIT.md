@@ -31,8 +31,9 @@ changed since the first version of this audit.
    - **Admin console idle sign-out** after 20 minutes without activity (web; no APK needed).
    - **Backup authenticators:** the admin can add up to 2 more authenticator apps on other phones in
      Settings, so a lost phone does not lock the console (web; no APK needed).
-6. **Automatic moderation and the console's Moderation page** (2026-11-23, web part built, its
-   migration to apply; the commuter app's part is a later step). See 3.3 and 5.
+6. **Automatic moderation and the console's Moderation page** (2026-11-23): web part and both
+   migrations built; the commuter app's part (red flag, notices, ban text) built and waiting for a new
+   commuter APK. See 3.3 and 5.
 7. **New APKs built** on 2026-11-22 from `bd1345c`: commuter (EAS build `0dbacde9`) and driver (EAS
    build `c89c010e`). Both builds finished without errors. The driver build is the first compile of
    the screen-off beacon change of 2026-11-16. **Neither APK is installed and phone-checked yet.**
@@ -132,7 +133,7 @@ and automatic tests done, not yet checked on a phone, or only partly), **Partial
 | Verification window (speed, route line, distance) and in-vehicle detection | Built | Thresholds are starting values; need field rides |
 | Two riders on one multicab (Primary and Secondary, take-over after 90 s) | Built | Needs a two-phone ride |
 | Crowdsource feed, flags (3 flags hide a post), Trusted badge | Phone-checked | |
-| Moderation: strikes, 7-day suspensions, Merit shields, appeals | Built | Since 2026-11-23 automatic (see 5): a flag notifies the author; a report hidden by 3 weighted flags gives a strike unless it was a verified ride; after a suspension, 2 new strikes give a permanent ban. The rider-side notices and red flag icon need the next commuter APK |
+| Moderation: strikes, 7-day suspensions, Merit shields, appeals | Built | Since 2026-11-23 automatic (see 5): a flag notifies the author; a report hidden by 3 weighted flags gives a strike unless it was a verified ride; after a suspension, 2 new strikes give a permanent ban. Rider side built 2026-11-23 (red filled flag that stays, notices, "Account banned"); needs the next commuter APK |
 | Device ban: a suspension covers every account used on the same phone | Built 2026-11-22, database change applied | At each sign-in the phone sends its Android ID; only a keyed HMAC-SHA256 of it is stored (key in Supabase Vault). A new account on a banned phone gets the same suspension, and lifting the ban (upheld appeal) lifts the copies. Evaded by a factory reset, another phone or a rooted phone; two people sharing one phone share a ban. Not phone-checked yet |
 | Known detour routes (Active Detour Mode) | Built | No detour lines traced yet, so not usable |
 

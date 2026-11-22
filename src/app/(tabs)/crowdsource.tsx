@@ -24,7 +24,7 @@ import { useUsernameStore } from '@/state/usernameStore';
 import { useTabBarSpace } from '@/navigation/useTabBarSpace';
 import { strings } from '@/strings';
 import { MIN_TOUCH_TARGET, makeStyles, motion, radii, spacing, useTheme } from '@/theme';
-import { blockedBySuspension } from '@/state/moderationStore';
+import { blockedBySuspension, refreshModeration } from '@/state/moderationStore';
 
 const ICON_SIZE = spacing.md;
 const EMPTY_ICON = spacing.xl;
@@ -40,8 +40,9 @@ const STAGGER_MAX = 6;
 // Crowdsource (restyle, N1, B6): commuter reports from the last hour. With Demo data on, the user's
 // own demo reports (RP1) and the made-up feed; with it off, the database feed. Each post is a compact
 // card (route, multicab, time, seats, status, the stop it was sent near, the Trusted badge) and, on
-// other people's posts, a Flag button: a flagged post is hidden for the user at once, and for
-// everyone at FEED_FLAG_HIDE_COUNT flags.
+// other people's posts, a Flag button: a post the user flagged stays, its flag filled red and marked
+// Flagged (2026-11-23), and is hidden for everyone at FEED_FLAG_HIDE_COUNT flags. Opening the tab also
+// reads the rider's moderation notices (a flag on their own report, a strike).
 // Reloads when a report is sent (the wallet changes), every REFRESH_MS, and on focus.
 export default function CrowdsourceScreen() {
   const styles = useStyles();
@@ -58,8 +59,12 @@ export default function CrowdsourceScreen() {
   const wallet = useEnergyStore((state) => state.snapshot);
   const ownName = useUsernameStore((state) => state.username);
   const ownPosts = useOwnPostsStore((state) => state.ids);
-  const flagged = useFlaggedStore((state) => state.ids);
+  const flagged = useFlaggedStore((state) => state.flagged);
   const [loaded, setLoaded] = useState<{ reports: typeof crowd.reports; posts: readonly FeedPost[] | null } | null>(null);
+
+  useEffect(() => {
+    if (focused && !demo) void refreshModeration();
+  }, [focused, demo]);
 
   useEffect(() => {
     if (!focused) return undefined;
@@ -114,7 +119,7 @@ export default function CrowdsourceScreen() {
         )
       : null;
   // RL2a: only relays kept off the live map; those on it belong to the live map (broadcast and merged)
-  const visible = (saved.length > 0 ? saved : posts).filter((post) => !post.liveMap && !flagged.has(post.id));
+  const visible = (saved.length > 0 ? saved : posts).filter((post) => !post.liveMap);
   const shown = filter ? visible.filter((post) => post.routeCode === filter) : visible;
   const colorOf = (code: string) => {
     const line = lines.find((candidate) => candidate.routeCode === code);
@@ -163,7 +168,7 @@ export default function CrowdsourceScreen() {
           </Card>
         ) : (
           shown.map((post, index) => (
-            // Posts fade up in a short stagger; a flagged one fades out and the rest close the gap
+            // Posts fade up in a short stagger; one hidden by flags fades out and the rest close the gap
             <Animated.View
               key={post.id}
               entering={FadeInDown.duration(motion.cardMs).delay(Math.min(index, STAGGER_MAX) * STAGGER_MS)}
@@ -176,6 +181,7 @@ export default function CrowdsourceScreen() {
                 color={colorOf(post.routeCode)}
                 stopName={stopNameOf(post.stopCode)}
                 mine={ownPosts.has(post.id) || (ownName !== null && post.username === ownName)}
+                flagged={post.id in flagged}
               />
             </Animated.View>
           ))
@@ -185,7 +191,7 @@ export default function CrowdsourceScreen() {
   );
 }
 
-// Asks first, then flags; the post disappears for this user when the flag is accepted
+// Asks first, then flags; the post stays, marked Flagged, when the flag is accepted
 function confirmFlag(post: FeedPost) {
   if (!post.demo && blockedBySuspension()) return;
   showDialog({
@@ -218,7 +224,7 @@ function confirmFlag(post: FeedPost) {
   });
 }
 
-function PostCard({ post, nowMs, color, stopName, mine }: { post: FeedPost; nowMs: number; color: string; stopName: string | null; mine: boolean }) {
+function PostCard({ post, nowMs, color, stopName, mine, flagged }: { post: FeedPost; nowMs: number; color: string; stopName: string | null; mine: boolean; flagged: boolean }) {
   const styles = useStyles();
   const { colors, typography, mapPaint } = useTheme();
   const ago = strings.crowdsource.ago(Math.floor((nowMs - post.postedMs) / MS_PER_MIN));
@@ -251,6 +257,12 @@ function PostCard({ post, nowMs, color, stopName, mine }: { post: FeedPost; nowM
           <Text style={typography.bodySm}>{ago}</Text>
           {mine ? (
             <StatusPill label={strings.crowdsource.you} tone="neutral" />
+          ) : flagged ? (
+            // Already flagged from this phone: a filled red flag, not pressable again
+            <View style={styles.flagged} accessible accessibilityLabel={strings.crowdsource.flaggedMarkLabel}>
+              <Flag color={colors.danger} fill={colors.danger} size={ICON_SIZE} />
+              <Text style={[typography.labelMd, styles.flaggedText]}>{strings.crowdsource.flaggedMark}</Text>
+            </View>
           ) : (
             <Pressable
               style={({ pressed }) => [styles.flag, pressed && styles.flagPressed]}
@@ -382,6 +394,14 @@ const useStyles = makeStyles(({ colors }) => ({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radii.pill,
+  },
+  flagged: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  flaggedText: {
+    color: colors.danger,
   },
   flagPressed: {
     backgroundColor: colors.surface,

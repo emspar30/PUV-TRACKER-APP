@@ -1,3 +1,4 @@
+import { noticesOf, type ModerationNotice } from '@/shared/moderation/notices';
 import type { AppealState, Strike, StrikeReason } from '@/shared/moderation/rules';
 
 import { getSupabase, isSupabaseConfigured } from './supabase';
@@ -9,8 +10,11 @@ export type Moderation = {
   reports: number;
   merit: number;
   suspendedUntilMs: number | null;
+  // 2026-11-23: a ban is a suspension far ahead; the server says which
+  banned: boolean;
   shieldNotice: boolean;
   strikes: Strike[];
+  notices: ModerationNotice[];
 };
 
 type StrikeRow = { id: number | string; reason: StrikeReason; created_at: string; expires_at: string; absorbed: boolean; lifted: boolean; appeal_state: AppealState };
@@ -19,8 +23,10 @@ type ModerationRow = {
   reports: number;
   merit: number;
   suspended_until: string | null;
+  banned?: boolean;
   shield_notice: boolean;
   strikes: StrikeRow[] | null;
+  notices?: Parameters<typeof noticesOf>[0];
 };
 
 export function moderationOf(row: ModerationRow): Moderation {
@@ -29,6 +35,7 @@ export function moderationOf(row: ModerationRow): Moderation {
     reports: Number(row.reports ?? 0),
     merit: Number(row.merit ?? 0),
     suspendedUntilMs: row.suspended_until ? Date.parse(row.suspended_until) : null,
+    banned: row.banned === true,
     shieldNotice: row.shield_notice === true,
     strikes: (row.strikes ?? []).map((strike) => ({
       id: String(strike.id),
@@ -39,6 +46,7 @@ export function moderationOf(row: ModerationRow): Moderation {
       lifted: strike.lifted,
       appealState: strike.appeal_state,
     })),
+    notices: noticesOf(row.notices),
   };
 }
 
@@ -60,6 +68,15 @@ export async function appealStrike(strikeId: string, body: string): Promise<stri
     return error ? error.message : null;
   } catch (error) {
     return error instanceof Error ? error.message : 'error';
+  }
+}
+
+// 2026-11-23: the rider has seen their notices
+export async function ackModerationNotices(): Promise<void> {
+  try {
+    await getSupabase().rpc('ack_moderation_notices');
+  } catch {
+    // Best effort: the notices show again next time
   }
 }
 

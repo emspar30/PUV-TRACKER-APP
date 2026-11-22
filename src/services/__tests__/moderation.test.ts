@@ -20,8 +20,26 @@ describe('my_moderation in the app', () => {
       reports: 12,
       merit: 1,
       suspendedUntilMs: Date.parse('2026-11-09T00:00:00Z'),
+      // An older server sends no ban flag and no notices
+      banned: false,
       shieldNotice: true,
       strikes: [{ id: '7', reason: 'confirmed_report', createdMs: Date.parse('2026-11-02T00:00:00Z'), expiresMs: Date.parse('2027-01-01T00:00:00Z'), absorbed: false, lifted: false, appealState: 'none' }],
+      notices: [],
     });
+  });
+
+  it('2026-11-23: reads a ban and the notices', () => {
+    const mapped = moderationOf({
+      trust_level: null,
+      reports: 0,
+      merit: 0,
+      suspended_until: '2126-11-23T00:00:00Z',
+      banned: true,
+      shield_notice: false,
+      strikes: [],
+      notices: [{ id: 3, kind: 'banned', tag: null, until: '2126-11-23T00:00:00Z', created_at: '2026-11-23T00:00:00Z' }],
+    });
+    expect(mapped.banned).toBe(true);
+    expect(mapped.notices).toEqual([{ id: '3', kind: 'banned', tag: null, untilMs: Date.parse('2126-11-23T00:00:00Z'), createdMs: Date.parse('2026-11-23T00:00:00Z') }]);
   });
 });

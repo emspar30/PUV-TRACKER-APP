@@ -557,6 +557,9 @@ export const APPEAL_MAX_CHARS = 500;
 // (the server stores it BAN_YEARS ahead). The console's Moderation page lists flagged posts of the
 // last MODERATION_LIST_DAYS. Only the rules suspend or ban; the admin may lift (owner, 2026-11-23).
 export const BAN_STRIKES = 2;
+// A flag sent from this phone is kept this long, so the report keeps its red flag after a restart
+// (owner, 2026-11-23: the flagged card stays, marked Flagged, instead of disappearing)
+export const FLAGGED_KEEP_H = 24;
 export const BAN_YEARS = 100;
 export const BAN_READS_AFTER_YEARS = 10;
 export const MODERATION_LIST_DAYS = 7;

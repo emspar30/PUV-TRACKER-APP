@@ -35,7 +35,9 @@ export function ModerationCard() {
       </View>
       <Text style={typography.bodyMd}>{snapshot.trustLevel === null ? m.trustLevelSoon(snapshot.reports, TRUST_LEVEL_MIN_REPORTS) : m.trustLevel(snapshot.trustLevel)}</Text>
       <Text style={typography.bodySm}>{m.merit(snapshot.merit)}</Text>
-      {suspended && snapshot.suspendedUntilMs !== null ? <Text style={[typography.bodyMd, styles.warn]}>{m.suspendedBody(new Date(snapshot.suspendedUntilMs))}</Text> : null}
+      {suspended && snapshot.suspendedUntilMs !== null ? (
+        <Text style={[typography.bodyMd, styles.warn]}>{snapshot.banned ? m.bannedBody : m.suspendedBody(new Date(snapshot.suspendedUntilMs))}</Text>
+      ) : null}
       {snapshot.strikes.length === 0 ? <Text style={typography.bodySm}>{m.noStrikes}</Text> : null}
       {snapshot.strikes.map((strike) => (
         <View key={strike.id} style={styles.strike}>
