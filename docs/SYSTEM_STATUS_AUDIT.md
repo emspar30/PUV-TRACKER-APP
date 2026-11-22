@@ -96,6 +96,7 @@ and automatic tests done, not yet checked on a phone, or only partly), **Partial
 | Two riders on one multicab (Primary and Secondary, take-over after 90 s) | Built | Needs a two-phone ride |
 | Crowdsource feed, flags (3 flags hide a post), Trusted badge | Phone-checked | |
 | Moderation: strikes, 7-day suspensions, Merit shields, appeals | Built | No moderator screen; moderators use SQL functions in the Supabase dashboard |
+| Device ban: a suspension covers every account used on the same phone | Built 2026-11-22 (migration to apply) | Only a keyed HMAC of the Android ID is stored. Evaded by a factory reset, another phone or a rooted phone |
 | Known detour routes (Active Detour Mode) | Built | No detour lines traced yet, so not usable |
 
 Important: the phone listens for the beacon only while the Relay panel is open. After a relay is

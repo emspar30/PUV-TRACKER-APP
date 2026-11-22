@@ -1135,6 +1135,8 @@ export const en = {
     submitting: 'Please wait',
     toCreate: 'New here? Create an account',
     toSignIn: 'Have an account? Sign in',
+    // 2026-11-22 (PRD 10.3): the device ban
+    deviceNote: 'To keep suspended accounts from coming back, your account is linked to a scrambled code made from this phone. The phone’s own ID is not stored.',
     checkEmail: 'Check your email and open the link, then sign in.',
     cancel: 'Cancel',
   },

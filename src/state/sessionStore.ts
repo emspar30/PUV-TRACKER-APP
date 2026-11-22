@@ -1,6 +1,7 @@
 import { AppState } from 'react-native';
 import { create } from 'zustand';
 
+import { registerDevice } from '@/services/device';
 import { getSupabase, isSupabaseConfigured, readStoredSession } from '@/services/supabase';
 import { isSignedIn, type SessionStatus } from '@/shared/auth/gate';
 
@@ -69,6 +70,8 @@ export function startSessionTracking(): void {
       void syncLiveMapAccess().catch(() => undefined);
       // 2026-11-13: the saved avatar replaces a phone's own draw
       void syncAvatar().catch(() => undefined);
+      // 2026-11-22 (PRD 10.3): a suspension covers the accounts used on this phone
+      void registerDevice(userId).catch(() => undefined);
     } else stopAvatarSync();
   };
 

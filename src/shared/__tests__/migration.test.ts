@@ -147,7 +147,13 @@ describe('migration: tables', () => {
       expect(statements).toContain(`revoke execute on function public.${fn} from public, anon, authenticated`);
       expect(statements.some((s) => s.startsWith(`grant execute on function public.${fn}`))).toBe(false);
     }
-    expect(statements.filter((s) => s.startsWith('create trigger')).map((s) => s.split(' ')[2])).toEqual(['checkins_trust', 'feed_posts_trust', 'feed_flags_trust']);
+    // Plus the device ban's trigger (2026-11-22), which moves suspensions, not trust points
+    expect(statements.filter((s) => s.startsWith('create trigger')).map((s) => s.split(' ')[2])).toEqual([
+      'checkins_trust',
+      'feed_posts_trust',
+      'feed_flags_trust',
+      'profiles_share_device_suspension',
+    ]);
   });
 
   it('B4: the phrase is optional later, and still only a preset when given', () => {
@@ -876,5 +882,35 @@ describe('migration: abang, several drivers on one plate (2026-11-22)', () => {
       expect(abangStatements).toContain(`grant execute on function public.${fn} to service_role`);
     }
     expect(abangSql).not.toMatch(/\btruncate\b|delete from|update public\.driver_devices d set (?!active = false)/);
+  });
+});
+
+describe('migration: device ban (2026-11-22, PRD 10.3)', () => {
+  const banSql = read(['20261122000001_device_ban.sql']);
+  const banStatements = banSql
+    .split(';')
+    .map((statement) => statement.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+  it('stores only a keyed HMAC of the Android ID, with the key in Vault, never replaced', () => {
+    expect(banSql).toContain("encode(extensions.hmac(lower(android_id), s.decrypted_secret, 'sha256'), 'hex')");
+    expect(banSql).toContain("if not exists (select 1 from vault.secrets s where s.name = 'device-fingerprint-key') then");
+    expect(banSql).toContain("device_hash  text not null check (device_hash ~ '^[0-9a-f]{64}$')");
+    expect(banSql).not.toMatch(/android_id\s+text\s+(not null|check)|add column android_id/);
+  });
+
+  it('keeps the table from every client, and lets only signed-in accounts register their phone', () => {
+    expect(banStatements).toContain('revoke all on public.account_devices from anon, authenticated');
+    expect(banStatements).toContain('alter table public.account_devices enable row level security');
+    expect(banStatements).toContain('grant execute on function public.register_device(text) to authenticated');
+    expect(banStatements).toContain('revoke execute on function public.share_device_suspension() from public, anon, authenticated');
+    expect(banSql).toContain('references auth.users (id) on delete cascade');
+  });
+
+  it('applies a ban already on the phone at sign-in, and spreads or lifts a later one once', () => {
+    expect(banSql).toContain('where d.device_hash = fingerprint and d.user_id <> uid and p.suspended_until > now()');
+    expect(banSql).toContain('if pg_trigger_depth() > 1 then return new; end if;');
+    expect(banSql).toContain('and p.suspended_until = old.suspended_until');
+    expect(banSql).not.toMatch(/\b(drop|truncate)\b|delete from/);
   });
 });

@@ -140,6 +140,8 @@ export default function SignInScreen() {
         >
           <Text style={[typography.labelLg, styles.linkText]}>{mode === 'signIn' ? strings.signIn.toCreate : strings.signIn.toSignIn}</Text>
         </Pressable>
+        {/* 2026-11-22 (PRD 10.3, 15.1): the device ban, said before an account is used */}
+        <Text style={[typography.bodySm, styles.deviceNote]}>{strings.signIn.deviceNote}</Text>
       </View>
     </Screen>
   );
@@ -222,6 +224,10 @@ const useStyles = makeStyles(({ colors }) => ({
   },
   notice: {
     color: colors.success,
+  },
+  deviceNote: {
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   forgot: {
     minHeight: MIN_TOUCH_TARGET,

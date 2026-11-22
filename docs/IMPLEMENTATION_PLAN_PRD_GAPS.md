@@ -49,7 +49,7 @@ Each decision has a recommendation. The step waits only on its own decision.
 | D4 | **Moderation in the prototype.** PRD 0.6 says strikes and appeals are not built yet. | Build MOD1 only after V1a. Strikes need verified evidence, and before V1 every report is unverified. | MOD1a |
 | D5 | **New dependency `expo-task-manager`**, needed for background location through `expo-location`, plus `ACCESS_BACKGROUND_LOCATION` and a native rebuild | Approve when B1 starts. The app is sideloaded for the pilot, so Play's background-location review does not apply yet. | B1 |
 | D6 | **Activity recognition** (`IN_VEHICLE`): a Kotlin module using Google Play services location (`play-services-location`, a Gradle dependency) | Build V1a on the speed fallback alone (25 km/h for 20 s, no new dependency). Add activity recognition in V1b only if field rides show the fallback fails in stop-and-go traffic. | V1b |
-| D7 | **Device fingerprint** (PRD 10.3: Android ID with a server HMAC) needs the Android ID (`expo-application`, a new dependency) | Defer it with Play Integrity. Bind suspensions to the account only for now. | MOD1a |
+| D7 | **Device fingerprint** (PRD 10.3: Android ID with a server HMAC) needs the Android ID (`expo-application`, a new dependency) | Defer it with Play Integrity. Bind suspensions to the account only for now. (Built 2026-11-22: migration `20261122000001_device_ban.sql`; PRD change 51.) | MOD1a |
 | D8 | **Alternative lines for detours** (for example the Macapagal Bridge bypass) | DT1 waits for a traced alternative line from the partner. | DT1 |
 
 **Decided (Emjay, 2026-10-22):**
