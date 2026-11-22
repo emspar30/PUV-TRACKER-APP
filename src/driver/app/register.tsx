@@ -479,11 +479,15 @@ function PhotosStep({ onDone, onExpired }: { onDone: () => void; onExpired: () =
   const [error, setError] = useState<string | null>(null);
   const [size, setSize] = useState<string | undefined>(undefined);
   const [facing, setFacing] = useState<'front' | 'back'>('back');
+  // 2026-11-23: each opening of the camera is a fresh one (a retake showed a white preview when the
+  // camera was reused right after the last shot)
+  const [opening, setOpening] = useState(0);
   const view = useRef<CameraView>(null);
 
   const open = (which: Photo) => {
     setSize(undefined);
     setFacing(which === 'id' ? 'front' : 'back');
+    setOpening((count) => count + 1);
     setTaking(which);
   };
 
@@ -519,13 +523,16 @@ function PhotosStep({ onDone, onExpired }: { onDone: () => void; onExpired: () =
         {camera?.granted ? (
           <View style={styles.cameraLive}>
             <CameraView
-              // A new camera offers other sizes: picked again once it is ready
-              key={facing}
+              // A new camera offers other sizes: picked again once it is ready. The chosen size is part
+              // of the key, so the camera starts again with it instead of changing size while running
+              // (which left the preview white on a retake, 2026-11-23)
+              key={`${opening}-${facing}-${size ?? 'first'}`}
               ref={view}
               style={styles.fill}
               facing={facing}
               pictureSize={size}
               onCameraReady={() => {
+                if (size !== undefined) return;
                 view.current
                   ?.getAvailablePictureSizesAsync()
                   .then((sizes) => setSize(pickPictureSize(sizes) ?? undefined))
