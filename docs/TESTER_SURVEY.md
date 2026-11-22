@@ -117,7 +117,7 @@ Then go to Section 6.
     - Commuter app: Energy wallet
     - Commuter app: Night Mode (after 9 PM)
     - Commuter app: offline use (map, routes and fares without internet)
-    - Driver app: registration with the CTTDM ID and multicab photos
+    - Driver app: registration with a selfie holding an LTFRB document, and a multicab photo
     - Driver app: the beacon, on and off
     - Driver app: waiting counts per stop (received by SMS)
 

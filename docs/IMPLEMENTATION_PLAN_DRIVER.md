@@ -1040,6 +1040,8 @@ These are written in full into `docs/BACKEND_SETUP.md` (worker and database) and
 The setup QR and `provision-driver.ts` are gone (PRD 9.5, change 22); a driver phone is set up only by registering (`docs/IMPLEMENTATION_PLAN_DRIVER_REGISTRATION.md`; `device-tests.md` DRG6).
 
 1. Set up the gateway first (11.3): driver phones collect the gateway's number with their setup.
+> Note (2026-11-22): since the owner decision of 2026-11-19, registration uses the full name, a selfie holding an LTFRB document and five admin checks instead of the CTTDM driver ID photo (PRD 9.5). The steps below keep their original wording.
+
 2. On the phone: install the signed driver APK (check its checksum), with internet (Wi-Fi or data). Register: permissions, the phone's own number, plate and route, the CTTDM driver ID and plate photos, send. Bluetooth must be on for the last step.
 3. In the admin console: check the photos (the ID is a CTTDM driver ID, the plate matches), approve. One text goes to the phone. A plate that already has a phone shows a warning: approving replaces it.
 4. On the phone: Check now (or wait): "This phone is set up. The beacon is on."

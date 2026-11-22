@@ -2,7 +2,7 @@
 
 For evaluators and testers. It says what the prototype does, what is planned and not built yet, what is outside this phase, and the known limits, with the reason for each. The full requirements are in `docs/PRD.md`; section 0.6 sets the scope.
 
-Updated 2026-11-02 (evening).
+Updated 2026-11-22.
 
 ## 1. What is built
 
@@ -37,7 +37,7 @@ Tunton is an Android app for multicab commuters in Butuan City, with a driver ap
 - **Driver app:** a Bluetooth beacon, and the waiting counts per stop, received by SMS.
 - **Gateway app:** sends the SMS.
 - **SMS worker on Render.**
-- **Self-registration with admin approval,** and the web admin console.
+- **Self-registration with admin approval,** and the web admin console. The driver gives the full name and a selfie holding an LTFRB document (Driver's Academy ID or certificate) plus a multicab photo; the admin marks five checks and the photos are deleted at the decision.
 
 **Quality checks**
 - 131 automated test suites and 1,796 tests, run before every change.
@@ -81,6 +81,8 @@ Two earlier items were replaced by later steps, not dropped. The old Energy earn
 - **Notifications stay inside the app.** Nothing reaches the phone's notification shade, except the relay's background notice.
 - **The location consent text** awaits the Data Protection Officer's review.
 - **Tunie's Bisaya phrases** come from general Cebuano and commuter guides. They still need a check by a Butuan speaker.
+- **Driver verification is by eye.** The admin compares the selfie, the document and the plate; there is no OCR or face matching. The LTFRB list is checked outside the app and never stored, so the app cannot show that check's evidence.
+- **The selfie's readability is not confirmed on budget phones.** The front camera is used first; on a phone whose front camera cannot make the name readable, the driver switches to the back camera and someone else takes the photo.
 
 ## 5. How it was tested
 

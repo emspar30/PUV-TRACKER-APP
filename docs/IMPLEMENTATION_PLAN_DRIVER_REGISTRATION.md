@@ -96,7 +96,7 @@ New screens before the existing setup steps, using fetch (the driver app keeps i
 1. **Welcome:** "Register this phone" (main), and "Use a setup code" (the current QR, for development).
 2. **Mobile number:** sends it, then waits for the check SMS, read automatically. It can resend after 10 minutes.
 3. **Plate and route:** typed plate, route picked from the app's route list.
-4. **Consent notice**, then a **CTTDM ID photo** and a **multicab photo** taken with the camera the app already has (no new library; the photo size is kept small with the camera's own settings).
+4. (Superseded 2026-11-19: now a selfie holding an LTFRB document, with the full name and the document type; PRD 9.5.) **Consent notice**, then a **CTTDM ID photo** and a **multicab photo** taken with the camera the app already has (no new library; the photo size is kept small with the camera's own settings).
 5. **Permissions:** the existing steps (Nearby devices, notifications, text messages with the restricted-setting help).
 6. **Submit**, then **Waiting for approval**. It checks the status each time the app opens while online and shows the reason if rejected, with "Register again".
 7. **Approved:** collects the setup by itself and hands it to the existing setup code, which turns the beacon on and opens the home screen.
