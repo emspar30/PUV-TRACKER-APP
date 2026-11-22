@@ -31,7 +31,9 @@ changed since the first version of this audit.
    - **Admin console idle sign-out** after 20 minutes without activity (web; no APK needed).
    - **Backup authenticators:** the admin can add up to 2 more authenticator apps on other phones in
      Settings, so a lost phone does not lock the console (web; no APK needed).
-6. **Automatic moderation and the console's Moderation page** (2026-11-23): web part and both
+6. **Night relays go to Crowdsource** (2026-11-23): see 3.1. Migration 20261123000002 to apply;
+   needs the next commuter APK.
+6a. **Automatic moderation and the console's Moderation page** (2026-11-23): web part and both
    migrations built; the commuter app's part (red flag, notices, ban text) built and waiting for a new
    commuter APK. See 3.3 and 5.
 7. **New APKs built** on 2026-11-22 from `bd1345c`: commuter (EAS build `0dbacde9`) and driver (EAS
@@ -108,7 +110,7 @@ and automatic tests done, not yet checked on a phone, or only partly), **Partial
 | ETA rule | **Changed today** | Distance along the route / mean of moving speeds (2 km/h or more, last 5 minutes) + 30 s per km for stops, lights and traffic. Holds steady while the multicab stops; no longer hidden under 5 km/h. The 30 s per km is a starting guess, not measured |
 | Short detour (gas station, side street) | **Changed today** | More than 60 m off the route: the marker stays where it left the route and the Track view says "ETA paused"; allowed up to 300 m and 10 minutes |
 | Track view status: Moving, Stopped · N min, Off route · temporary | **Changed today** | Shown only in the Track view. The map marker now shows the position only (the earlier status marks on the marker were removed) |
-| Night Mode (21:00 to 04:59): no multicab positions; "Where R4 has been" stop view | Phone-checked (demo) | |
+| Night Mode (21:00 to 04:59): no multicab positions | Phone-checked (demo) | **Changed 2026-11-23:** every night relay goes to Crowdsource (the live map switch is locked off; the server does the same) and earns +1.0 Energy; the "Where R4 has been" stop list is removed and a Night Mode note with See Crowdsource takes its place. Needs the next commuter APK |
 | Small screens (under 700 dp tall) | **Changed today** | Tunie button stays round beside the second button column; the night card shows 2 stops instead of more. Checked on a tablet set to a small display size; not yet on a small phone |
 | Offline banner and offline behaviour of every tab | Phone-checked | |
 

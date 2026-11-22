@@ -1,7 +1,7 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, Minus, Plus, WifiOff, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInRight, FadeOutRight } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,8 +13,7 @@ import { ActiveRouteCard } from '@/features/live/ActiveRouteCard';
 import { CoverageNudge } from '@/features/live/CoverageNudge';
 import { TunieButton } from '@/features/assistant/TunieButton';
 import { RouteSelector, type RouteOption, type VehicleFilter } from '@/features/live/RouteSelector';
-import { NightStopsCard } from '@/features/live/NightStopsCard';
-import { useNightPassages } from '@/features/live/useNightPassages';
+import { NightModeNote } from '@/features/live/NightModeNote';
 import { VehicleCard } from '@/features/live/VehicleCard';
 import { BlueDot } from '@/features/map/BlueDot';
 import { LocationExplainer } from '@/features/map/LocationExplainer';
@@ -49,7 +48,6 @@ import { promptSignIn } from '@/features/auth/promptSignIn';
 import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
 import { useVehicleRelays } from '@/features/vehicles/useVehicleRelays';
 import {
-  COMPACT_SCREEN_HEIGHT_DP,
   DETOUR_REFRESH_MIN,
   ENERGY_TRACKING_COST,
   MAP_FOLLOW_ZOOM,
@@ -57,8 +55,6 @@ import {
   MAP_OVERZOOM_LEVELS,
   MAP_ZOOM_STEP,
   MAX_WALK_PER_LEG_M,
-  NIGHT_STOPS_SHOWN,
-  NIGHT_STOPS_SHOWN_COMPACT,
   ROUTE_STOP_MAX_DISTANCE_M,
   SKELETON_MIN_MS,
   TOUR_START_DELAY_MS,
@@ -127,8 +123,6 @@ export default function MapScreen() {
   const styles = useStyles();
   const { colors, typography, routeColor } = useTheme();
   const insets = useSafeAreaInsets();
-  // A short screen (a small phone, ISO test 41): the night card lists fewer stops
-  const compactScreen = useWindowDimensions().height < COMPACT_SCREEN_HEIGHT_DP;
   const { state, retry } = useOfflineTiles();
   const { lines, stops } = useRouteData();
   // B8: the bottom card shows a skeleton on the first visit
@@ -288,8 +282,6 @@ export default function MapScreen() {
   // Night Mode rather than No data. The server decides; this only labels it. Demo data follows the
   // same rule.
   const night = isNight(live.nowMs);
-  // NM1 (PRD 10.4): at night, live or demo, the picked route shows the stops its multicabs passed
-  const nightStops = useNightPassages(repos.vehicles, focused && selectedRoute && isNight(live.nowMs) ? selectedRoute : null);
   // Live vehicles are for team accounts only in v0; a signed-in account off the list is told why
   const offTeam = repos.vehicles.source === 'live' && liveMapAccess === false;
   // CF1 coverage nudge: the picked route has no Live multicab (whatever the seat filter), by day,
@@ -757,18 +749,8 @@ export default function MapScreen() {
             </TourTarget>
           </Animated.View>
         )}
-        {nightStops && selectedOption ? (
-          <NightStopsCard
-            code={selectedOption.code}
-            passages={nightStops.passages}
-            nowMs={nightStops.nowMs}
-            max={compactScreen ? NIGHT_STOPS_SHOWN_COMPACT : NIGHT_STOPS_SHOWN}
-            stopName={(code) => {
-              const name = stops.find((candidate) => candidate.code === code)?.name;
-              return name ? (name.split(',')[0] ?? name) : code;
-            }}
-          />
-        ) : null}
+        {/* Night Mode (2026-11-23): no multicab on the map; relays go to Crowdsource */}
+        {night && selectedOption ? <NightModeNote /> : null}
         {nudgeOn && selectedOption ? (
           <CoverageNudge
             code={selectedOption.code}

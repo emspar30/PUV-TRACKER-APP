@@ -316,8 +316,9 @@ export const en = {
     sameVehicleBody: (hours: number) => `You can relay the same multicab once every ${hours} hours. Another multicab earns as usual.`,
     // D1: while Energy is hidden (tracking is free), the same line without the reward
     liveMapShares: 'Your multicab moves on the live map until your stop.',
-    // PRD 10.4: Night Mode publishes passed stops, not moving markers
-    liveMapNight: 'Night Mode (9 PM to 5 AM): your multicab shows as the stops it passed, not as a moving marker.',
+    // 2026-11-23: from 9 PM to 5 AM the switch is off and locked
+    liveMapNightOff: 'Night Mode (9 PM to 5 AM): relays go to Crowdsource, since the map shows no multicab at night.',
+    liveMapNightEarns: (amount: number) => `Night Mode (9 PM to 5 AM): relays go to Crowdsource and still earn +${amount.toFixed(1)} Energy.`,
     feedOnly: 'Off: your relay shows in Crowdsource until your stop. No location is sent.',
     liveMapTeamOnly: 'The live map is open to team accounts only for now. Your relay goes to Crowdsource.',
     unverified: 'Your relay is checked once the multicab moves; it shows as verified after.',
@@ -422,11 +423,10 @@ export const en = {
       night: 'Night Mode',
       // Beside Night Mode on an empty route
       nightHidden: 'Multicabs hidden',
-      // NM1 (PRD 10.4): the Night Mode stop view, instead of moving markers
-      nightStopsTitle: (code: string) => `Where ${code} has been`,
-      nightStopsEmpty: (code: string) => `No ${code} multicab passed a stop in the last hour.`,
-      nightPassed: (stop: string, minutes: number) => (minutes <= 1 ? `Passed ${stop} · 1 min ago` : `Passed ${stop} · ${minutes} min ago`),
-      nightStopsNote: 'At night we show stops a multicab passed, a few minutes late, not where it is now.',
+      // 2026-11-23: replaces the "Where R4 has been" stop list
+      nightNoteTitle: 'Night Mode',
+      nightNoteBody: 'From 9 PM to 5 AM the map shows no multicab. Riders on board post to Crowdsource instead.',
+      nightNoteAction: 'See Crowdsource',
       // Beside No data for a signed-in account not on the team list (live vehicles are team-only in v0)
       teamOnly: 'Team accounts only for now',
     },
@@ -1252,7 +1252,7 @@ export const en = {
       ],
       night: [
         'Fewer multicabs run late at night, so leave earlier when you can.',
-        'From 9 PM to 5 AM Tunton is in Night Mode and shows only multicabs that are stopped.',
+        'From 9 PM to 5 AM Tunton is in Night Mode: the map shows no multicab, and riders on board post to Crowdsource instead.',
         'Wait at a lit stop with other people, sit near the driver, stay awake, and get off in a well-lit area.',
       ],
       etiquette: [
@@ -1324,7 +1324,7 @@ export const en = {
     statusEstimated: (count: number) => `${count} more ${count === 1 ? 'was' : 'were'} seen in the last 5 minutes (Estimated).`,
     statusStale: (count: number, age: string) => `${count} older position${count === 1 ? '' : 's'}, the newest ${age} ago (Stale).`,
     statusNoData: 'No data from riders on it at the moment.',
-    statusNight: 'Night Mode: moving multicabs are hidden.',
+    statusNight: 'Night Mode: the map shows no multicab. See Crowdsource for reports from riders.',
     statusAlternative: (code: string, distance: string) => `${code} is running nearby (${distance}) and shares stops with it.`,
     statusHidden: 'Live multicabs are for team accounts only for now.',
     statusOffline: (code: string) => `You are offline, so the live multicabs on ${code} cannot be shown. Its line and stops are on the map.`,

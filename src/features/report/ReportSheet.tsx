@@ -267,8 +267,10 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
     setSearchIssue(null);
   };
 
-  // The saved choice stays as it is when the live map is not open to this account
-  const liveMap = liveMapSaved && liveMapAllowed;
+  // The saved choice stays as it is when the live map is not open to this account, and at night
+  // (owner, 2026-11-23): from 9 PM to 5 AM every relay goes to Crowdsource, the live map shows no
+  // multicab then. The server does the same and pays a night relay as a live map one.
+  const liveMap = liveMapSaved && liveMapAllowed && !night;
   const open = vehicle !== null;
   // RL2b: this phone relayed the multicab within RELAY_SAME_VEHICLE_GAP_H; the server decides too
   const recentRelays = useRecentRelaysStore((state) => state.relays);
@@ -322,7 +324,11 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
   };
 
   const colorOf = (code: string | undefined) => routes.find((option) => option.code === code)?.color ?? colors.primary;
-  const liveMapHint = !liveMapAllowed
+  const liveMapHint = night
+    ? ENERGY_UI_VISIBLE
+      ? strings.report.liveMapNightEarns(ENERGY_LIVE_REPORT)
+      : strings.report.liveMapNightOff
+    : !liveMapAllowed
     ? strings.report.liveMapTeamOnly
     : liveMap
       ? ENERGY_UI_VISIBLE
@@ -435,10 +441,8 @@ export function ReportSheet({ routes, vehicles, stopsOf, linesOf, position, chec
               <View style={styles.grow}>
                 <Text style={typography.labelLg}>{strings.report.liveMap}</Text>
                 <Text style={typography.bodySm}>{liveMapHint}</Text>
-                {/* PRD 10.4: at night the relay still counts, but the map shows passed stops only */}
-                {liveMap && liveMapAllowed && night ? <Text style={[typography.bodySm, styles.night]}>{strings.report.liveMapNight}</Text> : null}
               </View>
-              <Switch value={liveMap} onValueChange={setLiveMapSaved} disabled={!liveMapAllowed} accessibilityLabel={strings.report.liveMap} />
+              <Switch value={liveMap} onValueChange={setLiveMapSaved} disabled={!liveMapAllowed || night} accessibilityLabel={strings.report.liveMap} />
             </View>
             <Text style={typography.bodySm}>{strings.report.unverified}</Text>
           </View>
