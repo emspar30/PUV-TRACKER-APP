@@ -37,8 +37,10 @@ export function Button({ label, onPress, icon: Icon, leadingIcon: Leading, varia
       {Leading ? <Leading color={textColor} size={ICON_SIZE} /> : null}
       {/* Backlog 123: on the HONOR X8c the system font draws a label a few pixels wider than React
           Native measures it (any font family: MagicOS substitutes its own), so "Turn beacon off" lost
-          its last word to a hidden second line. One line, shrunk slightly only where it would not fit */}
-      <Text style={[typography.labelLg, { color: textColor }]} numberOfLines={1} adjustsFontSizeToFit>
+          its last word to a hidden second line. One line, shrunk slightly only where it would not fit.
+          2026-11-23: the same font then clipped the last letter of a single word ("Track" showed as
+          "Trac"), so the label keeps a few pixels of room on each side for the wider glyphs */}
+      <Text style={[typography.labelLg, styles.label, { color: textColor }]} numberOfLines={1} adjustsFontSizeToFit>
         {label}
       </Text>
       {Icon ? <Icon color={textColor} size={ICON_SIZE} /> : null}
@@ -58,6 +60,10 @@ const useStyles = makeStyles(({ colors }) => ({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderRadius: radii.pill,
+  },
+  // Room for a system font that draws wider than React Native measures (Backlog 123)
+  label: {
+    paddingHorizontal: spacing.xs,
   },
   primary: {
     backgroundColor: colors.primary,
