@@ -1565,8 +1565,15 @@ tbody tr:hover td {
   }
 }
 
-/* Moderation page (2026-11-23) */
+/* Moderation page (2026-11-23), laid out like Drivers */
+.rules-card {
+  padding: 12px 16px;
+}
+
 .rules-card summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
   font-weight: 600;
 }
@@ -1579,59 +1586,37 @@ tbody tr:hover td {
   gap: 4px;
 }
 
-.mod-list {
-  list-style: none;
+.empty-state.inline h3 {
   margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 12px;
+  font-size: 16px;
 }
 
-.mod-item {
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+.row-needs-you td:first-child {
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
-.mod-item.needs-you {
-  border-color: var(--primary);
-}
-
-.mod-item p {
-  margin: 0;
-}
-
-.mod-head {
+.hint-cell {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
+  gap: 6px;
+}
+
+.hint-cell.likely_real,
+.hint.likely_real {
+  color: var(--success, #1b7f3b);
+}
+
+.hint-cell.likely_false,
+.hint.likely_false {
+  color: var(--danger);
+}
+
+.details-foot {
   gap: 8px;
 }
 
-.mod-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.evidence {
-  display: grid;
-  gap: 4px;
-}
-
-.evidence .hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-}
-
 .appeal-body {
-  margin: 0;
+  margin: 4px 0 0;
   padding: 8px 12px;
   border-left: 3px solid var(--line);
   white-space: pre-wrap;
