@@ -212,6 +212,9 @@ shows it.
 - The location consent text awaits the Data Protection Officer's review; the selfie and name collection
   also need it.
 - Tunie's Bisaya phrases need a check by a Butuan speaker.
+- Supabase Security Advisor (2026-11-22): 0 errors. Its warnings are the app's own access-checked
+  database functions (by design), and leaked-password protection, which needs a paid plan (passwords
+  need 8 characters instead).
 - Outside this phase on purpose: Play Integrity and device fingerprint, Cebuano screens, Play Store
   release, route updates without an app release.
 
