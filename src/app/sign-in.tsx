@@ -10,7 +10,6 @@ import { PASSWORD_MIN_LENGTH } from '@/shared/config';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, radii, spacing, useTheme } from '@/theme';
 
-// Supabase asks for at least this many characters
 const ICON_SIZE = spacing.md + spacing.xs;
 
 type Mode = 'signIn' | 'signUp';
