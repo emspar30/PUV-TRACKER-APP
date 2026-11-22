@@ -386,6 +386,11 @@ export const NIGHT_FEED_DELAY_MIN = 2;
 export const NIGHT_STOPS_REFRESH_S = 60;
 // NM1: the night card lists at most this many stops, newest first
 export const NIGHT_STOPS_SHOWN = 4;
+// Small screens (ISO test 41, 2026-11-22: a small phone needed display scaling): a screen shorter
+// than this is compact, and the night card then lists only NIGHT_STOPS_SHOWN_COMPACT stops, so the
+// Map's round buttons keep their room
+export const COMPACT_SCREEN_HEIGHT_DP = 700;
+export const NIGHT_STOPS_SHOWN_COMPACT = 2;
 // Speeds kept per vehicle for the stopped check, this far apart
 export const DEMO_SPEED_SAMPLE_S = 5;
 // Phase 2: older demo speeds, back to ETA_MOVING_WINDOW_S, are sampled this sparsely (fewer position look-ups)

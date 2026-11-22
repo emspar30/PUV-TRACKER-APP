@@ -12,6 +12,8 @@ type NightStopsCardProps = {
   nowMs: number;
   // A stop's short name by its code
   stopName: (code: string) => string;
+  // How many stops to list (fewer on a short screen)
+  max?: number;
 };
 
 const ICON_SIZE = spacing.md + spacing.xs;
@@ -20,10 +22,10 @@ const MS_PER_MIN = 60_000;
 // NM1 (PRD 10.4): at night, under the picked route's card, the stops a multicab of the route passed
 // lately ("Passed CSU · 3 min ago"), newest first, instead of where it is now. The server shows them
 // a few minutes late. Free: no Energy.
-export function NightStopsCard({ code, passages, nowMs, stopName }: NightStopsCardProps) {
+export function NightStopsCard({ code, passages, nowMs, stopName, max = NIGHT_STOPS_SHOWN }: NightStopsCardProps) {
   const styles = useStyles();
   const { colors, typography, elevation } = useTheme();
-  const shown = passages.slice(0, NIGHT_STOPS_SHOWN);
+  const shown = passages.slice(0, max);
   return (
     <View style={[styles.card, elevation.level2]} accessibilityRole="summary">
       <View style={styles.head}>

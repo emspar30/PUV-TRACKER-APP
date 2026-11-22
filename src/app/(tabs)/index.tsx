@@ -1,7 +1,7 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { BellRing, Bus, CircleCheck, Crosshair, LocateFixed, Minus, Plus, WifiOff, X, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInRight, FadeOutRight } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -49,13 +49,19 @@ import { promptSignIn } from '@/features/auth/promptSignIn';
 import { VehicleMarkers } from '@/features/vehicles/VehicleMarkers';
 import { useVehicleRelays } from '@/features/vehicles/useVehicleRelays';
 import {
+  COMPACT_SCREEN_HEIGHT_DP,
+  DETOUR_REFRESH_MIN,
   ENERGY_TRACKING_COST,
   MAP_FOLLOW_ZOOM,
   MAP_MIN_ZOOM,
   MAP_OVERZOOM_LEVELS,
   MAP_ZOOM_STEP,
   MAX_WALK_PER_LEG_M,
+  NIGHT_STOPS_SHOWN,
+  NIGHT_STOPS_SHOWN_COMPACT,
   ROUTE_STOP_MAX_DISTANCE_M,
+  SKELETON_MIN_MS,
+  TOUR_START_DELAY_MS,
   TRACK_ALERT_ETA_S,
   TRACK_ARRIVED_M,
   TRACK_ARRIVED_PASS_M,
@@ -63,9 +69,6 @@ import {
   TRACK_NEAR_BADGE_M,
   TRACK_OTHERS_OPACITY,
   TRACKING_SESSION_MIN,
-  SKELETON_MIN_MS,
-  TOUR_START_DELAY_MS,
-  DETOUR_REFRESH_MIN,
 } from '@/shared/config';
 import { bestAlternative, overlappingRoutes } from '@/shared/routing/alternatives';
 import { nearestStop } from '@/shared/routing/describe';
@@ -124,6 +127,8 @@ export default function MapScreen() {
   const styles = useStyles();
   const { colors, typography, routeColor } = useTheme();
   const insets = useSafeAreaInsets();
+  // A short screen (a small phone, ISO test 41): the night card lists fewer stops
+  const compactScreen = useWindowDimensions().height < COMPACT_SCREEN_HEIGHT_DP;
   const { state, retry } = useOfflineTiles();
   const { lines, stops } = useRouteData();
   // B8: the bottom card shows a skeleton on the first visit
@@ -757,6 +762,7 @@ export default function MapScreen() {
             code={selectedOption.code}
             passages={nightStops.passages}
             nowMs={nightStops.nowMs}
+            max={compactScreen ? NIGHT_STOPS_SHOWN_COMPACT : NIGHT_STOPS_SHOWN}
             stopName={(code) => {
               const name = stops.find((candidate) => candidate.code === code)?.name;
               return name ? (name.split(',')[0] ?? name) : code;
@@ -802,7 +808,9 @@ export default function MapScreen() {
               />
             </TourTarget>
             <TourTarget id="ask">
-              <TunieButton expanded={!infoCardShown} onPress={() => router.push('/assistant')} />
+              {/* Round too when + and - sit beside the column: the wide label would run into them
+                  (small screens, ISO test 41) */}
+              <TunieButton expanded={!infoCardShown && !zoomBeside} onPress={() => router.push('/assistant')} />
             </TourTarget>
           </View>
         </View>
