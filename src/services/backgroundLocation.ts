@@ -38,3 +38,22 @@ export async function startBackgroundRelay(routeCode: string): Promise<boolean> 
 export async function stopBackgroundRelay(): Promise<void> {
   await stopLocationTask(BACKGROUND_RELAY_TASK);
 }
+
+// Background alerts (owner, 2026-11-23): the same kind of service while the rider tracks a multicab or
+// is checked in, so the ride alerts and "Did you board?" reach the shade from other apps
+// (features/alerts/useBackgroundWatch). Its positions feed the location store, as the relay's do.
+export const BACKGROUND_WATCH_TASK = 'tunton-watch-location';
+
+TaskManager.defineTask<TaskData>(BACKGROUND_WATCH_TASK, async ({ data, error }) => {
+  if (error || !data?.locations?.length) return;
+  useLocationStore.getState().setFix(toFix(data.locations[data.locations.length - 1]));
+});
+
+export async function startBackgroundWatch(notice: { title: string; body: string }): Promise<boolean> {
+  if (!(await backgroundLocationGranted())) return false;
+  return startLocationTask(BACKGROUND_WATCH_TASK, notice);
+}
+
+export async function stopBackgroundWatch(): Promise<void> {
+  await stopLocationTask(BACKGROUND_WATCH_TASK);
+}

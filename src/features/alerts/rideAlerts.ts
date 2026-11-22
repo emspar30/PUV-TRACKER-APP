@@ -62,6 +62,30 @@ export async function notifyRide(title: string, body: string | null): Promise<vo
   }
 }
 
+// 2026-11-23: an alert at a set time, made now and shown by Android then, even if Tunton is closed or
+// the screen is off. The id lets it be cancelled (or replaced) before then.
+export async function scheduleRideAlert(id: string, title: string, body: string, atMs: number): Promise<void> {
+  try {
+    await ensureChannel();
+    if (!(await Notifications.getPermissionsAsync()).granted) return;
+    await Notifications.scheduleNotificationAsync({
+      identifier: id,
+      content: { title, body, priority: Notifications.AndroidNotificationPriority.MAX },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: atMs, channelId: CHANNEL_ID },
+    });
+  } catch {
+    // The in-app reminder is shown anyway when Tunton is open
+  }
+}
+
+export async function cancelRideAlert(id: string): Promise<void> {
+  try {
+    await Notifications.cancelScheduledNotificationAsync(id);
+  } catch {
+    // Already shown or never made
+  }
+}
+
 // The ride alerts' buzz, once
 export function buzzOnce(): void {
   Vibration.vibrate([...RIDE_ALERT_VIBRATION_MS]);

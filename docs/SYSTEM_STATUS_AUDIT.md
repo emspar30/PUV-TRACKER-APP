@@ -106,7 +106,7 @@ and automatic tests done, not yet checked on a phone, or only partly), **Partial
 | Multicab markers with seat colour (green, amber, red) | Phone-checked (demo) | Moving live markers by day never seen; only parked ones at night |
 | Live, Stale, No data and Estimated markers (dead reckoning up to 5 minutes) | Phone-checked | |
 | All routes view, route list, map remembers the route, zoom and Locate | Phone-checked | |
-| Track one multicab: ETA, guide line, distance alerts at 1 km, 500, 250, 100 m, arrival | Phone-checked (demo, 15 steps) | Lock-screen notifications built 2026-11-13, not yet phone-checked |
+| Track one multicab: ETA, guide line, distance alerts at 1 km, 500, 250, 100 m, arrival | Phone-checked (demo, 15 steps) | Lock-screen notifications built 2026-11-13. **Since 2026-11-23** a background service (with a notice) keeps them coming from other apps and with the screen off; needs "Allow all the time" and the next commuter APK. Not phone-checked |
 | ETA rule | **Changed today** | Distance along the route / mean of moving speeds (2 km/h or more, last 5 minutes) + 30 s per km for stops, lights and traffic. Holds steady while the multicab stops; no longer hidden under 5 km/h. The 30 s per km is a starting guess, not measured |
 | Short detour (gas station, side street) | **Changed today** | More than 60 m off the route: the marker stays where it left the route and the Track view says "ETA paused"; allowed up to 300 m and 10 minutes |
 | Track view status: Moving, Stopped · N min, Off route · temporary | **Changed today** | Shown only in the Track view. The map marker now shows the position only (the earlier status marks on the marker were removed) |
@@ -120,7 +120,7 @@ and automatic tests done, not yet checked on a phone, or only partly), **Partial
 |---|---|---|
 | Check in where you stand (at a stop within 40 m, or near the route line within 40 m) | Phone-checked (12 steps) | Sends only the stop code and a "near" flag to the server |
 | Check-in costs 0.3 Energy per route pinged | Phone-checked | |
-| "Did you board?" prompt | Phone-checked | In-app only |
+| "Did you board?" prompt | Phone-checked (in-app) | **Since 2026-11-23** also in the notification shade: the 5-minute one is scheduled with Android (comes even if Tunton is closed); a multicab at the stop is notified from other apps while the background service runs. Needs the next commuter APK |
 | Driver receives the count by SMS | Built | Not checked in the tracker with the current check-in (step marked N/A); the partner's SMS device tests (DR5, DR7) only partly run |
 
 ### 3.3 Relay (crowdsourcing a multicab's position) and Crowdsource feed

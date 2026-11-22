@@ -371,8 +371,18 @@ export const en = {
   // Tester note (2026-11-13): the phone notifications for ride alerts (local, made on the phone)
   alerts: {
     channelName: 'Ride alerts',
-    channelDescription: 'Get ready to get off, and the multicab you track coming near or arriving.',
+    channelDescription: 'Get ready to get off, the multicab you track coming near or arriving, and Did you board?',
     gotIt: 'Got it',
+    // 2026-11-23: the service that keeps these alerts coming from other apps and with the screen off
+    background: {
+      trackingTitle: (route: string) => `Tracking a ${route} multicab`,
+      trackingBody: 'Tunton keeps watching so your alerts come even in other apps. Stop tracking in Tunton to end it.',
+      checkinTitle: (stop: string) => `Checked in at ${stop}`,
+      checkinBody: 'Tunton will ask if you boarded, even in other apps. It ends with your check-in.',
+      askTitle: 'Get alerts in other apps?',
+      askBody:
+        'To alert you while you use other apps or the screen is off (your multicab coming near, Did you board?), Tunton needs location "Allow all the time". It is used only while you track a multicab, are checked in or relay, with a notification. Otherwise alerts come only while Tunton is open.',
+    },
   },
 
   connection: {

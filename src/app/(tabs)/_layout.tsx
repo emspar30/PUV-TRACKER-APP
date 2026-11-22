@@ -2,6 +2,7 @@ import { Redirect, Tabs } from 'expo-router';
 import { Map, MapPinned, RadioTower, Route, Users, type LucideIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
+import { BackgroundWatch } from '@/features/alerts/useBackgroundWatch';
 import { NoBackend } from '@/features/auth/NoBackend';
 import { CheckInReminder } from '@/features/checkin/CheckInReminder';
 import { useActiveCheckIn } from '@/features/checkin/useActiveCheckIn';
@@ -156,6 +157,7 @@ export default function TabsLayout() {
         })}
       </Tabs>
       <CheckInReminder />
+      <BackgroundWatch />
       {relayFormOpen ? <RelaySheet onClose={hideRelayForm} /> : null}
     </>
   );
