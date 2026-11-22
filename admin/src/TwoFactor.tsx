@@ -5,6 +5,7 @@ import { adminMfaStep, FIRST_FACTOR_NAME, mayAddFactor, mayRemoveFactor, nextFac
 import { ADMIN_MAX_AUTHENTICATORS } from '@/shared/config';
 import { strings } from '@/strings';
 
+import { askConfirm } from './confirm';
 import { Icon } from './Icon';
 
 const text = strings.adminConsole;
@@ -223,7 +224,7 @@ export function TwoFactorSettings({ client }: { client: SupabaseClient }) {
 
   async function remove(factor: Factor) {
     if (!factors || !mayRemoveFactor(factors.length)) return setError(t.lastOne);
-    if (!window.confirm(t.removeConfirm(factor.name))) return;
+    if (!(await askConfirm({ title: t.remove, body: t.removeConfirm(factor.name), confirmLabel: t.remove, danger: true }))) return;
     setBusy(true);
     setError(null);
     setAdded(false);

@@ -22,6 +22,8 @@ const RETIRE_NOTICE_DATA = '20261029000000_retire_notice_data.sql';
 const LTFRB_REGISTRATION = '20261119000000_ltfrb_selfie_registration.sql';
 // 2026-11-22 (owner): abang, several drivers on one plate
 const ABANG = '20261122000000_abang_shared_plate.sql';
+// 2026-11-23 (owner): a plain Approve or Reject (console_decide still clears a rejected driver's name)
+const PLAIN_DECISION = '20261123000003_plain_registration_decision.sql';
 const DRIVER_SIDE_FILES = FILES.filter(
   (name) =>
     name.startsWith('20261013') ||
@@ -29,7 +31,8 @@ const DRIVER_SIDE_FILES = FILES.filter(
     name === RETIRE_NOTICE ||
     name === RETIRE_NOTICE_DATA ||
     name === LTFRB_REGISTRATION ||
-    name === ABANG,
+    name === ABANG ||
+    name === PLAIN_DECISION,
 );
 // The one drop in the migrations: abang replaces the one-phone-per-vehicle index (a rule, not data)
 const ALLOWED_DROP = 'drop index if exists public.driver_devices_one_active_per_vehicle';

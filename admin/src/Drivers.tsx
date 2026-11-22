@@ -12,6 +12,7 @@ import {
 import { strings } from '@/strings';
 
 import type { ConsoleApi } from './api';
+import { askConfirm } from './confirm';
 import { DriverDetails } from './DriverDetails';
 import { errorText } from './errors';
 import { Icon } from './Icon';
@@ -52,7 +53,7 @@ export function Drivers({ api, registrations }: { api: ConsoleApi; registrations
   }, [load]);
 
   async function retire(driver: ConsoleDriver) {
-    if (!window.confirm(t.confirmRetire(driver.device_id, driver.plate))) return;
+    if (!(await askConfirm({ title: t.retireTitle(driver.device_id), body: t.confirmRetire(driver.device_id, driver.plate), confirmLabel: t.retire, danger: true }))) return;
     setRetiring(driver.device_id);
     setDone(null);
     const result = await api.retire(driver.device_id);

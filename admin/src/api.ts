@@ -2,7 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { CONSOLE_LOG_ROWS, CONSOLE_PHOTO_LINK_TTL_S, REGISTRATION_NOTICE_TTL_MIN } from '@/shared/config';
 import { hashAdminPin } from '@/shared/driver/provisioning';
-import type { ReviewChecks } from '@/shared/driver/registration';
 import {
   decideThenDelete,
   deletePhotos as deleteThenRecord,
@@ -109,16 +108,16 @@ export function consoleApi(client: SupabaseClient) {
       }
     },
 
-    // Approves (which queues the "approved" text) or rejects with the reason, keeping the five checks
-    // either way, then deletes both photos (D1). If the deletion does not finish, the next load of the
-    // list finishes it.
-    decide: (registrationId: string, approve: boolean, checks: ReviewChecks, reason: string | null): Promise<Outcome<null>> =>
+    // Approves (which queues the "approved" text) or rejects with the reason, then deletes both photos
+    // (D1). If the deletion does not finish, the next load of the list finishes it. Since 2026-11-23 no
+    // checklist is sent (a plain Approve or Reject, migration 20261123000003).
+    decide: (registrationId: string, approve: boolean, reason: string | null): Promise<Outcome<null>> =>
       decideThenDelete(
         () =>
           rpc<DecidedPhotos[]>('console_decide', {
             registration: registrationId,
             approve,
-            review: checks,
+            review: null,
             decision_reason: approve ? null : reason,
             notice_ttl_min: REGISTRATION_NOTICE_TTL_MIN,
           }),

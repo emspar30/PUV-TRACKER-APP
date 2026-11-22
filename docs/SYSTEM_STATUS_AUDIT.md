@@ -187,7 +187,7 @@ Multicabs fall under the **LTFRB** (not the city transport office). Earlier docu
 | Feature | Status | Notes |
 |---|---|---|
 | Sign-in with the admin account; Registrations, Drivers and Settings pages | Phone-checked earlier by the partner | |
-| **Review with five checks** | **Built 2026-11-19 to 22, database part live** | Document type, Name match, On LTFRB list, Face match (N/A for the certificate), Plate match: each Pass, Fail or N/A. Approve only when the rule passes; Reject needs a failed check, with the reason picked from the failed checks. The database enforces the same rule |
+| **Review: plain Approve or Reject** | **Changed 2026-11-23 (web), migration to apply** | The five Pass/Fail checks of 2026-11-19 were removed: the admin compares the selfie, document, name and plate, checks the LTFRB list outside the console, then approves, or rejects with a typed reason the driver sees. Registrations decided before keep their checks. Confirmations use the console's own box instead of the browser's |
 | Photos deleted right after approve or reject | Built and covered by automatic tests | Only a text record remains: the decision, each check's result, the document type, who decided and when |
 | Drivers list, route filter, plate search, Retire | Built | Shows "Also on this plate: DRV-00xx" for abang drivers |
 | Admin PIN for the driver phones' Admin screen | Built | |

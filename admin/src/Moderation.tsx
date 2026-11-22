@@ -4,6 +4,7 @@ import { evidenceHint, type FlaggedPost, type PendingAppeal, type Suspension } f
 import { strings } from '@/strings';
 
 import type { ConsoleApi } from './api';
+import { askConfirm, type ConfirmRequest } from './confirm';
 import { errorText } from './errors';
 import { Icon } from './Icon';
 import { PageHeader } from './PageHeader';
@@ -46,8 +47,8 @@ export function Moderation({ api, onChanged }: { api: ConsoleApi; onChanged: () 
   }, [load]);
 
   // Runs one action, then reloads the lists and the tab's count
-  async function act(ask: string | null, run: () => Promise<{ ok: true } | { ok: false; error: string }>, success: string) {
-    if (ask !== null && !window.confirm(ask)) return;
+  async function act(ask: ConfirmRequest | null, run: () => Promise<{ ok: true } | { ok: false; error: string }>, success: string) {
+    if (ask !== null && !(await askConfirm(ask))) return;
     setBusy(true);
     setDone(null);
     setError(null);
@@ -105,8 +106,8 @@ export function Moderation({ api, onChanged }: { api: ConsoleApi; onChanged: () 
                     key={post.post_id}
                     post={post}
                     busy={busy}
-                    onConfirm={() => void act(t.confirmAsk(post.author), () => api.confirmReport(post.post_id), t.confirmed)}
-                    onDismiss={() => void act(t.dismissAsk, () => api.dismissReport(post.post_id), t.dismissed)}
+                    onConfirm={() => void act({ title: t.confirm, body: t.confirmAsk(post.author), confirmLabel: t.confirm, danger: true }, () => api.confirmReport(post.post_id), t.confirmed)}
+                    onDismiss={() => void act({ title: t.dismiss, body: t.dismissAsk, confirmLabel: t.dismiss }, () => api.dismissReport(post.post_id), t.dismissed)}
                   />
                 ))}
               </ul>
@@ -171,7 +172,7 @@ export function Moderation({ api, onChanged }: { api: ConsoleApi; onChanged: () 
                       type="button"
                       className="button secondary"
                       disabled={busy}
-                      onClick={() => void act(t.liftAsk(row.account), () => api.lift(row.account_id), t.lifted)}>
+                      onClick={() => void act({ title: t.lift, body: t.liftAsk(row.account), confirmLabel: t.lift }, () => api.lift(row.account_id), t.lifted)}>
                       {t.lift}
                     </button>
                   </li>

@@ -1636,3 +1636,64 @@ tbody tr:hover td {
   border-left: 3px solid var(--line);
   white-space: pre-wrap;
 }
+
+/* The console's own confirmation box (2026-11-23), in place of the browser's */
+.confirm-box {
+  width: min(92vw, 440px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--textPrimary);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+.confirm-box::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.confirm-inner {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.confirm-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.confirm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--primary);
+  background: var(--primaryContainer);
+}
+
+.confirm-icon.danger {
+  color: var(--danger);
+  background: var(--dangerContainer);
+}
+
+.confirm-body {
+  margin: 0;
+  color: var(--textSecondary);
+  white-space: pre-line;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

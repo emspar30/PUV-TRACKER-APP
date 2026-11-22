@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './App';
+import { ConfirmHost } from './confirm';
 import { applyTheme } from './theme';
 
 applyTheme();
@@ -11,6 +12,7 @@ if (root) {
   createRoot(root).render(
     <StrictMode>
       <App />
+      <ConfirmHost />
     </StrictMode>,
   );
 }
