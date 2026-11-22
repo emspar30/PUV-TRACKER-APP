@@ -139,7 +139,7 @@ Demo and simulation settings, Field test log.
 | Beacon loss | A released relay continues on GPS; losing the beacon does not end it (that would need a native change, declined) | By design |
 | Same multicab | A rider cannot relay the same multicab again within 3 hours | Built |
 | Energy earned | +1.0 for a relay on the live map, +0.5 in Crowdsource; at night every relay earns +1.0 | Changed 2026-11-23 |
-| Position privacy | Positions are kept 7 days (24 hours at night) for verification, then deleted (see 8.2 about the deletion jobs) | Built |
+| Position privacy | Positions are kept 7 days (24 hours at night) for verification, then deleted by a scheduled job | Built; job running |
 
 ### 2.5 Crowdsource feed and moderation (rider side)
 
@@ -268,8 +268,8 @@ Main tables, by area:
 | Rider's email | Only in Supabase Auth (for sign-in); never in app tables |
 | Rider's classification (student, senior, PWD), gender, destination | **Never stored** on the server; the fare discount and destination stay on the phone |
 | Check-in | Only the stop code and a "near" flag; deleted after it expires (15 min) |
-| Relay positions | Kept 7 days (24 hours at night) for verification, then deleted (see 8.2) |
-| Crowdsource report | Preset words only (no free text), route, multicab, nearest stop code; shown for 1 hour |
+| Relay positions | Kept 7 days (24 hours at night) for verification, then deleted (a scheduled job; see 8.2) |
+| Crowdsource report | Preset words only (no free text), route, multicab, nearest stop code; shown for 1 hour, then deleted; a flagged one is kept 7 more days for the admin's review |
 | Flag notes | Up to 200 characters, seen only by the admin |
 | Phone identity | Only a keyed HMAC of the Android ID, for the device ban |
 | Driver | Phone number, plate, route; the full name only until the phone is retired or the registration rejected; **photos deleted at the decision**; nothing from the LTFRB list |
@@ -331,14 +331,14 @@ Main tables, by area:
 - Tunie's Bisaya phrases need a check by a Butuan speaker.
 - Leaked-password protection needs a paid Supabase plan.
 
-### 8.2 Open technical point (found in this audit)
+### 8.2 Data deletion jobs (checked 2026-11-23)
 
-The data-deletion jobs (`supabase/cron/retention.sql`: check-ins, feed posts after 1 hour, flags after
-30 days, raw positions after 7 days, SMS queue after 7 days) are written but run only once the
-`pg_cron` extension is enabled and the file is run in the SQL Editor. **Whether they are running on
-the live project is not confirmed.** If they are, a Crowdsource report is deleted 1 hour after posting,
-so a flagged report leaves the admin's Moderation list after an hour (its strike remains). Until this
-is settled, do not claim that positions are deleted after 7 days as a verified fact; say "scheduled".
+The deletion jobs of `supabase/cron/retention.sql` **are running** on the live project (pg_cron,
+8 jobs, confirmed with `select jobname, schedule from cron.job`): expired check-ins every minute;
+Crowdsource posts once expired (1 hour), except **flagged** posts, kept 7 days after they expire so
+the admin can review them (changed 2026-11-23); flags after 30 days; the ingest log after 30 days; raw
+positions after 7 days (24 hours for positions received at night); the SMS queue after 7 days; worker
+alerts after 30 days; stop passages after 7 days. These deletions can be stated as done.
 
 ### 8.3 Out of scope on purpose
 

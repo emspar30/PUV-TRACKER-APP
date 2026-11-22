@@ -9,8 +9,14 @@
 select cron.schedule('retention-checkins', '* * * * *',
   $$ delete from public.checkins where expires_at < now() $$);
 
+-- 2026-11-23: a flagged post is kept app_config.moderation_list_days (7) after it expires, so the
+-- admin's Moderation page can still show it with its evidence (its flags go with it when it is
+-- deleted). Expired posts are never shown in the feed either way. Re-run this statement to update the job.
 select cron.schedule('retention-feed-posts', '*/5 * * * *',
-  $$ delete from public.feed_posts where expires_at < now() $$);
+  $$ delete from public.feed_posts p
+     where p.expires_at < now()
+       and (not exists (select 1 from public.feed_flags f where f.post_id = p.id)
+            or p.expires_at < now() - make_interval(days => (select c.moderation_list_days from public.app_config c))) $$);
 
 select cron.schedule('retention-feed-flags', '17 3 * * *',
   $$ delete from public.feed_flags where created_at < now() - interval '30 days' $$);
