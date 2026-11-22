@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1300" width="1000" height="1300" role="img" aria-label="Entity-relationship diagram of the Tunton database: 35 tables and Supabase Auth users" font-family="Arial, Helvetica, sans-serif">
 <rect x="0" y="0" width="1000" height="1300" fill="#ffffff"/>
-<defs><marker id="many" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0,6 L11,6 M11,1 L1,6 L11,11" fill="none" stroke="#333333" stroke-width="1.3"/></marker><marker id="one" viewBox="0 0 12 12" refX="1" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M4,1 L4,11 M7,1 L7,11" fill="none" stroke="#333333" stroke-width="1.3"/></marker></defs>
+<defs><marker id="many" viewBox="0 0 14 14" refX="14" refY="7" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,7 L14,7 M14,1 L2,7 L14,13" fill="none" stroke="#111111" stroke-width="1.6"/></marker><marker id="one" viewBox="0 0 14 14" refX="14" refY="7" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M5,1 L5,13 M9,1 L9,13" fill="none" stroke="#111111" stroke-width="1.6"/></marker></defs>
 <rect x="10" y="40" width="480" height="600" rx="10" fill="none" stroke="#bbbbbb" stroke-dasharray="5 4"/>
 <text x="22" y="62" font-size="14" font-weight="700" fill="#111111">A. Accounts, Energy and safety</text>
 <rect x="510" y="40" width="480" height="600" rx="10" fill="none" stroke="#bbbbbb" stroke-dasharray="5 4"/>
@@ -9,31 +9,6 @@
 <text x="22" y="712" font-size="14" font-weight="700" fill="#111111">C. Live map and relays</text>
 <rect x="510" y="690" width="480" height="470" rx="10" fill="none" stroke="#bbbbbb" stroke-dasharray="5 4"/>
 <text x="522" y="712" font-size="14" font-weight="700" fill="#111111">D. Driver side and SMS</text>
-<line x1="240.0" y1="129" x2="240.0" y2="519.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)"/>
-<line x1="240.0" y1="179.0" x2="170" y2="179.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
-<line x1="240.0" y1="179.0" x2="310" y2="179.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
-<line x1="240.0" y1="264.0" x2="170" y2="264.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
-<line x1="240.0" y1="264.0" x2="310" y2="264.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
-<line x1="240.0" y1="349.0" x2="170" y2="349.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
-<line x1="240.0" y1="349.0" x2="310" y2="349.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
-<line x1="240.0" y1="434.0" x2="170" y2="434.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
-<line x1="240.0" y1="434.0" x2="310" y2="434.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
-<line x1="240.0" y1="519.0" x2="170" y2="519.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
-<line x1="240.0" y1="519.0" x2="310" y2="519.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
-<path d="M255.0,730 V675 H755.0 V730" fill="none" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="680.0" y1="121.0" x2="670.0" y2="114.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="830.0" y1="121.0" x2="840.0" y2="107.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="755.0" y1="162.0" x2="595.0" y2="230.0" stroke="#333333" stroke-width="1.3" stroke-dasharray="5 3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="755.0" y1="162.0" x2="915.0" y2="230.0" stroke="#333333" stroke-width="1.3" stroke-dasharray="5 3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="595.0" y1="312.0" x2="595.0" y2="380.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="180.0" y1="757.0" x2="170.0" y2="757.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="330.0" y1="757.0" x2="340.0" y2="757.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="255.0" y1="784.0" x2="95.0" y2="870.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="255.0" y1="784.0" x2="255.0" y2="870.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="255.0" y1="784.0" x2="415.0" y2="870.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="755.0" y1="798.0" x2="595.0" y2="870.0" stroke="#333333" stroke-width="1.3" stroke-dasharray="5 3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="755.0" y1="798.0" x2="755.0" y2="870.0" stroke="#333333" stroke-width="1.3" stroke-dasharray="5 3" marker-start="url(#one)" marker-end="url(#many)"/>
-<line x1="840.0" y1="897.0" x2="830.0" y2="911.0" stroke="#333333" stroke-width="1.3" stroke-dasharray="5 3" marker-start="url(#one)" marker-end="url(#many)"/>
 <g><rect x="165" y="75" width="150" height="54" rx="5" fill="#ffffff" stroke="#111111" stroke-width="1.4"/>
 <path d="M165,95 H315" stroke="#111111" stroke-width="1"/>
 <rect x="165.7" y="75.7" width="148.6" height="19.3" rx="4" fill="#e6e6e6"/>
@@ -312,6 +287,31 @@
 <text x="848" y="1072" font-size="10" fill="#111111"><tspan font-weight="700">PK</tspan> id<tspan fill="#555555" font-size="9"></tspan></text>
 <text x="848" y="1086" font-size="9.5" fill="#555555">+ 4 more columns</text>
 </g>
+<line x1="240.0" y1="129" x2="240.0" y2="519.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)"/>
+<line x1="240.0" y1="179.0" x2="170" y2="179.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
+<line x1="240.0" y1="179.0" x2="310" y2="179.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
+<line x1="240.0" y1="264.0" x2="170" y2="264.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
+<line x1="240.0" y1="264.0" x2="310" y2="264.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
+<line x1="240.0" y1="349.0" x2="170" y2="349.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
+<line x1="240.0" y1="349.0" x2="310" y2="349.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
+<line x1="240.0" y1="434.0" x2="170" y2="434.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
+<line x1="240.0" y1="434.0" x2="310" y2="434.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
+<line x1="240.0" y1="519.0" x2="170" y2="519.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
+<line x1="240.0" y1="519.0" x2="310" y2="519.0" stroke="#333333" stroke-width="1.3" marker-end="url(#many)"/>
+<path d="M255.0,730 V675 H755.0 V730" fill="none" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="680.0" y1="121.0" x2="670.0" y2="114.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="830.0" y1="121.0" x2="840.0" y2="107.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="755.0" y1="162.0" x2="595.0" y2="230.0" stroke="#333333" stroke-width="1.3" stroke-dasharray="5 3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="755.0" y1="162.0" x2="915.0" y2="230.0" stroke="#333333" stroke-width="1.3" stroke-dasharray="5 3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="595.0" y1="312.0" x2="595.0" y2="380.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="180.0" y1="757.0" x2="170.0" y2="757.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="330.0" y1="757.0" x2="340.0" y2="757.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="255.0" y1="784.0" x2="95.0" y2="870.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="255.0" y1="784.0" x2="255.0" y2="870.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="255.0" y1="784.0" x2="415.0" y2="870.0" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="755.0" y1="798.0" x2="595.0" y2="870.0" stroke="#333333" stroke-width="1.3" stroke-dasharray="5 3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="755.0" y1="798.0" x2="755.0" y2="870.0" stroke="#333333" stroke-width="1.3" stroke-dasharray="5 3" marker-start="url(#one)" marker-end="url(#many)"/>
+<line x1="840.0" y1="897.0" x2="830.0" y2="911.0" stroke="#333333" stroke-width="1.3" stroke-dasharray="5 3" marker-start="url(#one)" marker-end="url(#many)"/>
 <text x="20" y="1185" font-size="12" font-weight="700" fill="#111111">Legend</text>
 <line x1="20" y1="1203" x2="80" y2="1203" stroke="#333333" stroke-width="1.3" marker-start="url(#one)" marker-end="url(#many)"/>
 <text x="90" y="1207" font-size="11" fill="#111111">One to many (the fork is the "many" side)</text>
