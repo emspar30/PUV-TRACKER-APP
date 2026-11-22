@@ -220,6 +220,34 @@ helper) is DONE.
   confirmation say the other drivers keep working.
 - Not built (owner): the takeover step. SMS keeps going to every active phone on the route.
 
+### Phase 4 (2026-11-22): nothing to build
+
+- Fares: already in one config place with source and date (1.5). Left as they are until the LTFRB
+  PUJ General Fare Guide arrives (owner, 2026-11-22).
+- Feedback link: already built (`FEEDBACK_FORM_URL`, Menu, Give feedback); it shows once the form link
+  is set.
+
+### Phase 5 as built (2026-11-22, branch `feat/beacon-battery`)
+
+- Current: `balanced` (about 250 ms) at `medium` (about -7 dBm), unchanged.
+- Proposed, behind `BEACON_LOW_POWER = false`: `low_power` (about 1 s) at `low` (about -15 dBm)
+  (`src/shared/config/index.ts`, `src/shared/beacon/advertise.ts`). The native module already maps both,
+  so turning it on needs a new driver APK only.
+
+**Battery test procedure (driver phone):**
+
+1. One driver phone, charged to 100 %, SIM in, screen off, not charging. Brightness, Wi-Fi, mobile data
+   and other apps the same for every run. Note the phone model and Android version.
+2. Run A, beacon off: 2 hours (at least 1). Note the battery % at the start, every 30 minutes and at the end.
+3. Run B, beacon on with the current settings: the same length and readings.
+4. Run C, beacon on with the low-power settings (a driver APK built with `BEACON_LOW_POWER = true`): the
+   same, and every 10 minutes check from a commuter phone in the multicab that Relay finds it
+   (Found by Bluetooth within 15 s).
+5. Report % per hour for each run (start % minus end %, divided by the hours). B minus A is what the
+   beacon costs today; C minus A with the low-power settings. Note any missed detection in run C.
+6. Keep the low-power settings only if run C misses no detection inside the multicab; then set
+   `BEACON_LOW_POWER = true` and build a new driver APK.
+
 ## 3. Plan (after your answers)
 
 ### Phase 1: `feat/selfie-ltfrb`

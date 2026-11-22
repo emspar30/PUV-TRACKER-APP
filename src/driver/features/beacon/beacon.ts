@@ -1,13 +1,8 @@
 import { useEffect, useState } from 'react';
 import { PermissionsAndroid, Platform } from 'react-native';
 
-import {
-  BEACON_ADVERTISE_MODE,
-  BEACON_PAYLOAD_VERSION,
-  BEACON_SERVICE_UUID,
-  BEACON_SLOT_S,
-  BEACON_TX_POWER,
-} from '@/shared/config';
+import { advertiseSettings } from '@/shared/beacon/advertise';
+import { BEACON_LOW_POWER, BEACON_PAYLOAD_VERSION, BEACON_SERVICE_UUID, BEACON_SLOT_S } from '@/shared/config';
 import { strings } from '@/strings';
 
 import { addStatusListener, getStatus, type BeaconOptions, type BeaconStatus } from '../../../../modules/tunton-beacon';
@@ -24,8 +19,7 @@ export function beaconOptions(): BeaconOptions {
     serviceUuid: BEACON_SERVICE_UUID,
     version: BEACON_PAYLOAD_VERSION,
     slotSeconds: BEACON_SLOT_S,
-    mode: BEACON_ADVERTISE_MODE,
-    txPower: BEACON_TX_POWER,
+    ...advertiseSettings(BEACON_LOW_POWER),
     notificationTitle: strings.driver.notification.title,
     notificationText: strings.driver.notification.text,
     retiredTitle: strings.driver.retiredTitle,

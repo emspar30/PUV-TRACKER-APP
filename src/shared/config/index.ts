@@ -716,9 +716,22 @@ export const BEACON_PAYLOAD_VERSION = 1;
 // The rotating code changes every slot; the server accepts the current slot plus or minus the tolerance
 export const BEACON_SLOT_S = 60;
 export const BEACON_SLOT_TOLERANCE = 1;
-// Advertising settings passed to the native module (PRD 9.2: balanced, about 250 ms; power tuned in E1)
-export const BEACON_ADVERTISE_MODE = 'balanced';
-export const BEACON_TX_POWER = 'medium';
+// Advertising settings passed to the native module (PRD 9.2: balanced, about 250 ms; power tuned in E1).
+// The native module (BeaconAdvertiserService.kt) maps the mode to Android's interval: low_latency about
+// 100 ms, balanced about 250 ms, low_power about 1 s; and the power: ultra_low about -21 dBm, low about
+// -15 dBm, medium about -7 dBm, high about +1 dBm.
+export type BeaconAdvertiseMode = 'low_latency' | 'balanced' | 'low_power';
+export type BeaconTxPower = 'ultra_low' | 'low' | 'medium' | 'high';
+export const BEACON_ADVERTISE_MODE: BeaconAdvertiseMode = 'balanced';
+export const BEACON_TX_POWER: BeaconTxPower = 'medium';
+// Phase 5 (owner, 2026-11-22; docs/APP_CHANGES_PLAN.md, battery test procedure): lower-power settings
+// to try in a real multicab. At about 1 s a commuter phone scanning at low latency still hears about 3
+// packets within BEACON_PRESENCE_S; inside a multicab (under 5 m) about -15 dBm should stay above
+// RSSI_PRESENCE_THRESHOLD_DBM. Not the default: BEACON_LOW_POWER stays false until the retest passes,
+// then turning it on needs only a new driver APK (no native change).
+export const BEACON_ADVERTISE_MODE_LOW_POWER: BeaconAdvertiseMode = 'low_power';
+export const BEACON_TX_POWER_LOW_POWER: BeaconTxPower = 'low';
+export const BEACON_LOW_POWER = false;
 // DR8: the commuter app scans at low latency while the Relay panel is open (the user is waiting on it)
 export const BEACON_SCAN_MODE = 'low_latency';
 // DR8: verify_beacon calls a user may make a minute (the migration repeats it; a test checks they agree)
