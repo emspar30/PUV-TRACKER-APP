@@ -23,6 +23,7 @@ import {
   isCheckCode,
   isInstallToken,
   normalizePlate,
+  limitPlateInput,
   parseCheckText,
   readCheckCode,
   setupExpired,
@@ -52,6 +53,20 @@ describe('plate', () => {
 
   it.each(['', 'AB', '12', 'ABCDEF', '123456', 'ABC 12345678', 'ABC_123', 'ÑAB 123'])('%j is refused', (raw) => {
     expect(normalizePlate(raw)).toBeNull();
+  });
+
+  it('takes at most 9 letters and digits (2026-11-24; was 10)', () => {
+    expect(normalizePlate('ABC 123456')).toBe('ABC 123456');
+    expect(normalizePlate('ABCD 123456')).toBeNull();
+    expect(normalizePlate('ABD 8909')).toBe('ABD 8909');
+  });
+
+  it('the plate box stops at 9 letters and digits, upper case, keeping a space or dash', () => {
+    expect(limitPlateInput('abd 8909')).toBe('ABD 8909');
+    expect(limitPlateInput('ABC-1234567890')).toBe('ABC-123456');
+    expect(limitPlateInput('ABC 123456XYZ')).toBe('ABC 123456');
+    expect(limitPlateInput('A_B.C 12')).toBe('ABC 12');
+    expect(normalizePlate(limitPlateInput('ABCDEFGHIJKLMN 1'))).toBeNull();
   });
 
   it('makes the vehicle id from route and plate', () => {

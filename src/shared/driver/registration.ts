@@ -28,6 +28,7 @@ export {
   isRouteCode,
   normalizeDriverName,
   normalizePlate,
+  limitPlateInput,
   parseCheckText,
   REVIEW_CHECKS,
   setupExpired,

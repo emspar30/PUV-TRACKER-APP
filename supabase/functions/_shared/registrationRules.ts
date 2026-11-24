@@ -36,7 +36,7 @@ const MS_PER_DAY = 86400000;
 // --- Plate and vehicle
 
 // The plate in its one stored form ("abc-1234" and " ABC  1234 " give "ABC 1234"), or null if it is
-// not 3 to 10 letters and digits with at least one of each
+// not 3 to 9 letters and digits with at least one of each
 export function normalizePlate(raw: string): string | null {
   const plate = raw.toUpperCase().replace(/[\s-]+/g, ' ').trim();
   if (!PLATE_CHARS_RE.test(plate)) return null;
@@ -44,6 +44,23 @@ export function normalizePlate(raw: string): string | null {
   if (chars.length < PLATE_MIN_CHARS || chars.length > PLATE_MAX_CHARS) return null;
   if (!LETTER_RE.test(chars) || !DIGIT_RE.test(chars)) return null;
   return plate;
+}
+
+// The plate box as typed (2026-11-24): upper case, letters, digits, spaces and dashes only, and no
+// more than PLATE_MAX_CHARS letters and digits, so the driver cannot type past the limit
+export function limitPlateInput(raw: string): string {
+  let count = 0;
+  let out = '';
+  for (const ch of raw.toUpperCase()) {
+    if (/[A-Z0-9]/.test(ch)) {
+      if (count >= PLATE_MAX_CHARS) continue;
+      count += 1;
+      out += ch;
+    } else if (ch === ' ' || ch === '-') {
+      out += ch;
+    }
+  }
+  return out;
 }
 
 export function isRouteCode(route: string): boolean {

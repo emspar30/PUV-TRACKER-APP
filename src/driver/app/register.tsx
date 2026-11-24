@@ -36,7 +36,7 @@ import { LineBadge } from '@/components/Pills';
 import { StepHeader } from '@/components/StepHeader';
 import { REGISTRATION_PHOTO_QUALITY, REGISTRATION_STATUS_POLL_S } from '@/shared/config';
 import { localPhDigits, localPhNumber, normalizePhNumber } from '@/shared/driver/phone';
-import { DOCUMENT_TYPES, normalizeDriverName, normalizePlate, type DocumentType } from '@/shared/driver/registration';
+import { DOCUMENT_TYPES, limitPlateInput, normalizeDriverName, normalizePlate, type DocumentType } from '@/shared/driver/registration';
 import { checkFresh, mayCollect, mustRegisterAgain, pickPictureSize, resumeStep, waitingStatus, type WaitingStatus } from '@/shared/driver/registrationFlow';
 import { strings } from '@/strings';
 import { makeStyles, MIN_TOUCH_TARGET, motion, radii, spacing, useTheme } from '@/theme';
@@ -388,7 +388,8 @@ function VehicleStep({ onDone }: { onDone: () => void }) {
         <TextInput
           style={[typography.headlineSm, styles.inputText]}
           value={plate}
-          onChangeText={setPlate}
+          // 2026-11-24: at most PLATE_MAX_CHARS letters and digits can be typed
+          onChangeText={(value) => setPlate(limitPlateInput(value))}
           placeholder={text.platePlaceholder}
           placeholderTextColor={colors.textTertiary}
           autoCapitalize="characters"

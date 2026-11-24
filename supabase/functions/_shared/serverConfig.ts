@@ -61,9 +61,10 @@ export const REGISTRATION_CHECKS_PER_DAY = 20;
 export const REGISTRATION_SUBMIT_WITHIN_MIN = 60;
 // An approved setup must be collected within this many days, or the driver registers again
 export const REGISTRATION_SETUP_TTL_DAYS = 7;
-// A plate has this many letters and digits (at least one of each); the database allows 16 characters
+// A plate has this many letters and digits (at least one of each); the database allows 16 characters.
+// 2026-11-24 (owner): a Philippine plate has at most 7; 9 leaves room, and the form stops typing there.
 export const PLATE_MIN_CHARS = 3;
-export const PLATE_MAX_CHARS = 10;
+export const PLATE_MAX_CHARS = 9;
 // The driver's full name as written on the LTFRB document (2026-11-19), kept only while the driver
 // takes part
 export const DRIVER_NAME_MIN_CHARS = 2;
