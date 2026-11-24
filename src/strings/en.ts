@@ -535,6 +535,10 @@ export const en = {
       arrivedTitle: 'Your multicab has arrived',
       arrivedBody: (label: string) => `${label} is at your stop. Tracking has ended.`,
       passed: 'Passed your stop',
+      // 2026-11-24: the commuter is within TRACK_HERE_M of the multicab
+      here: 'Here · 0 min',
+      // Passed: how far it drives round to the commuter again, shown apart from the ETA
+      nextRound: (distanceKm: number) => `Next time round: ${km(distanceKm)} by road`,
       // Gone past the commuter on a loop: the time and distance are to its next time round
       passedYou: 'Passed you · next time round',
       unknown: 'ETA unavailable',

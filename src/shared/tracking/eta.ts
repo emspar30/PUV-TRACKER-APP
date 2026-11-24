@@ -3,7 +3,11 @@
 // passed the commuter the ETA counts on to its next time round instead of stopping. Pass the lines
 // with their stand-in legs (withReturnLegs). Phase 2 (owner, 2026-11-22): the speed counts moving
 // time only, a stop allowance per km is added, a stopped multicab's ETA holds instead of counting
-// down, and a multicab on a short detour has its ETA paused. Pure: no React Native or Expo imports.
+// down, and a multicab on a short detour has its ETA paused. 2026-11-24 (field test: a rider level with
+// the multicab saw about 6 km): a tracker within TRACK_HERE_M of the multicab is "Here"; a tracker
+// behind the multicab on its own leg is Passed, with the next arrival kept apart, so a distance never
+// wraps round the loop as if the multicab were still coming; and tracking aims at the stop ahead of
+// the multicab nearest the tracker. Pure: no React Native or Expo imports.
 
 import {
   COVERAGE_LIVE_MAX_AGE_S,
@@ -11,11 +15,14 @@ import {
   ETA_MIN_SAMPLES,
   ETA_MOVING_WINDOW_S,
   ETA_STOP_ALLOWANCE_S_PER_KM,
+  LIVE_LINE_TIE_M,
+  MAX_WALK_PER_LEG_M,
   ROUTE_STOP_MAX_DISTANCE_M,
   STATIONARY_SPEED_KMH,
+  TRACK_HERE_M,
 } from '../config';
-import { lineEndKm } from '../geo/line';
-import type { LatLon } from '../geo/haversine';
+import { lineEndKm, linePasses, type LineProjection } from '../geo/line';
+import { haversineMeters, type LatLon } from '../geo/haversine';
 import { routeRound } from '../routing/loop';
 import { passesKm, vehicleChainageKm } from '../routing/progress';
 import type { DirectedLine, RouteStop } from '../routing/types';
@@ -24,9 +31,11 @@ import type { VehicleSnapshot } from '../telemetry/vehicle';
 export type Eta =
   // speedKmh: the moving speed; movingNow: the last speed was a moving one (a stopped multicab's ETA
   // holds between packets instead of counting down)
-  | { kind: 'approaching'; distanceKm: number; etaS: number; speedKmh: number; movingNow: boolean }
-  // Already past the boarding point, on a route with no way round to it again
-  | { kind: 'passed' }
+  // here: the tracker is within TRACK_HERE_M of the multicab (distance and time 0)
+  | { kind: 'approaching'; distanceKm: number; etaS: number; speedKmh: number; movingNow: boolean; here?: true }
+  // Already past the boarding point. nextRoundKm: how far the multicab drives round to it again, when
+  // it can (shown apart, never as the distance to the boarding point)
+  | { kind: 'passed'; nextRoundKm?: number }
   // Shown as "ETA unavailable": the line does not pass the point, it is too far, too few moving
   // speeds or no longer Live; "ETA paused" while the multicab is on a short detour. distanceKm is kept
   // whenever the line reaches the point, so arrival and the distance alerts do not depend on the ETA.
@@ -35,6 +44,7 @@ export type Eta =
 const MS_PER_S = 1000;
 const S_PER_H = 3600;
 const METERS_PER_KM = 1000;
+const HERE_KM = TRACK_HERE_M / METERS_PER_KM;
 
 // The measured distance along the route, whether or not the ETA is shown (null: off the line or passed)
 export function etaDistanceKm(eta: Eta | null): number | null {
@@ -65,10 +75,13 @@ export function etaTo(
   maxOffsetM = ROUTE_STOP_MAX_DISTANCE_M,
   { round = true }: { round?: boolean } = {},
 ): Eta {
+  if (haversineMeters(vehicle, boarding) <= TRACK_HERE_M) return { kind: 'approaching', distanceKm: 0, etaS: 0, speedKmh: 0, movingNow: false, here: true };
   const legs = routeRound(lines, vehicle.lineId);
-  const distanceKm = distanceRound(round ? legs : legs.slice(0, 1), vehicle, boarding, maxOffsetM);
-  if (distanceKm === null) return { kind: 'unknown', reason: 'off_line' };
-  if (distanceKm === 'passed') return { kind: 'passed' };
+  const found = distanceRound(round ? legs : legs.slice(0, 1), vehicle, boarding, maxOffsetM);
+  if (found === null) return { kind: 'unknown', reason: 'off_line' };
+  if (found === 'passed') return { kind: 'passed' };
+  if (found.behind) return { kind: 'passed', nextRoundKm: found.km };
+  const distanceKm = found.km;
   // Phase 2: on a short detour the marker stays where it left the route and the ETA waits for it
   if (vehicle.offRouteSinceMs !== undefined) return { kind: 'unknown', reason: 'paused', distanceKm };
   if (distanceKm > ETA_MAX_KM) return { kind: 'unknown', reason: 'too_far', distanceKm };
@@ -99,24 +112,87 @@ export function etaNow(eta: Eta, ageS: number, maxAgeS = COVERAGE_LIVE_MAX_AGE_S
   };
 }
 
-// How far the vehicle drives forward to the point: its next pass ahead on its own leg, else the
-// first pass on the following legs, round to its own leg again. Every pass counts, not just the
-// nearest, because a line may use the same street twice. Null when no leg comes within maxOffsetM.
-function distanceRound(round: readonly DirectedLine[], vehicle: LatLon & { headingDeg?: number }, point: LatLon, maxOffsetM: number): number | 'passed' | null {
+// How far the vehicle drives forward to the point: its next pass ahead on its own leg (a pass up to
+// TRACK_HERE_M behind it counts as reached: 0), else the first pass on the following legs, round to
+// its own leg again. Every pass counts, not just the nearest, because a line may use the same street
+// twice. behind: the vehicle went by the point on its own leg more recently than it will next reach
+// it (and that pass is at least as close to the point as the one ahead), so km is its next time
+// round, not a distance to show. Null when no leg comes within maxOffsetM.
+function distanceRound(
+  round: readonly DirectedLine[],
+  vehicle: LatLon & { headingDeg?: number },
+  point: LatLon,
+  maxOffsetM: number,
+): { km: number; behind: boolean } | 'passed' | null {
   const [own, ...after] = round;
   if (!own) return null;
   const atKm = vehicleChainageKm(own.coordinates, vehicle);
-  const onOwn = passesKm(own.coordinates, point, maxOffsetM);
-  const ahead = onOwn.find((km) => km > atKm);
-  if (ahead !== undefined) return ahead - atKm;
-  if (after.length === 0) return onOwn.length > 0 ? 'passed' : null;
-  let km = lineEndKm(own.coordinates) - atKm;
+  const onOwn = linePasses(own.coordinates, point, maxOffsetM).passes;
+  const behindOwn = onOwn.filter((pass) => pass.chainageKm <= atKm - HERE_KM);
+  const lastBehind = behindOwn[behindOwn.length - 1];
+  const next = nextPass(onOwn, after, atKm, lineEndKm(own.coordinates), point, maxOffsetM);
+  if (!next) return onOwn.length > 0 ? 'passed' : null;
+  const behind = lastBehind !== undefined && lastBehind.offsetM <= next.offsetM + LIVE_LINE_TIE_M && atKm - lastBehind.chainageKm < next.km;
+  return { km: next.km, behind };
+}
+
+// The vehicle's next pass by the point: ahead on its own leg (from TRACK_HERE_M behind it), else on
+// the following legs, else round to its own leg again; null on a lone leg already past it
+function nextPass(
+  onOwn: readonly LineProjection[],
+  after: readonly DirectedLine[],
+  atKm: number,
+  ownEndKm: number,
+  point: LatLon,
+  maxOffsetM: number,
+): { km: number; offsetM: number } | null {
+  const ahead = onOwn.find((pass) => pass.chainageKm > atKm - HERE_KM);
+  if (ahead !== undefined) return { km: Math.max(0, ahead.chainageKm - atKm), offsetM: ahead.offsetM };
+  if (after.length === 0) return null;
+  let km = ownEndKm - atKm;
   for (const line of after) {
-    const first = passesKm(line.coordinates, point, maxOffsetM)[0];
-    if (first !== undefined) return km + first;
+    const first = linePasses(line.coordinates, point, maxOffsetM).passes[0];
+    if (first !== undefined) return { km: km + first.chainageKm, offsetM: first.offsetM };
     km += lineEndKm(line.coordinates);
   }
-  return onOwn.length > 0 ? km + onOwn[0] : null;
+  return onOwn.length > 0 ? { km: km + onOwn[0].chainageKm, offsetM: onOwn[0].offsetM } : null;
+}
+
+// The stop to track to: of the stops the vehicle reaches before it comes round to its own leg again,
+// the one nearest the tracker, if one is within MAX_WALK_PER_LEG_M of them
+export function stopAheadNearest(
+  vehicle: Pick<VehicleSnapshot, 'lat' | 'lon' | 'lineId'> & { headingDeg?: number },
+  lines: readonly DirectedLine[],
+  stops: readonly RouteStop[],
+  tracker: LatLon,
+): RouteStop | null {
+  const [own, ...after] = routeRound(lines, vehicle.lineId);
+  if (!own) return null;
+  const atKm = vehicleChainageKm(own.coordinates, vehicle);
+  const ahead = [...stopsAlong(own, stops).filter(({ km }) => km > atKm), ...after.flatMap((line) => stopsAlong(line, stops))];
+  let best: { stop: RouteStop; distanceM: number } | null = null;
+  for (const { stop } of ahead) {
+    const distanceM = haversineMeters(tracker, stop);
+    if (distanceM <= MAX_WALK_PER_LEG_M && (!best || distanceM < best.distanceM)) best = { stop, distanceM };
+  }
+  return best?.stop ?? null;
+}
+
+// Tracking (L2, 2026-11-24): "Here" when the tracker is within TRACK_HERE_M of the vehicle; Passed
+// (with its next arrival) when the vehicle has gone by them; otherwise the ETA to the stop ahead of
+// the vehicle nearest the tracker, or to the tracker themself when no stop ahead is near them.
+export function trackEta(
+  vehicle: Tracked,
+  lines: readonly DirectedLine[],
+  stops: readonly RouteStop[],
+  tracker: LatLon,
+): { eta: Eta; stop: RouteStop | null } {
+  const toTracker = etaTo(vehicle, lines, tracker, MAX_WALK_PER_LEG_M);
+  const reachable = toTracker.kind === 'approaching' ? !toTracker.here : toTracker.kind === 'unknown' && toTracker.reason !== 'off_line';
+  const stop = reachable ? stopAheadNearest(vehicle, lines, stops, tracker) : null;
+  if (!stop) return { eta: toTracker, stop: null };
+  const toStop = etaTo(vehicle, lines, stop, ROUTE_STOP_MAX_DISTANCE_M);
+  return toStop.kind === 'passed' || (toStop.kind === 'unknown' && toStop.reason === 'off_line') ? { eta: toTracker, stop: null } : { eta: toStop, stop };
 }
 
 // Each time the line passes a stop, in travel order (a stop on a street used twice is there twice)
@@ -161,8 +237,12 @@ export function crossesAlert(previousEtaS: number | null, etaS: number | null, t
 // the last reading and the distance has since jumped by more than passM (it went by between
 // readings and now counts to its next time round; GPS wobble at a stop is far smaller). Never on
 // the first reading.
-export function hasArrived(previousKm: number | null, km: number | null, arrivedM: number, passM: number): boolean {
-  if (previousKm === null || km === null) return false;
+// passedNow (2026-11-24): the multicab now reads as Passed (it no longer counts round the loop), so
+// a last reading within passM means it went by.
+export function hasArrived(previousKm: number | null, km: number | null, arrivedM: number, passM: number, passedNow = false): boolean {
+  if (previousKm === null) return false;
+  if (passedNow) return previousKm * METERS_PER_KM <= passM;
+  if (km === null) return false;
   return km * METERS_PER_KM <= arrivedM || (previousKm * METERS_PER_KM <= passM && (km - previousKm) * METERS_PER_KM > passM);
 }
 

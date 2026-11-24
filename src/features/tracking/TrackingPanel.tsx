@@ -65,8 +65,11 @@ export function TrackingPanel({
   const stale = eta?.kind === 'unknown' && eta.reason === 'stale';
 
   // PRD 19.4: past ETA_MAX_KM the time is hidden; the headline says why (Emjay, 2026-10-26)
+  // 2026-11-24: Here (0 min) within TRACK_HERE_M; Passed keeps the next time round apart
   const headline =
-    eta?.kind === 'approaching'
+    eta?.kind === 'approaching' && eta.here
+      ? t.here
+      : eta?.kind === 'approaching'
       ? t.minutes(eta.etaS)
       : eta?.kind === 'passed'
         ? t.passed
@@ -89,10 +92,12 @@ export function TrackingPanel({
         <View style={styles.grow}>
           <View style={styles.etaRow}>
             <Text style={typography.headlineLg}>{headline}</Text>
-            {distanceKm !== null ? (
+            {distanceKm !== null && !(eta?.kind === 'approaching' && eta.here) ? (
               <Text style={typography.bodySm}>
                 {etaTarget === 'mine' && progress.mine ? t.awayTo(distanceKm, progress.mine.code) : t.away(distanceKm)}
               </Text>
+            ) : eta?.kind === 'passed' && eta.nextRoundKm !== undefined ? (
+              <Text style={typography.bodySm}>{t.nextRound(eta.nextRoundKm)}</Text>
             ) : null}
           </View>
           {/* Emjay, 2026-10-26: the stop being approached is on the bar below, so the badge shows

@@ -1,6 +1,9 @@
 // Single source of every threshold, fare value and feature flag (PRD 0.3).
 // All values are starting hypotheses (PRD 17). No other module may contain a threshold literal.
 
+// The removal age is also the Stale limit below, so it is read here as well as re-exported
+import { VEHICLE_GONE_S } from '../../../supabase/functions/_shared/serverConfig.ts';
+
 // --- Values the server enforces too. They are defined once, beside the Edge Function that uses them
 // (which can only load files from its own folder), and re-exported here:
 //   ENABLE_VERIFICATION (PRD 0.7; read in one place only: verifyReport), STATIONARY_SPEED_KMH (7.3),
@@ -52,6 +55,7 @@ export {
   VERIFY_FIX_ACCURACY_M,
   VERIFY_WINDOW_MAX_S,
   VERIFY_WINDOW_S,
+  VEHICLE_GONE_S,
 } from '../../../supabase/functions/_shared/serverConfig.ts';
 
 // --- Position send rule (PRD 8.4)
@@ -63,20 +67,27 @@ export const STATIONARY_DURATION_S = 45;
 
 // --- Liveness and coverage states (PRD 7.3, 8.4)
 export const LIVENESS_TIMEOUT_S = 90;
-export const COVERAGE_LIVE_MAX_AGE_S = 90;
-export const COVERAGE_STALE_MAX_AGE_S = 600;
+// 2026-11-24 (field test: a force-stopped relay kept its multicab on other maps). A marker is Live
+// while its last position is at most COVERAGE_LIVE_MAX_AGE_S old: two send intervals
+// (POSITION_SEND_INTERVAL_S is 30 s), so one lost packet does not grey it. Estimated up to
+// GHOST_MAX_AGE_S, Stale (greyed at its last fix) up to COVERAGE_STALE_MAX_AGE_S, then removed from
+// every map, list and tracking panel. The server hides the same rows and closes the relay session
+// after that age (VEHICLE_GONE_S, app_config.vehicle_gone_s).
+export const COVERAGE_LIVE_MAX_AGE_S = 60;
+export const COVERAGE_STALE_MAX_AGE_S = VEHICLE_GONE_S;
 export const LIVE_UI_REFRESH_INTERVAL_S = 5;
 
-// --- CF1 coverage fallbacks (PRD 7.3 as amended 2026-10-17)
+// --- CF1 coverage fallbacks (PRD 7.3 as amended 2026-10-17; 2026-11-24: Estimated up to 2 minutes, was 5)
 // Estimated markers: a vehicle silent from COVERAGE_LIVE_MAX_AGE_S up to this age is drawn where it
 // probably is, moved along its line at its recent speed (dead reckoning), faded, labelled
 // "Estimated" and without an ETA. Older Stale vehicles stay greyed at their last fix.
-export const GHOST_MAX_AGE_S = 300;
+export const GHOST_MAX_AGE_S = 120;
 // The speed it is moved at: the median of its speeds over ETA_SAMPLE_WINDOW_S before its last
 // packet, capped here; it is not moved when stopped or under STATIONARY_SPEED_KMH
 export const GHOST_MAX_SPEED_KMH = 40;
-// It is never moved further than this along its line, and never past the line's end
-export const GHOST_MAX_DISTANCE_KM = 2;
+// It is never moved further than this along its line, and never past the line's end (2026-11-24: 1 km,
+// as the Estimated window is now 2 minutes: 40 km/h for 2 minutes is 1.3 km)
+export const GHOST_MAX_DISTANCE_KM = 1;
 // While an Estimated marker shows, positions are worked out this often (the live feed ticks every
 // LIVE_UI_REFRESH_INTERVAL_S), so the marker glides instead of jumping
 export const GHOST_TICK_MS = 1000;
@@ -160,6 +171,10 @@ export const TRACK_NEAR_BADGE_M = 1000;
 // of more than that: it has gone by and is counting to its next time round)
 export const TRACK_ARRIVED_M = 50;
 export const TRACK_ARRIVED_PASS_M = 200;
+// 2026-11-24 (field test: a rider tracking the multicab they were in saw about 6 km): the tracker
+// within TRACK_HERE_M of the multicab is shown "Here" (0 min), and a pass of the tracker up to this far
+// behind the multicab along its line counts as reached, never as a whole loop away
+export const TRACK_HERE_M = 50;
 // How long an in-app toast stays on screen
 export const TOAST_VISIBLE_MS = 4000;
 // The Notifications page keeps this many of the newest notices

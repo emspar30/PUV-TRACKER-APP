@@ -9,7 +9,7 @@ describe('config exposes every PRD 0.3 default', () => {
     ['STATIONARY_SPEED_KMH', 2],
     ['STATIONARY_DURATION_S', 45],
     ['LIVENESS_TIMEOUT_S', 90],
-    ['COVERAGE_LIVE_MAX_AGE_S', 90],
+    ['COVERAGE_LIVE_MAX_AGE_S', 60],
     ['COVERAGE_STALE_MAX_AGE_S', 600],
     ['PACKET_MAX_AGE_S', 120],
     ['PACKET_MAX_FUTURE_S', 30],

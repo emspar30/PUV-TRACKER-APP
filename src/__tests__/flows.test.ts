@@ -264,10 +264,10 @@ describe('CA1.1 flow: the conversation is kept for an hour', () => {
 // --- CF1 ---------------------------------------------------------------------------------------------
 
 describe('CF1 flow: Estimated marker and the coverage nudge', () => {
-  it('a multicab silent for 2 minutes is drawn Estimated, moved along its line, and counted so', () => {
+  it('a multicab silent for 100 s is drawn Estimated, moved along its line, and counted so', () => {
     const moving = demoVehicles('R4', NOW).find((vehicle) => !vehicle.hidden && !vehicle.layover && vehicle.speedKmh > 5);
     if (!moving) throw new Error('no moving demo multicab');
-    const later = moving.lastPacketMs + 120 * MS;
+    const later = moving.lastPacketMs + 100 * MS;
     expect(isGhostAge(ageSeconds(moving.lastPacketMs, later))).toBe(true);
     const line = LOOPED.find((candidate) => candidate.id === moving.lineId);
     const drawn = displayPosition(moving, line?.coordinates, later);

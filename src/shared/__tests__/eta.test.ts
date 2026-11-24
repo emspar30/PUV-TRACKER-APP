@@ -69,10 +69,13 @@ describe('ETA (D9)', () => {
 
   it(`is hidden beyond ${ETA_MAX_KM} km (PRD 19.4), with the distance kept`, () => {
     const lengthKm = lineLengthKm(FIXTURE_OUTBOUND.coordinates);
-    // Just past the point on the outbound: the way round is nearly two line lengths
-    const roundKm = lengthKm - 3.1 + (lengthKm - 3);
+    // A return leg on another street 1 km north: from 0.5 km on the outbound, to its east end, then
+    // along the return to the point 3 km from the west end (2026-11-24: no longer a wrap round)
+    const northDeg = pointAt(0, 1000).lat - pointAt(0).lat;
+    const northReturn = { ...FIXTURE_RETURN, coordinates: FIXTURE_RETURN.coordinates.map(([lon, lat]) => [lon, lat + northDeg]) };
+    const roundKm = lengthKm - 0.5 + (lengthKm - 3);
     expect(roundKm).toBeGreaterThan(ETA_MAX_KM);
-    const far = etaTo(at(3.1), LINES, pointAt(3));
+    const far = etaTo(at(0.5), [FIXTURE_OUTBOUND, northReturn], pointAt(3, 1000));
     expect(far).toMatchObject({ kind: 'unknown', reason: 'too_far' });
     expect(etaDistanceKm(far)).toBeCloseTo(roundKm, 1);
   });
@@ -89,15 +92,17 @@ describe('ETA (D9)', () => {
     expect(coming.kind === 'approaching' && coming.distanceKm).toBeCloseTo(2, 1);
   });
 
-  it('after passing the commuter, counts on round the route to them again (B2)', () => {
+  it('after passing the commuter, says Passed and keeps its next time round apart (2026-11-24; B2 counted on)', () => {
     const lengthKm = lineLengthKm(FIXTURE_OUTBOUND.coordinates);
     // Past 3 km on the outbound: to the east end, then back along the return to 3 km
-    // (about 10.6 km, over ETA_MAX_KM: the ETA is hidden but the distance is still measured)
     const outbound = etaTo(at(4), LINES, pointAt(3));
-    expect(etaDistanceKm(outbound)).toBeCloseTo(lengthKm - 4 + (lengthKm - 3), 1);
+    expect(outbound.kind).toBe('passed');
+    expect(outbound.kind === 'passed' && outbound.nextRoundKm).toBeCloseTo(lengthKm - 4 + (lengthKm - 3), 1);
+    // Never shown as the distance to the commuter, so no alert or arrival counts on it
+    expect(etaDistanceKm(outbound)).toBeNull();
     // Past 3 km on the return: to the west end, then the outbound to 3 km
     const back = etaTo(at(1, 20, 'T1-RET'), LINES, pointAt(3));
-    expect(back.kind === 'approaching' && back.distanceKm).toBeCloseTo(1 + 3, 1);
+    expect(back.kind === 'passed' && back.nextRoundKm).toBeCloseTo(1 + 3, 1);
   });
 });
 
@@ -113,9 +118,10 @@ describe('a line that uses a street twice (B2 fix)', () => {
     // Westbound at 1.5 km, on the way back: the commuter at 1 km is 0.5 km ahead
     const back = etaTo({ ...at(1.5), lineId: 'T9', headingDeg: WEST }, [TWICE], pointAt(1));
     expect(back.kind === 'approaching' && back.distanceKm).toBeCloseTo(0.5, 1);
-    // Eastbound at 1.5 km, on the way out: round the loop first, 2.5 + 0.5 + 2 + 0.5 + 1 = 6.5 km
+    // Eastbound at 1.5 km, on the way out: it went by the commuter 0.5 km ago, so Passed; its next
+    // time by, round the loop, is 2.5 + 0.5 + 2 + 0.5 + 1 = 6.5 km (2026-11-24: kept apart)
     const out = etaTo({ ...at(1.5), lineId: 'T9', headingDeg: EAST }, [TWICE], pointAt(1));
-    expect(out.kind === 'approaching' && out.distanceKm).toBeCloseTo(6.5, 1);
+    expect(out.kind === 'passed' && out.nextRoundKm).toBeCloseTo(6.5, 1);
   });
 
   it('the next stop follows the pass the vehicle is on', () => {

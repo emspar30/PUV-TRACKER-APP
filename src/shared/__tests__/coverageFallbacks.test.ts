@@ -1,9 +1,9 @@
 // CF1 coverage fallbacks (PRD 7.3 as amended 2026-10-17): Estimated markers moved along the line
-// by dead reckoning between 90 s and 5 minutes of silence, the overlapping route suggested when the
+// by dead reckoning between 60 s and 2 minutes of silence (2026-11-24; was 90 s to 5 minutes), the overlapping route suggested when the
 // picked one has no Live vehicle, and the demo route left empty so the nudge can be seen.
 
 import { createDemoVehicles, type DemoClock } from '../../data/demo/demoVehicles';
-import { DEMO_EMPTY_ROUTES, GHOST_MAX_DISTANCE_KM, STATIONARY_SPEED_KMH } from '../config';
+import { COVERAGE_LIVE_MAX_AGE_S, DEMO_EMPTY_ROUTES, GHOST_MAX_AGE_S, GHOST_MAX_DISTANCE_KM, STATIONARY_SPEED_KMH } from '../config';
 import { haversineMeters } from '../geo/haversine';
 import { lineEndKm, projectOntoLine } from '../geo/line';
 import { bestAlternative, overlappingRoutes } from '../routing/alternatives';
@@ -44,8 +44,9 @@ const vehicle = (ageS: number, extra: Partial<VehicleSnapshot> = {}): VehicleSna
 const kmAlong = (at: { lat: number; lon: number }) => projectOntoLine(LINE, at).chainageKm;
 
 describe('Estimated window', () => {
-  it('89 s no, 90 s yes, 299 s yes, 300 s no', () => {
-    expect([89, 90, 299, 300].map(isGhostAge)).toEqual([false, true, true, false]);
+  it('59 s no, 60 s yes, 119 s yes, 120 s no', () => {
+    expect([COVERAGE_LIVE_MAX_AGE_S, GHOST_MAX_AGE_S]).toEqual([60, 120]);
+    expect([59, 60, 119, 120].map(isGhostAge)).toEqual([false, true, true, false]);
   });
 });
 
@@ -55,17 +56,17 @@ describe('dead reckoning along the line', () => {
     expect(at).toEqual({ ...pointAt(1), headingDeg: 90, ghost: false });
   });
 
-  it('120 s silent at 30 km/h: moved 1 km along the line, facing along it', () => {
-    const at = displayPosition(vehicle(120), LINE, NOW);
+  it('100 s silent at 36 km/h: moved 1 km along the line, facing along it', () => {
+    const at = displayPosition(vehicle(100, { speedKmh: 36, recentSpeeds: speeds(100, 36) }), LINE, NOW);
     expect(at.ghost).toBe(true);
     expect(kmAlong(at) - 1).toBeCloseTo(1, 1);
     expect(haversineMeters(at, pointAt(2))).toBeLessThan(20);
     expect(at.headingDeg).toBeCloseTo(90, 0);
   });
 
-  it('moves with the clock: further at 200 s than at 100 s', () => {
-    const early = displayPosition(vehicle(100), LINE, NOW);
-    const later = displayPosition({ ...vehicle(100) }, LINE, NOW + 100_000);
+  it('moves with the clock: further at 110 s than at 70 s', () => {
+    const early = displayPosition(vehicle(70), LINE, NOW);
+    const later = displayPosition({ ...vehicle(70) }, LINE, NOW + 40_000);
     expect(kmAlong(later)).toBeGreaterThan(kmAlong(early));
   });
 
@@ -78,36 +79,36 @@ describe('dead reckoning along the line', () => {
   });
 
   it('never moves more than the maximum distance', () => {
-    const at = displayPosition(vehicle(290, { recentSpeeds: speeds(290, 40) }), LINE, NOW);
+    const at = displayPosition(vehicle(119, { recentSpeeds: speeds(119, 40) }), LINE, NOW);
     expect(kmAlong(at) - 1).toBeCloseTo(GHOST_MAX_DISTANCE_KM, 1);
   });
 
   it('stops at the end of the line', () => {
-    const near = vehicle(290, { ...pointAt(END_KM - 0.2), recentSpeeds: speeds(290, 40) });
+    const near = vehicle(119, { ...pointAt(END_KM - 0.2), recentSpeeds: speeds(119, 40) });
     const at = displayPosition(near, LINE, NOW);
     expect(kmAlong(at)).toBeCloseTo(END_KM, 2);
   });
 
   it('a stopped vehicle is Estimated but not moved', () => {
-    const at = displayPosition(vehicle(120, { recentSpeeds: speeds(120, 0), speedKmh: 0 }), LINE, NOW);
+    const at = displayPosition(vehicle(100, { recentSpeeds: speeds(100, 0), speedKmh: 0 }), LINE, NOW);
     expect(at).toEqual({ ...pointAt(1), headingDeg: 90, ghost: true });
   });
 
   it('a vehicle laying over is not moved', () => {
-    expect(displayPosition(vehicle(120, { layover: true }), LINE, NOW)).toEqual({ ...pointAt(1), headingDeg: 90, ghost: true });
+    expect(displayPosition(vehicle(100, { layover: true }), LINE, NOW)).toEqual({ ...pointAt(1), headingDeg: 90, ghost: true });
   });
 
   it('without its line it stays at the fix, still Estimated', () => {
-    expect(displayPosition(vehicle(120), undefined, NOW)).toEqual({ ...pointAt(1), headingDeg: 90, ghost: true });
+    expect(displayPosition(vehicle(100), undefined, NOW)).toEqual({ ...pointAt(1), headingDeg: 90, ghost: true });
   });
 
-  it('after 5 minutes it is plain Stale, back at its last fix', () => {
+  it('after 2 minutes it is plain Stale, back at its last fix', () => {
     expect(displayPosition(vehicle(400), LINE, NOW)).toEqual({ ...pointAt(1), headingDeg: 90, ghost: false });
   });
 
   it('at night (PRD 10.4) an Estimated marker stays at its last fix: no moving marker', () => {
-    // The same 2-minute silence at 30 km/h as by day, 12 hours earlier
-    const day = vehicle(120);
+    // The same 100 s silence at 30 km/h as by day, 12 hours earlier
+    const day = vehicle(100);
     const shift = NOW - NIGHT;
     const quiet = { ...day, lastPacketMs: day.lastPacketMs - shift, recentSpeeds: day.recentSpeeds.map((sample) => ({ ...sample, atMs: sample.atMs - shift })) };
     expect(displayPosition(day, LINE, NOW)).not.toEqual({ ...pointAt(1), headingDeg: 90, ghost: true });
@@ -120,7 +121,7 @@ describe('Estimated marker features', () => {
 
   it('an Estimated vehicle is drawn moved and flagged ghost and stale; a Live one is not', () => {
     const live = { ...vehicle(10), id: 'live' };
-    const ghost = { ...vehicle(120), id: 'ghost' };
+    const ghost = { ...vehicle(100, { speedKmh: 36, recentSpeeds: speeds(100, 36) }), id: 'ghost' };
     const { points } = vehicleMarkerFeatures([live, ghost], NOW, cone, (id) => (id === 'T1-OUT' ? LINE : undefined));
     const [a, b] = points.features;
     expect([a.properties.ghost, a.properties.stale]).toEqual([false, false]);

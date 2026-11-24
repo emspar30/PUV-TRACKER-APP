@@ -6,6 +6,7 @@
 
 import { LIVE_RELOAD_INTERVAL_S, LIVE_UI_REFRESH_INTERVAL_S } from '../../shared/config';
 import type { DirectedLine } from '../../shared/routing/types';
+import { isGone } from '../../shared/telemetry/coverage';
 import { rowToSnapshot, type LiveRow } from '../../shared/telemetry/liveRow';
 import type { VehicleSnapshot } from '../../shared/telemetry/vehicle';
 import type { DemoClock } from '../demo/demoVehicles';
@@ -51,8 +52,13 @@ export function createLiveVehicles(
       let stopWatching: Unsubscribe = () => undefined;
       const snapshots = new Map<string, VehicleSnapshot>();
 
+      // 2026-11-24: a vehicle with no position for COVERAGE_STALE_MAX_AGE_S is let go, so a relay
+      // whose phone was force-stopped turns Estimated, then Stale, then leaves the map
       const emit = () => {
-        if (!closed) listener([...snapshots.values()]);
+        if (closed) return;
+        const nowMs = clock.now();
+        for (const [id, snapshot] of snapshots) if (isGone(snapshot.lastPacketMs, nowMs)) snapshots.delete(id);
+        listener([...snapshots.values()]);
       };
       const apply = (row: LiveRow) => {
         // Rows arrive out of order after a reload; an older position never replaces a newer one
@@ -85,7 +91,7 @@ export function createLiveVehicles(
           }
           emit();
         } catch {
-          // Offline or not allowed: keep what is known; its age turns it Stale, then No data
+          // Offline or not allowed: keep what is known; its age turns it Stale, then it is removed
           emit();
         }
       };

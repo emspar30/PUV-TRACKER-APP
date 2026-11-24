@@ -40,3 +40,8 @@ select cron.schedule('retention-ops-alerts', '47 3 * * *',
 -- NM1: stop passages for the Night Mode stop view, 7 days.
 select cron.schedule('retention-node-events', '53 3 * * *',
   $$ delete from public.node_events where passed_at < now() - interval '7 days' $$);
+
+-- 2026-11-24 (20261124000000_vehicle_gone.sql): relay sessions silent for app_config.vehicle_gone_s
+-- (10 minutes) are closed every minute, also when no other rider relays the same multicab.
+select cron.schedule('relay-sessions-sweep', '* * * * *',
+  $$ select public.relay_sessions_sweep() $$);

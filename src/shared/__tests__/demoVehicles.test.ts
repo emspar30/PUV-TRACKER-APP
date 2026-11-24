@@ -227,11 +227,11 @@ describe('the silent vehicle', () => {
     throw new Error('never silent');
   })();
 
-  it('is Live while sending, Stale from 90 s, No data from 600 s, then sends again', () => {
+  it('is Live while sending, Stale from 60 s, No data from 600 s, then sends again', () => {
     const age = (t: number) => t - lastPacketS(silent, t, CONFIG);
     expect(coverageOf(age(quietStart - 2))).toBe('live');
-    expect(coverageOf(age(quietStart + 88))).toBe('live');
-    expect(coverageOf(age(quietStart + 100))).toBe('stale');
+    expect(coverageOf(age(quietStart + 58))).toBe('live');
+    expect(coverageOf(age(quietStart + 70))).toBe('stale');
     expect(coverageOf(age(quietStart + 598))).toBe('stale');
     expect(coverageOf(age(quietStart + 600))).toBe('none');
     expect(coverageOf(age(quietStart + DEMO_SILENT_GAP_S + 1))).toBe('live');
@@ -249,9 +249,9 @@ describe('the silent vehicle', () => {
 });
 
 describe('coverage (PRD 7.3)', () => {
-  it('89 s Live, 100 s Stale, 600 s No data', () => {
-    expect(coverageOf(89)).toBe('live');
-    expect(coverageOf(100)).toBe('stale');
+  it('59 s Live, 60 s Stale, 600 s No data (2026-11-24; Live was 90 s)', () => {
+    expect(coverageOf(59)).toBe('live');
+    expect(coverageOf(60)).toBe('stale');
     expect(coverageOf(599)).toBe('stale');
     expect(coverageOf(600)).toBe('none');
   });

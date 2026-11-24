@@ -79,7 +79,7 @@ import { displayPosition, isGhostAge } from '@/shared/telemetry/deadReckoning';
 import { nextStopOf } from '@/shared/telemetry/nextStop';
 import { seatTier } from '@/shared/telemetry/occupancy';
 import { vehicleStatus } from '@/shared/telemetry/vehicleStatus';
-import { crossedDistance, crossesAlert, etaDistanceKm, etaNow, etaTo, hasArrived, trackProgress } from '@/shared/tracking/eta';
+import { crossedDistance, crossesAlert, etaDistanceKm, etaNow, etaTo, hasArrived, trackEta, trackProgress } from '@/shared/tracking/eta';
 import { trackStatus } from '@/shared/tracking/status';
 import { routeCodesOf, stopsForRoute } from '@/shared/ui/routeVisibility';
 import { startTrackingSession } from '@/state/energyStore';
@@ -299,17 +299,22 @@ export default function MapScreen() {
     [nudgeOn, selectedRoute, lines, stops, others.vehicles, others.nowMs, commuter],
   );
   const stopRelay = useRelayStore((store) => store.stop);
-  // The stop of the tracked route nearest to the commuter, shown as "Your stop"
-  const myStop = commuter && trackedRoute ? (nearestStop(trackedStops, commuter)?.stop ?? null) : null;
+  // The stop of the tracked route nearest to the commuter, shown as "Your stop" (2026-11-24: while a
+  // multicab is tracked, the stop ahead of it nearest the commuter, below)
+  const nearestMyStop = commuter && trackedRoute ? (nearestStop(trackedStops, commuter)?.stop ?? null) : null;
   // A session lasts TRACKING_SESSION_MIN; tapping Track again starts (and pays for) a new one
   const sessionOver = trackedId !== null && trackSource.nowMs >= trackEndsAtMs;
   useEffect(() => {
     if (sessionOver) stopTracking();
   }, [sessionOver, stopTracking]);
   const tracked = trackedId && !sessionOver ? (trackSource.vehicles.find((candidate) => candidate.id === trackedId) ?? null) : null;
+  // 2026-11-24: "Here" within TRACK_HERE_M of the multicab, Passed once it has gone by (never a whole
+  // loop away), else the ETA to the stop ahead of it nearest the commuter. The rider may walk to the
+  // route, so without a stop ahead the boarding point may be up to a walk away from the line.
+  const toMe = tracked && commuter ? trackEta(tracked, loopLines, trackedStops, commuter) : null;
+  const etaToMe = toMe?.eta ?? null;
+  const myStop = toMe?.stop ?? nearestMyStop;
   const trackedProgress = tracked ? trackProgress(tracked, loopLines, trackedStops, myStop) : { passed: null, next: null, mine: myStop };
-  // The rider may walk to the route, so the boarding point may be up to a walk away from the line
-  const etaToMe = tracked && commuter ? etaTo(tracked, loopLines, commuter, MAX_WALK_PER_LEG_M) : null;
   // No usable boarding point (no position, outside the map, or not on this route): the ETA to the
   // vehicle's next stop instead, so tracking always shows a time while the vehicle is on its line.
   // Only then: a multicab that has gone past the commuter keeps its distance round to them, so the
@@ -321,7 +326,7 @@ export default function MapScreen() {
   const measuredEta = etaToNext?.kind === 'approaching' ? etaToNext : etaToMe;
   const etaTarget: 'mine' | 'next' = etaToNext?.kind === 'approaching' ? 'next' : 'mine';
   // Already past the commuter on its current leg: whatever distance shows is to its next time round
-  const trackedPassedMe = tracked && commuter ? etaTo(tracked, loopLines, commuter, MAX_WALK_PER_LEG_M, { round: false }).kind === 'passed' : false;
+  const trackedPassedMe = etaToMe?.kind === 'passed' || (tracked && commuter ? etaTo(tracked, loopLines, commuter, MAX_WALK_PER_LEG_M, { round: false }).kind === 'passed' : false);
   // L2: counted down by the age of the last packet, and hidden once the vehicle is no longer Live
   const trackedEta = measuredEta && tracked ? etaNow(measuredEta, ageSeconds(tracked.lastPacketMs, trackSource.nowMs)) : measuredEta;
   // The arrival alert is for the commuter's own boarding point only
@@ -357,6 +362,7 @@ export default function MapScreen() {
   // boarding point (or went by between readings), tracking ends by itself, alert on or off.
   // The measured distance to the commuter, also while the ETA is hidden (slow, too far; PRD 19.4)
   const trackedKm = etaDistanceKm(etaToMe);
+  const trackedPassed = etaToMe?.kind === 'passed';
   // CA1.1: the Map tab's red dot, seen from every tab, while the tracked multicab is near
   const trackedNear = trackedKm !== null && trackedKm * METERS_PER_KM <= TRACK_NEAR_BADGE_M;
   const setTrackedNear = useTrackingStore((store) => store.setNear);
@@ -365,7 +371,7 @@ export default function MapScreen() {
   useEffect(() => {
     const previous = previousKm.current;
     previousKm.current = trackedKm;
-    if (hasArrived(previous, trackedKm, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M)) {
+    if (hasArrived(previous, trackedKm, TRACK_ARRIVED_M, TRACK_ARRIVED_PASS_M, trackedPassed)) {
       previousKm.current = null;
       fieldLog('arrived', undefined, trackedLabel ?? undefined);
       stopTracking();
@@ -382,7 +388,7 @@ export default function MapScreen() {
     const nearBody = trackedLabel ? strings.live.tracking.nearBody(trackedLabel) : undefined;
     void notifyRide(nearTitle, nearBody ?? null);
     showToast({ inbox: true, icon: BellRing, title: nearTitle, body: nearBody });
-  }, [alertOn, trackedKm, trackedLabel, stopTracking]);
+  }, [alertOn, trackedKm, trackedPassed, trackedLabel, stopTracking]);
 
   // The routes' box, clipped to the tile set so the opening view always has map data (RR1)
   const initialBounds = useMemo(() => clipBounds(boundsOfLines(lines.map((line) => line.coordinates)), TILESET.bounds), [lines]);

@@ -8,6 +8,11 @@ export const ENABLE_VERIFICATION = true;
 // A vehicle counts as stopped below this speed (PRD 7.3)
 export const STATIONARY_SPEED_KMH = 2;
 
+// 2026-11-24: a multicab with no new position for this long is gone. The app removes its marker; the
+// database hides its telemetry_latest row and closes its relay sessions (app_config.vehicle_gone_s,
+// which must equal this value)
+export const VEHICLE_GONE_S = 600;
+
 // Telemetry timestamp limits (PRD 0.3, added after audit)
 export const PACKET_MAX_AGE_S = 120;
 export const PACKET_MAX_FUTURE_S = 30;

@@ -1,5 +1,5 @@
-// Coverage states by the age of the last position (PRD 7.3, 8.4): Live under 90 s, Stale up to
-// 10 minutes, then No data. The app never says "no vehicles".
+// Coverage states by the age of the last position (PRD 7.3, 8.4): Live up to 60 s, Stale (Estimated
+// first) up to 10 minutes, then No data and the marker is removed. The app never says "no vehicles".
 
 import { COVERAGE_LIVE_MAX_AGE_S, COVERAGE_STALE_MAX_AGE_S } from '../config';
 
@@ -15,6 +15,12 @@ export function coverageOf(ageS: number): Coverage {
   if (ageS < COVERAGE_LIVE_MAX_AGE_S) return 'live';
   if (ageS < COVERAGE_STALE_MAX_AGE_S) return 'stale';
   return 'none';
+}
+
+// 2026-11-24: a vehicle silent for COVERAGE_STALE_MAX_AGE_S (No data) is removed, so a relay whose
+// phone was stopped does not leave its multicab on the map
+export function isGone(lastPacketMs: number, nowMs: number): boolean {
+  return coverageOf(ageSeconds(lastPacketMs, nowMs)) === 'none';
 }
 
 export type RouteCoverage = { coverage: Coverage; youngestAgeS: number | null };
