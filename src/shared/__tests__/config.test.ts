@@ -47,7 +47,7 @@ describe('config exposes every PRD 0.3 default', () => {
     ['NIGHT_MODE_END', '04:59'],
     ['NIGHT_MODE_TZ', 'Asia/Manila'],
     ['RSSI_SMOOTHING_ALPHA', 0.3],
-    ['RSSI_PRESENCE_THRESHOLD_DBM', -65],
+    ['RSSI_PRESENCE_THRESHOLD_DBM', -75],
     ['SMS_MAX_AGE_MIN', 30],
     ['SMS_STALE_HEATMAP_MIN', 15],
     ['SMS_SEQ_MODULUS', 10000],

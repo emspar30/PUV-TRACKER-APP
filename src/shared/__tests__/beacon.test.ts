@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { BEACON_DIP_GRACE_S, RSSI_PRESENCE_THRESHOLD_DBM } from '../config';
 import { decodeBeacon, encodeBeacon, payloadFromHex, payloadToHex, slotOf, verifyBeacon } from '../beacon/code';
 import { isPresent, pickBeacon, updateBeacon, type BeaconTrack } from '../beacon/presence';
 
@@ -124,12 +125,32 @@ describe('beacon presence (PRD 10.1; DR2)', () => {
     expect(isPresent(track, 3000)).toBe(true);
   });
 
-  it('starts the 3 s again after a dip below the threshold', () => {
-    // -50, then -100 smooths to -65.0: not above -65
-    const track = heard([[0, -50], [1000, -100], [2000, -50]]);
-    expect(track.aboveSinceMs).toBe(2000);
-    expect(isPresent(track, 4999)).toBe(false);
-    expect(isPresent(track, 5000)).toBe(true);
+  it('counts from -75 dBm (2026-11-24; was -65): a phone in a pocket at -72 is heard', () => {
+    expect(RSSI_PRESENCE_THRESHOLD_DBM).toBe(-75);
+    const track = heard([[0, -72], [1000, -72], [2000, -72], [3000, -72]]);
+    expect(isPresent(track, 3000)).toBe(true);
+    expect(isPresent(heard([[0, -78], [1000, -78], [3000, -78]]), 3000)).toBe(false);
+  });
+
+  it(`keeps counting through a dip of up to ${BEACON_DIP_GRACE_S} s`, () => {
+    // -70 then -90 smooths to -76: under -75 for 1 s, then back above
+    const track = heard([[0, -70], [1000, -70], [1500, -90], [2500, -60]]);
+    expect(track.aboveSinceMs).toBe(0);
+    expect(isPresent(track, 3000)).toBe(true);
+  });
+
+  it('a present beacon stays present through a short dip, not a long one', () => {
+    const steady = heard([[0, -70], [1000, -70], [2000, -70], [3000, -70], [3500, -90]]);
+    expect(isPresent(steady, 4000)).toBe(true);
+    expect(isPresent(steady, 3500 + BEACON_DIP_GRACE_S * 1000 + 1)).toBe(false);
+  });
+
+  it(`starts the 3 s again after a dip longer than ${BEACON_DIP_GRACE_S} s`, () => {
+    // Under -75 from 1 s to 3.5 s (2.5 s), then back above at 4 s
+    const track = heard([[0, -70], [1000, -90], [2000, -90], [3500, -90], [4000, -50]]);
+    expect(track.aboveSinceMs).toBe(4000);
+    expect(isPresent(track, 6999)).toBe(false);
+    expect(isPresent(track, 7000)).toBe(true);
   });
 
   it('is gone after 10 s unheard, and starts over when heard again', () => {

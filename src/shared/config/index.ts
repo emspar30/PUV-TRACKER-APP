@@ -719,11 +719,16 @@ export const FEEDBACK_FORM_URL = '';
 
 // --- BLE (PRD 10.1, 12.4). Starting hypotheses, tuned by field experiments E1 and E2 (PRD 17.1).
 export const RSSI_SMOOTHING_ALPHA = 0.3;
-export const RSSI_PRESENCE_THRESHOLD_DBM = -65;
+// 2026-11-24 (owner, field test: the multicab was sometimes slow to be heard): -75 dBm, was -65. A
+// phone in a pocket or bag, or a body between the phones, kept the signal under -65 inside the multicab.
+export const RSSI_PRESENCE_THRESHOLD_DBM = -75;
 // The stronger of two beacons wins only if it leads by this much; otherwise ambiguous (PRD 10.1)
 export const RSSI_MARGIN_DB = 8;
 // A beacon is present after its smoothed signal stays above the threshold this long (PRD 10.1)
 export const BEACON_PRESENCE_S = 3;
+// 2026-11-24 (owner): a dip under the threshold up to this long does not restart the BEACON_PRESENCE_S
+// count (a body passing between the phones); a longer one does
+export const BEACON_DIP_GRACE_S = 2;
 // DR2: a beacon not heard for this long is gone, whatever its last signal (hypothesis; E1)
 export const BEACON_LOST_S = 10;
 // The commuter app listens for this long once armed (PRD 8.1)
